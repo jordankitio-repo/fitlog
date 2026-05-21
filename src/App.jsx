@@ -1,10 +1,7 @@
+import Dashboard from './pages/Dashboard'
+
 function App() {
-  return (
-    <div>
-      <h1>FitLog</h1>
-      <p>Your fitness coaching app</p>
-    </div>
-  )
+  return <Dashboard />
 }
 
 export default App
