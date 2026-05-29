@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import BarcodeScanner from '../components/BarcodeScanner'
 
 function Log({ session }) {
   const [food, setFood] = useState('')
@@ -10,6 +11,10 @@ function Log({ session }) {
   const [entries, setEntries] = useState([])
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
+  const [barcodeInput, setBarcodeInput] = useState('')
+  const [lookupError, setLookupError] = useState('')
+  const [showBarcodeInput, setShowBarcodeInput] = useState(false)
 
   useEffect(() => {
     fetchEntries()
@@ -77,6 +82,33 @@ function Log({ session }) {
     fetchEntries()
   }
 }
+async function lookupBarcode(barcode) {
+  setLookupError('')
+  try {
+    const response = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+    )
+    const data = await response.json()
+
+    if (data.status === 0) {
+      setLookupError('Product not found. Try entering macros manually.')
+      return
+    }
+
+    const product = data.product
+    const nutrients = product.nutriments
+
+    setFood(product.product_name || '')
+    setCalories(Math.round(nutrients['energy-kcal_100g'] || 0).toString())
+    setProtein(Math.round(nutrients['proteins_100g'] || 0).toString())
+    setCarbs(Math.round(nutrients['carbohydrates_100g'] || 0).toString())
+    setFat(Math.round(nutrients['fat_100g'] || 0).toString())
+    setShowBarcodeInput(false)
+    setBarcodeInput('')
+  } catch {
+    setLookupError('Lookup failed. Check your connection.')
+  }
+}
 
   const inputStyle = {
     backgroundColor: 'var(--color-bg)',
@@ -102,6 +134,78 @@ function Log({ session }) {
       }}>
         <input type="text" placeholder="Food name" value={food}
           onChange={(e) => setFood(e.target.value)} style={inputStyle} />
+          <div style={{ display: 'flex', gap: '8px' }}>
+  <button
+    type="button"
+    onClick={() => setShowScanner(true)}
+    style={{
+      backgroundColor: 'var(--color-surface)',
+      color: 'var(--color-text)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius)',
+      padding: '8px 14px',
+      cursor: 'pointer',
+      fontSize: '0.875rem'
+    }}
+  >
+    📷 Scan barcode
+  </button>
+  <button
+    type="button"
+    onClick={() => setShowBarcodeInput(!showBarcodeInput)}
+    style={{
+      backgroundColor: 'var(--color-surface)',
+      color: 'var(--color-text)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius)',
+      padding: '8px 14px',
+      cursor: 'pointer',
+      fontSize: '0.875rem'
+    }}
+  >
+    # Enter barcode
+  </button>
+</div>
+{showScanner && (
+  <BarcodeScanner
+    onDetected={(barcode) => {
+      setShowScanner(false)
+      lookupBarcode(barcode)
+    }}
+    onClose={() => setShowScanner(false)}
+  />
+)}
+
+{showBarcodeInput && (
+  <div style={{ display: 'flex', gap: '8px' }}>
+    <input
+      type="text"
+      placeholder="Enter barcode number"
+      value={barcodeInput}
+      onChange={(e) => setBarcodeInput(e.target.value)}
+      style={{ ...inputStyle, flex: 1 }}
+    />
+    <button
+      type="button"
+      onClick={() => lookupBarcode(barcodeInput)}
+      style={{
+        backgroundColor: 'var(--color-primary)',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 'var(--radius)',
+        padding: '10px 16px',
+        cursor: 'pointer',
+        fontWeight: 600
+      }}
+    >
+      Lookup
+    </button>
+  </div>
+)}
+
+{lookupError && (
+  <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>
+)}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           <input type="number" placeholder="Calories" value={calories}
