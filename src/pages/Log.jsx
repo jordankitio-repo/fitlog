@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
-function Log() {
+function Log({ session }){
   const [food, setFood] = useState('')
   const [calories, setCalories] = useState('')
   const [entries, setEntries] = useState([])
@@ -27,8 +27,8 @@ function Log() {
     if (!food || !calories) return
 
     const { error } = await supabase
-      .from('nutrition_log')
-      .insert([{ food, calories: parseInt(calories) }])
+  .from('nutrition_log')
+  .insert([{ food, calories: parseInt(calories), user_id: session.user.id }])
 
     if (error) {
       console.error('Error saving:', error)
