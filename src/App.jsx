@@ -1,7 +1,20 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
+import Log from './pages/Log'
+import Profile from './pages/Profile'
+import NavBar from './components/NavBar'
 
 function App() {
-  return <Dashboard />
+  return (
+    <BrowserRouter>
+      <NavBar />
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/log" element={<Log />} />
+        <Route path="/profile" element={<Profile />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
 export default App
