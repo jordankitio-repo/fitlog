@@ -33,9 +33,13 @@ function Log({ session }) {
   const [servingSize, setServingSize] = useState('100')
   const [servingUnit, setServingUnit] = useState('g')
   const [baseNutrients, setBaseNutrients] = useState(null)
+  const [weight, setWeight] = useState('')
+  const [weightUnit, setWeightUnit] = useState('lbs')
+  const [savedWeight, setSavedWeight] = useState(null)
 
   useEffect(() => {
     fetchEntries()
+    fetchWeight()
     setFeedback('')
   }, [selectedDate])
 
@@ -59,11 +63,54 @@ function Log({ session }) {
     else setEntries(data)
   }
 
-  async function handleSubmit() {
-    if (!food || !calories) return
+  async function fetchWeight() {
+    const { data, error } = await supabase
+      .from('weight_log')
+      .select('*')
+      .eq('logged_date', selectedDate)
+      .maybeSingle()
 
+    if (error) { console.error('Error fetching weight:', error); return }
+
+    if (data) {
+      setSavedWeight(data)
+      setWeight(data.weight.toString())
+      setWeightUnit(data.unit)
+    } else {
+      setSavedWeight(null)
+      setWeight('')
+      setWeightUnit('lbs')
+    }
+  }
+
+  async function saveWeight() {
+    if (!weight) return
     const { data: { session: currentSession } } = await supabase.auth.getSession()
 
+    if (savedWeight) {
+      const { error } = await supabase
+        .from('weight_log')
+        .update({ weight: parseFloat(weight), unit: weightUnit })
+        .eq('id', savedWeight.id)
+      if (error) console.error('Error updating weight:', error)
+      else fetchWeight()
+    } else {
+      const { error } = await supabase
+        .from('weight_log')
+        .insert([{
+          weight: parseFloat(weight),
+          unit: weightUnit,
+          logged_date: selectedDate,
+          user_id: currentSession.user.id
+        }])
+      if (error) console.error('Error saving weight:', error)
+      else fetchWeight()
+    }
+  }
+
+  async function handleSubmit() {
+    if (!food || !calories) return
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
     const { error } = await supabase
       .from('nutrition_log')
       .insert([{
@@ -77,7 +124,6 @@ function Log({ session }) {
         logged_date: selectedDate,
         user_id: currentSession.user.id
       }])
-
     if (error) console.error('Error saving:', error)
     else {
       setFood(''); setCalories(''); setProtein('')
@@ -111,12 +157,8 @@ function Log({ session }) {
       .from('nutrition_log')
       .delete()
       .eq('id', id)
-
     if (error) console.error('Error deleting:', error)
-    else {
-      setFeedback('')
-      fetchEntries()
-    }
+    else { setFeedback(''); fetchEntries() }
   }
 
   async function lookupBarcode(barcode) {
@@ -126,22 +168,18 @@ function Log({ session }) {
         `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
       )
       const data = await response.json()
-
       if (data.status === 0) {
         setLookupError('Product not found. Try entering macros manually.')
         return
       }
-
       const product = data.product
       const nutrients = product.nutriments
-
       const base = {
         calories: Math.round(nutrients['energy-kcal_100g'] || 0),
         protein: Math.round(nutrients['proteins_100g'] || 0),
         carbs: Math.round(nutrients['carbohydrates_100g'] || 0),
         fat: Math.round(nutrients['fat_100g'] || 0),
       }
-
       setBaseNutrients(base)
       setFood(product.product_name || '')
       setServingSize('100')
@@ -184,7 +222,6 @@ function Log({ session }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <h1>Log</h1>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button onClick={goToPrevDay} style={{
             backgroundColor: 'var(--color-surface)',
@@ -197,16 +234,12 @@ function Log({ session }) {
           }}>←</button>
 
           <input
-                type="date"
-                value={selectedDate}
-                max={toLocalDateString(new Date())}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                style={{
-                    ...inputStyle,
-                    padding: '6px 12px',
-                    colorScheme: 'dark'
-                }}
-                />
+            type="date"
+            value={selectedDate}
+            max={toLocalDateString(new Date())}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', color: 'var(--color-text)', fontSize: '1rem', colorScheme: 'dark' }}
+          />
 
           <button onClick={goToNextDay} disabled={isToday} style={{
             backgroundColor: 'var(--color-surface)',
@@ -233,6 +266,7 @@ function Log({ session }) {
         </div>
       </div>
 
+      {/* Weight section */}
       <div style={{
         backgroundColor: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
@@ -242,6 +276,53 @@ function Log({ session }) {
         flexDirection: 'column',
         gap: '12px'
       }}>
+        <h2>Weight</h2>
+        {savedWeight && (
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+            Logged: {savedWeight.weight} {savedWeight.unit}
+          </p>
+        )}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            type="number"
+            placeholder={`Weight (${weightUnit})`}
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <select
+            value={weightUnit}
+            onChange={(e) => setWeightUnit(e.target.value)}
+            style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}
+          >
+            <option value="lbs">lbs</option>
+            <option value="kg">kg</option>
+          </select>
+          <button onClick={saveWeight} style={{
+            backgroundColor: 'var(--color-primary)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 'var(--radius)',
+            padding: '10px 16px',
+            cursor: 'pointer',
+            fontWeight: 600
+          }}>
+            {savedWeight ? 'Update' : 'Log'}
+          </button>
+        </div>
+      </div>
+
+      {/* Nutrition section */}
+      <div style={{
+        backgroundColor: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius)',
+        padding: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        <h2>Nutrition</h2>
         <input type="text" placeholder="Food name" value={food}
           onChange={(e) => setFood(e.target.value)} style={inputStyle} />
 
@@ -254,9 +335,7 @@ function Log({ session }) {
             padding: '8px 14px',
             cursor: 'pointer',
             fontSize: '0.875rem'
-          }}>
-            📷 Scan barcode
-          </button>
+          }}>📷 Scan barcode</button>
           <button type="button" onClick={() => setShowBarcodeInput(!showBarcodeInput)} style={{
             backgroundColor: 'var(--color-surface)',
             color: 'var(--color-text)',
@@ -265,47 +344,32 @@ function Log({ session }) {
             padding: '8px 14px',
             cursor: 'pointer',
             fontSize: '0.875rem'
-          }}>
-            # Enter barcode
-          </button>
+          }}># Enter barcode</button>
         </div>
 
         {showScanner && (
           <BarcodeScanner
-            onDetected={(barcode) => {
-              setShowScanner(false)
-              lookupBarcode(barcode)
-            }}
+            onDetected={(barcode) => { setShowScanner(false); lookupBarcode(barcode) }}
             onClose={() => setShowScanner(false)}
           />
         )}
 
         {showBarcodeInput && (
           <div style={{ display: 'flex', gap: '8px' }}>
-            <input
-              type="text"
-              placeholder="Enter barcode number"
-              value={barcodeInput}
+            <input type="text" placeholder="Enter barcode number" value={barcodeInput}
               onChange={(e) => setBarcodeInput(e.target.value)}
-              style={{ ...inputStyle, flex: 1 }}
-            />
+              style={{ ...inputStyle, flex: 1 }} />
             <button type="button" onClick={() => lookupBarcode(barcodeInput)} style={{
               backgroundColor: 'var(--color-primary)',
-              color: '#fff',
-              border: 'none',
+              color: '#fff', border: 'none',
               borderRadius: 'var(--radius)',
               padding: '10px 16px',
-              cursor: 'pointer',
-              fontWeight: 600
-            }}>
-              Lookup
-            </button>
+              cursor: 'pointer', fontWeight: 600
+            }}>Lookup</button>
           </div>
         )}
 
-        {lookupError && (
-          <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>
-        )}
+        {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           <input type="number" placeholder="Calories" value={calories}
@@ -317,18 +381,11 @@ function Log({ session }) {
           <input type="number" placeholder="Fat (g)" value={fat}
             onChange={(e) => setFat(e.target.value)} style={inputStyle} />
           <div style={{ display: 'flex', gap: '8px', gridColumn: '1 / -1' }}>
-            <input
-              type="number"
-              placeholder="Serving size"
-              value={servingSize}
+            <input type="number" placeholder="Serving size" value={servingSize}
               onChange={(e) => setServingSize(e.target.value)}
-              style={{ ...inputStyle, flex: 1 }}
-            />
-            <select
-              value={servingUnit}
-              onChange={(e) => setServingUnit(e.target.value)}
-              style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}
-            >
+              style={{ ...inputStyle, flex: 1 }} />
+            <select value={servingUnit} onChange={(e) => setServingUnit(e.target.value)}
+              style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
               <option value="g">g</option>
               <option value="oz">oz</option>
               <option value="ml">ml</option>
@@ -345,9 +402,7 @@ function Log({ session }) {
           borderRadius: 'var(--radius)',
           padding: '10px 20px',
           cursor: 'pointer', fontWeight: 600
-        }}>
-          Add entry
-        </button>
+        }}>Add entry</button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -380,9 +435,7 @@ function Log({ session }) {
                 cursor: 'pointer',
                 fontSize: '0.875rem',
                 padding: '2px 8px'
-              }}>
-                ✕
-              </button>
+              }}>✕</button>
             </div>
           </div>
         ))}
@@ -438,9 +491,7 @@ function Log({ session }) {
             cursor: 'pointer',
             fontSize: '0.875rem',
             width: 'fit-content'
-          }}>
-            Clear
-          </button>
+          }}>Clear</button>
         </div>
       )}
     </div>

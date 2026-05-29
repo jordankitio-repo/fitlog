@@ -10,9 +10,11 @@ function toLocalDateString(date) {
 function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
+  const [weightEntry, setWeightEntry] = useState(null)
 
   useEffect(() => {
     fetchTotals()
+    fetchWeight()
   }, [selectedDate])
 
   async function fetchTotals() {
@@ -21,10 +23,7 @@ function Dashboard() {
       .select('calories, protein, carbs, fat')
       .eq('logged_date', selectedDate)
 
-    if (error) {
-      console.error('Error fetching totals:', error)
-      return
-    }
+    if (error) { console.error('Error fetching totals:', error); return }
 
     const totals = data.reduce((acc, entry) => ({
       calories: acc.calories + (entry.calories || 0),
@@ -34,6 +33,17 @@ function Dashboard() {
     }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
 
     setTotals(totals)
+  }
+
+  async function fetchWeight() {
+    const { data, error } = await supabase
+      .from('weight_log')
+      .select('*')
+      .eq('logged_date', selectedDate)
+      .maybeSingle()
+
+    if (error) { console.error('Error fetching weight:', error); return }
+    setWeightEntry(data)
   }
 
   const isToday = selectedDate === toLocalDateString(new Date())
@@ -113,6 +123,10 @@ function Dashboard() {
         <StatCard label="Protein" value={`${totals.protein}g`} />
         <StatCard label="Carbs" value={`${totals.carbs}g`} />
         <StatCard label="Fat" value={`${totals.fat}g`} />
+        <StatCard
+          label="Weight"
+          value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'}
+        />
       </div>
     </div>
   )
