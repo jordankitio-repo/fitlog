@@ -62,6 +62,15 @@ function Log({ session }) {
     const data = await response.json()
     setFeedback(data.message)
   }
+  async function deleteEntry(id) {
+  const { error } = await supabase
+    .from('nutrition_log')
+    .delete()
+    .eq('id', id)
+
+  if (error) console.error('Error deleting:', error)
+  else fetchEntries()
+}
 
   const inputStyle = {
     backgroundColor: 'var(--color-bg)',
@@ -111,26 +120,39 @@ function Log({ session }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {entries.map((entry) => (
-          <div key={entry.id} style={{
-            backgroundColor: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)',
-            padding: '14px 20px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <span>{entry.food}</span>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem' }}>
-              <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
-              <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
-              <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
-              <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
-            </div>
-          </div>
-        ))}
+  {entries.map((entry) => (
+    <div key={entry.id} style={{
+      backgroundColor: 'var(--color-surface)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius)',
+      padding: '14px 20px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    }}>
+      <span>{entry.food}</span>
+      <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem', alignItems: 'center' }}>
+        <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
+        <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
+        <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
+        <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
+        <button
+          onClick={() => deleteEntry(entry.id)}
+          style={{
+            backgroundColor: 'transparent',
+            color: '#f87171',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+            padding: '2px 8px'
+          }}
+        >
+          ✕
+        </button>
       </div>
+    </div>
+  ))}
+</div>
 
       <button onClick={getAIFeedback} style={{
         backgroundColor: '#1a1a1a',
@@ -155,6 +177,8 @@ function Log({ session }) {
         </div>
       )}
     </div>
+
+    
   )
 }
 
