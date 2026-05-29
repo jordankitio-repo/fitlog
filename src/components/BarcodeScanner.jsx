@@ -10,7 +10,19 @@ function BarcodeScanner({ onDetected, onClose }) {
 
     scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 150 } },
+      {
+        fps: 10,
+        qrbox: (width, height) => {
+          const size = Math.min(width, height) * 0.7
+          return { width: size, height: size * 0.6 }
+        },
+        aspectRatio: 1.0,
+        videoConstraints: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      },
       (decodedText) => {
         scanner.stop().then(() => {
           onDetected(decodedText)
@@ -22,20 +34,28 @@ function BarcodeScanner({ onDetected, onClose }) {
     })
 
     return () => {
-      scanner.stop().catch(() => {})
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {})
+      }
     }
   }, [])
 
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      backgroundColor: 'rgba(0,0,0,0.85)',
+      backgroundColor: 'rgba(0,0,0,0.9)',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, gap: '16px'
+      zIndex: 1000, gap: '16px',
+      padding: '20px'
     }}>
-      <p style={{ color: '#fff', fontWeight: 600 }}>Point camera at barcode</p>
-      <div id="barcode-reader" style={{ width: '300px' }} />
+      <p style={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>
+        Point camera at barcode
+      </p>
+      <div
+        id="barcode-reader"
+        style={{ width: '100%', maxWidth: '400px' }}
+      />
       <button
         onClick={onClose}
         style={{
@@ -43,8 +63,10 @@ function BarcodeScanner({ onDetected, onClose }) {
           color: '#fff',
           border: '1px solid #fff',
           borderRadius: '8px',
-          padding: '8px 20px',
-          cursor: 'pointer'
+          padding: '10px 24px',
+          cursor: 'pointer',
+          fontSize: '1rem',
+          marginTop: '8px'
         }}
       >
         Cancel
