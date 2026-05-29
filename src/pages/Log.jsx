@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
-function Log({ session }){
+function Log({ session }) {
   const [food, setFood] = useState('')
   const [calories, setCalories] = useState('')
   const [entries, setEntries] = useState([])
+  const [feedback, setFeedback] = useState('')
 
   useEffect(() => {
     fetchEntries()
@@ -15,28 +16,34 @@ function Log({ session }){
       .from('nutrition_log')
       .select('*')
       .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching:', error)
-    } else {
-      setEntries(data)
-    }
+    if (error) console.error('Error fetching:', error)
+    else setEntries(data)
   }
 
   async function handleSubmit() {
     if (!food || !calories) return
-
     const { error } = await supabase
-  .from('nutrition_log')
-  .insert([{ food, calories: parseInt(calories), user_id: session.user.id }])
+      .from('nutrition_log')
+      .insert([{ food, calories: parseInt(calories), user_id: session.user.id }])
+    if (error) console.error('Error saving:', error)
+    else { setFood(''); setCalories(''); fetchEntries() }
+  }
 
-    if (error) {
-      console.error('Error saving:', error)
-    } else {
-      setFood('')
-      setCalories('')
-      fetchEntries()
-    }
+  async function getAIFeedback() {
+    const { data: { session } } = await supabase.auth.getSession()
+    const response = await fetch(
+      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nutrition-coach',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ entries }),
+      }
+    )
+    const data = await response.json()
+    setFeedback(data.message)
   }
 
   return (
@@ -111,6 +118,34 @@ function Log({ session }){
           </div>
         ))}
       </div>
+
+      <button
+        onClick={getAIFeedback}
+        style={{
+          backgroundColor: '#1a1a1a',
+          color: 'var(--color-primary)',
+          border: '1px solid var(--color-primary)',
+          borderRadius: 'var(--radius)',
+          padding: '10px 20px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          width: 'fit-content'
+        }}
+      >
+        Get AI feedback
+      </button>
+
+      {feedback && (
+        <div style={{
+          backgroundColor: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius)',
+          padding: '20px',
+          lineHeight: '1.6'
+        }}>
+          <p style={{ color: 'var(--color-text)' }}>{feedback}</p>
+        </div>
+      )}
     </div>
   )
 }
