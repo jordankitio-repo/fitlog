@@ -4,6 +4,9 @@ import { supabase } from '../supabase'
 function Log({ session }) {
   const [food, setFood] = useState('')
   const [calories, setCalories] = useState('')
+  const [protein, setProtein] = useState('')
+  const [carbs, setCarbs] = useState('')
+  const [fat, setFat] = useState('')
   const [entries, setEntries] = useState([])
   const [feedback, setFeedback] = useState('')
 
@@ -21,13 +24,27 @@ function Log({ session }) {
   }
 
   async function handleSubmit() {
-    if (!food || !calories) return
-    const { error } = await supabase
-      .from('nutrition_log')
-      .insert([{ food, calories: parseInt(calories), user_id: session.user.id }])
-    if (error) console.error('Error saving:', error)
-    else { setFood(''); setCalories(''); fetchEntries() }
+  if (!food || !calories) return
+
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+
+  const { error } = await supabase
+    .from('nutrition_log')
+    .insert([{
+      food,
+      calories: parseInt(calories),
+      protein: parseInt(protein) || 0,
+      carbs: parseInt(carbs) || 0,
+      fat: parseInt(fat) || 0,
+      user_id: currentSession.user.id
+    }])
+
+  if (error) console.error('Error saving:', error)
+  else {
+    setFood(''); setCalories(''); setProtein(''); setCarbs(''); setFat('')
+    fetchEntries()
   }
+}
 
   async function getAIFeedback() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -46,6 +63,15 @@ function Log({ session }) {
     setFeedback(data.message)
   }
 
+  const inputStyle = {
+    backgroundColor: 'var(--color-bg)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
+    padding: '10px 14px',
+    color: 'var(--color-text)',
+    fontSize: '1rem'
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <h1>Log</h1>
@@ -59,46 +85,27 @@ function Log({ session }) {
         flexDirection: 'column',
         gap: '12px'
       }}>
-        <input
-          type="text"
-          placeholder="Food name"
-          value={food}
-          onChange={(e) => setFood(e.target.value)}
-          style={{
-            backgroundColor: 'var(--color-bg)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)',
-            padding: '10px 14px',
-            color: 'var(--color-text)',
-            fontSize: '1rem'
-          }}
-        />
-        <input
-          type="number"
-          placeholder="Calories"
-          value={calories}
-          onChange={(e) => setCalories(e.target.value)}
-          style={{
-            backgroundColor: 'var(--color-bg)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)',
-            padding: '10px 14px',
-            color: 'var(--color-text)',
-            fontSize: '1rem'
-          }}
-        />
-        <button
-          onClick={handleSubmit}
-          style={{
-            backgroundColor: 'var(--color-primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--radius)',
-            padding: '10px 20px',
-            cursor: 'pointer',
-            fontWeight: 600
-          }}
-        >
+        <input type="text" placeholder="Food name" value={food}
+          onChange={(e) => setFood(e.target.value)} style={inputStyle} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          <input type="number" placeholder="Calories" value={calories}
+            onChange={(e) => setCalories(e.target.value)} style={inputStyle} />
+          <input type="number" placeholder="Protein (g)" value={protein}
+            onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
+          <input type="number" placeholder="Carbs (g)" value={carbs}
+            onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
+          <input type="number" placeholder="Fat (g)" value={fat}
+            onChange={(e) => setFat(e.target.value)} style={inputStyle} />
+        </div>
+
+        <button onClick={handleSubmit} style={{
+          backgroundColor: 'var(--color-primary)',
+          color: '#fff', border: 'none',
+          borderRadius: 'var(--radius)',
+          padding: '10px 20px',
+          cursor: 'pointer', fontWeight: 600
+        }}>
           Add entry
         </button>
       </div>
@@ -111,27 +118,29 @@ function Log({ session }) {
             borderRadius: 'var(--radius)',
             padding: '14px 20px',
             display: 'flex',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            alignItems: 'center'
           }}>
             <span>{entry.food}</span>
-            <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
+            <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem' }}>
+              <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
+              <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
+              <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
+              <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
+            </div>
           </div>
         ))}
       </div>
 
-      <button
-        onClick={getAIFeedback}
-        style={{
-          backgroundColor: '#1a1a1a',
-          color: 'var(--color-primary)',
-          border: '1px solid var(--color-primary)',
-          borderRadius: 'var(--radius)',
-          padding: '10px 20px',
-          cursor: 'pointer',
-          fontWeight: 600,
-          width: 'fit-content'
-        }}
-      >
+      <button onClick={getAIFeedback} style={{
+        backgroundColor: '#1a1a1a',
+        color: 'var(--color-primary)',
+        border: '1px solid var(--color-primary)',
+        borderRadius: 'var(--radius)',
+        padding: '10px 20px',
+        cursor: 'pointer', fontWeight: 600,
+        width: 'fit-content'
+      }}>
         Get AI feedback
       </button>
 
@@ -140,8 +149,7 @@ function Log({ session }) {
           backgroundColor: 'var(--color-surface)',
           border: '1px solid var(--color-border)',
           borderRadius: 'var(--radius)',
-          padding: '20px',
-          lineHeight: '1.6'
+          padding: '20px', lineHeight: '1.6'
         }}>
           <p style={{ color: 'var(--color-text)' }}>{feedback}</p>
         </div>
