@@ -9,6 +9,7 @@ function Log({ session }) {
   const [fat, setFat] = useState('')
   const [entries, setEntries] = useState([])
   const [feedback, setFeedback] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     fetchEntries()
@@ -47,21 +48,23 @@ function Log({ session }) {
 }
 
   async function getAIFeedback() {
-    const { data: { session } } = await supabase.auth.getSession()
-    const response = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nutrition-coach',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ entries }),
-      }
-    )
-    const data = await response.json()
-    setFeedback(data.message)
-  }
+  setLoading(true)
+  const { data: { session } } = await supabase.auth.getSession()
+  const response = await fetch(
+    'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nutrition-coach',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ entries }),
+    }
+  )
+  const data = await response.json()
+  setFeedback(data.message)
+  setLoading(false)
+}
   async function deleteEntry(id) {
   const { error } = await supabase
     .from('nutrition_log')
@@ -69,7 +72,10 @@ function Log({ session }) {
     .eq('id', id)
 
   if (error) console.error('Error deleting:', error)
-  else fetchEntries()
+  else {
+    setFeedback('')
+    fetchEntries()
+  }
 }
 
   const inputStyle = {
@@ -154,31 +160,63 @@ function Log({ session }) {
   ))}
 </div>
 
-      <button onClick={getAIFeedback} style={{
-        backgroundColor: '#1a1a1a',
-        color: 'var(--color-primary)',
-        border: '1px solid var(--color-primary)',
-        borderRadius: 'var(--radius)',
-        padding: '10px 20px',
-        cursor: 'pointer', fontWeight: 600,
-        width: 'fit-content'
-      }}>
-        Get AI feedback
-      </button>
+      <button onClick={getAIFeedback} disabled={loading} style={{
+  backgroundColor: '#1a1a1a',
+  color: 'var(--color-primary)',
+  border: '1px solid var(--color-primary)',
+  borderRadius: 'var(--radius)',
+  padding: '10px 20px',
+  cursor: loading ? 'not-allowed' : 'pointer',
+  fontWeight: 600,
+  width: 'fit-content',
+  opacity: loading ? 0.7 : 1,
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px'
+}}>
+  {loading && (
+    <span style={{
+      width: '14px', height: '14px',
+      border: '2px solid var(--color-primary)',
+      borderTopColor: 'transparent',
+      borderRadius: '50%',
+      display: 'inline-block',
+      animation: 'spin 0.7s linear infinite'
+    }} />
+  )}
+  {loading ? 'Analyzing...' : 'Get AI feedback'}
+</button>
 
       {feedback && (
         <div style={{
           backgroundColor: 'var(--color-surface)',
           border: '1px solid var(--color-border)',
           borderRadius: 'var(--radius)',
-          padding: '20px', lineHeight: '1.6'
+          padding: '20px',
+          lineHeight: '1.6',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
         }}>
           <p style={{ color: 'var(--color-text)' }}>{feedback}</p>
+          <button
+            onClick={() => setFeedback('')}
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--color-muted)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius)',
+              padding: '6px 14px',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              width: 'fit-content'
+            }}
+          >
+            Clear
+          </button>
         </div>
       )}
     </div>
-
-    
   )
 }
 

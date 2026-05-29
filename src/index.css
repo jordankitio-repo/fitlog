@@ -26,3 +26,6 @@ body {
 h1 { font-size: 1.75rem; font-weight: 700; }
 h2 { font-size: 1.25rem; font-weight: 600; }
 p  { color: var(--color-muted); }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
