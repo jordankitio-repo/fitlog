@@ -1,34 +1,49 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 
 function Dashboard() {
-  const [calories, setCalories] = useState(1840)
+  const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
+
+  useEffect(() => {
+    fetchTodayTotals()
+  }, [])
+
+  async function fetchTodayTotals() {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const { data, error } = await supabase
+      .from('nutrition_log')
+      .select('calories, protein, carbs, fat')
+      .gte('created_at', today.toISOString())
+
+    if (error) {
+      console.error('Error fetching totals:', error)
+      return
+    }
+
+    const totals = data.reduce((acc, entry) => ({
+      calories: acc.calories + (entry.calories || 0),
+      protein: acc.protein + (entry.protein || 0),
+      carbs: acc.carbs + (entry.carbs || 0),
+      fat: acc.fat + (entry.fat || 0),
+    }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
+
+    setTotals(totals)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <h1>Dashboard</h1>
+      <p style={{ marginTop: '-16px', fontSize: '0.875rem' }}>Today's totals</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-        <StatCard label="Calories" value={calories} />
-        <StatCard label="Protein" value="172g" />
-        <StatCard label="Weight" value="175 lbs" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+        <StatCard label="Calories" value={totals.calories} />
+        <StatCard label="Protein" value={`${totals.protein}g`} />
+        <StatCard label="Carbs" value={`${totals.carbs}g`} />
+        <StatCard label="Fat" value={`${totals.fat}g`} />
       </div>
-
-      <button
-        onClick={() => setCalories(calories + 100)}
-        style={{
-          backgroundColor: 'var(--color-primary)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 'var(--radius)',
-          padding: '10px 20px',
-          cursor: 'pointer',
-          fontWeight: 600,
-          width: 'fit-content'
-        }}
-      >
-        + 100 cal
-      </button>
     </div>
   )
 }
