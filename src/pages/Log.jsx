@@ -1,18 +1,42 @@
 import { useState, useEffect } from 'react'
+import { supabase } from '../supabase'
 
 function Log() {
   const [food, setFood] = useState('')
   const [calories, setCalories] = useState('')
   const [entries, setEntries] = useState([])
-  useEffect(() => {
-  console.log('Entries updated:', entries)
-}, [entries])
 
-  function handleSubmit() {
+  useEffect(() => {
+    fetchEntries()
+  }, [])
+
+  async function fetchEntries() {
+    const { data, error } = await supabase
+      .from('nutrition_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching:', error)
+    } else {
+      setEntries(data)
+    }
+  }
+
+  async function handleSubmit() {
     if (!food || !calories) return
-    setEntries([...entries, { food, calories }])
-    setFood('')
-    setCalories('')
+
+    const { error } = await supabase
+      .from('nutrition_log')
+      .insert([{ food, calories: parseInt(calories) }])
+
+    if (error) {
+      console.error('Error saving:', error)
+    } else {
+      setFood('')
+      setCalories('')
+      fetchEntries()
+    }
   }
 
   return (
@@ -73,8 +97,8 @@ function Log() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {entries.map((entry, index) => (
-          <div key={index} style={{
+        {entries.map((entry) => (
+          <div key={entry.id} style={{
             backgroundColor: 'var(--color-surface)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius)',
