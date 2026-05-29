@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 function Log() {
   const [food, setFood] = useState('')
   const [calories, setCalories] = useState('')
   const [entries, setEntries] = useState([])
+  useEffect(() => {
+  console.log('Entries updated:', entries)
+}, [entries])
 
   function handleSubmit() {
     if (!food || !calories) return
