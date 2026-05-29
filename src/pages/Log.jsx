@@ -15,10 +15,23 @@ function Log({ session }) {
   const [barcodeInput, setBarcodeInput] = useState('')
   const [lookupError, setLookupError] = useState('')
   const [showBarcodeInput, setShowBarcodeInput] = useState(false)
+  const [servingSize, setServingSize] = useState('100')
+  const [baseNutrients, setBaseNutrients] = useState(null)
+  const [servingUnit, setServingUnit] = useState('g')
 
   useEffect(() => {
-    fetchEntries()
-  }, [])
+  fetchEntries()
+}, [])
+
+useEffect(() => {
+  if (!baseNutrients) return
+  const grams = (parseInt(servingSize) || 100) * (unitConversions[servingUnit] || 1)
+  const multiplier = grams / 100
+  setCalories(Math.round(baseNutrients.calories * multiplier).toString())
+  setProtein(Math.round(baseNutrients.protein * multiplier).toString())
+  setCarbs(Math.round(baseNutrients.carbs * multiplier).toString())
+  setFat(Math.round(baseNutrients.fat * multiplier).toString())
+}, [servingSize, servingUnit, baseNutrients])
 
   async function fetchEntries() {
     const { data, error } = await supabase
@@ -42,13 +55,20 @@ function Log({ session }) {
       protein: parseInt(protein) || 0,
       carbs: parseInt(carbs) || 0,
       fat: parseInt(fat) || 0,
-      user_id: currentSession.user.id
+      serving_size: parseInt(servingSize) || 100,
+      user_id: currentSession.user.id,
+      serving_size: parseInt(servingSize) || 100,
+serving_unit: servingUnit,
+      
     }])
 
   if (error) console.error('Error saving:', error)
   else {
-    setFood(''); setCalories(''); setProtein(''); setCarbs(''); setFat('')
+    setFood(''); setCalories(''); setProtein('')
+    setCarbs(''); setFat(''); setServingSize('100')
+    setBaseNutrients(null)
     fetchEntries()
+    setServingUnit('g')
   }
 }
 
@@ -98,11 +118,20 @@ async function lookupBarcode(barcode) {
     const product = data.product
     const nutrients = product.nutriments
 
+    const base = {
+      calories: Math.round(nutrients['energy-kcal_100g'] || 0),
+      protein: Math.round(nutrients['proteins_100g'] || 0),
+      carbs: Math.round(nutrients['carbohydrates_100g'] || 0),
+      fat: Math.round(nutrients['fat_100g'] || 0),
+    }
+
+    setBaseNutrients(base)
     setFood(product.product_name || '')
-    setCalories(Math.round(nutrients['energy-kcal_100g'] || 0).toString())
-    setProtein(Math.round(nutrients['proteins_100g'] || 0).toString())
-    setCarbs(Math.round(nutrients['carbohydrates_100g'] || 0).toString())
-    setFat(Math.round(nutrients['fat_100g'] || 0).toString())
+    setServingSize('100')
+    setCalories(base.calories.toString())
+    setProtein(base.protein.toString())
+    setCarbs(base.carbs.toString())
+    setFat(base.fat.toString())
     setShowBarcodeInput(false)
     setBarcodeInput('')
   } catch {
@@ -110,6 +139,15 @@ async function lookupBarcode(barcode) {
   }
 }
 
+
+    const unitConversions = {
+    g: 1,
+    oz: 28.35,
+    ml: 1,
+    cup: 240,
+    tbsp: 15,
+    tsp: 5
+    }
   const inputStyle = {
     backgroundColor: 'var(--color-bg)',
     border: '1px solid var(--color-border)',
@@ -208,15 +246,39 @@ async function lookupBarcode(barcode) {
 )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-          <input type="number" placeholder="Calories" value={calories}
-            onChange={(e) => setCalories(e.target.value)} style={inputStyle} />
-          <input type="number" placeholder="Protein (g)" value={protein}
-            onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
-          <input type="number" placeholder="Carbs (g)" value={carbs}
-            onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
-          <input type="number" placeholder="Fat (g)" value={fat}
-            onChange={(e) => setFat(e.target.value)} style={inputStyle} />
-        </div>
+  <input type="number" placeholder="Calories" value={calories}
+    onChange={(e) => setCalories(e.target.value)} style={inputStyle} />
+  <input type="number" placeholder="Protein (g)" value={protein}
+    onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
+  <input type="number" placeholder="Carbs (g)" value={carbs}
+    onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
+  <input type="number" placeholder="Fat (g)" value={fat}
+    onChange={(e) => setFat(e.target.value)} style={inputStyle} />
+<div style={{ display: 'flex', gap: '8px', gridColumn: '1 / -1' }}>  <input
+    type="number"
+    placeholder="Serving size"
+    value={servingSize}
+    onChange={(e) => setServingSize(e.target.value)}
+    style={{ ...inputStyle, flex: 1 }}
+  />
+  <select
+    value={servingUnit}
+    onChange={(e) => setServingUnit(e.target.value)}
+    style={{
+      ...inputStyle,
+      width: '80px',
+      cursor: 'pointer'
+    }}
+  >
+    <option value="g">g</option>
+    <option value="oz">oz</option>
+    <option value="ml">ml</option>
+    <option value="cup">cup</option>
+    <option value="tbsp">tbsp</option>
+    <option value="tsp">tsp</option>
+  </select>
+</div>
+</div>
 
         <button onClick={handleSubmit} style={{
           backgroundColor: 'var(--color-primary)',
@@ -246,6 +308,7 @@ async function lookupBarcode(barcode) {
         <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
         <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
         <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
+        <span style={{ color: 'var(--color-muted)' }}>{entry.serving_size}{entry.serving_unit}</span>        
         <button
           onClick={() => deleteEntry(entry.id)}
           style={{
