@@ -34,7 +34,7 @@ function App() {
           <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
           <Route path="/" element={session ? <Dashboard /> : <Navigate to="/login" />} />
           <Route path="/log" element={session ? <Log session={session} /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={session ? <Profile /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={session ? <Profile session={session} /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </BrowserRouter>
