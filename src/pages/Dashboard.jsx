@@ -36,6 +36,8 @@ function Dashboard({ profile }) {
   const [stepsToday, setStepsToday] = useState(null)
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
+  const [reportsCollapsed, setReportsCollapsed] = useState(false)
+  const [collapsedWeeks, setCollapsedWeeks] = useState({})
 
   useEffect(() => {
     fetchTotals()
@@ -172,9 +174,12 @@ function Dashboard({ profile }) {
   }
 
   const inputStyle = {
-    backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '6px 12px',
-    color: 'var(--color-text)', fontSize: '1rem'
+    backgroundColor: 'var(--color-bg)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
+    padding: '6px 12px',
+    color: 'var(--color-text)',
+    fontSize: '1rem'
   }
 
   const chartOptions = {
@@ -187,35 +192,162 @@ function Dashboard({ profile }) {
   }
 
   const cardStyle = {
-    backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '20px',
-    display: 'flex', flexDirection: 'column', gap: '12px'
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
+  }
+
+  const navBtnStyle = {
+    backgroundColor: 'var(--color-surface)',
+    color: 'var(--color-text)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
+    padding: '6px 12px',
+    cursor: 'pointer',
+    fontSize: '1rem'
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Date nav */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <h1>{profile?.role === 'client' ? 'My Progress' : 'Dashboard'}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={goToPrevDay} style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '1rem' }}>←</button>
-          <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} />
-          <button onClick={goToNextDay} disabled={isToday} style={{ backgroundColor: 'var(--color-surface)', color: isToday ? 'var(--color-muted)' : 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: isToday ? 'not-allowed' : 'pointer', fontSize: '1rem', opacity: isToday ? 0.5 : 1 }}>→</button>
-          {!isToday && <button onClick={() => setSelectedDate(toLocalDateString(new Date()))} style={{ backgroundColor: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '0.875rem' }}>Today</button>}
+          <button onClick={goToPrevDay} style={navBtnStyle}>←</button>
+          <input
+            type="date"
+            value={selectedDate}
+            max={toLocalDateString(new Date())}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{ ...inputStyle, colorScheme: 'dark' }}
+          />
+          <button
+            onClick={goToNextDay}
+            disabled={isToday}
+            style={{
+              ...navBtnStyle,
+              color: isToday ? 'var(--color-muted)' : 'var(--color-text)',
+              cursor: isToday ? 'not-allowed' : 'pointer',
+              opacity: isToday ? 0.5 : 1
+            }}
+          >
+            →
+          </button>
+          {isToday && (
+            <span style={{
+              backgroundColor: 'var(--color-primary)',
+              color: '#fff',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '3px 8px',
+              borderRadius: '999px',
+              letterSpacing: '0.05em'
+            }}>
+              TODAY
+            </span>
+          )}
+          {!isToday && (
+            <button
+              onClick={() => setSelectedDate(toLocalDateString(new Date()))}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-primary)',
+                border: '1px solid var(--color-primary)',
+                borderRadius: 'var(--radius)',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                fontSize: '0.875rem'
+              }}
+            >
+              Today
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Coach reports */}
       {reports.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h2>Reports from your coach</h2>
-          {reports.map((r) => (
-            <div key={r.id} style={{ ...cardStyle, gap: '8px' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>Week of {r.week_of}</p>
-              <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>{r.content}</p>
-            </div>
-          ))}
-        </div>
-      )}
+  <div style={{ ...cardStyle }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <h2>Reports from your coach</h2>
+      <button onClick={() => setReportsCollapsed(!reportsCollapsed)} style={{
+        backgroundColor: 'transparent', color: 'var(--color-muted)',
+        border: '1px solid var(--color-border)', borderRadius: 'var(--radius)',
+        padding: '4px 12px', cursor: 'pointer', fontSize: '0.8rem'
+      }}>
+        {reportsCollapsed ? 'Show' : 'Hide'}
+      </button>
+    </div>
 
+    {!reportsCollapsed && (() => {
+      const grouped = {}
+      reports.forEach(r => {
+        if (!grouped[r.week_of]) grouped[r.week_of] = []
+        grouped[r.week_of].push(r)
+      })
+      return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0])).map(([week, weekReports]) => {
+        const isCollapsed = collapsedWeeks[week]
+        return (
+          <div key={week} style={{
+            border: '1px solid var(--color-border)', borderRadius: 'var(--radius)',
+            overflow: 'hidden'
+          }}>
+            <div
+              onClick={() => setCollapsedWeeks(prev => ({ ...prev, [week]: !prev[week] }))}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '12px 16px', cursor: 'pointer',
+                backgroundColor: 'var(--color-bg)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Week of {week}</span>
+                <span style={{
+                  backgroundColor: 'var(--color-border)', color: 'var(--color-muted)',
+                  fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px',
+                  borderRadius: '999px'
+                }}>
+                  {weekReports.length} {weekReports.length === 1 ? 'message' : 'messages'}
+                </span>
+              </div>
+              <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>
+                {isCollapsed ? '▶' : '▼'}
+              </span>
+            </div>
+
+            {!isCollapsed && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                {weekReports.map((r, i) => (
+                  <div key={r.id} style={{
+                    padding: '14px 16px',
+                    borderTop: '1px solid var(--color-border)'
+                  }}>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginBottom: '8px' }}>
+                      Message {i + 1}
+                    </p>
+                    <p style={{
+                      color: 'var(--color-text)', lineHeight: '1.7',
+                      whiteSpace: 'pre-wrap', fontSize: '0.875rem'
+                    }}>
+                      {r.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })
+    })()}
+  </div>
+)}
+
+      {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
         <StatCard label="Calories" value={totals.calories} />
         <StatCard label="Protein" value={`${totals.protein}g`} />
@@ -226,6 +358,7 @@ function Dashboard({ profile }) {
         <StatCard label="Steps" value={stepsToday ? stepsToday.steps.toLocaleString() : '—'} />
       </div>
 
+      {/* Today vs target */}
       {targets && (
         <div style={cardStyle}>
           <h2>Today vs target</h2>
@@ -242,10 +375,23 @@ function Dashboard({ profile }) {
               <div key={m.label} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
                   <span>{m.label}</span>
-                  <span style={{ color: 'var(--color-muted)' }}>{m.actual} / {m.target}{m.unit} ({pct}%)</span>
+                  <span style={{ color: 'var(--color-muted)' }}>
+                    {m.actual} / {m.target}{m.unit} ({pct}%)
+                  </span>
                 </div>
-                <div style={{ height: '6px', backgroundColor: 'var(--color-border)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, backgroundColor: pct >= 100 ? '#34d399' : 'var(--color-primary)', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                <div style={{
+                  height: '6px',
+                  backgroundColor: 'var(--color-border)',
+                  borderRadius: '3px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${pct}%`,
+                    backgroundColor: pct >= 100 ? '#34d399' : 'var(--color-primary)',
+                    borderRadius: '3px',
+                    transition: 'width 0.3s ease'
+                  }} />
                 </div>
               </div>
             )
@@ -254,40 +400,96 @@ function Dashboard({ profile }) {
             <div style={{ fontSize: '0.875rem', color: 'var(--color-muted)', paddingTop: '4px' }}>
               Weight goal: {targets.weight_goal} {targets.weight_goal_unit} · Current: {weightEntry.weight} {weightEntry.unit} ·{' '}
               <span style={{ color: Math.abs(weightEntry.weight - targets.weight_goal) < 1 ? '#34d399' : 'var(--color-primary)' }}>
-                {weightEntry.weight > targets.weight_goal ? `${(weightEntry.weight - targets.weight_goal).toFixed(1)} to go` : weightEntry.weight < targets.weight_goal ? `${(targets.weight_goal - weightEntry.weight).toFixed(1)} below goal` : 'Goal reached! 🎉'}
+                {weightEntry.weight > targets.weight_goal
+                  ? `${(weightEntry.weight - targets.weight_goal).toFixed(1)} to go`
+                  : weightEntry.weight < targets.weight_goal
+                    ? `${(targets.weight_goal - weightEntry.weight).toFixed(1)} below goal`
+                    : 'Goal reached! 🎉'}
               </span>
             </div>
           )}
         </div>
       )}
 
+      {/* Weight trend chart */}
       {weightHistory.length > 1 && (
         <div style={cardStyle}>
           <h2>Weight trend</h2>
-          <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', pointBackgroundColor: '#4f8ef7', tension: 0.3, fill: true }] }} options={chartOptions} />
+          <Line
+            data={{
+              labels: weightHistory.map(d => d.date),
+              datasets: [{
+                label: 'Weight',
+                data: weightHistory.map(d => d.weight),
+                borderColor: '#4f8ef7',
+                backgroundColor: 'rgba(79,142,247,0.1)',
+                pointBackgroundColor: '#4f8ef7',
+                tension: 0.3,
+                fill: true
+              }]
+            }}
+            options={chartOptions}
+          />
         </div>
       )}
 
+      {/* Calories chart */}
       {calorieHistory.length > 0 && (
         <div style={cardStyle}>
           <h2>Calories — last 14 days</h2>
-          <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: '#4f8ef7', borderRadius: 4 }] }} options={chartOptions} />
+          <Bar
+            data={{
+              labels: calorieHistory.map(d => d.date),
+              datasets: [{
+                label: 'Calories',
+                data: calorieHistory.map(d => d.calories),
+                backgroundColor: '#4f8ef7',
+                borderRadius: 4
+              }]
+            }}
+            options={chartOptions}
+          />
         </div>
       )}
 
+      {/* Cardio chart */}
       {cardioHistory.length > 0 && (
         <div style={cardStyle}>
           <h2>Cardio — last 14 days</h2>
-          <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: '#a78bfa', borderRadius: 4 }] }} options={chartOptions} />
+          <Bar
+            data={{
+              labels: cardioHistory.map(d => d.date),
+              datasets: [{
+                label: 'Minutes',
+                data: cardioHistory.map(d => d.minutes),
+                backgroundColor: '#a78bfa',
+                borderRadius: 4
+              }]
+            }}
+            options={chartOptions}
+          />
         </div>
       )}
 
+      {/* Steps chart */}
       {stepsHistory.length > 0 && (
         <div style={cardStyle}>
           <h2>Steps — last 14 days</h2>
-          <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
+          <Bar
+            data={{
+              labels: stepsHistory.map(d => d.date),
+              datasets: [{
+                label: 'Steps',
+                data: stepsHistory.map(d => d.steps),
+                backgroundColor: '#34d399',
+                borderRadius: 4
+              }]
+            }}
+            options={chartOptions}
+          />
         </div>
       )}
+
     </div>
   )
 }
