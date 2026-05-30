@@ -7,7 +7,7 @@ function toLocalDateString(date) {
   return d.toISOString().split('T')[0]
 }
 
-function Dashboard() {
+function Dashboard({ profile }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
@@ -83,7 +83,7 @@ function Dashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <h1>Dashboard</h1>
+        <h1>{profile?.role === 'client' ? 'My Progress' : 'Dashboard'}</h1>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button onClick={goToPrevDay} style={{
@@ -128,17 +128,6 @@ function Dashboard() {
           )}
         </div>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-        <StatCard label="Calories" value={totals.calories} />
-        <StatCard label="Protein" value={`${totals.protein}g`} />
-        <StatCard label="Carbs" value={`${totals.carbs}g`} />
-        <StatCard label="Fat" value={`${totals.fat}g`} />
-        <StatCard
-          label="Weight"
-          value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'}
-        />
-      </div>
       {reports.length > 0 && (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
     <h2>Reports from your coach</h2>
@@ -167,6 +156,18 @@ function Dashboard() {
     ))}
   </div>
 )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+        <StatCard label="Calories" value={totals.calories} />
+        <StatCard label="Protein" value={`${totals.protein}g`} />
+        <StatCard label="Carbs" value={`${totals.carbs}g`} />
+        <StatCard label="Fat" value={`${totals.fat}g`} />
+        <StatCard
+          label="Weight"
+          value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'}
+        />
+      </div>
+      
     </div>
     
   )

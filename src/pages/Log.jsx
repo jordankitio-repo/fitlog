@@ -441,8 +441,8 @@ function Log({ session }) {
         ))}
       </div>
 
-      {entries.length > 0 && (
-        <button onClick={getAIFeedback} disabled={loading} style={{
+      {entries.length > 0 && profile?.role !== 'client' && (
+  <button onClick={getAIFeedback} disabled={loading} style={{
           backgroundColor: '#1a1a1a',
           color: 'var(--color-primary)',
           border: '1px solid var(--color-primary)',
@@ -470,7 +470,7 @@ function Log({ session }) {
         </button>
       )}
 
-      {feedback && (
+      {feedback && profile?.role !== 'client' && (
         <div style={{
           backgroundColor: 'var(--color-surface)',
           border: '1px solid var(--color-border)',
