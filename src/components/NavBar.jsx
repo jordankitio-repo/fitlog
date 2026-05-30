@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 
-function NavBar() {
+function NavBar({ profile }) {
   async function handleSignOut() {
     await supabase.auth.signOut()
   }
@@ -19,9 +19,20 @@ function NavBar() {
       <span style={{ fontWeight: 700, color: 'var(--color-primary)', marginRight: 'auto' }}>
         FitLog
       </span>
-      <Link to="/" style={{ color: 'var(--color-text)', textDecoration: 'none' }}>Dashboard</Link>
-      <Link to="/log" style={{ color: 'var(--color-text)', textDecoration: 'none' }}>Log</Link>
-      <Link to="/profile" style={{ color: 'var(--color-text)', textDecoration: 'none' }}>Profile</Link>
+
+      {profile?.role === 'coach' ? (
+        <>
+          <Link to="/" style={{ color: 'var(--color-text)', textDecoration: 'none' }}>Clients</Link>
+          <Link to="/profile" style={{ color: 'var(--color-text)', textDecoration: 'none' }}>Profile</Link>
+        </>
+      ) : (
+        <>
+          <Link to="/" style={{ color: 'var(--color-text)', textDecoration: 'none' }}>Dashboard</Link>
+          <Link to="/log" style={{ color: 'var(--color-text)', textDecoration: 'none' }}>Log</Link>
+          <Link to="/profile" style={{ color: 'var(--color-text)', textDecoration: 'none' }}>Profile</Link>
+        </>
+      )}
+
       <button
         onClick={handleSignOut}
         style={{
