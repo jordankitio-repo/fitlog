@@ -44,6 +44,8 @@ function Profile({ session, profile }) {
       carbs: parseInt(targets.carbs) || null,
       fat: parseInt(targets.fat) || null,
       weight_goal: parseFloat(targets.weight_goal) || null,
+      cardio_minutes: parseInt(targets.cardio_minutes) || null,
+      steps: parseInt(targets.steps) || null,
       weight_goal_unit: targets.weight_goal_unit,
       updated_at: new Date().toISOString()
     }
@@ -159,6 +161,26 @@ function Profile({ session, profile }) {
               style={inputStyle}
             />
           </div>
+          <div>
+  <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Cardio (min/day)</p>
+  <input
+    type="number"
+    placeholder="e.g. 30"
+    value={targets.cardio_minutes || ''}
+    onChange={(e) => setTargets({ ...targets, cardio_minutes: e.target.value })}
+    style={inputStyle}
+  />
+</div>
+<div>
+  <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Steps/day</p>
+  <input
+    type="number"
+    placeholder="e.g. 10000"
+    value={targets.steps || ''}
+    onChange={(e) => setTargets({ ...targets, steps: e.target.value })}
+    style={inputStyle}
+  />
+</div>
         </div>
 
         <div>
