@@ -8,6 +8,9 @@ function Login() {
   const [role, setRole] = useState('solo')
   const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotStatus, setForgotStatus] = useState('')
 
   async function handleSubmit() {
     setError('')
@@ -30,6 +33,17 @@ function Login() {
       if (signInError) setError(signInError.message)
     }
   }
+  async function handleForgotPassword() {
+  if (!forgotEmail) return
+  setForgotStatus('')
+
+  const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+    redirectTo: `${window.location.origin}/reset-password`
+  })
+
+  if (error) setForgotStatus(error.message)
+  else setForgotStatus('Check your email for a reset link.')
+}
 
   const inputStyle = {
     backgroundColor: '#1a1a1a',
@@ -126,6 +140,50 @@ function Login() {
         {isSignUp ? 'Create account' : 'Sign in'}
       </button>
 
+      {!isSignUp && (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    {!showForgot ? (
+      <p
+        onClick={() => setShowForgot(true)}
+        style={{ cursor: 'pointer', textAlign: 'center', color: 'var(--color-muted)', fontSize: '0.875rem' }}
+      >
+        Forgot password?
+      </p>
+    ) : (
+      <>
+        <input
+          type="email"
+          placeholder="Enter your email"
+          value={forgotEmail}
+          onChange={(e) => setForgotEmail(e.target.value)}
+          style={inputStyle}
+        />
+        <button onClick={handleForgotPassword} style={{
+          backgroundColor: 'var(--color-surface)',
+          color: 'var(--color-text)',
+          border: '1px solid var(--color-border)',
+          borderRadius: '8px',
+          padding: '10px 20px',
+          cursor: 'pointer',
+          fontWeight: 600
+        }}>
+          Send reset link
+        </button>
+        {forgotStatus && (
+          <p style={{ fontSize: '0.875rem', color: forgotStatus.includes('Check') ? 'var(--color-primary)' : '#f87171', textAlign: 'center' }}>
+            {forgotStatus}
+          </p>
+        )}
+        <p
+          onClick={() => setShowForgot(false)}
+          style={{ cursor: 'pointer', textAlign: 'center', color: 'var(--color-muted)', fontSize: '0.875rem' }}
+        >
+          Back to sign in
+        </p>
+      </>
+    )}
+  </div>
+)}
       <p
         onClick={() => { setIsSignUp(!isSignUp); setError('') }}
         style={{ cursor: 'pointer', textAlign: 'center', color: '#888' }}

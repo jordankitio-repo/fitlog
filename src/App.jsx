@@ -9,6 +9,7 @@ import NavBar from './components/NavBar'
 import CoachDashboard from './pages/CoachDashboard'
 import Join from './pages/Join'
 import ClientView from './pages/ClientView'
+import ResetPassword from './pages/ResetPassword'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -60,6 +61,7 @@ function App() {
           <Route path="/profile" element={session ? <Profile session={session} profile={profile} /> : <Navigate to="/login" />} />
           <Route path="/join" element={<Join />} />
           <Route path="/client/:clientId" element={session ? <ClientView /> : <Navigate to="/login" />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </main>
     </BrowserRouter>
