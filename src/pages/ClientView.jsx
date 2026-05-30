@@ -2,6 +2,23 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
+import { Line, Bar } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js'
+
+ChartJS.register(
+  CategoryScale, LinearScale, PointElement, LineElement,
+  BarElement, Title, Tooltip, Legend
+)
 
 function toLocalDateString(date) {
   const d = new Date(date)
@@ -18,10 +35,18 @@ function ClientView() {
   const [weightEntry, setWeightEntry] = useState(null)
   const [report, setReport] = useState('')
   const [reportLoading, setReportLoading] = useState(false)
+  const [weightHistory, setWeightHistory] = useState([])
+  const [calorieHistory, setCalorieHistory] = useState([])
+  const [cardioHistory, setCardioHistory] = useState([])
+  const [stepsHistory, setStepsHistory] = useState([])
 
   useEffect(() => {
-    fetchClientProfile()
-  }, [clientId])
+  fetchClientProfile()
+  fetchWeightHistory()
+  fetchCalorieHistory()
+  fetchCardioHistory()
+  fetchStepsHistory()
+}, [clientId])
 
   useEffect(() => {
     fetchEntries()
@@ -68,6 +93,67 @@ function ClientView() {
     if (error) console.error('Error fetching weight:', error)
     else setWeightEntry(data)
   }
+  async function fetchWeightHistory() {
+  const { data, error } = await supabase
+    .from('weight_log').select('logged_date, weight')
+    .eq('user_id', clientId)
+    .order('logged_date', { ascending: true }).limit(30)
+  if (error) console.error(error)
+  else setWeightHistory(data.map(d => ({ date: d.logged_date.slice(5), weight: parseFloat(d.weight) })))
+}
+
+async function fetchCalorieHistory() {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 13)
+  const { data, error } = await supabase
+    .from('nutrition_log').select('logged_date, calories')
+    .eq('user_id', clientId)
+    .gte('logged_date', start.toISOString().split('T')[0])
+    .lte('logged_date', end.toISOString().split('T')[0])
+  if (error) console.error(error)
+  else {
+    const grouped = {}
+    data.forEach(e => { grouped[e.logged_date] = (grouped[e.logged_date] || 0) + e.calories })
+    setCalorieHistory(Object.entries(grouped).map(([date, calories]) => ({
+      date: date.slice(5), calories
+    })).sort((a, b) => a.date.localeCompare(b.date)))
+  }
+}
+
+async function fetchCardioHistory() {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 13)
+  const { data, error } = await supabase
+    .from('cardio_log').select('logged_date, duration')
+    .eq('user_id', clientId)
+    .gte('logged_date', start.toISOString().split('T')[0])
+    .lte('logged_date', end.toISOString().split('T')[0])
+  if (error) console.error(error)
+  else {
+    const grouped = {}
+    data.forEach(e => { grouped[e.logged_date] = (grouped[e.logged_date] || 0) + e.duration })
+    setCardioHistory(Object.entries(grouped).map(([date, minutes]) => ({
+      date: date.slice(5), minutes
+    })).sort((a, b) => a.date.localeCompare(b.date)))
+  }
+}
+
+async function fetchStepsHistory() {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 13)
+  const { data, error } = await supabase
+    .from('steps_log').select('logged_date, steps')
+    .eq('user_id', clientId)
+    .gte('logged_date', start.toISOString().split('T')[0])
+    .lte('logged_date', end.toISOString().split('T')[0])
+  if (error) console.error(error)
+  else setStepsHistory(data.map(d => ({
+    date: d.logged_date.slice(5), steps: d.steps
+  })).sort((a, b) => a.date.localeCompare(b.date)))
+}
 
   async function generateWeeklyReport() {
     setReportLoading(true)
@@ -173,6 +259,15 @@ function ClientView() {
     padding: '6px 12px',
     color: 'var(--color-text)',
     fontSize: '1rem'
+  }
+
+  const chartOptions = {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } },
+      y: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } }
+    }
   }
 
   return (
@@ -355,6 +450,33 @@ function ClientView() {
               Discard
             </button>
           </div>
+        </div>
+      )}
+      {weightHistory.length > 1 && (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h2>Weight trend</h2>
+          <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', tension: 0.3, fill: true }] }} options={chartOptions} />
+        </div>
+      )}
+
+      {calorieHistory.length > 0 && (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h2>Calories — last 14 days</h2>
+          <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: '#4f8ef7', borderRadius: 4 }] }} options={chartOptions} />
+        </div>
+      )}
+
+      {cardioHistory.length > 0 && (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h2>Cardio — last 14 days</h2>
+          <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: '#a78bfa', borderRadius: 4 }] }} options={chartOptions} />
+        </div>
+      )}
+
+      {stepsHistory.length > 0 && (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h2>Steps — last 14 days</h2>
+          <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
         </div>
       )}
     </div>
