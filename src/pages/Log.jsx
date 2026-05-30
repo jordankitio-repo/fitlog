@@ -36,6 +36,7 @@ function Log({ session, profile }) {
   const [weight, setWeight] = useState('')
   const [weightUnit, setWeightUnit] = useState('lbs')
   const [savedWeight, setSavedWeight] = useState(null)
+  const [editingEntry, setEditingEntry] = useState(null)
 
   useEffect(() => {
     fetchEntries()
@@ -111,25 +112,51 @@ function Log({ session, profile }) {
   async function handleSubmit() {
     if (!food || !calories) return
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const { error } = await supabase
-      .from('nutrition_log')
-      .insert([{
-        food,
-        calories: parseInt(calories),
-        protein: parseInt(protein) || 0,
-        carbs: parseInt(carbs) || 0,
-        fat: parseInt(fat) || 0,
-        serving_size: parseInt(servingSize) || 100,
-        serving_unit: servingUnit,
-        logged_date: selectedDate,
-        user_id: currentSession.user.id
-      }])
-    if (error) console.error('Error saving:', error)
-    else {
-      setFood(''); setCalories(''); setProtein('')
-      setCarbs(''); setFat(''); setServingSize('100')
-      setServingUnit('g'); setBaseNutrients(null)
-      fetchEntries()
+
+    if (editingEntry) {
+      const { error } = await supabase
+        .from('nutrition_log')
+        .update({
+          food,
+          calories: parseInt(calories),
+          protein: parseInt(protein) || 0,
+          carbs: parseInt(carbs) || 0,
+          fat: parseInt(fat) || 0,
+          serving_size: parseInt(servingSize) || 100,
+          serving_unit: servingUnit
+        })
+        .eq('id', editingEntry.id)
+
+      if (error) console.error('Error updating:', error)
+      else {
+        setEditingEntry(null)
+        setFood(''); setCalories(''); setProtein('')
+        setCarbs(''); setFat(''); setServingSize('100')
+        setServingUnit('g'); setBaseNutrients(null)
+        fetchEntries()
+      }
+    } else {
+      const { error } = await supabase
+        .from('nutrition_log')
+        .insert([{
+          food,
+          calories: parseInt(calories),
+          protein: parseInt(protein) || 0,
+          carbs: parseInt(carbs) || 0,
+          fat: parseInt(fat) || 0,
+          serving_size: parseInt(servingSize) || 100,
+          serving_unit: servingUnit,
+          logged_date: selectedDate,
+          user_id: currentSession.user.id
+        }])
+
+      if (error) console.error('Error saving:', error)
+      else {
+        setFood(''); setCalories(''); setProtein('')
+        setCarbs(''); setFat(''); setServingSize('100')
+        setServingUnit('g'); setBaseNutrients(null)
+        fetchEntries()
+      }
     }
   }
 
@@ -159,6 +186,19 @@ function Log({ session, profile }) {
       .eq('id', id)
     if (error) console.error('Error deleting:', error)
     else { setFeedback(''); fetchEntries() }
+  }
+
+  function startEdit(entry) {
+    setEditingEntry(entry)
+    setFood(entry.food)
+    setCalories(entry.calories.toString())
+    setProtein(entry.protein.toString())
+    setCarbs(entry.carbs.toString())
+    setFat(entry.fat.toString())
+    setServingSize(entry.serving_size.toString())
+    setServingUnit(entry.serving_unit || 'g')
+    setBaseNutrients(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function lookupBarcode(barcode) {
@@ -402,7 +442,25 @@ function Log({ session, profile }) {
           borderRadius: 'var(--radius)',
           padding: '10px 20px',
           cursor: 'pointer', fontWeight: 600
-        }}>Add entry</button>
+        }}>{editingEntry ? 'Update entry' : 'Add entry'}</button>
+
+        {editingEntry && (
+          <button type="button" onClick={() => {
+            setEditingEntry(null)
+            setFood(''); setCalories(''); setProtein('')
+            setCarbs(''); setFat(''); setServingSize('100')
+            setServingUnit('g'); setBaseNutrients(null)
+          }} style={{
+            backgroundColor: 'transparent',
+            color: 'var(--color-muted)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius)',
+            padding: '10px 20px',
+            cursor: 'pointer'
+          }}>
+            Cancel
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -436,13 +494,21 @@ function Log({ session, profile }) {
                 fontSize: '0.875rem',
                 padding: '2px 8px'
               }}>✕</button>
+              <button onClick={() => startEdit(entry)} style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-muted)',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                padding: '2px 8px'
+              }}>✎</button>
             </div>
           </div>
         ))}
       </div>
 
       {entries.length > 0 && profile?.role !== 'client' && (
-  <button onClick={getAIFeedback} disabled={loading} style={{
+        <button onClick={getAIFeedback} disabled={loading} style={{
           backgroundColor: '#1a1a1a',
           color: 'var(--color-primary)',
           border: '1px solid var(--color-primary)',
