@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import { useNavigate } from 'react-router-dom'
 
 function CoachDashboard({ profile }) {
   const [clients, setClients] = useState([])
@@ -9,6 +10,7 @@ function CoachDashboard({ profile }) {
   useEffect(() => {
     fetchClients()
   }, [])
+  const navigate = useNavigate()
 
   async function fetchClients() {
   const { data: relationships, error } = await supabase
@@ -58,6 +60,7 @@ function CoachDashboard({ profile }) {
       setInviteStatus(link)
       setInviteEmail('')
     }
+    
   }
 
   return (
@@ -170,7 +173,7 @@ function CoachDashboard({ profile }) {
                   {c.client?.email}
                 </p>
               </div>
-              <button style={{
+              <button onClick={() => navigate(`/client/${c.client_id}`)} style={{
                 backgroundColor: 'transparent',
                 color: 'var(--color-primary)',
                 border: '1px solid var(--color-primary)',
