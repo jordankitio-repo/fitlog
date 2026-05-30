@@ -11,11 +11,13 @@ function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
+  const [reports, setReports] = useState([])
 
   useEffect(() => {
-    fetchTotals()
-    fetchWeight()
-  }, [selectedDate])
+  fetchTotals()
+  fetchWeight()
+  fetchReports()
+}, [selectedDate])
 
   async function fetchTotals() {
     const { data, error } = await supabase
@@ -45,6 +47,15 @@ function Dashboard() {
     if (error) { console.error('Error fetching weight:', error); return }
     setWeightEntry(data)
   }
+  async function fetchReports() {
+  const { data, error } = await supabase
+    .from('reports')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) console.error('Error fetching reports:', error)
+  else setReports(data)
+}
 
   const isToday = selectedDate === toLocalDateString(new Date())
 
@@ -128,7 +139,36 @@ function Dashboard() {
           value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'}
         />
       </div>
+      {reports.length > 0 && (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <h2>Reports from your coach</h2>
+    {reports.map((r) => (
+      <div key={r.id} style={{
+        backgroundColor: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius)',
+        padding: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px'
+      }}>
+        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+          Week of {r.week_of}
+        </p>
+        <p style={{
+          color: 'var(--color-text)',
+          lineHeight: '1.7',
+          whiteSpace: 'pre-wrap',
+          fontSize: '0.9rem'
+        }}>
+          {r.content}
+        </p>
+      </div>
+    ))}
+  </div>
+)}
     </div>
+    
   )
 }
 

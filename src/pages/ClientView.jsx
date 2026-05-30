@@ -1,4 +1,4 @@
- import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
@@ -16,6 +16,8 @@ function ClientView() {
   const [entries, setEntries] = useState([])
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
+  const [report, setReport] = useState('')
+  const [reportLoading, setReportLoading] = useState(false)
 
   useEffect(() => {
     fetchClientProfile()
@@ -32,7 +34,6 @@ function ClientView() {
       .select('*')
       .eq('id', clientId)
       .single()
-
     if (error) console.error('Error fetching client profile:', error)
     else setClientProfile(data)
   }
@@ -44,7 +45,6 @@ function ClientView() {
       .eq('user_id', clientId)
       .eq('logged_date', selectedDate)
       .order('created_at', { ascending: true })
-
     if (error) console.error('Error fetching entries:', error)
     else {
       setEntries(data)
@@ -65,9 +65,91 @@ function ClientView() {
       .eq('user_id', clientId)
       .eq('logged_date', selectedDate)
       .maybeSingle()
-
     if (error) console.error('Error fetching weight:', error)
     else setWeightEntry(data)
+  }
+
+  async function generateWeeklyReport() {
+    setReportLoading(true)
+    setReport('')
+
+    const { data: { session } } = await supabase.auth.getSession()
+
+    const days = []
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      days.push(toLocalDateString(d))
+    }
+
+    const { data: nutritionData } = await supabase
+      .from('nutrition_log')
+      .select('*')
+      .eq('user_id', clientId)
+      .in('logged_date', days)
+
+    const { data: weightData } = await supabase
+      .from('weight_log')
+      .select('*')
+      .eq('user_id', clientId)
+      .in('logged_date', days)
+
+    const weekData = days.map(date => {
+      const dayEntries = nutritionData?.filter(e => e.logged_date === date) || []
+      const dayWeight = weightData?.find(w => w.logged_date === date)
+      return {
+        date,
+        weight: dayWeight ? `${dayWeight.weight} ${dayWeight.unit}` : null,
+        totalCalories: dayEntries.reduce((sum, e) => sum + (e.calories || 0), 0),
+        totalProtein: dayEntries.reduce((sum, e) => sum + (e.protein || 0), 0),
+        totalCarbs: dayEntries.reduce((sum, e) => sum + (e.carbs || 0), 0),
+        totalFat: dayEntries.reduce((sum, e) => sum + (e.fat || 0), 0),
+        meals: dayEntries.map(e => e.food)
+      }
+    })
+
+    const response = await fetch(
+      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/weekly-report',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          clientName: clientProfile?.full_name || 'Client',
+          weekData
+        }),
+      }
+    )
+
+    const data = await response.json()
+    setReport(data.report || data.error || 'Failed to generate report.')
+    setReportLoading(false)
+  }
+
+  async function sendReport() {
+    const { data: { session } } = await supabase.auth.getSession()
+
+    const weekOf = toLocalDateString(new Date(
+      new Date().setDate(new Date().getDate() - 6)
+    ))
+
+    const { error } = await supabase
+      .from('reports')
+      .insert([{
+        coach_id: session.user.id,
+        client_id: clientId,
+        content: report,
+        week_of: weekOf
+      }])
+
+    if (error) {
+      console.error('Error sending report:', error)
+    } else {
+      setReport('')
+      alert('Report sent to client.')
+    }
   }
 
   function goToPrevDay() {
@@ -194,6 +276,87 @@ function ClientView() {
           ))
         )}
       </div>
+
+      <button onClick={generateWeeklyReport} disabled={reportLoading} style={{
+        backgroundColor: '#1a1a1a',
+        color: 'var(--color-primary)',
+        border: '1px solid var(--color-primary)',
+        borderRadius: 'var(--radius)',
+        padding: '10px 20px',
+        cursor: reportLoading ? 'not-allowed' : 'pointer',
+        fontWeight: 600,
+        width: 'fit-content',
+        opacity: reportLoading ? 0.7 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        {reportLoading && (
+          <span style={{
+            width: '14px', height: '14px',
+            border: '2px solid var(--color-primary)',
+            borderTopColor: 'transparent',
+            borderRadius: '50%',
+            display: 'inline-block',
+            animation: 'spin 0.7s linear infinite'
+          }} />
+        )}
+        {reportLoading ? 'Generating report...' : 'Generate weekly report'}
+      </button>
+
+      {report && (
+        <div style={{
+          backgroundColor: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius)',
+          padding: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <h2>Weekly Report</h2>
+          <textarea
+            value={report}
+            onChange={(e) => setReport(e.target.value)}
+            rows={20}
+            style={{
+              backgroundColor: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius)',
+              padding: '14px',
+              color: 'var(--color-text)',
+              fontSize: '0.9rem',
+              lineHeight: '1.7',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              width: '100%'
+            }}
+          />
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={sendReport} style={{
+              backgroundColor: 'var(--color-primary)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 'var(--radius)',
+              padding: '10px 20px',
+              cursor: 'pointer',
+              fontWeight: 600
+            }}>
+              Send to client
+            </button>
+            <button onClick={() => setReport('')} style={{
+              backgroundColor: 'transparent',
+              color: 'var(--color-muted)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius)',
+              padding: '10px 20px',
+              cursor: 'pointer'
+            }}>
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
