@@ -277,6 +277,20 @@ function startEditCardio(entry) {
           <button onClick={goToPrevDay} style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '1rem' }}>←</button>
           <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', color: 'var(--color-text)', fontSize: '1rem', colorScheme: 'dark' }} />
           <button onClick={goToNextDay} disabled={isToday} style={{ backgroundColor: 'var(--color-surface)', color: isToday ? 'var(--color-muted)' : 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: isToday ? 'not-allowed' : 'pointer', fontSize: '1rem', opacity: isToday ? 0.5 : 1 }}>→</button>
+          {isToday && (
+            <span style={{
+              backgroundColor: 'var(--color-primary)',
+              color: '#fff',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '3px 8px',
+              borderRadius: '999px',
+              letterSpacing: '0.05em'
+            }}>
+              TODAY
+            </span>
+          )}
+          
           {!isToday && <button onClick={() => setSelectedDate(toLocalDateString(new Date()))} style={{ backgroundColor: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '0.875rem' }}>Today</button>}
         </div>
       </div>

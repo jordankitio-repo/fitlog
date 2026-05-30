@@ -14,7 +14,10 @@ function NavBar({ profile }) {
       display: 'flex',
       gap: '24px',
       alignItems: 'center',
-      height: '56px'
+      height: '56px',
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
     }}>
       <span style={{ fontWeight: 700, color: 'var(--color-primary)', marginRight: 'auto' }}>
         FitLog
@@ -47,6 +50,7 @@ function NavBar({ profile }) {
       >
         Sign out
       </button>
+      
     </nav>
   )
 }
