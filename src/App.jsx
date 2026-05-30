@@ -7,6 +7,7 @@ import Profile from './pages/Profile'
 import Login from './pages/Login'
 import NavBar from './components/NavBar'
 import CoachDashboard from './pages/CoachDashboard'
+import Join from './pages/Join'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -49,12 +50,14 @@ function App() {
       <main style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
         <Routes>
           <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
-<Route path="/" element={session ? (
-  profile?.role === 'coach'
-    ? <CoachDashboard profile={profile} />
-    : <Dashboard profile={profile} />
-) : <Navigate to="/login" />} />          <Route path="/log" element={session ? <Log session={session} profile={profile} /> : <Navigate to="/login" />} />
+          <Route path="/" element={session ? (
+            profile?.role === 'coach'
+              ? <CoachDashboard profile={profile} />
+              : <Dashboard profile={profile} />
+          ) : <Navigate to="/login" />} />
+          <Route path="/log" element={session ? <Log session={session} profile={profile} /> : <Navigate to="/login" />} />
           <Route path="/profile" element={session ? <Profile session={session} profile={profile} /> : <Navigate to="/login" />} />
+          <Route path="/join" element={<Join />} />
         </Routes>
       </main>
     </BrowserRouter>

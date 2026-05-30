@@ -11,39 +11,51 @@ function CoachDashboard({ profile }) {
   }, [])
 
   async function fetchClients() {
-    const { data, error } = await supabase
-      .from('coach_clients')
-      .select(`
-        *,
-        client:client_id (
-          id,
-          email,
-          full_name
-        )
-      `)
-      .eq('coach_id', profile.id)
-      .eq('status', 'active')
+  const { data: relationships, error } = await supabase
+    .from('coach_clients')
+    .select('*')
+    .eq('coach_id', profile.id)
+    .eq('status', 'active')
 
-    if (error) console.error('Error fetching clients:', error)
-    else setClients(data)
-  }
+  if (error) { console.error('Error fetching clients:', error); return }
+  if (!relationships.length) { setClients([]); return }
+
+  const clientIds = relationships.map(r => r.client_id)
+
+  const { data: profiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, email, full_name')
+    .in('id', clientIds)
+
+  if (profileError) { console.error('Error fetching profiles:', profileError); return }
+
+  const merged = relationships.map(r => ({
+    ...r,
+    client: profiles.find(p => p.id === r.client_id)
+  }))
+
+  setClients(merged)
+}
 
   async function sendInvite() {
     if (!inviteEmail) return
     setInviteStatus('')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('invitations')
       .insert([{
         coach_id: profile.id,
         client_email: inviteEmail
       }])
+      .select()
+      .single()
 
     if (error) {
       setInviteStatus('Error sending invite.')
       console.error(error)
     } else {
-      setInviteStatus(`Invite sent to ${inviteEmail}`)
+      const link = `${window.location.origin}/join?token=${data.token}`
+      setInviteStatus(link)
       setInviteEmail('')
     }
   }
@@ -94,7 +106,42 @@ function CoachDashboard({ profile }) {
           </button>
         </div>
         {inviteStatus && (
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-primary)' }}>{inviteStatus}</p>
+          <div style={{
+            backgroundColor: 'var(--color-bg)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius)',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+              Share this link with your client:
+            </p>
+            <p style={{
+              fontSize: '0.8rem',
+              color: 'var(--color-primary)',
+              wordBreak: 'break-all',
+              fontFamily: 'monospace'
+            }}>
+              {inviteStatus}
+            </p>
+            <button
+              onClick={() => navigator.clipboard.writeText(inviteStatus)}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-muted)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius)',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                width: 'fit-content'
+              }}
+            >
+              Copy link
+            </button>
+          </div>
         )}
       </div>
 

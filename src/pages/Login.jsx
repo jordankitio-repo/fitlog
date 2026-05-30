@@ -18,11 +18,13 @@ function Login() {
 
       // Update profile with role and name
       if (data.user) {
-        await supabase
-          .from('profiles')
-          .update({ role, full_name: fullName })
-          .eq('id', data.user.id)
-      }
+  await supabase
+    .from('profiles')
+    .update({ role, full_name: fullName })
+    .eq('id', data.user.id)
+
+  await supabase.auth.refreshSession()
+}
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) setError(signInError.message)
