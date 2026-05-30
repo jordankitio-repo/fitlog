@@ -37,14 +37,17 @@ function Dashboard({ profile }) {
   const [reports, setReports] = useState([])
   const [weightHistory, setWeightHistory] = useState([])
   const [calorieHistory, setCalorieHistory] = useState([])
+  const [targets, setTargets] = useState(null)
+
 
   useEffect(() => {
-    fetchTotals()
-    fetchWeight()
-    fetchReports()
-    fetchWeightHistory()
-    fetchCalorieHistory()
-  }, [selectedDate])
+  fetchTotals()
+  fetchWeight()
+  fetchReports()
+  fetchWeightHistory()
+  fetchCalorieHistory()
+  fetchTargets()
+}, [selectedDate])
 
   async function fetchTotals() {
     const { data, error } = await supabase
@@ -115,6 +118,16 @@ function Dashboard({ profile }) {
       })).sort((a, b) => a.date.localeCompare(b.date)))
     }
   }
+  async function fetchTargets() {
+  const { data, error } = await supabase
+    .from('targets')
+    .select('*')
+    .eq('user_id', (await supabase.auth.getSession()).data.session.user.id)
+    .maybeSingle()
+
+  if (error) console.error('Error fetching targets:', error)
+  else setTargets(data)
+}
 
   const isToday = selectedDate === toLocalDateString(new Date())
 
@@ -235,6 +248,67 @@ function Dashboard({ profile }) {
           value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'}
         />
       </div>
+      {targets && (
+  <div style={{
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  }}>
+    <h2>Today vs target</h2>
+    {[
+      { label: 'Calories', actual: totals.calories, target: targets.calories, unit: 'cal' },
+      { label: 'Protein', actual: totals.protein, target: targets.protein, unit: 'g' },
+      { label: 'Carbs', actual: totals.carbs, target: targets.carbs, unit: 'g' },
+      { label: 'Fat', actual: totals.fat, target: targets.fat, unit: 'g' },
+    ].filter(m => m.target).map(m => {
+      const pct = Math.min(Math.round((m.actual / m.target) * 100), 100)
+      return (
+        <div key={m.label} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+            <span>{m.label}</span>
+            <span style={{ color: 'var(--color-muted)' }}>
+              {m.actual} / {m.target}{m.unit} ({pct}%)
+            </span>
+          </div>
+          <div style={{
+            height: '6px',
+            backgroundColor: 'var(--color-border)',
+            borderRadius: '3px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              height: '100%',
+              width: `${pct}%`,
+              backgroundColor: pct >= 100 ? '#34d399' : 'var(--color-primary)',
+              borderRadius: '3px',
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+        </div>
+      )
+    })}
+
+    {targets.weight_goal && weightEntry && (
+      <div style={{ fontSize: '0.875rem', color: 'var(--color-muted)', paddingTop: '4px' }}>
+        Weight goal: {targets.weight_goal} {targets.weight_goal_unit}
+        {' · '}
+        Current: {weightEntry.weight} {weightEntry.unit}
+        {' · '}
+        <span style={{ color: Math.abs(weightEntry.weight - targets.weight_goal) < 1 ? '#34d399' : 'var(--color-primary)' }}>
+          {weightEntry.weight > targets.weight_goal
+            ? `${(weightEntry.weight - targets.weight_goal).toFixed(1)} to go`
+            : weightEntry.weight < targets.weight_goal
+            ? `${(targets.weight_goal - weightEntry.weight).toFixed(1)} below goal`
+            : 'Goal reached! 🎉'}
+        </span>
+      </div>
+    )}
+  </div>
+)}
 
       {weightHistory.length > 1 && (
         <div style={{
