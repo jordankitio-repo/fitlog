@@ -16,7 +16,7 @@ function toLocalDateString(date) {
   return d.toISOString().split('T')[0]
 }
 
-function Log({ session }) {
+function Log({ session, profile }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [food, setFood] = useState('')
   const [calories, setCalories] = useState('')
@@ -396,7 +396,7 @@ function Log({ session }) {
           </div>
         </div>
 
-        <button onClick={handleSubmit} style={{
+        <button type="button" onClick={handleSubmit} style={{
           backgroundColor: 'var(--color-primary)',
           color: '#fff', border: 'none',
           borderRadius: 'var(--radius)',
