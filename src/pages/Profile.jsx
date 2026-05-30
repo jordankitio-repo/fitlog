@@ -106,6 +106,7 @@ function Profile({ session, profile }) {
         )}
       </div>
 
+      {profile?.role !== 'coach' && (
       <div style={{
         backgroundColor: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
@@ -162,25 +163,25 @@ function Profile({ session, profile }) {
             />
           </div>
           <div>
-  <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Cardio (min/day)</p>
-  <input
-    type="number"
-    placeholder="e.g. 30"
-    value={targets.cardio_minutes || ''}
-    onChange={(e) => setTargets({ ...targets, cardio_minutes: e.target.value })}
-    style={inputStyle}
-  />
-</div>
-<div>
-  <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Steps/day</p>
-  <input
-    type="number"
-    placeholder="e.g. 10000"
-    value={targets.steps || ''}
-    onChange={(e) => setTargets({ ...targets, steps: e.target.value })}
-    style={inputStyle}
-  />
-</div>
+            <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Cardio (min/day)</p>
+            <input
+              type="number"
+              placeholder="e.g. 30"
+              value={targets.cardio_minutes || ''}
+              onChange={(e) => setTargets({ ...targets, cardio_minutes: e.target.value })}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Steps/day</p>
+            <input
+              type="number"
+              placeholder="e.g. 10000"
+              value={targets.steps || ''}
+              onChange={(e) => setTargets({ ...targets, steps: e.target.value })}
+              style={inputStyle}
+            />
+          </div>
         </div>
 
         <div>
@@ -217,6 +218,7 @@ function Profile({ session, profile }) {
           {saved ? 'Saved ✓' : 'Save targets'}
         </button>
       </div>
+      )}
     </div>
   )
 }
