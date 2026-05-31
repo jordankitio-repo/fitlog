@@ -105,3 +105,8 @@ button, a, input, select, textarea {
   background-color: var(--color-border);
   border-radius: var(--radius);
 }
+
+.stat-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(79, 142, 247, 0.1);
+}
