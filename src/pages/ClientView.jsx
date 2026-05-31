@@ -259,20 +259,27 @@ async function saveCoachNotes() {
     }
 
     const { data: nutritionData } = await supabase
-      .from('nutrition_log')
-      .select('*')
-      .eq('user_id', clientId)
-      .in('logged_date', days)
+      .from('nutrition_log').select('*').eq('user_id', clientId).in('logged_date', days)
 
     const { data: weightData } = await supabase
-      .from('weight_log')
-      .select('*')
-      .eq('user_id', clientId)
-      .in('logged_date', days)
+      .from('weight_log').select('*').eq('user_id', clientId).in('logged_date', days)
+
+    const { data: cardioData } = await supabase
+      .from('cardio_log').select('*').eq('user_id', clientId).in('logged_date', days)
+
+    const { data: stepsData } = await supabase
+      .from('steps_log').select('*').eq('user_id', clientId).in('logged_date', days)
+
+    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+    const { data: checkInData } = await supabase
+      .from('check_ins').select('*').eq('client_id', clientId).eq('week_of', weekOf).maybeSingle()
 
     const weekData = days.map(date => {
       const dayEntries = nutritionData?.filter(e => e.logged_date === date) || []
       const dayWeight = weightData?.find(w => w.logged_date === date)
+      const dayCardio = cardioData?.filter(c => c.logged_date === date) || []
+      const daySteps = stepsData?.find(s => s.logged_date === date)
+
       return {
         date,
         weight: dayWeight ? `${dayWeight.weight} ${dayWeight.unit}` : null,
@@ -280,7 +287,9 @@ async function saveCoachNotes() {
         totalProtein: dayEntries.reduce((sum, e) => sum + (e.protein || 0), 0),
         totalCarbs: dayEntries.reduce((sum, e) => sum + (e.carbs || 0), 0),
         totalFat: dayEntries.reduce((sum, e) => sum + (e.fat || 0), 0),
-        meals: dayEntries.map(e => e.food)
+        meals: dayEntries.map(e => e.food),
+        cardioSessions: dayCardio.map(c => `${c.exercise_type} ${c.duration}min${c.calories_burned ? ` ${c.calories_burned}cal` : ''}`),
+        steps: daySteps ? daySteps.steps : null
       }
     })
 
@@ -294,7 +303,13 @@ async function saveCoachNotes() {
         },
         body: JSON.stringify({
           clientName: clientProfile?.full_name || 'Client',
-          weekData
+          weekData,
+          checkIn: checkInData ? {
+            adherence: checkInData.adherence_rating,
+            energy: checkInData.energy_level,
+            obstacles: checkInData.obstacles,
+            notes: checkInData.notes
+          } : null
         }),
       }
     )

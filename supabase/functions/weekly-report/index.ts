@@ -9,26 +9,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { clientName, weekData } = await req.json()
+    const { clientName, weekData, checkIn } = await req.json()
 
-    const days = weekData.map((day: {
-      date: string
-      weight: string | null
-      totalCalories: number
-      totalProtein: number
-      totalCarbs: number
-      totalFat: number
-      meals: string[]
-    }) => {
-      const mealsText = day.meals.length > 0
-        ? day.meals.join(', ')
-        : 'No meals logged'
+    const days = weekData.map((day: any) => {
+      const mealsText = day.meals.length > 0 ? day.meals.join(', ') : 'No meals logged'
+      const cardioText = day.cardioSessions.length > 0 ? day.cardioSessions.join(', ') : 'No cardio'
+      const stepsText = day.steps ? `${day.steps.toLocaleString()} steps` : 'No steps logged'
 
       return `${day.date}:
   Weight: ${day.weight || 'not logged'}
-  Totals: ${day.totalCalories} cal | Protein: ${day.totalProtein}g | Carbs: ${day.totalCarbs}g | Fat: ${day.totalFat}g
-  Meals: ${mealsText}`
+  Calories: ${day.totalCalories} | Protein: ${day.totalProtein}g | Carbs: ${day.totalCarbs}g | Fat: ${day.totalFat}g
+  Meals: ${mealsText}
+  Cardio: ${cardioText}
+  Steps: ${stepsText}`
     }).join('\n\n')
+
+    const checkInSection = checkIn ? `
+Client's weekly check-in:
+- Adherence to plan: ${checkIn.adherence}/10
+- Energy levels: ${checkIn.energy}/10
+- Obstacles: ${checkIn.obstacles || 'None reported'}
+- Notes for coach: ${checkIn.notes || 'None'}
+` : 'No check-in submitted this week.'
 
     const prompt = `You are a professional fitness coach writing a weekly check-in report for a client.
 
@@ -38,14 +40,18 @@ Last 7 days of data:
 
 ${days}
 
-Write a structured weekly coaching report with these sections:
-1. Overall Assessment (2-3 sentences on the week as a whole)
-2. Nutrition Highlights (what they did well)
-3. Areas to Improve (specific, actionable)
-4. Weight Trend (comment on their weight data)
-5. Top 3 Recommendations for next week
+${checkInSection}
 
-Be direct, specific, and encouraging. Use the actual numbers from their data.`
+Write a structured weekly coaching report with these sections:
+1. Overall Assessment (2-3 sentences covering nutrition, cardio, steps, and consistency)
+2. Nutrition Highlights (what they did well)
+3. Cardio & Activity (comment on their cardio sessions and steps)
+4. Areas to Improve (specific, actionable)
+5. Weight Trend (comment on their weight data)
+6. Client Check-in Response (respond directly to their adherence rating, energy, obstacles, and notes if submitted)
+7. Top 3 Recommendations for next week
+
+Be direct, specific, and encouraging. Use the actual numbers from their data. If the client submitted a check-in, make sure to address it personally.`
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
 
@@ -58,7 +64,7 @@ Be direct, specific, and encouraging. Use the actual numbers from their data.`
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
+        max_tokens: 800,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
