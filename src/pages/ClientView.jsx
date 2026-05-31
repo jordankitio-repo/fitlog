@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
+import Button from '../components/Button'
 import { Line, Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -612,15 +613,7 @@ async function sendMessage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <button onClick={() => navigate('/')} style={{
-          backgroundColor: 'transparent',
-          color: 'var(--color-muted)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius)',
-          padding: '6px 12px',
-          cursor: 'pointer',
-          fontSize: '0.875rem'
-        }}>← Back</button>
+        <Button onClick={() => navigate('/')} variant="ghost" size="sm">← Back</Button>
         <div>
           <h1>{clientProfile?.full_name || 'Client'}</h1>
           <p style={{ fontSize: '0.875rem', marginTop: '2px' }}>{clientProfile?.email}</p>
@@ -643,32 +636,20 @@ async function sendMessage() {
         {!aiToolsCollapsed && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <button onClick={generateCallPrep} disabled={briefingLoading} style={{
-                backgroundColor: '#1a1a1a', color: '#a78bfa', border: '1px solid #a78bfa',
-                borderRadius: 'var(--radius)', padding: '10px 20px',
-                cursor: briefingLoading ? 'not-allowed' : 'pointer', fontWeight: 600,
-                opacity: briefingLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px'
-              }}>
-                {briefingLoading && <span style={{ width: '14px', height: '14px', border: '2px solid #a78bfa', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />}
+              <Button onClick={generateCallPrep} variant="ai" loading={briefingLoading}>
                 {briefingLoading ? 'Preparing...' : '📋 Prep for call'}
-              </button>
+              </Button>
 
-              <button onClick={generateWeeklyReport} disabled={reportLoading} style={{
-                backgroundColor: '#1a1a1a', color: 'var(--color-primary)', border: '1px solid var(--color-primary)',
-                borderRadius: 'var(--radius)', padding: '10px 20px',
-                cursor: reportLoading ? 'not-allowed' : 'pointer', fontWeight: 600,
-                opacity: reportLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px'
-              }}>
-                {reportLoading && <span style={{ width: '14px', height: '14px', border: '2px solid var(--color-primary)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />}
+              <Button onClick={generateWeeklyReport} variant="outline" loading={reportLoading}>
                 {reportLoading ? 'Generating...' : '📝 Generate weekly report'}
-              </button>
+              </Button>
             </div>
 
             {callBriefing && (
               <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid #a78bfa', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <p style={{ fontWeight: 600 }}>Call briefing — {clientProfile?.full_name}</p>
-                  <button onClick={() => setCallBriefing('')} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 12px', cursor: 'pointer', fontSize: '0.8rem' }}>Dismiss</button>
+                  <Button onClick={() => setCallBriefing('')} variant="ghost" size="sm">Dismiss</Button>
                 </div>
                 <p style={{ fontSize: '0.65rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Not visible to client</p>
                 <pre style={{ color: 'var(--color-text)', fontSize: '0.875rem', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{callBriefing}</pre>
@@ -685,8 +666,8 @@ async function sendMessage() {
                   style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px', color: 'var(--color-text)', fontSize: '0.9rem', lineHeight: '1.7', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
                 />
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button onClick={sendReport} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>Send to client</button>
-                  <button onClick={() => setReport('')} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer' }}>Discard</button>
+                  <Button onClick={sendReport} variant="primary">Send to client</Button>
+                  <Button onClick={() => setReport('')} variant="ghost">Discard</Button>
                 </div>
               </div>
             )}
@@ -695,15 +676,7 @@ async function sendMessage() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <button onClick={goToPrevDay} style={{
-          backgroundColor: 'var(--color-surface)',
-          color: 'var(--color-text)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius)',
-          padding: '6px 12px',
-          cursor: 'pointer',
-          fontSize: '1rem'
-        }}>←</button>
+        <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
 
         <input
           type="date"
@@ -713,28 +686,9 @@ async function sendMessage() {
           style={{ ...inputStyle, colorScheme: 'dark' }}
         />
 
-        <button onClick={goToNextDay} disabled={isToday} style={{
-          backgroundColor: 'var(--color-surface)',
-          color: isToday ? 'var(--color-muted)' : 'var(--color-text)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius)',
-          padding: '6px 12px',
-          cursor: isToday ? 'not-allowed' : 'pointer',
-          fontSize: '1rem',
-          opacity: isToday ? 0.5 : 1
-        }}>→</button>
+        <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
 
-        {!isToday && (
-          <button onClick={() => setSelectedDate(toLocalDateString(new Date()))} style={{
-            backgroundColor: 'transparent',
-            color: 'var(--color-primary)',
-            border: '1px solid var(--color-primary)',
-            borderRadius: 'var(--radius)',
-            padding: '6px 12px',
-            cursor: 'pointer',
-            fontSize: '0.875rem'
-          }}>Today</button>
-        )}
+        {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
       </div>
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -851,9 +805,9 @@ async function sendMessage() {
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
                 style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
               />
-              <button onClick={sendMessage} disabled={messageSending} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: 'pointer', fontWeight: 600, opacity: messageSending ? 0.7 : 1 }}>
+              <Button onClick={sendMessage} disabled={messageSending} variant="primary" loading={messageSending}>
                 Send
-              </button>
+              </Button>
             </div>
 
             {messages.length > 0 && (
@@ -954,9 +908,9 @@ async function sendMessage() {
             </select>
           </div>
         </div>
-        <button onClick={saveClientTargets} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}>
+        <Button onClick={saveClientTargets} variant="primary">
           {targetsSaved ? 'Saved ✓' : 'Save targets'}
-        </button>
+        </Button>
         </>}
       </div>
 
@@ -1048,19 +1002,9 @@ async function sendMessage() {
                 width: '100%'
               }}
             />
-            <button onClick={saveCoachNotes} style={{
-              backgroundColor: 'transparent',
-              color: 'var(--color-primary)',
-              border: '1px solid var(--color-primary)',
-              borderRadius: 'var(--radius)',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              width: 'fit-content'
-            }}>
+            <Button onClick={saveCoachNotes} variant="outline" size="sm">
               {notesSaved ? 'Saved ✓' : 'Save notes'}
-            </button>
+            </Button>
           </>
         )}
       </div>

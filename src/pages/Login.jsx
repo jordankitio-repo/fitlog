@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
+import Button from '../components/Button'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -125,20 +126,9 @@ function Login() {
 
       {error && <p style={{ color: '#f87171' }}>{error}</p>}
 
-      <button
-        onClick={handleSubmit}
-        style={{
-          backgroundColor: '#4f8ef7',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '10px 20px',
-          cursor: 'pointer',
-          fontWeight: 600
-        }}
-      >
+      <Button onClick={handleSubmit} variant="primary" fullWidth>
         {isSignUp ? 'Create account' : 'Sign in'}
-      </button>
+      </Button>
 
       {!isSignUp && (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -158,17 +148,9 @@ function Login() {
           onChange={(e) => setForgotEmail(e.target.value)}
           style={inputStyle}
         />
-        <button onClick={handleForgotPassword} style={{
-          backgroundColor: 'var(--color-surface)',
-          color: 'var(--color-text)',
-          border: '1px solid var(--color-border)',
-          borderRadius: '8px',
-          padding: '10px 20px',
-          cursor: 'pointer',
-          fontWeight: 600
-        }}>
+        <Button onClick={handleForgotPassword} variant="muted" fullWidth>
           Send reset link
-        </button>
+        </Button>
         {forgotStatus && (
           <p style={{ fontSize: '0.875rem', color: forgotStatus.includes('Check') ? 'var(--color-primary)' : '#f87171', textAlign: 'center' }}>
             {forgotStatus}

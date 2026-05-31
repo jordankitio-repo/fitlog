@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
+import Button from '../components/Button'
 import { Line, Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -429,12 +430,6 @@ async function reactToMessage(messageId, emoji) {
     borderRadius: 'var(--radius)', padding: '20px',
     display: 'flex', flexDirection: 'column', gap: '12px'
   }
-  const navBtnStyle = {
-    backgroundColor: 'var(--color-surface)', color: 'var(--color-text)',
-    border: '1px solid var(--color-border)', borderRadius: 'var(--radius)',
-    padding: '6px 12px', cursor: 'pointer', fontSize: '1rem'
-  }
-
   const activeReports = reports.filter(r => !r.archived)
   const archivedReports = reports.filter(r => r.archived)
   const unreadCount = activeReports.filter(r => !r.read_at).length
@@ -475,11 +470,11 @@ async function reactToMessage(messageId, emoji) {
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={goToPrevDay} style={navBtnStyle}>←</button>
+          <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
           <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} />
-          <button onClick={goToNextDay} disabled={isToday} style={{ ...navBtnStyle, color: isToday ? 'var(--color-muted)' : 'var(--color-text)', cursor: isToday ? 'not-allowed' : 'pointer', opacity: isToday ? 0.5 : 1 }}>→</button>
+          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
           {isToday && <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
-          {!isToday && <button onClick={() => setSelectedDate(toLocalDateString(new Date()))} style={{ backgroundColor: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '0.875rem' }}>Today</button>}
+          {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
         </div>
       </div>
 
@@ -548,13 +543,9 @@ async function reactToMessage(messageId, emoji) {
               onKeyDown={(e) => e.key === 'Enter' && sendNoteToCoach()}
               style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
             />
-            <button
-              onClick={sendNoteToCoach}
-              disabled={noteSending || !clientNote.trim()}
-              style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: noteSending ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: noteSending ? 0.7 : 1 }}
-            >
+            <Button onClick={sendNoteToCoach} disabled={noteSending || !clientNote.trim()} variant="primary" loading={noteSending}>
               Send
-            </button>
+            </Button>
           </div>
           {noteSent && <p style={{ color: '#34d399', fontSize: '0.875rem' }}>✓ Note sent to your coach.</p>}
         </div>
@@ -605,9 +596,7 @@ async function reactToMessage(messageId, emoji) {
                         {!r.read_at && <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '1px 6px', borderRadius: '999px' }}>NEW</span>}
                       </div>
                       {r.read_at && (
-                        <button onClick={() => archiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: '0.7rem' }}>
-                          Archive
-                        </button>
+                        <Button onClick={() => archiveReport(r.id)} variant="ghost" size="sm">Archive</Button>
                       )}
                     </div>
                     <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
@@ -632,9 +621,7 @@ async function reactToMessage(messageId, emoji) {
                     <div key={r.id} style={{ padding: '14px 16px', borderTop: '1px solid var(--color-border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>Message {i + 1}</p>
-                        <button onClick={() => unarchiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: '0.7rem' }}>
-                          Unarchive
-                        </button>
+                        <Button onClick={() => unarchiveReport(r.id)} variant="ghost" size="sm">Unarchive</Button>
                       </div>
                       <p style={{ color: 'var(--color-muted)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
                     </div>
@@ -655,9 +642,13 @@ async function reactToMessage(messageId, emoji) {
               <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '-4px' }}>
                 {existingCheckIn ? '✓ Submitted this week' : 'Let your coach know how your week went.'}
               </p>
-              <button onClick={() => setShowCheckIn(!showCheckIn)} style={{ backgroundColor: existingCheckIn ? 'transparent' : 'var(--color-primary)', color: existingCheckIn ? 'var(--color-muted)' : '#fff', border: existingCheckIn ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '8px 16px', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem', width: 'fit-content' }}>
+              <Button
+                onClick={() => setShowCheckIn(!showCheckIn)}
+                variant={existingCheckIn ? 'ghost' : 'primary'}
+                size="sm"
+              >
                 {existingCheckIn ? 'Edit' : 'Fill out'}
-              </button>
+              </Button>
               {showCheckIn && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
                   <div>
@@ -676,7 +667,7 @@ async function reactToMessage(messageId, emoji) {
                     <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Notes for your coach</p>
                     <textarea value={checkIn.notes} onChange={(e) => setCheckIn({ ...checkIn, notes: e.target.value })} placeholder="Anything else you want your coach to know..." rows={3} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
                   </div>
-                  <button onClick={saveCheckIn} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}>Submit check-in</button>
+                  <Button onClick={saveCheckIn} variant="primary">Submit check-in</Button>
                 </div>
               )}
               {checkInSaved && <p style={{ color: '#34d399', fontSize: '0.875rem' }}>✓ Check-in submitted successfully.</p>}

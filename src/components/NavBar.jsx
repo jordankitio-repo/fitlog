@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
+import Button from './Button'
 
 function NavBar({ profile }) {
   async function handleSignOut() {
@@ -36,21 +37,9 @@ function NavBar({ profile }) {
         </>
       )}
 
-      <button
-        onClick={handleSignOut}
-        style={{
-          backgroundColor: 'transparent',
-          color: 'var(--color-muted)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius)',
-          padding: '6px 10px',
-          cursor: 'pointer',
-          fontSize: '0.8rem',
-          whiteSpace: 'nowrap'
-        }}
-      >
+      <Button onClick={handleSignOut} variant="muted" size="sm">
         Sign out
-      </button>
+      </Button>
     </nav>
   )
 }

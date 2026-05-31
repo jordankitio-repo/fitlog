@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
+import Button from '../components/Button'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -274,9 +275,9 @@ function startEditCardio(entry) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <h1>Log</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={goToPrevDay} style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '1rem' }}>←</button>
+          <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
           <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', color: 'var(--color-text)', fontSize: '1rem', colorScheme: 'dark' }} />
-          <button onClick={goToNextDay} disabled={isToday} style={{ backgroundColor: 'var(--color-surface)', color: isToday ? 'var(--color-muted)' : 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: isToday ? 'not-allowed' : 'pointer', fontSize: '1rem', opacity: isToday ? 0.5 : 1 }}>→</button>
+          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
           {isToday && (
             <span style={{
               backgroundColor: 'var(--color-primary)',
@@ -291,7 +292,7 @@ function startEditCardio(entry) {
             </span>
           )}
           
-          {!isToday && <button onClick={() => setSelectedDate(toLocalDateString(new Date()))} style={{ backgroundColor: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '0.875rem' }}>Today</button>}
+          {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
         </div>
       </div>
 
@@ -305,7 +306,9 @@ function startEditCardio(entry) {
             <option value="lbs">lbs</option>
             <option value="kg">kg</option>
           </select>
-          <button type="button" onClick={saveWeight} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: 'pointer', fontWeight: 600 }}>{savedWeight ? 'Update' : 'Log'}</button>
+          <Button onClick={saveWeight} variant="primary">
+            {savedWeight ? 'Update' : 'Log'}
+          </Button>
         </div>
       </div>
 
@@ -320,14 +323,14 @@ function startEditCardio(entry) {
           <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
         </div>
-        <button type="button" onClick={logCardio} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}>
-  {editingCardio ? 'Update session' : 'Log session'}
-</button>
-{editingCardio && (
-  <button type="button" onClick={() => { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate('') }} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer' }}>
-    Cancel
-  </button>
-)}
+        <Button onClick={logCardio} variant="primary">
+          {editingCardio ? 'Update session' : 'Log session'}
+        </Button>
+        {editingCardio && (
+          <Button onClick={() => { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate('') }} variant="ghost">
+            Cancel
+          </Button>
+        )}
         {cardioEntries.map(e => (
           <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--color-border)' }}>
             <div>
@@ -349,7 +352,9 @@ function startEditCardio(entry) {
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
           <input type="number" placeholder="Distance (mi)" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-          <button type="button" onClick={saveSteps} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: 'pointer', fontWeight: 600 }}>{savedSteps ? 'Update' : 'Log'}</button>
+          <Button onClick={saveSteps} variant="primary">
+            {savedSteps ? 'Update' : 'Log'}
+          </Button>
         </div>
       </div>
 
@@ -358,14 +363,14 @@ function startEditCardio(entry) {
         <h2>Nutrition</h2>
         <input type="text" placeholder="Food name" value={food} onChange={(e) => setFood(e.target.value)} style={inputStyle} />
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" onClick={() => setShowScanner(true)} style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '8px 14px', cursor: 'pointer', fontSize: '0.875rem' }}>📷 Scan barcode</button>
-          <button type="button" onClick={() => setShowBarcodeInput(!showBarcodeInput)} style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '8px 14px', cursor: 'pointer', fontSize: '0.875rem' }}># Enter barcode</button>
+          <Button onClick={() => setShowScanner(true)} variant="muted" size="sm">📷 Scan barcode</Button>
+          <Button onClick={() => setShowBarcodeInput(!showBarcodeInput)} variant="muted" size="sm"># Enter barcode</Button>
         </div>
         {showScanner && <BarcodeScanner onDetected={(barcode) => { setShowScanner(false); lookupBarcode(barcode) }} onClose={() => setShowScanner(false)} />}
         {showBarcodeInput && (
           <div style={{ display: 'flex', gap: '8px' }}>
             <input type="text" placeholder="Enter barcode number" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-            <button type="button" onClick={() => lookupBarcode(barcodeInput)} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: 'pointer', fontWeight: 600 }}>Lookup</button>
+            <Button onClick={() => lookupBarcode(barcodeInput)} variant="primary">Lookup</Button>
           </div>
         )}
         {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
@@ -382,9 +387,13 @@ function startEditCardio(entry) {
             </select>
           </div>
         </div>
-        <button type="button" onClick={handleSubmit} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>{editingEntry ? 'Update entry' : 'Add entry'}</button>
+        <Button onClick={handleSubmit} variant="primary">
+          {editingEntry ? 'Update entry' : 'Add entry'}
+        </Button>
         {editingEntry && (
-          <button type="button" onClick={() => { setEditingEntry(null); clearNutritionForm() }} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer' }}>Cancel</button>
+          <Button onClick={() => { setEditingEntry(null); clearNutritionForm() }} variant="ghost">
+            Cancel
+          </Button>
         )}
       </div>
 
@@ -408,16 +417,15 @@ function startEditCardio(entry) {
       </div>
 
       {entries.length > 0 && profile?.role !== 'client' && (
-        <button onClick={getAIFeedback} disabled={loading} style={{ backgroundColor: '#1a1a1a', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, width: 'fit-content', opacity: loading ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {loading && <span style={{ width: '14px', height: '14px', border: '2px solid var(--color-primary)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />}
+        <Button onClick={getAIFeedback} variant="ai" loading={loading}>
           {loading ? 'Analyzing...' : 'Get AI feedback'}
-        </button>
+        </Button>
       )}
 
       {feedback && profile?.role !== 'client' && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <p style={{ color: 'var(--color-text)' }}>{feedback}</p>
-          <button onClick={() => setFeedback('')} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 14px', cursor: 'pointer', fontSize: '0.875rem', width: 'fit-content' }}>Clear</button>
+          <Button onClick={() => setFeedback('')} variant="ghost" size="sm">Clear</Button>
         </div>
       )}
     </div>

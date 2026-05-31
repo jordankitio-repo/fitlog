@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useNavigate } from 'react-router-dom'
+import Button from '../components/Button'
 
 function toLocalDateString(date) {
   return new Date(date).toISOString().split('T')[0]
@@ -187,13 +188,9 @@ function CoachDashboard({ profile }) {
                     <p style={{ fontWeight: 600 }}>{c.client?.full_name || 'Unnamed'}</p>
                     <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>{c.client?.email}</p>
                   </div>
-                  <button onClick={() => navigate(`/client/${c.client_id}`)} style={{
-                    backgroundColor: 'transparent', color: 'var(--color-primary)',
-                    border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)',
-                    padding: '6px 14px', cursor: 'pointer', fontSize: '0.875rem'
-                  }}>
+                  <Button onClick={() => navigate(`/client/${c.client_id}`)} variant="outline" size="sm">
                     View data →
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Stats row */}
@@ -265,17 +262,15 @@ function CoachDashboard({ profile }) {
             onChange={(e) => setInviteEmail(e.target.value)}
             style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem' }}
           />
-          <button onClick={sendInvite} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 14px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
-            Send invite
-          </button>
+          <Button onClick={sendInvite} variant="primary">Send invite</Button>
         </div>
         {inviteStatus && (
           <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>Share this link with your client:</p>
             <p style={{ fontSize: '0.8rem', color: 'var(--color-primary)', wordBreak: 'break-all', fontFamily: 'monospace' }}>{inviteStatus}</p>
-            <button onClick={() => navigator.clipboard.writeText(inviteStatus)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '0.8rem', width: 'fit-content' }}>
+            <Button onClick={() => navigator.clipboard.writeText(inviteStatus)} variant="ghost" size="sm">
               Copy link
-            </button>
+            </Button>
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import Button from '../components/Button'
 
 function Profile({ session, profile }) {
   const [targets, setTargets] = useState({
@@ -299,18 +300,9 @@ function Profile({ session, profile }) {
         </div>
 
         {profile?.role !== 'client' && (
-          <button onClick={saveTargets} style={{
-            backgroundColor: 'var(--color-primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--radius)',
-            padding: '10px 20px',
-            cursor: 'pointer',
-            fontWeight: 600,
-            width: 'fit-content'
-          }}>
+          <Button onClick={saveTargets} variant="primary">
             {saved ? 'Saved ✓' : 'Save targets'}
-          </button>
+          </Button>
         )}
       </div>
       )}
@@ -347,18 +339,9 @@ function Profile({ session, profile }) {
             {passwordStatus}
           </p>
         )}
-        <button onClick={changePassword} style={{
-          backgroundColor: 'var(--color-primary)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 'var(--radius)',
-          padding: '10px 20px',
-          cursor: 'pointer',
-          fontWeight: 600,
-          width: 'fit-content'
-        }}>
+        <Button onClick={changePassword} variant="primary">
           Update password
-        </button>
+        </Button>
       </div>
 
       {/* Data export */}
@@ -367,9 +350,9 @@ function Profile({ session, profile }) {
         <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
           Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file.
         </p>
-        <button onClick={exportData} disabled={exportLoading} style={{ backgroundColor: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content', opacity: exportLoading ? 0.7 : 1 }}>
+        <Button onClick={exportData} variant="outline" loading={exportLoading}>
           {exportLoading ? 'Exporting...' : '⬇ Download data'}
-        </button>
+        </Button>
       </div>
 
       {/* Delete account */}
@@ -379,21 +362,21 @@ function Profile({ session, profile }) {
           Permanently delete your account and all associated data. This cannot be undone.
         </p>
         {!showDeleteConfirm ? (
-          <button onClick={() => setShowDeleteConfirm(true)} style={{ backgroundColor: 'transparent', color: '#f87171', border: '1px solid #f87171', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}>
+          <Button onClick={() => setShowDeleteConfirm(true)} variant="danger">
             Delete my account
-          </button>
+          </Button>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <p style={{ fontSize: '0.875rem', color: '#f87171', fontWeight: 600 }}>
               Are you sure? This will delete all your data permanently.
             </p>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={deleteAccount} disabled={deleteLoading} style={{ backgroundColor: '#f87171', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, opacity: deleteLoading ? 0.7 : 1 }}>
+              <Button onClick={deleteAccount} variant="danger-solid" loading={deleteLoading}>
                 {deleteLoading ? 'Deleting...' : 'Yes, delete everything'}
-              </button>
-              <button onClick={() => setShowDeleteConfirm(false)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer' }}>
+              </Button>
+              <Button onClick={() => setShowDeleteConfirm(false)} variant="ghost">
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}
