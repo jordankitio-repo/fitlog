@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
+import Toast from '../components/Toast'
 import { Line, Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -75,6 +76,7 @@ function ClientView({ profile }) {
   const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
   const [clientMessages, setClientMessages] = useState([])
   const [openClientReactId, setOpenClientReactId] = useState(null)
+  const [toast, setToast] = useState({ message: '', type: 'success' })
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
     stats: false,
     consistency: false,
@@ -422,7 +424,7 @@ async function saveCoachNotes() {
       console.error('Error sending report:', error)
     } else {
       setReport('')
-      alert('Report sent to client.')
+      setToast({ message: 'Report sent to client.', type: 'success' })
       // Notify client by email
       fetch('https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/notify-report', {
         method: 'POST',
@@ -611,6 +613,7 @@ async function sendMessage() {
   }
 
   return (
+    <>
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <Button onClick={() => navigate('/')} variant="ghost" size="sm">← Back</Button>
@@ -1037,6 +1040,8 @@ async function sendMessage() {
         </div>
       )}
     </div>
+    <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
+    </>
   )
 }
 
