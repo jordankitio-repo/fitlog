@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
+import Skeleton from '../components/Skeleton'
 import { Line, Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -75,6 +76,7 @@ function Dashboard({ profile }) {
   const [clientNote, setClientNote] = useState('')
   const [noteSending, setNoteSending] = useState(false)
   const [noteSent, setNoteSent] = useState(false)
+  const [pageLoading, setPageLoading] = useState(true)
 
   // Section collapse state
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
@@ -94,21 +96,27 @@ function Dashboard({ profile }) {
   }
 
   useEffect(() => {
-    fetchTotals()
-    fetchWeight()
-    fetchReports()
-    fetchWeightHistory()
-    fetchCalorieHistory()
-    fetchTargets()
-    fetchCardioToday()
-    fetchStepsToday()
-    fetchCardioHistory()
-    fetchStepsHistory()
-    fetchStreak()
-    if (profile?.role === 'client') {
-      fetchCheckIn()
-      fetchCoachMessages()
+    async function loadPage() {
+      setPageLoading(true)
+      await Promise.all([
+        fetchTotals(),
+        fetchWeight(),
+        fetchReports(),
+        fetchWeightHistory(),
+        fetchCalorieHistory(),
+        fetchTargets(),
+        fetchCardioToday(),
+        fetchStepsToday(),
+        fetchCardioHistory(),
+        fetchStepsHistory(),
+        fetchStreak(),
+      ])
+      if (profile?.role === 'client') {
+        await Promise.all([fetchCheckIn(), fetchCoachMessages()])
+      }
+      setPageLoading(false)
     }
+    loadPage()
   }, [selectedDate])
 
   async function fetchTotals() {
@@ -444,7 +452,49 @@ async function reactToMessage(messageId, emoji) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {pageLoading ? (
+        <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Streak skeleton */}
+          <Skeleton height="100px" />
+
+          {/* Date nav skeleton */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <Skeleton width="40px" height="38px" />
+            <Skeleton width="140px" height="38px" />
+            <Skeleton width="40px" height="38px" />
+          </div>
+
+          {/* Stats skeleton */}
+          <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Skeleton height="22px" width="120px" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+              {[...Array(6)].map((_, i) => <Skeleton key={i} height="72px" />)}
+            </div>
+          </div>
+
+          {/* Targets skeleton */}
+          <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <Skeleton height="22px" width="140px" />
+            {[...Array(4)].map((_, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Skeleton height="14px" width="70px" />
+                  <Skeleton height="14px" width="110px" />
+                </div>
+                <Skeleton height="6px" borderRadius="3px" />
+              </div>
+            ))}
+          </div>
+
+          {/* Chart skeleton */}
+          <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Skeleton height="22px" width="160px" />
+            <Skeleton height="180px" />
+          </div>
+        </div>
+      ) : (
+      <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <h1>{profile?.role === 'client' ? 'My Progress' : 'Dashboard'}</h1>
 
@@ -770,6 +820,8 @@ async function reactToMessage(messageId, emoji) {
             <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   )

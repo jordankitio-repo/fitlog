@@ -57,7 +57,7 @@ function Login() {
   }
 
   return (
-    <div style={{
+    <div className="page-fade-in" style={{
       maxWidth: '400px',
       margin: '80px auto',
       display: 'flex',

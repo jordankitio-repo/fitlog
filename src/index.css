@@ -83,3 +83,25 @@ button, a, input, select, textarea {
   filter: brightness(0.95);
   transform: scale(0.97);
 }
+
+/* Page fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-fade-in {
+  animation: fadeIn 0.25s ease forwards;
+}
+
+/* Skeleton pulse */
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.skeleton {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  background-color: var(--color-border);
+  border-radius: var(--radius);
+}
