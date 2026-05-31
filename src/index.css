@@ -29,3 +29,8 @@ p  { color: var(--color-muted); }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+html, body, #root {
+  overflow-x: hidden;
+  max-width: 100vw;
+}

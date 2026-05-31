@@ -299,7 +299,7 @@ function startEditCardio(entry) {
       <div style={sectionStyle}>
         <h2>Weight</h2>
         {savedWeight && <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Logged: {savedWeight.weight} {savedWeight.unit}</p>}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
           <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
             <option value="lbs">lbs</option>
@@ -346,7 +346,7 @@ function startEditCardio(entry) {
       <div style={sectionStyle}>
         <h2>Steps</h2>
         {savedSteps && <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Logged: {savedSteps.steps.toLocaleString()} steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}</p>}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
           <input type="number" placeholder="Distance (mi)" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
           <button type="button" onClick={saveSteps} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: 'pointer', fontWeight: 600 }}>{savedSteps ? 'Update' : 'Log'}</button>
