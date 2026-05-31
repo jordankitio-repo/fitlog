@@ -13,6 +13,9 @@ function Profile({ session, profile }) {
     weight_goal_unit: 'lbs'
   })
   const [saved, setSaved] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordStatus, setPasswordStatus] = useState('')
 
   useEffect(() => {
     fetchTargets()
@@ -62,6 +65,22 @@ function Profile({ session, profile }) {
     else {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    }
+  }
+
+  async function changePassword() {
+    if (!newPassword) { setPasswordStatus('Enter a new password.'); return }
+    if (newPassword.length < 6) { setPasswordStatus('Password must be at least 6 characters.'); return }
+    if (newPassword !== confirmPassword) { setPasswordStatus('Passwords do not match.'); return }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+    if (error) setPasswordStatus(error.message)
+    else {
+      setPasswordStatus('Password updated successfully.')
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordStatus(''), 3000)
     }
   }
 
@@ -235,6 +254,52 @@ function Profile({ session, profile }) {
         )}
       </div>
       )}
+
+      <div style={{
+        backgroundColor: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius)',
+        padding: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
+      }}>
+        <h2>Change password</h2>
+        <input
+          type="password"
+          placeholder="New password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          style={inputStyle}
+        />
+        <input
+          type="password"
+          placeholder="Confirm new password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          style={inputStyle}
+        />
+        {passwordStatus && (
+          <p style={{
+            fontSize: '0.875rem',
+            color: passwordStatus.includes('successfully') ? '#34d399' : '#f87171'
+          }}>
+            {passwordStatus}
+          </p>
+        )}
+        <button onClick={changePassword} style={{
+          backgroundColor: 'var(--color-primary)',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 'var(--radius)',
+          padding: '10px 20px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          width: 'fit-content'
+        }}>
+          Update password
+        </button>
+      </div>
     </div>
   )
 }
