@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
+import EmptyState from '../components/EmptyState'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -398,7 +399,13 @@ function startEditCardio(entry) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {entries.length === 0 && <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>No nutrition entries for this day yet.</p>}
+        {entries.length === 0 && (
+          <EmptyState
+            icon="🍽️"
+            title="Nothing logged yet"
+            description="Add your first meal above to start tracking today's nutrition."
+          />
+        )}
         {entries.map((entry) => (
           <div key={entry.id} style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

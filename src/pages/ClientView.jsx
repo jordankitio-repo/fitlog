@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
+import EmptyState from '../components/EmptyState'
 import Toast from '../components/Toast'
 import { Line, Bar } from 'react-chartjs-2'
 import {
@@ -929,9 +930,11 @@ async function sendMessage() {
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')}>
           {entries.length === 0 ? (
-            <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
-              No entries for this day.
-            </p>
+            <EmptyState
+              icon="🍽️"
+              title="No entries for this day"
+              description="Client hasn't logged any nutrition yet."
+            />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {entries.map((entry) => (

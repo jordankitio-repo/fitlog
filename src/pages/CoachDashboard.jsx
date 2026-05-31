@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
+import EmptyState from '../components/EmptyState'
 
 function toLocalDateString(date) {
   return new Date(date).toISOString().split('T')[0]
@@ -167,7 +168,11 @@ function CoachDashboard({ profile }) {
         {loading ? (
           <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Loading...</p>
         ) : clients.length === 0 ? (
-          <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>No active clients yet. Send an invite below.</p>
+          <EmptyState
+            icon="👥"
+            title="No clients yet"
+            description="Send an invite below to add your first client."
+          />
         ) : (
           clients.map((c) => {
             const s = clientStats[c.client_id]
