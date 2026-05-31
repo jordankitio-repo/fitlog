@@ -16,6 +16,9 @@ function Profile({ session, profile }) {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordStatus, setPasswordStatus] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
 
   useEffect(() => {
     fetchTargets()
@@ -65,6 +68,63 @@ function Profile({ session, profile }) {
     else {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    }
+  }
+
+  async function exportData() {
+    setExportLoading(true)
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const userId = currentSession.user.id
+
+    const [nutrition, weight, cardio, steps] = await Promise.all([
+      supabase.from('nutrition_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
+      supabase.from('weight_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
+      supabase.from('cardio_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
+      supabase.from('steps_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
+    ])
+
+    const payload = {
+      exported_at: new Date().toISOString(),
+      email: currentSession.user.email,
+      nutrition_log: nutrition.data || [],
+      weight_log: weight.data || [],
+      cardio_log: cardio.data || [],
+      steps_log: steps.data || [],
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fitlog-export-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setExportLoading(false)
+  }
+
+  async function deleteAccount() {
+    setDeleteLoading(true)
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+
+    const response = await fetch(
+      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/delete-account',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`,
+        }
+      }
+    )
+
+    const data = await response.json()
+    if (data.success) {
+      await supabase.auth.signOut()
+    } else {
+      alert('Error deleting account: ' + data.error)
+      setDeleteLoading(false)
     }
   }
 
@@ -299,6 +359,44 @@ function Profile({ session, profile }) {
         }}>
           Update password
         </button>
+      </div>
+
+      {/* Data export */}
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2>Export your data</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+          Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file.
+        </p>
+        <button onClick={exportData} disabled={exportLoading} style={{ backgroundColor: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content', opacity: exportLoading ? 0.7 : 1 }}>
+          {exportLoading ? 'Exporting...' : '⬇ Download data'}
+        </button>
+      </div>
+
+      {/* Delete account */}
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid #f87171', borderRadius: 'var(--radius)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ color: '#f87171' }}>Delete account</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+          Permanently delete your account and all associated data. This cannot be undone.
+        </p>
+        {!showDeleteConfirm ? (
+          <button onClick={() => setShowDeleteConfirm(true)} style={{ backgroundColor: 'transparent', color: '#f87171', border: '1px solid #f87171', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}>
+            Delete my account
+          </button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p style={{ fontSize: '0.875rem', color: '#f87171', fontWeight: 600 }}>
+              Are you sure? This will delete all your data permanently.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={deleteAccount} disabled={deleteLoading} style={{ backgroundColor: '#f87171', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, opacity: deleteLoading ? 0.7 : 1 }}>
+                {deleteLoading ? 'Deleting...' : 'Yes, delete everything'}
+              </button>
+              <button onClick={() => setShowDeleteConfirm(false)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
