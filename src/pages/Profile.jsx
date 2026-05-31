@@ -7,6 +7,8 @@ function Profile({ session, profile }) {
     protein: '',
     carbs: '',
     fat: '',
+    cardio_minutes: '',
+    steps: '',
     weight_goal: '',
     weight_goal_unit: 'lbs'
   })
@@ -30,6 +32,8 @@ function Profile({ session, profile }) {
         protein: data.protein?.toString() || '',
         carbs: data.carbs?.toString() || '',
         fat: data.fat?.toString() || '',
+        cardio_minutes: data.cardio_minutes?.toString() || '',
+        steps: data.steps?.toString() || '',
         weight_goal: data.weight_goal?.toString() || '',
         weight_goal_unit: data.weight_goal_unit || 'lbs'
       })
@@ -118,7 +122,9 @@ function Profile({ session, profile }) {
       }}>
         <h2>Daily targets</h2>
         <p style={{ fontSize: '0.875rem', marginTop: '-8px' }}>
-          Set your daily goals. Leave blank to skip tracking that metric.
+          {profile?.role === 'client'
+            ? 'These targets were set by your coach.'
+            : 'Set your daily goals. Leave blank to skip tracking that metric.'}
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
@@ -129,7 +135,8 @@ function Profile({ session, profile }) {
               placeholder="e.g. 2000"
               value={targets.calories}
               onChange={(e) => setTargets({ ...targets, calories: e.target.value })}
-              style={inputStyle}
+              readOnly={profile?.role === 'client'}
+              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             />
           </div>
           <div>
@@ -139,7 +146,8 @@ function Profile({ session, profile }) {
               placeholder="e.g. 150"
               value={targets.protein}
               onChange={(e) => setTargets({ ...targets, protein: e.target.value })}
-              style={inputStyle}
+              readOnly={profile?.role === 'client'}
+              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             />
           </div>
           <div>
@@ -149,7 +157,8 @@ function Profile({ session, profile }) {
               placeholder="e.g. 200"
               value={targets.carbs}
               onChange={(e) => setTargets({ ...targets, carbs: e.target.value })}
-              style={inputStyle}
+              readOnly={profile?.role === 'client'}
+              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             />
           </div>
           <div>
@@ -159,7 +168,8 @@ function Profile({ session, profile }) {
               placeholder="e.g. 65"
               value={targets.fat}
               onChange={(e) => setTargets({ ...targets, fat: e.target.value })}
-              style={inputStyle}
+              readOnly={profile?.role === 'client'}
+              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             />
           </div>
           <div>
@@ -169,7 +179,8 @@ function Profile({ session, profile }) {
               placeholder="e.g. 30"
               value={targets.cardio_minutes || ''}
               onChange={(e) => setTargets({ ...targets, cardio_minutes: e.target.value })}
-              style={inputStyle}
+              readOnly={profile?.role === 'client'}
+              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             />
           </div>
           <div>
@@ -179,7 +190,8 @@ function Profile({ session, profile }) {
               placeholder="e.g. 10000"
               value={targets.steps || ''}
               onChange={(e) => setTargets({ ...targets, steps: e.target.value })}
-              style={inputStyle}
+              readOnly={profile?.role === 'client'}
+              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             />
           </div>
         </div>
@@ -192,12 +204,14 @@ function Profile({ session, profile }) {
               placeholder="e.g. 175"
               value={targets.weight_goal}
               onChange={(e) => setTargets({ ...targets, weight_goal: e.target.value })}
-              style={{ ...inputStyle, flex: 1 }}
+              readOnly={profile?.role === 'client'}
+              style={{ ...inputStyle, flex: 1, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             />
             <select
               value={targets.weight_goal_unit}
               onChange={(e) => setTargets({ ...targets, weight_goal_unit: e.target.value })}
-              style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}
+              disabled={profile?.role === 'client'}
+              style={{ ...inputStyle, width: '80px', cursor: profile?.role === 'client' ? 'default' : 'pointer', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             >
               <option value="lbs">lbs</option>
               <option value="kg">kg</option>
@@ -205,18 +219,20 @@ function Profile({ session, profile }) {
           </div>
         </div>
 
-        <button onClick={saveTargets} style={{
-          backgroundColor: 'var(--color-primary)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 'var(--radius)',
-          padding: '10px 20px',
-          cursor: 'pointer',
-          fontWeight: 600,
-          width: 'fit-content'
-        }}>
-          {saved ? 'Saved ✓' : 'Save targets'}
-        </button>
+        {profile?.role !== 'client' && (
+          <button onClick={saveTargets} style={{
+            backgroundColor: 'var(--color-primary)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 'var(--radius)',
+            padding: '10px 20px',
+            cursor: 'pointer',
+            fontWeight: 600,
+            width: 'fit-content'
+          }}>
+            {saved ? 'Saved ✓' : 'Save targets'}
+          </button>
+        )}
       </div>
       )}
     </div>

@@ -39,6 +39,11 @@ function ClientView() {
   const [calorieHistory, setCalorieHistory] = useState([])
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
+  const [clientTargets, setClientTargets] = useState({
+    calories: '', protein: '', carbs: '', fat: '',
+    cardio_minutes: '', steps: '', weight_goal: '', weight_goal_unit: 'lbs'
+  })
+  const [targetsSaved, setTargetsSaved] = useState(false)
 
   useEffect(() => {
   fetchClientProfile()
@@ -46,6 +51,7 @@ function ClientView() {
   fetchCalorieHistory()
   fetchCardioHistory()
   fetchStepsHistory()
+  fetchClientTargets()
 }, [clientId])
 
   useEffect(() => {
@@ -153,6 +159,47 @@ async function fetchStepsHistory() {
   else setStepsHistory(data.map(d => ({
     date: d.logged_date.slice(5), steps: d.steps
   })).sort((a, b) => a.date.localeCompare(b.date)))
+}
+
+  async function fetchClientTargets() {
+  const { data, error } = await supabase
+    .from('targets')
+    .select('*')
+    .eq('user_id', clientId)
+    .maybeSingle()
+  if (error) console.error(error)
+  else if (data) {
+    setClientTargets({
+      calories: data.calories?.toString() || '',
+      protein: data.protein?.toString() || '',
+      carbs: data.carbs?.toString() || '',
+      fat: data.fat?.toString() || '',
+      cardio_minutes: data.cardio_minutes?.toString() || '',
+      steps: data.steps?.toString() || '',
+      weight_goal: data.weight_goal?.toString() || '',
+      weight_goal_unit: data.weight_goal_unit || 'lbs'
+    })
+  }
+}
+
+  async function saveClientTargets() {
+  const { error } = await supabase
+    .from('targets')
+    .upsert({
+      user_id: clientId,
+      calories: parseInt(clientTargets.calories) || null,
+      protein: parseInt(clientTargets.protein) || null,
+      carbs: parseInt(clientTargets.carbs) || null,
+      fat: parseInt(clientTargets.fat) || null,
+      cardio_minutes: parseInt(clientTargets.cardio_minutes) || null,
+      steps: parseInt(clientTargets.steps) || null,
+      weight_goal: parseFloat(clientTargets.weight_goal) || null,
+      weight_goal_unit: clientTargets.weight_goal_unit,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' })
+
+  if (error) console.error(error)
+  else { setTargetsSaved(true); setTimeout(() => setTargetsSaved(false), 2000) }
 }
 
   async function generateWeeklyReport() {
@@ -340,6 +387,57 @@ async function fetchStepsHistory() {
           label="Weight"
           value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'}
         />
+      </div>
+
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <h2>Client targets</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '-8px' }}>
+          Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          {[
+            { label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
+            { label: 'Protein (g)', key: 'protein', placeholder: 'e.g. 150' },
+            { label: 'Carbs (g)', key: 'carbs', placeholder: 'e.g. 200' },
+            { label: 'Fat (g)', key: 'fat', placeholder: 'e.g. 65' },
+            { label: 'Cardio (min/day)', key: 'cardio_minutes', placeholder: 'e.g. 30' },
+            { label: 'Steps/day', key: 'steps', placeholder: 'e.g. 10000' },
+          ].map(f => (
+            <div key={f.key}>
+              <p style={{ fontSize: '0.75rem', marginBottom: '6px', color: 'var(--color-muted)' }}>{f.label}</p>
+              <input
+                type="number"
+                placeholder={f.placeholder}
+                value={clientTargets[f.key]}
+                onChange={(e) => setClientTargets({ ...clientTargets, [f.key]: e.target.value })}
+                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', width: '100%' }}
+              />
+            </div>
+          ))}
+        </div>
+        <div>
+          <p style={{ fontSize: '0.75rem', marginBottom: '6px', color: 'var(--color-muted)' }}>Weight goal</p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="number"
+              placeholder="e.g. 175"
+              value={clientTargets.weight_goal}
+              onChange={(e) => setClientTargets({ ...clientTargets, weight_goal: e.target.value })}
+              style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', flex: 1 }}
+            />
+            <select
+              value={clientTargets.weight_goal_unit}
+              onChange={(e) => setClientTargets({ ...clientTargets, weight_goal_unit: e.target.value })}
+              style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', width: '80px', cursor: 'pointer' }}
+            >
+              <option value="lbs">lbs</option>
+              <option value="kg">kg</option>
+            </select>
+          </div>
+        </div>
+        <button onClick={saveClientTargets} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}>
+          {targetsSaved ? 'Saved ✓' : 'Save targets'}
+        </button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
