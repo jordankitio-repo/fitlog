@@ -48,6 +48,7 @@ function ClientView() {
   const [coachNotes, setCoachNotes] = useState('')
   const [notesSaved, setNotesSaved] = useState(false)
   const [consistency, setConsistency] = useState({ streak: 0, days7: 0, days30: 0 })
+  const [sentReports, setSentReports] = useState([])
 
   useEffect(() => {
   fetchClientProfile()
@@ -59,6 +60,7 @@ function ClientView() {
   fetchClientCheckIn()
   fetchCoachNotes()
   fetchConsistency()
+  fetchSentReports()
 }, [clientId])
 
   useEffect(() => {
@@ -378,6 +380,18 @@ async function saveCoachNotes() {
     }
   }
 
+  async function fetchSentReports() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const { data, error } = await supabase
+      .from('reports')
+      .select('id, content, week_of, created_at, read_at, archived')
+      .eq('coach_id', currentSession.user.id)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+    if (error) console.error(error)
+    else setSentReports(data)
+  }
+
   function goToPrevDay() {
     const d = new Date(selectedDate)
     d.setDate(d.getDate() - 1)
@@ -506,6 +520,34 @@ async function saveCoachNotes() {
           </div>
         </div>
       </div>
+
+      {sentReports.length > 0 && (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h2>Sent reports</h2>
+          {sentReports.map((r) => (
+            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
+              <div>
+                <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>Week of {r.week_of}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                  Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {r.archived && (
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-muted)', backgroundColor: 'var(--color-border)', padding: '2px 8px', borderRadius: '999px' }}>Archived</span>
+                )}
+                <span style={{
+                  fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '999px',
+                  backgroundColor: r.read_at ? '#064e3b' : '#1e3a5f',
+                  color: r.read_at ? '#34d399' : '#93c5fd'
+                }}>
+                  {r.read_at ? '✓ Read' : 'Unread'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <h2>Client targets</h2>
