@@ -69,6 +69,8 @@ function Dashboard({ profile }) {
   const [streak, setStreak] = useState(0)
   const [loggedToday, setLoggedToday] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [coachMessages, setCoachMessages] = useState([])
+  const [openReactId, setOpenReactId] = useState(null)
 
   // Section collapse state
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
@@ -99,7 +101,10 @@ function Dashboard({ profile }) {
     fetchCardioHistory()
     fetchStepsHistory()
     fetchStreak()
-    if (profile?.role === 'client') fetchCheckIn()
+    if (profile?.role === 'client') {
+      fetchCheckIn()
+      fetchCoachMessages()
+    }
   }, [selectedDate])
 
   async function fetchTotals() {
@@ -270,6 +275,34 @@ function Dashboard({ profile }) {
     setStreak(count)
   }
 
+  async function fetchCoachMessages() {
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+  const { data, error } = await supabase
+    .from('coach_messages')
+    .select('*')
+    .eq('client_id', currentSession.user.id)
+    .order('created_at', { ascending: false })
+  if (error) console.error(error)
+  else {
+    setCoachMessages(data)
+    const unreadIds = data.filter(m => !m.read_at).map(m => m.id)
+    if (unreadIds.length > 0) {
+      await supabase.from('coach_messages')
+        .update({ read_at: new Date().toISOString() })
+        .in('id', unreadIds)
+    }
+  }
+}
+
+async function reactToMessage(messageId, emoji) {
+  const { error } = await supabase
+    .from('coach_messages')
+    .update({ reaction: emoji })
+    .eq('id', messageId)
+  if (error) console.error(error)
+  else fetchCoachMessages()
+}
+
   async function fetchCheckIn() {
     const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
     const { data, error } = await supabase
@@ -416,6 +449,51 @@ function Dashboard({ profile }) {
           {!isToday && <button onClick={() => setSelectedDate(toLocalDateString(new Date()))} style={{ backgroundColor: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', fontSize: '0.875rem' }}>Today</button>}
         </div>
       </div>
+
+      {profile?.role === 'client' && coachMessages.length > 0 && (
+  <div style={cardStyle}>
+    <h2>Messages from your coach</h2>
+    {coachMessages.map(m => (
+      <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{m.content}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>
+            {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {m.reaction && (
+              <span style={{ fontSize: '1rem' }}>{m.reaction}</span>
+            )}
+            <button
+              onClick={() => setOpenReactId(openReactId === m.id ? null : m.id)}
+              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--color-muted)' }}
+            >
+              {m.reaction ? '✎' : 'React +'}
+            </button>
+          </div>
+        </div>
+        {openReactId === m.id && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--color-border)' }}>
+            {['👍', '💪', '🔥', '🎯', '👎', '😔', '😰', '🤕', '😴'].map(emoji => (
+              <button
+                key={emoji}
+                onClick={() => { reactToMessage(m.id, m.reaction === emoji ? null : emoji); setOpenReactId(null) }}
+                style={{
+                  backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent',
+                  border: '1px solid var(--color-border)', borderRadius: '6px',
+                  padding: '4px 10px', cursor: 'pointer', fontSize: '1rem',
+                  transition: 'background-color 0.1s'
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+)}
 
       {/* Coach reports */}
       {activeReports.length > 0 && (

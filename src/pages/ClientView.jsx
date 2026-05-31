@@ -49,6 +49,9 @@ function ClientView({ profile }) {
   const [notesSaved, setNotesSaved] = useState(false)
   const [consistency, setConsistency] = useState({ streak: 0, days7: 0, days30: 0 })
   const [sentReports, setSentReports] = useState([])
+  const [messages, setMessages] = useState([])
+  const [newMessage, setNewMessage] = useState('')
+  const [messageSending, setMessageSending] = useState(false)
 
   useEffect(() => {
   fetchClientProfile()
@@ -61,6 +64,7 @@ function ClientView({ profile }) {
   fetchCoachNotes()
   fetchConsistency()
   fetchSentReports()
+  fetchMessages()
 }, [clientId])
 
   useEffect(() => {
@@ -394,6 +398,32 @@ async function saveCoachNotes() {
     }
   }
 
+  async function fetchMessages() {
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+  const { data, error } = await supabase
+    .from('coach_messages')
+    .select('*')
+    .eq('coach_id', currentSession.user.id)
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false })
+  if (error) console.error(error)
+  else setMessages(data)
+}
+
+async function sendMessage() {
+  if (!newMessage.trim()) return
+  setMessageSending(true)
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+  const { error } = await supabase.from('coach_messages').insert([{
+    coach_id: currentSession.user.id,
+    client_id: clientId,
+    content: newMessage.trim()
+  }])
+  if (error) console.error(error)
+  else { setNewMessage(''); fetchMessages() }
+  setMessageSending(false)
+}
+
   async function fetchSentReports() {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const { data, error } = await supabase
@@ -534,6 +564,45 @@ async function saveCoachNotes() {
           </div>
         </div>
       </div>
+
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+  <h2>Quick notes</h2>
+  <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '-4px' }}>
+    Send a short message to {clientProfile?.full_name || 'your client'}. They'll see it on their dashboard.
+  </p>
+  <div style={{ display: 'flex', gap: '8px' }}>
+    <input
+      type="text"
+      placeholder="Great work this week! Keep it up..."
+      value={newMessage}
+      onChange={(e) => setNewMessage(e.target.value)}
+      onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+      style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
+    />
+    <button onClick={sendMessage} disabled={messageSending} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: 'pointer', fontWeight: 600, opacity: messageSending ? 0.7 : 1 }}>
+      Send
+    </button>
+  </div>
+
+  {messages.length > 0 && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+      {messages.map(m => (
+        <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{m.content}</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginTop: '4px' }}>
+              {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              {!m.read_at && <span style={{ marginLeft: '8px', color: '#fbbf24' }}>· Unread</span>}
+            </p>
+          </div>
+          {m.reaction && (
+            <span style={{ fontSize: '1.25rem' }}>{m.reaction}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
 
       {sentReports.length > 0 && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
