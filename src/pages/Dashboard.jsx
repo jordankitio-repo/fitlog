@@ -71,6 +71,9 @@ function Dashboard({ profile }) {
   const [showArchived, setShowArchived] = useState(false)
   const [coachMessages, setCoachMessages] = useState([])
   const [openReactId, setOpenReactId] = useState(null)
+  const [clientNote, setClientNote] = useState('')
+  const [noteSending, setNoteSending] = useState(false)
+  const [noteSent, setNoteSent] = useState(false)
 
   // Section collapse state
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
@@ -294,6 +297,36 @@ function Dashboard({ profile }) {
   }
 }
 
+async function sendNoteToCoach() {
+  if (!clientNote.trim()) return
+  setNoteSending(true)
+
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+
+  const { data: coachRelation } = await supabase
+    .from('coach_clients')
+    .select('coach_id')
+    .eq('client_id', currentSession.user.id)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!coachRelation) { setNoteSending(false); return }
+
+  const { error } = await supabase.from('client_messages').insert([{
+    coach_id: coachRelation.coach_id,
+    client_id: currentSession.user.id,
+    content: clientNote.trim()
+  }])
+
+  if (error) console.error(error)
+  else {
+    setClientNote('')
+    setNoteSent(true)
+    setTimeout(() => setNoteSent(false), 3000)
+  }
+  setNoteSending(false)
+}
+
 async function reactToMessage(messageId, emoji) {
   const { error } = await supabase
     .from('coach_messages')
@@ -450,50 +483,82 @@ async function reactToMessage(messageId, emoji) {
         </div>
       </div>
 
-      {profile?.role === 'client' && coachMessages.length > 0 && (
-  <div style={cardStyle}>
-    <h2>Messages from your coach</h2>
-    {coachMessages.map(m => (
-      <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{m.content}</p>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>
-            {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {m.reaction && (
-              <span style={{ fontSize: '1rem' }}>{m.reaction}</span>
-            )}
+      {profile?.role === 'client' && (
+        <div style={cardStyle}>
+          <h2>Messages</h2>
+
+          {coachMessages.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {coachMessages.map(m => (
+                <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#a78bfa', backgroundColor: 'var(--color-border)', padding: '2px 6px', borderRadius: '999px', whiteSpace: 'nowrap', marginTop: '2px' }}>Coach</span>
+                    <p style={{ fontSize: '0.875rem', lineHeight: '1.5', flex: 1 }}>{m.content}</p>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>
+                      {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {m.reaction && <span style={{ fontSize: '1rem' }}>{m.reaction}</span>}
+                      <button
+                        onClick={() => setOpenReactId(openReactId === m.id ? null : m.id)}
+                        style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--color-muted)' }}
+                      >
+                        {m.reaction ? '✎' : 'React +'}
+                      </button>
+                    </div>
+                  </div>
+                  {openReactId === m.id && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--color-border)' }}>
+                      {['👍', '💪', '🔥', '🎯', '👎', '😔', '😰', '🤕', '😴'].map(emoji => (
+                        <button
+                          key={emoji}
+                          onClick={() => { reactToMessage(m.id, m.reaction === emoji ? null : emoji); setOpenReactId(null) }}
+                          style={{ backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '1rem' }}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                      {m.reaction && (
+                        <button
+                          onClick={() => { reactToMessage(m.id, null); setOpenReactId(null) }}
+                          style={{ backgroundColor: 'transparent', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#f87171', fontWeight: 600 }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {coachMessages.length > 0 && (
+            <div style={{ borderTop: '1px solid var(--color-border)', marginTop: '4px' }} />
+          )}
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="Send a note to your coach..."
+              value={clientNote}
+              onChange={(e) => setClientNote(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendNoteToCoach()}
+              style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
+            />
             <button
-              onClick={() => setOpenReactId(openReactId === m.id ? null : m.id)}
-              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--color-muted)' }}
+              onClick={sendNoteToCoach}
+              disabled={noteSending || !clientNote.trim()}
+              style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: noteSending ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: noteSending ? 0.7 : 1 }}
             >
-              {m.reaction ? '✎' : 'React +'}
+              Send
             </button>
           </div>
+          {noteSent && <p style={{ color: '#34d399', fontSize: '0.875rem' }}>✓ Note sent to your coach.</p>}
         </div>
-        {openReactId === m.id && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--color-border)' }}>
-            {['👍', '💪', '🔥', '🎯', '👎', '😔', '😰', '🤕', '😴'].map(emoji => (
-              <button
-                key={emoji}
-                onClick={() => { reactToMessage(m.id, m.reaction === emoji ? null : emoji); setOpenReactId(null) }}
-                style={{
-                  backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent',
-                  border: '1px solid var(--color-border)', borderRadius: '6px',
-                  padding: '4px 10px', cursor: 'pointer', fontSize: '1rem',
-                  transition: 'background-color 0.1s'
-                }}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    ))}
-  </div>
-)}
+      )}
 
       {/* Coach reports */}
       {activeReports.length > 0 && (

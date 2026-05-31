@@ -20,6 +20,23 @@ ChartJS.register(
   BarElement, Title, Tooltip, Legend
 )
 
+function SectionHeader({ title, collapsed, onToggle, badge }) {
+  return (
+    <div
+      onClick={onToggle}
+      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h2 style={{ margin: 0 }}>{title}</h2>
+        {badge && (
+          <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>{badge}</span>
+        )}
+      </div>
+      <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{collapsed ? '▶' : '▼'}</span>
+    </div>
+  )
+}
+
 function toLocalDateString(date) {
   const d = new Date(date)
   return d.toISOString().split('T')[0]
@@ -55,6 +72,26 @@ function ClientView({ profile }) {
   const [callBriefing, setCallBriefing] = useState('')
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
+  const [clientMessages, setClientMessages] = useState([])
+  const [openClientReactId, setOpenClientReactId] = useState(null)
+  const [sectionsCollapsed, setSectionsCollapsed] = useState({
+    stats: false,
+    consistency: false,
+    messages: false,
+    sentReports: false,
+    targets: false,
+    nutritionLog: false,
+    checkIn: false,
+    privateNotes: false,
+    weightChart: false,
+    calorieChart: false,
+    cardioChart: false,
+    stepsChart: false,
+  })
+
+  function toggleSection(key) {
+    setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   useEffect(() => {
   fetchClientProfile()
@@ -68,6 +105,7 @@ function ClientView({ profile }) {
   fetchConsistency()
   fetchSentReports()
   fetchMessages()
+  fetchClientMessages()
 }, [clientId])
 
   useEffect(() => {
@@ -486,6 +524,33 @@ async function saveCoachNotes() {
   else setMessages(data)
 }
 
+async function fetchClientMessages() {
+  const { data, error } = await supabase
+    .from('client_messages')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false })
+  if (error) console.error(error)
+  else {
+    setClientMessages(data)
+    const unreadIds = data.filter(m => !m.read_at).map(m => m.id)
+    if (unreadIds.length > 0) {
+      await supabase.from('client_messages')
+        .update({ read_at: new Date().toISOString() })
+        .in('id', unreadIds)
+    }
+  }
+}
+
+async function reactToClientMessage(messageId, emoji) {
+  const { error } = await supabase
+    .from('client_messages')
+    .update({ reaction: emoji })
+    .eq('id', messageId)
+  if (error) console.error(error)
+  else fetchClientMessages()
+}
+
 async function sendMessage() {
   if (!newMessage.trim()) return
   setMessageSending(true)
@@ -672,20 +737,22 @@ async function sendMessage() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-        <StatCard label="Calories" value={totals.calories} />
-        <StatCard label="Protein" value={`${totals.protein}g`} />
-        <StatCard label="Carbs" value={`${totals.carbs}g`} />
-        <StatCard label="Fat" value={`${totals.fat}g`} />
-        <StatCard
-          label="Weight"
-          value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'}
-        />
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')} />
+        {!sectionsCollapsed.stats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            <StatCard label="Calories" value={totals.calories} />
+            <StatCard label="Protein" value={`${totals.protein}g`} />
+            <StatCard label="Carbs" value={`${totals.carbs}g`} />
+            <StatCard label="Fat" value={`${totals.fat}g`} />
+            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} />
+          </div>
+        )}
       </div>
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h2>Logging consistency</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')} />
+        {!sectionsCollapsed.consistency && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
           <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Current streak</p>
             <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.streak > 0 ? '#34d399' : 'var(--color-muted)' }}>
@@ -705,52 +772,117 @@ async function sendMessage() {
               {consistency.days30}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
             </p>
           </div>
-        </div>
+        </div>}
       </div>
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-  <h2>Quick notes</h2>
-  <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '-4px' }}>
-    Send a short message to {clientProfile?.full_name || 'your client'}. They'll see it on their dashboard.
-  </p>
-  <div style={{ display: 'flex', gap: '8px' }}>
-    <input
-      type="text"
-      placeholder="Great work this week! Keep it up..."
-      value={newMessage}
-      onChange={(e) => setNewMessage(e.target.value)}
-      onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-      style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
-    />
-    <button onClick={sendMessage} disabled={messageSending} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: 'pointer', fontWeight: 600, opacity: messageSending ? 0.7 : 1 }}>
-      Send
-    </button>
-  </div>
+        <SectionHeader
+          title="Messages"
+          collapsed={sectionsCollapsed.messages}
+          onToggle={() => toggleSection('messages')}
+          badge={clientMessages.some(m => !m.read_at) ? `${clientMessages.filter(m => !m.read_at).length} new from client` : null}
+        />
+        {!sectionsCollapsed.messages && (
+          <>
+            {clientMessages.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {clientMessages.map(m => (
+                  <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#34d399', backgroundColor: 'var(--color-border)', padding: '2px 6px', borderRadius: '999px', whiteSpace: 'nowrap', marginTop: '2px' }}>Client</span>
+                          <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{m.content}</p>
+                        </div>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginLeft: '44px' }}>
+                          {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {!m.read_at && (
+                          <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '2px 6px', borderRadius: '999px' }}>NEW</span>
+                        )}
+                        {m.reaction && <span style={{ fontSize: '1rem' }}>{m.reaction}</span>}
+                        <button
+                          onClick={() => setOpenClientReactId(openClientReactId === m.id ? null : m.id)}
+                          style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--color-muted)' }}
+                        >
+                          {m.reaction ? '✎' : 'React +'}
+                        </button>
+                      </div>
+                    </div>
+                    {openClientReactId === m.id && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--color-border)' }}>
+                        {['👍', '💪', '🔥', '🎯', '👎', '😔', '😰', '🤕', '😴'].map(emoji => (
+                          <button
+                            key={emoji}
+                            onClick={() => { reactToClientMessage(m.id, m.reaction === emoji ? null : emoji); setOpenClientReactId(null) }}
+                            style={{ backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '1rem' }}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                        {m.reaction && (
+                          <button
+                            onClick={() => { reactToClientMessage(m.id, null); setOpenClientReactId(null) }}
+                            style={{ backgroundColor: 'transparent', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#f87171', fontWeight: 600 }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-  {messages.length > 0 && (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-      {messages.map(m => (
-        <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{m.content}</p>
-            <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginTop: '4px' }}>
-              {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              {!m.read_at && <span style={{ marginLeft: '8px', color: '#fbbf24' }}>· Unread</span>}
+            {clientMessages.length > 0 && <div style={{ borderTop: '1px solid var(--color-border)' }} />}
+
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>
+              Send a message to {clientProfile?.full_name || 'client'}
             </p>
-          </div>
-          {m.reaction && (
-            <span style={{ fontSize: '1.25rem' }}>{m.reaction}</span>
-          )}
-        </div>
-      ))}
-    </div>
-  )}
-</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="Great work this week! Keep it up..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
+              />
+              <button onClick={sendMessage} disabled={messageSending} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 16px', cursor: 'pointer', fontWeight: 600, opacity: messageSending ? 0.7 : 1 }}>
+                Send
+              </button>
+            </div>
+
+            {messages.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--color-border)', paddingTop: '8px' }}>
+                {messages.map(m => (
+                  <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#a78bfa', backgroundColor: 'var(--color-border)', padding: '2px 6px', borderRadius: '999px', whiteSpace: 'nowrap', marginTop: '2px' }}>You</span>
+                        <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{m.content}</p>
+                      </div>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginLeft: '44px' }}>
+                        {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {!m.read_at && <span style={{ marginLeft: '8px', color: '#fbbf24' }}>· Unread</span>}
+                      </p>
+                    </div>
+                    {m.reaction && <span style={{ fontSize: '1.25rem' }}>{m.reaction}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {sentReports.length > 0 && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h2>Sent reports</h2>
-          {sentReports.map((r) => (
+          <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')} />
+          {!sectionsCollapsed.sentReports && sentReports.map((r) => (
             <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
               <div>
                 <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>Week of {r.week_of}</p>
@@ -776,7 +908,8 @@ async function sendMessage() {
       )}
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <h2>Client targets</h2>
+        <SectionHeader title="Client targets" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')} />
+        {!sectionsCollapsed.targets && <>
         <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '-8px' }}>
           Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
         </p>
@@ -824,131 +957,139 @@ async function sendMessage() {
         <button onClick={saveClientTargets} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}>
           {targetsSaved ? 'Saved ✓' : 'Save targets'}
         </button>
+        </>}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <h2>Nutrition log</h2>
-        {entries.length === 0 ? (
-          <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
-            No entries for this day.
-          </p>
-        ) : (
-          entries.map((entry) => (
-            <div key={entry.id} style={{
-              backgroundColor: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius)',
-              padding: '14px 20px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span>{entry.food}</span>
-              <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem' }}>
-                <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
-                <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
-                <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
-                <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
-                <span style={{ color: 'var(--color-muted)' }}>{entry.serving_size}{entry.serving_unit}</span>
-              </div>
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')} />
+        {!sectionsCollapsed.nutritionLog && (
+          entries.length === 0 ? (
+            <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
+              No entries for this day.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {entries.map((entry) => (
+                <div key={entry.id} style={{
+                  backgroundColor: 'var(--color-bg)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius)',
+                  padding: '14px 20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span>{entry.food}</span>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem' }}>
+                    <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
+                    <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
+                    <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
+                    <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
+                    <span style={{ color: 'var(--color-muted)' }}>{entry.serving_size}{entry.serving_unit}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))
+          )
         )}
       </div>
 
       {clientCheckIn && (
-  <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-    <h2>This week's check-in</h2>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-      <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
-        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
-        <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
-      </div>
-      <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
-        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Energy level</p>
-        <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.energy_level}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
-      </div>
-    </div>
-    {clientCheckIn.obstacles && (
-      <div>
-        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Obstacles</p>
-        <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
-      </div>
-    )}
-    {clientCheckIn.notes && (
-      <div>
-        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Notes for coach</p>
-        <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
-      </div>
-    )}
-  </div>
-)}
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <SectionHeader title="This week's check-in" collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')} />
+          {!sectionsCollapsed.checkIn && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
+                  <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+                </div>
+                <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Energy level</p>
+                  <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.energy_level}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+                </div>
+              </div>
+              {clientCheckIn.obstacles && (
+                <div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Obstacles</p>
+                  <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
+                </div>
+              )}
+              {clientCheckIn.notes && (
+                <div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Notes for coach</p>
+                  <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-  <div>
-    <h2>Private notes</h2>
-    <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '4px' }}>
-      Only you can see these. Client never has access.
-    </p>
-  </div>
-  <textarea
-    value={coachNotes}
-    onChange={(e) => setCoachNotes(e.target.value)}
-    placeholder="Injuries, life context, goals, observations..."
-    rows={5}
-    style={{
-      backgroundColor: 'var(--color-bg)',
-      border: '1px solid var(--color-border)',
-      borderRadius: 'var(--radius)',
-      padding: '12px 14px',
-      color: 'var(--color-text)',
-      fontSize: '0.875rem',
-      lineHeight: '1.6',
-      resize: 'vertical',
-      fontFamily: 'inherit',
-      width: '100%'
-    }}
-  />
-  <button onClick={saveCoachNotes} style={{
-    backgroundColor: 'transparent',
-    color: 'var(--color-primary)',
-    border: '1px solid var(--color-primary)',
-    borderRadius: 'var(--radius)',
-    padding: '8px 16px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.875rem',
-    width: 'fit-content'
-  }}>
-    {notesSaved ? 'Saved ✓' : 'Save notes'}
-  </button>
-</div>
+        <SectionHeader title="Private notes" collapsed={sectionsCollapsed.privateNotes} onToggle={() => toggleSection('privateNotes')} />
+        {!sectionsCollapsed.privateNotes && (
+          <>
+            <textarea
+              value={coachNotes}
+              onChange={(e) => setCoachNotes(e.target.value)}
+              placeholder="Injuries, life context, goals, observations..."
+              rows={5}
+              style={{
+                backgroundColor: 'var(--color-bg)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius)',
+                padding: '12px 14px',
+                color: 'var(--color-text)',
+                fontSize: '0.875rem',
+                lineHeight: '1.6',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                width: '100%'
+              }}
+            />
+            <button onClick={saveCoachNotes} style={{
+              backgroundColor: 'transparent',
+              color: 'var(--color-primary)',
+              border: '1px solid var(--color-primary)',
+              borderRadius: 'var(--radius)',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              width: 'fit-content'
+            }}>
+              {notesSaved ? 'Saved ✓' : 'Save notes'}
+            </button>
+          </>
+        )}
+      </div>
 
       {weightHistory.length > 1 && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h2>Weight trend</h2>
-          <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', tension: 0.3, fill: true }] }} options={chartOptions} />
+          <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} />
+          {!sectionsCollapsed.weightChart && <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', tension: 0.3, fill: true }] }} options={chartOptions} />}
         </div>
       )}
 
       {calorieHistory.length > 0 && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h2>Calories — last 14 days</h2>
-          <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: '#4f8ef7', borderRadius: 4 }] }} options={chartOptions} />
+          <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} />
+          {!sectionsCollapsed.calorieChart && <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: '#4f8ef7', borderRadius: 4 }] }} options={chartOptions} />}
         </div>
       )}
 
       {cardioHistory.length > 0 && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h2>Cardio — last 14 days</h2>
-          <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: '#a78bfa', borderRadius: 4 }] }} options={chartOptions} />
+          <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} />
+          {!sectionsCollapsed.cardioChart && <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: '#a78bfa', borderRadius: 4 }] }} options={chartOptions} />}
         </div>
       )}
 
       {stepsHistory.length > 0 && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h2>Steps — last 14 days</h2>
-          <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
+          <SectionHeader title="Steps — last 14 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} />
+          {!sectionsCollapsed.stepsChart && <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />}
         </div>
       )}
     </div>
