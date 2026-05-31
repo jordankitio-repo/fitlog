@@ -47,6 +47,7 @@ function ClientView() {
   const [clientCheckIn, setClientCheckIn] = useState(null)
   const [coachNotes, setCoachNotes] = useState('')
   const [notesSaved, setNotesSaved] = useState(false)
+  const [consistency, setConsistency] = useState({ streak: 0, days7: 0, days30: 0 })
 
   useEffect(() => {
   fetchClientProfile()
@@ -57,6 +58,7 @@ function ClientView() {
   fetchClientTargets()
   fetchClientCheckIn()
   fetchCoachNotes()
+  fetchConsistency()
 }, [clientId])
 
   useEffect(() => {
@@ -188,6 +190,39 @@ async function fetchStepsHistory() {
     .maybeSingle()
   if (error) console.error(error)
   else if (data) setCoachNotes(data.content || '')
+}
+
+async function fetchConsistency() {
+  const { data, error } = await supabase
+    .from('nutrition_log')
+    .select('logged_date')
+    .eq('user_id', clientId)
+    .gte('logged_date', toLocalDateString(new Date(new Date().setDate(new Date().getDate() - 30))))
+    .order('logged_date', { ascending: false })
+
+  if (error) { console.error(error); return }
+
+  const loggedDates = [...new Set(data.map(e => e.logged_date))]
+
+  const today = new Date()
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() - i); return toLocalDateString(d)
+  })
+  const last30 = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() - i); return toLocalDateString(d)
+  })
+
+  const days7 = last7.filter(d => loggedDates.includes(d)).length
+  const days30 = last30.filter(d => loggedDates.includes(d)).length
+
+  let streak = 0
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i)
+    if (loggedDates.includes(toLocalDateString(d))) streak++
+    else break
+  }
+
+  setConsistency({ streak, days7, days30 })
 }
 
 async function saveCoachNotes() {
@@ -445,6 +480,31 @@ async function saveCoachNotes() {
           label="Weight"
           value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'}
         />
+      </div>
+
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2>Logging consistency</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Current streak</p>
+            <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.streak > 0 ? '#34d399' : 'var(--color-muted)' }}>
+              {consistency.streak}
+              <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}> days</span>
+            </p>
+          </div>
+          <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 7 days</p>
+            <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days7 >= 5 ? '#34d399' : consistency.days7 >= 3 ? 'var(--color-primary)' : '#f87171' }}>
+              {consistency.days7}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+            </p>
+          </div>
+          <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 30 days</p>
+            <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days30 >= 20 ? '#34d399' : consistency.days30 >= 10 ? 'var(--color-primary)' : '#f87171' }}>
+              {consistency.days30}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
+            </p>
+          </div>
+        </div>
       </div>
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>

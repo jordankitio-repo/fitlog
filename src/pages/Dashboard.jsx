@@ -42,6 +42,8 @@ function Dashboard({ profile }) {
   const [checkIn, setCheckIn] = useState({ adherence_rating: 5, energy_level: 5, obstacles: '', notes: '' })
   const [checkInSaved, setCheckInSaved] = useState(false)
   const [existingCheckIn, setExistingCheckIn] = useState(null)
+  const [streak, setStreak] = useState(0)
+  const [loggedToday, setLoggedToday] = useState(false)
 
   useEffect(() => {
     fetchTotals()
@@ -54,6 +56,7 @@ function Dashboard({ profile }) {
     fetchStepsToday()
     fetchCardioHistory()
     fetchStepsHistory()
+    fetchStreak()
     if (profile?.role === 'client') fetchCheckIn()
   }, [selectedDate])
 
@@ -169,6 +172,35 @@ function Dashboard({ profile }) {
     })).sort((a, b) => a.date.localeCompare(b.date)))
   }
 
+  async function fetchStreak() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const { data, error } = await supabase
+      .from('nutrition_log')
+      .select('logged_date')
+      .eq('user_id', currentSession.user.id)
+      .gte('logged_date', toLocalDateString(new Date(new Date().setDate(new Date().getDate() - 60))))
+      .order('logged_date', { ascending: false })
+
+    if (error) { console.error(error); return }
+
+    const loggedDates = [...new Set(data.map(e => e.logged_date))]
+    const today = new Date()
+
+    // If today is logged, start from today. Otherwise start from yesterday
+    // so the streak stays alive until midnight
+    const startOffset = loggedDates.includes(toLocalDateString(today)) ? 0 : 1
+
+    let count = 0
+    for (let i = startOffset; i < 60; i++) {
+      const d = new Date(today)
+      d.setDate(d.getDate() - i)
+      if (loggedDates.includes(toLocalDateString(d))) count++
+      else break
+    }
+    setLoggedToday(loggedDates.includes(toLocalDateString(today)))
+    setStreak(count)
+  }
+
   async function fetchCheckIn() {
     const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
     const { data, error } = await supabase
@@ -266,6 +298,37 @@ function Dashboard({ profile }) {
       {/* Date nav */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <h1>{profile?.role === 'client' ? 'My Progress' : 'Dashboard'}</h1>
+        {streak > 0 && (
+          <div style={{
+            background: streak >= 7
+              ? 'linear-gradient(135deg, #065f46, #064e3b)'
+              : 'linear-gradient(135deg, #1e3a5f, #1e3f6f)',
+            border: `1px solid ${streak >= 7 ? '#34d399' : 'var(--color-primary)'}`,
+            borderRadius: 'var(--radius)',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div>
+              <p style={{ fontSize: '0.75rem', color: streak >= 7 ? '#6ee7b7' : '#93c5fd', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Logging streak
+              </p>
+              <p style={{ fontWeight: 800, fontSize: '2rem', color: streak >= 7 ? '#34d399' : 'var(--color-primary)', lineHeight: 1 }}>
+                {streak} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{streak === 1 ? 'day' : 'days'}</span>
+              </p>
+              {streak >= 7 && loggedToday && (
+                <p style={{ fontSize: '0.75rem', color: '#6ee7b7', marginTop: '4px' }}>Keep it going — you're on a roll!</p>
+              )}
+              {!loggedToday && (
+                <p style={{ fontSize: '0.75rem', color: '#fbbf24', marginTop: '4px' }}>Log today to keep your streak!</p>
+              )}
+            </div>
+            <span style={{ fontSize: streak >= 7 ? '2.5rem' : '2rem' }}>
+              {streak >= 30 ? '🏆' : streak >= 14 ? '🔥' : streak >= 7 ? '⭐' : '💪'}
+            </span>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button onClick={goToPrevDay} style={navBtnStyle}>←</button>
           <input
