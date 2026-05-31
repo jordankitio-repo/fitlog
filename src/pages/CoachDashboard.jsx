@@ -265,7 +265,7 @@ function CoachDashboard({ profile }) {
             onChange={(e) => setInviteEmail(e.target.value)}
             style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem' }}
           />
-          <button onClick={sendInvite} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>
+          <button onClick={sendInvite} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 14px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
             Send invite
           </button>
         </div>

@@ -315,7 +315,7 @@ function startEditCardio(entry) {
         <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
           {EXERCISE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
           <input type="number" placeholder="Duration (min)" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
