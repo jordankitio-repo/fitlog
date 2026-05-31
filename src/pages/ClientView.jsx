@@ -45,6 +45,8 @@ function ClientView() {
   })
   const [targetsSaved, setTargetsSaved] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
+  const [coachNotes, setCoachNotes] = useState('')
+  const [notesSaved, setNotesSaved] = useState(false)
 
   useEffect(() => {
   fetchClientProfile()
@@ -54,6 +56,7 @@ function ClientView() {
   fetchStepsHistory()
   fetchClientTargets()
   fetchClientCheckIn()
+  fetchCoachNotes()
 }, [clientId])
 
   useEffect(() => {
@@ -173,6 +176,32 @@ async function fetchStepsHistory() {
     .maybeSingle()
   if (error) console.error(error)
   else setClientCheckIn(data)
+}
+
+  async function fetchCoachNotes() {
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+  const { data, error } = await supabase
+    .from('coach_notes')
+    .select('content')
+    .eq('coach_id', currentSession.user.id)
+    .eq('client_id', clientId)
+    .maybeSingle()
+  if (error) console.error(error)
+  else if (data) setCoachNotes(data.content || '')
+}
+
+async function saveCoachNotes() {
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+  const { error } = await supabase
+    .from('coach_notes')
+    .upsert({
+      coach_id: currentSession.user.id,
+      client_id: clientId,
+      content: coachNotes,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'coach_id,client_id' })
+  if (error) console.error(error)
+  else { setNotesSaved(true); setTimeout(() => setNotesSaved(false), 2000) }
 }
 
   async function fetchClientTargets() {
@@ -511,6 +540,46 @@ async function fetchStepsHistory() {
     )}
   </div>
 )}
+
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+  <div>
+    <h2>Private notes</h2>
+    <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '4px' }}>
+      Only you can see these. Client never has access.
+    </p>
+  </div>
+  <textarea
+    value={coachNotes}
+    onChange={(e) => setCoachNotes(e.target.value)}
+    placeholder="Injuries, life context, goals, observations..."
+    rows={5}
+    style={{
+      backgroundColor: 'var(--color-bg)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius)',
+      padding: '12px 14px',
+      color: 'var(--color-text)',
+      fontSize: '0.875rem',
+      lineHeight: '1.6',
+      resize: 'vertical',
+      fontFamily: 'inherit',
+      width: '100%'
+    }}
+  />
+  <button onClick={saveCoachNotes} style={{
+    backgroundColor: 'transparent',
+    color: 'var(--color-primary)',
+    border: '1px solid var(--color-primary)',
+    borderRadius: 'var(--radius)',
+    padding: '8px 16px',
+    cursor: 'pointer',
+    fontWeight: 600,
+    fontSize: '0.875rem',
+    width: 'fit-content'
+  }}>
+    {notesSaved ? 'Saved ✓' : 'Save notes'}
+  </button>
+</div>
 
       <button onClick={generateWeeklyReport} disabled={reportLoading} style={{
         backgroundColor: '#1a1a1a',
