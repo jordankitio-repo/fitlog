@@ -44,6 +44,7 @@ function ClientView() {
     cardio_minutes: '', steps: '', weight_goal: '', weight_goal_unit: 'lbs'
   })
   const [targetsSaved, setTargetsSaved] = useState(false)
+  const [clientCheckIn, setClientCheckIn] = useState(null)
 
   useEffect(() => {
   fetchClientProfile()
@@ -52,6 +53,7 @@ function ClientView() {
   fetchCardioHistory()
   fetchStepsHistory()
   fetchClientTargets()
+  fetchClientCheckIn()
 }, [clientId])
 
   useEffect(() => {
@@ -159,6 +161,18 @@ async function fetchStepsHistory() {
   else setStepsHistory(data.map(d => ({
     date: d.logged_date.slice(5), steps: d.steps
   })).sort((a, b) => a.date.localeCompare(b.date)))
+}
+
+  async function fetchClientCheckIn() {
+  const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+  const { data, error } = await supabase
+    .from('check_ins')
+    .select('*')
+    .eq('client_id', clientId)
+    .eq('week_of', weekOf)
+    .maybeSingle()
+  if (error) console.error(error)
+  else setClientCheckIn(data)
 }
 
   async function fetchClientTargets() {
@@ -469,6 +483,34 @@ async function fetchStepsHistory() {
           ))
         )}
       </div>
+
+      {clientCheckIn && (
+  <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <h2>This week's check-in</h2>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+      <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
+        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
+        <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+      </div>
+      <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
+        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Energy level</p>
+        <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.energy_level}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+      </div>
+    </div>
+    {clientCheckIn.obstacles && (
+      <div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Obstacles</p>
+        <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
+      </div>
+    )}
+    {clientCheckIn.notes && (
+      <div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Notes for coach</p>
+        <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
+      </div>
+    )}
+  </div>
+)}
 
       <button onClick={generateWeeklyReport} disabled={reportLoading} style={{
         backgroundColor: '#1a1a1a',

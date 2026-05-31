@@ -38,6 +38,10 @@ function Dashboard({ profile }) {
   const [stepsHistory, setStepsHistory] = useState([])
   const [reportsCollapsed, setReportsCollapsed] = useState(false)
   const [collapsedWeeks, setCollapsedWeeks] = useState({})
+  const [showCheckIn, setShowCheckIn] = useState(false)
+  const [checkIn, setCheckIn] = useState({ adherence_rating: 5, energy_level: 5, obstacles: '', notes: '' })
+  const [checkInSaved, setCheckInSaved] = useState(false)
+  const [existingCheckIn, setExistingCheckIn] = useState(null)
 
   useEffect(() => {
     fetchTotals()
@@ -50,6 +54,7 @@ function Dashboard({ profile }) {
     fetchStepsToday()
     fetchCardioHistory()
     fetchStepsHistory()
+    if (profile?.role === 'client') fetchCheckIn()
   }, [selectedDate])
 
   async function fetchTotals() {
@@ -162,6 +167,50 @@ function Dashboard({ profile }) {
     else setStepsHistory(data.map(d => ({
       date: d.logged_date.slice(5), steps: d.steps
     })).sort((a, b) => a.date.localeCompare(b.date)))
+  }
+
+  async function fetchCheckIn() {
+    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+    const { data, error } = await supabase
+      .from('check_ins')
+      .select('*')
+      .eq('client_id', (await supabase.auth.getSession()).data.session.user.id)
+      .eq('week_of', weekOf)
+      .maybeSingle()
+    if (error) console.error(error)
+    else if (data) {
+      setExistingCheckIn(data)
+      setCheckIn({
+        adherence_rating: data.adherence_rating || 5,
+        energy_level: data.energy_level || 5,
+        obstacles: data.obstacles || '',
+        notes: data.notes || ''
+      })
+    }
+  }
+
+  async function saveCheckIn() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+
+    const { error } = await supabase
+      .from('check_ins')
+      .upsert({
+        client_id: currentSession.user.id,
+        week_of: weekOf,
+        adherence_rating: checkIn.adherence_rating,
+        energy_level: checkIn.energy_level,
+        obstacles: checkIn.obstacles,
+        notes: checkIn.notes
+      }, { onConflict: 'client_id,week_of' })
+
+    if (error) console.error(error)
+    else {
+      setCheckInSaved(true)
+      setShowCheckIn(false)
+      fetchCheckIn()
+      setTimeout(() => setCheckInSaved(false), 3000)
+    }
   }
 
   const isToday = selectedDate === toLocalDateString(new Date())
@@ -346,6 +395,73 @@ function Dashboard({ profile }) {
     })()}
   </div>
 )}
+
+      {/* Weekly check-in */}
+      {profile?.role === 'client' && (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h2>Weekly check-in</h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '4px' }}>
+                {existingCheckIn ? '✓ Submitted this week' : 'Let your coach know how your week went.'}
+              </p>
+            </div>
+            <button onClick={() => setShowCheckIn(!showCheckIn)} style={{
+              backgroundColor: existingCheckIn ? 'transparent' : 'var(--color-primary)',
+              color: existingCheckIn ? 'var(--color-muted)' : '#fff',
+              border: existingCheckIn ? '1px solid var(--color-border)' : 'none',
+              borderRadius: 'var(--radius)', padding: '8px 16px',
+              cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem'
+            }}>
+              {existingCheckIn ? 'Edit' : 'Fill out'}
+            </button>
+          </div>
+
+          {showCheckIn && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
+              <div>
+                <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Adherence — how well did you follow the plan? <strong>{checkIn.adherence_rating}/10</strong></p>
+                <input type="range" min="1" max="10" value={checkIn.adherence_rating}
+                  onChange={(e) => setCheckIn({ ...checkIn, adherence_rating: parseInt(e.target.value) })}
+                  style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
+              </div>
+
+              <div>
+                <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Energy levels this week <strong>{checkIn.energy_level}/10</strong></p>
+                <input type="range" min="1" max="10" value={checkIn.energy_level}
+                  onChange={(e) => setCheckIn({ ...checkIn, energy_level: parseInt(e.target.value) })}
+                  style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
+              </div>
+
+              <div>
+                <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Any obstacles or challenges?</p>
+                <textarea value={checkIn.obstacles}
+                  onChange={(e) => setCheckIn({ ...checkIn, obstacles: e.target.value })}
+                  placeholder="Stress, travel, injury, time constraints..."
+                  rows={3}
+                  style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
+
+              <div>
+                <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Notes for your coach</p>
+                <textarea value={checkIn.notes}
+                  onChange={(e) => setCheckIn({ ...checkIn, notes: e.target.value })}
+                  placeholder="Anything else you want your coach to know..."
+                  rows={3}
+                  style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
+
+              <button onClick={saveCheckIn} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600, width: 'fit-content' }}>
+                Submit check-in
+              </button>
+            </div>
+          )}
+
+          {checkInSaved && (
+            <p style={{ color: '#34d399', fontSize: '0.875rem' }}>✓ Check-in submitted successfully.</p>
+          )}
+        </div>
+      )}
 
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
