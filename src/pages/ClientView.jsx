@@ -25,7 +25,7 @@ function toLocalDateString(date) {
   return d.toISOString().split('T')[0]
 }
 
-function ClientView() {
+function ClientView({ profile }) {
   const { clientId } = useParams()
   const navigate = useNavigate()
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
@@ -377,6 +377,20 @@ async function saveCoachNotes() {
     } else {
       setReport('')
       alert('Report sent to client.')
+      // Notify client by email
+      fetch('https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/notify-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          clientEmail: clientProfile.email,
+          clientName: clientProfile.full_name || 'there',
+          coachName: profile?.full_name || 'Your coach',
+          weekOf
+        }),
+      })
     }
   }
 

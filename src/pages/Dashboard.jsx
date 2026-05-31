@@ -291,13 +291,55 @@ function Dashboard({ profile }) {
   async function saveCheckIn() {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+
+    // Get coach info
+    const { data: coachRelation } = await supabase
+      .from('coach_clients')
+      .select('coach_id')
+      .eq('client_id', currentSession.user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    let coachEmail = null
+    let coachName = null
+    if (coachRelation) {
+      const { data: coachProfile } = await supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', coachRelation.coach_id)
+        .single()
+      coachEmail = coachProfile?.email
+      coachName = coachProfile?.full_name
+    }
+
     const { error } = await supabase.from('check_ins').upsert({
       client_id: currentSession.user.id, week_of: weekOf,
       adherence_rating: checkIn.adherence_rating, energy_level: checkIn.energy_level,
       obstacles: checkIn.obstacles, notes: checkIn.notes
     }, { onConflict: 'client_id,week_of' })
     if (error) console.error(error)
-    else { setCheckInSaved(true); setShowCheckIn(false); fetchCheckIn(); setTimeout(() => setCheckInSaved(false), 3000) }
+    else {
+      setCheckInSaved(true); setShowCheckIn(false); fetchCheckIn(); setTimeout(() => setCheckInSaved(false), 3000)
+      // Notify coach by email
+      if (coachEmail) {
+        fetch('https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/notify-checkin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession.access_token}`,
+          },
+          body: JSON.stringify({
+            coachEmail,
+            coachName: coachName || 'Coach',
+            clientName: profile?.full_name || 'Your client',
+            adherence: checkIn.adherence_rating,
+            energy: checkIn.energy_level,
+            obstacles: checkIn.obstacles,
+            notes: checkIn.notes
+          }),
+        })
+      }
+    }
   }
 
   const isToday = selectedDate === toLocalDateString(new Date())

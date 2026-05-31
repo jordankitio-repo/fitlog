@@ -60,7 +60,7 @@ function App() {
           <Route path="/log" element={session ? <Log session={session} profile={profile} /> : <Navigate to="/login" />} />
           <Route path="/profile" element={session ? <Profile session={session} profile={profile} /> : <Navigate to="/login" />} />
           <Route path="/join" element={<Join />} />
-          <Route path="/client/:clientId" element={session ? <ClientView /> : <Navigate to="/login" />} />
+          <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
           <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </main>
