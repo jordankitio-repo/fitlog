@@ -260,7 +260,7 @@ function startEditCardio(entry) {
   const inputStyle = {
     backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius)', padding: '10px 14px',
-    color: 'var(--color-text)', fontSize: '1rem'
+    color: 'var(--color-text)', fontSize: '1rem', minWidth: 0
   }
 
   const sectionStyle = {
@@ -391,17 +391,18 @@ function startEditCardio(entry) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {entries.length === 0 && <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>No nutrition entries for this day yet.</p>}
         {entries.map((entry) => (
-          <div key={entry.id} style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>{entry.food}</span>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem', alignItems: 'center' }}>
-              <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
-              <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
-              <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
-              <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
-              <span style={{ color: 'var(--color-muted)' }}>{entry.serving_size}{entry.serving_unit}</span>
-              <button onClick={() => startEdit(entry)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 8px' }}>✎</button>
-              <button onClick={() => deleteEntry(entry.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 8px' }}>✕</button>
+          <div key={entry.id} style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 600, flex: 1, marginRight: '8px', fontSize: '0.875rem' }}>{entry.food}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.875rem' }}>{entry.calories} cal</span>
+                <button onClick={() => startEdit(entry)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
+                <button onClick={() => deleteEntry(entry.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✕</button>
+              </div>
             </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+              P: {entry.protein}g · C: {entry.carbs}g · F: {entry.fat}g · {entry.serving_size}{entry.serving_unit}
+            </p>
           </div>
         ))}
       </div>
