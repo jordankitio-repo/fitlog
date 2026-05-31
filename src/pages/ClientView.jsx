@@ -52,6 +52,9 @@ function ClientView({ profile }) {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [messageSending, setMessageSending] = useState(false)
+  const [callBriefing, setCallBriefing] = useState('')
+  const [briefingLoading, setBriefingLoading] = useState(false)
+  const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
 
   useEffect(() => {
   fetchClientProfile()
@@ -398,6 +401,79 @@ async function saveCoachNotes() {
     }
   }
 
+  async function generateCallPrep() {
+    setBriefingLoading(true)
+    setCallBriefing('')
+
+    const { data: { session } } = await supabase.auth.getSession()
+
+    const days = []
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      days.push(toLocalDateString(d))
+    }
+
+    const [nutritionResult, weightResult, cardioResult, stepsResult] = await Promise.all([
+      supabase.from('nutrition_log').select('*').eq('user_id', clientId).in('logged_date', days),
+      supabase.from('weight_log').select('*').eq('user_id', clientId).in('logged_date', days),
+      supabase.from('cardio_log').select('*').eq('user_id', clientId).in('logged_date', days),
+      supabase.from('steps_log').select('*').eq('user_id', clientId).in('logged_date', days),
+    ])
+
+    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+    const { data: checkInData } = await supabase
+      .from('check_ins').select('*').eq('client_id', clientId).eq('week_of', weekOf).maybeSingle()
+
+    const { data: messagesData } = await supabase
+      .from('coach_messages').select('content, reaction, created_at')
+      .eq('coach_id', session.user.id).eq('client_id', clientId)
+      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+
+    const weekData = days.map(date => {
+      const dayEntries = nutritionResult.data?.filter(e => e.logged_date === date) || []
+      const dayWeight = weightResult.data?.find(w => w.logged_date === date)
+      const dayCardio = cardioResult.data?.filter(c => c.logged_date === date) || []
+      const daySteps = stepsResult.data?.find(s => s.logged_date === date)
+      return {
+        date,
+        weight: dayWeight ? `${dayWeight.weight} ${dayWeight.unit}` : null,
+        totalCalories: dayEntries.reduce((sum, e) => sum + (e.calories || 0), 0),
+        totalProtein: dayEntries.reduce((sum, e) => sum + (e.protein || 0), 0),
+        cardioSessions: dayCardio.map(c => `${c.exercise_type} ${c.duration}min`),
+        steps: daySteps?.steps || null
+      }
+    })
+
+    const response = await fetch(
+      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/call-prep',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          clientName: clientProfile?.full_name || 'Client',
+          weekData,
+          checkIn: checkInData ? {
+            adherence: checkInData.adherence_rating,
+            energy: checkInData.energy_level,
+            obstacles: checkInData.obstacles,
+            notes: checkInData.notes
+          } : null,
+          privateNotes: coachNotes,
+          recentMessages: messagesData || []
+        }),
+      }
+    )
+
+    const data = await response.json()
+    setCallBriefing(data.briefing || data.error || 'Failed to generate briefing.')
+    setBriefingLoading(false)
+  }
+
   async function fetchMessages() {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
   const { data, error } = await supabase
@@ -484,6 +560,73 @@ async function sendMessage() {
           <h1>{clientProfile?.full_name || 'Client'}</h1>
           <p style={{ fontSize: '0.875rem', marginTop: '2px' }}>{clientProfile?.email}</p>
         </div>
+      </div>
+
+      {/* AI Tools */}
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div
+          onClick={() => setAiToolsCollapsed(!aiToolsCollapsed)}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ margin: 0 }}>AI tools</h2>
+            <span style={{ fontSize: '0.7rem', color: '#a78bfa', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', border: '1px solid #a78bfa' }}>Coach only</span>
+          </div>
+          <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{aiToolsCollapsed ? '▶' : '▼'}</span>
+        </div>
+
+        {!aiToolsCollapsed && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button onClick={generateCallPrep} disabled={briefingLoading} style={{
+                backgroundColor: '#1a1a1a', color: '#a78bfa', border: '1px solid #a78bfa',
+                borderRadius: 'var(--radius)', padding: '10px 20px',
+                cursor: briefingLoading ? 'not-allowed' : 'pointer', fontWeight: 600,
+                opacity: briefingLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px'
+              }}>
+                {briefingLoading && <span style={{ width: '14px', height: '14px', border: '2px solid #a78bfa', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />}
+                {briefingLoading ? 'Preparing...' : '📋 Prep for call'}
+              </button>
+
+              <button onClick={generateWeeklyReport} disabled={reportLoading} style={{
+                backgroundColor: '#1a1a1a', color: 'var(--color-primary)', border: '1px solid var(--color-primary)',
+                borderRadius: 'var(--radius)', padding: '10px 20px',
+                cursor: reportLoading ? 'not-allowed' : 'pointer', fontWeight: 600,
+                opacity: reportLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px'
+              }}>
+                {reportLoading && <span style={{ width: '14px', height: '14px', border: '2px solid var(--color-primary)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />}
+                {reportLoading ? 'Generating...' : '📝 Generate weekly report'}
+              </button>
+            </div>
+
+            {callBriefing && (
+              <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid #a78bfa', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <p style={{ fontWeight: 600 }}>Call briefing — {clientProfile?.full_name}</p>
+                  <button onClick={() => setCallBriefing('')} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 12px', cursor: 'pointer', fontSize: '0.8rem' }}>Dismiss</button>
+                </div>
+                <p style={{ fontSize: '0.65rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Not visible to client</p>
+                <pre style={{ color: 'var(--color-text)', fontSize: '0.875rem', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{callBriefing}</pre>
+              </div>
+            )}
+
+            {report && (
+              <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ fontWeight: 600 }}>Weekly Report</p>
+                <textarea
+                  value={report}
+                  onChange={(e) => setReport(e.target.value)}
+                  rows={20}
+                  style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px', color: 'var(--color-text)', fontSize: '0.9rem', lineHeight: '1.7', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
+                />
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button onClick={sendReport} style={{ backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>Send to client</button>
+                  <button onClick={() => setReport('')} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 20px', cursor: 'pointer' }}>Discard</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -781,86 +924,6 @@ async function sendMessage() {
   </button>
 </div>
 
-      <button onClick={generateWeeklyReport} disabled={reportLoading} style={{
-        backgroundColor: '#1a1a1a',
-        color: 'var(--color-primary)',
-        border: '1px solid var(--color-primary)',
-        borderRadius: 'var(--radius)',
-        padding: '10px 20px',
-        cursor: reportLoading ? 'not-allowed' : 'pointer',
-        fontWeight: 600,
-        width: 'fit-content',
-        opacity: reportLoading ? 0.7 : 1,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}>
-        {reportLoading && (
-          <span style={{
-            width: '14px', height: '14px',
-            border: '2px solid var(--color-primary)',
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            display: 'inline-block',
-            animation: 'spin 0.7s linear infinite'
-          }} />
-        )}
-        {reportLoading ? 'Generating report...' : 'Generate weekly report'}
-      </button>
-
-      {report && (
-        <div style={{
-          backgroundColor: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px'
-        }}>
-          <h2>Weekly Report</h2>
-          <textarea
-            value={report}
-            onChange={(e) => setReport(e.target.value)}
-            rows={20}
-            style={{
-              backgroundColor: 'var(--color-bg)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius)',
-              padding: '14px',
-              color: 'var(--color-text)',
-              fontSize: '0.9rem',
-              lineHeight: '1.7',
-              resize: 'vertical',
-              fontFamily: 'inherit',
-              width: '100%'
-            }}
-          />
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={sendReport} style={{
-              backgroundColor: 'var(--color-primary)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 'var(--radius)',
-              padding: '10px 20px',
-              cursor: 'pointer',
-              fontWeight: 600
-            }}>
-              Send to client
-            </button>
-            <button onClick={() => setReport('')} style={{
-              backgroundColor: 'transparent',
-              color: 'var(--color-muted)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius)',
-              padding: '10px 20px',
-              cursor: 'pointer'
-            }}>
-              Discard
-            </button>
-          </div>
-        </div>
-      )}
       {weightHistory.length > 1 && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <h2>Weight trend</h2>
