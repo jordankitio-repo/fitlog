@@ -52,52 +52,82 @@ function CoachDashboard({ profile }) {
   async function fetchAllClientStats(clientIds) {
     const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
     const negativeEmojis = ['👎', '😔', '😰', '🤕', '😴']
+    const sevenDaysAgo = toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+    const today = toLocalDateString(new Date())
 
-    // Three batch queries in parallel
-    const [logsResult, checkInsResult, messagesResult] = await Promise.all([
-      supabase
-        .from('nutrition_log')
-        .select('user_id, logged_date')
-        .in('user_id', clientIds)
-        .order('logged_date', { ascending: false }),
-
-      supabase
-        .from('check_ins')
-        .select('*')
-        .in('client_id', clientIds)
-        .eq('week_of', weekOf),
-
-      supabase
-        .from('coach_messages')
-        .select('client_id, reaction, content, created_at')
-        .in('client_id', clientIds)
-        .eq('coach_id', profile.id)
-        .not('reaction', 'is', null)
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+    const [logsResult, checkInsResult, messagesResult, nutritionResult, cardioResult, stepsResult, targetsResult] = await Promise.all([
+      supabase.from('nutrition_log').select('user_id, logged_date').in('user_id', clientIds).order('logged_date', { ascending: false }),
+      supabase.from('check_ins').select('*').in('client_id', clientIds).eq('week_of', weekOf),
+      supabase.from('coach_messages').select('client_id, reaction, content, created_at').in('client_id', clientIds).eq('coach_id', profile.id).not('reaction', 'is', null).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+      supabase.from('nutrition_log').select('user_id, logged_date, calories, protein').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
+      supabase.from('cardio_log').select('user_id, logged_date, duration').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
+      supabase.from('steps_log').select('user_id, logged_date, steps').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
+      supabase.from('targets').select('user_id, calories, protein, cardio_minutes, steps').in('user_id', clientIds),
     ])
 
     const recentLogs = logsResult.data || []
     const checkIns = checkInsResult.data || []
     const messages = messagesResult.data || []
+    const nutritionData = nutritionResult.data || []
+    const cardioData = cardioResult.data || []
+    const stepsData = stepsResult.data || []
+    const targetsData = targetsResult.data || []
+
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - i); return toLocalDateString(d)
+    })
 
     const stats = {}
     clientIds.forEach(id => {
       const clientLogs = recentLogs.filter(l => l.user_id === id)
       const lastLogDate = clientLogs.length > 0 ? clientLogs[0].logged_date : null
-      const today = toLocalDateString(new Date())
-      const yesterday = toLocalDateString(new Date(Date.now() - 86400000))
-
+      const todayStr = toLocalDateString(new Date())
       let daysSinceLog = null
-      if (lastLogDate) {
-        daysSinceLog = Math.floor((new Date(today) - new Date(lastLogDate)) / 86400000)
-      }
+      if (lastLogDate) daysSinceLog = Math.floor((new Date(todayStr) - new Date(lastLogDate)) / 86400000)
 
       const checkIn = checkIns.find(c => c.client_id === id) || null
-      const concerningReactions = messages.filter(
-        m => m.client_id === id && negativeEmojis.includes(m.reaction)
-      )
+      const concerningReactions = messages.filter(m => m.client_id === id && negativeEmojis.includes(m.reaction))
+      const clientTargets = targetsData.find(t => t.user_id === id)
 
-      stats[id] = { lastLogDate, daysSinceLog, checkIn, concerningReactions }
+      const complianceItems = []
+
+      if (clientTargets?.calories) {
+        let count = 0
+        last7Days.forEach(date => {
+          const dayTotal = nutritionData.filter(n => n.user_id === id && n.logged_date === date).reduce((sum, n) => sum + (n.calories || 0), 0)
+          if (dayTotal > 0 && dayTotal >= clientTargets.calories * 0.9) count++
+        })
+        complianceItems.push({ label: 'Calories', value: count })
+      }
+
+      if (clientTargets?.protein) {
+        let count = 0
+        last7Days.forEach(date => {
+          const dayTotal = nutritionData.filter(n => n.user_id === id && n.logged_date === date).reduce((sum, n) => sum + (n.protein || 0), 0)
+          if (dayTotal > 0 && dayTotal >= clientTargets.protein * 0.9) count++
+        })
+        complianceItems.push({ label: 'Protein', value: count })
+      }
+
+      if (clientTargets?.cardio_minutes) {
+        let count = 0
+        last7Days.forEach(date => {
+          const dayTotal = cardioData.filter(c => c.user_id === id && c.logged_date === date).reduce((sum, c) => sum + (c.duration || 0), 0)
+          if (dayTotal >= clientTargets.cardio_minutes * 0.9) count++
+        })
+        complianceItems.push({ label: 'Cardio', value: count })
+      }
+
+      if (clientTargets?.steps) {
+        let count = 0
+        last7Days.forEach(date => {
+          const daySteps = stepsData.find(s => s.user_id === id && s.logged_date === date)
+          if (daySteps && daySteps.steps >= clientTargets.steps * 0.9) count++
+        })
+        complianceItems.push({ label: 'Steps', value: count })
+      }
+
+      stats[id] = { lastLogDate, daysSinceLog, checkIn, concerningReactions, complianceItems }
     })
 
     setClientStats(stats)
@@ -249,6 +279,29 @@ function CoachDashboard({ profile }) {
                     <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>Obstacles: </span>
                     {s.checkIn.obstacles}
                   </p>
+                )}
+
+                {/* 7-day compliance pills */}
+                {s?.complianceItems?.length > 0 && (
+                  <div style={{ paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                      7-day compliance
+                    </p>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {s.complianceItems.map(({ label, value }) => {
+                        const color = value >= 5 ? '#34d399' : value >= 3 ? '#fbbf24' : '#f87171'
+                        return (
+                          <span key={label} style={{
+                            fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px',
+                            borderRadius: '999px', backgroundColor: 'var(--color-bg)',
+                            border: `1px solid ${color}`, color
+                          }}>
+                            {label} {value}/7
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             )
