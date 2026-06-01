@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
@@ -77,6 +77,7 @@ function Dashboard({ profile }) {
   const [loggedToday, setLoggedToday] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [messages, setMessages] = useState([])
+  const messagesEndRef = useRef(null)
   const [newMessage, setNewMessage] = useState('')
   const [messageSending, setMessageSending] = useState(false)
   const [messageSent, setMessageSent] = useState(false)
@@ -99,6 +100,10 @@ function Dashboard({ profile }) {
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
   }
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   useEffect(() => {
     async function loadPage() {
@@ -551,7 +556,7 @@ async function reactToMessage(messageId, emoji) {
             <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>No messages yet. Send a note to your coach below.</p>
           )}
           {messages.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="message-thread" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
               {messages.map(m => {
                 const isMe = m.sender_id === profile?.id
                 return (
@@ -603,6 +608,7 @@ async function reactToMessage(messageId, emoji) {
                   </div>
                 )
               })}
+              <div ref={messagesEndRef} />
             </div>
           )}
           <div style={{ display: 'flex', gap: '8px', borderTop: messages.length > 0 ? '1px solid var(--color-border)' : 'none', paddingTop: messages.length > 0 ? '12px' : '0' }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
@@ -87,6 +87,7 @@ function ClientView({ profile }) {
   const [sentReports, setSentReports] = useState([])
   const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
   const [messages, setMessages] = useState([])
+  const messagesEndRef = useRef(null)
   const [newMessage, setNewMessage] = useState('')
   const [messageSending, setMessageSending] = useState(false)
   const [openReactId, setOpenReactId] = useState(null)
@@ -131,6 +132,10 @@ function ClientView({ profile }) {
     })
     return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]))
   }
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   useEffect(() => {
   fetchClientProfile()
@@ -870,7 +875,7 @@ async function sendMessage() {
             <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', paddingTop: '8px' }}>No messages yet. Send one below.</p>
           )}
           {messages.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px' }}>
+            <div className="message-thread" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
               {messages.map(m => {
                 const isMe = m.sender_id === profile?.id
                 return (
@@ -917,6 +922,7 @@ async function sendMessage() {
                   </div>
                 )
               })}
+              <div ref={messagesEndRef} />
             </div>
           )}
           <div style={{ display: 'flex', gap: '8px', borderTop: messages.length > 0 ? '1px solid var(--color-border)' : 'none', paddingTop: messages.length > 0 ? '12px' : '0' }}>

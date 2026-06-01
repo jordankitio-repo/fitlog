@@ -124,3 +124,15 @@ button, a, input, select, textarea {
   border-color: var(--color-primary);
   box-shadow: 0 2px 8px rgba(79, 142, 247, 0.1);
 }
+
+/* Dark scrollbar for message threads */
+.message-thread::-webkit-scrollbar {
+  width: 4px;
+}
+.message-thread::-webkit-scrollbar-track {
+  background: transparent;
+}
+.message-thread::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 2px;
+}
