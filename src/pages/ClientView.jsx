@@ -83,6 +83,7 @@ function ClientView({ profile }) {
   const [notesSaved, setNotesSaved] = useState(false)
   const [consistency, setConsistency] = useState({ streak: 0, days7: 0, days30: 0 })
   const [sentReports, setSentReports] = useState([])
+  const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [messageSending, setMessageSending] = useState(false)
@@ -110,6 +111,15 @@ function ClientView({ profile }) {
 
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  function groupByWeek(list) {
+    const grouped = {}
+    list.forEach(r => {
+      if (!grouped[r.week_of]) grouped[r.week_of] = []
+      grouped[r.week_of].push(r)
+    })
+    return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]))
   }
 
   useEffect(() => {
@@ -934,28 +944,53 @@ async function sendMessage() {
       {sentReports.length > 0 && (
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')}>
-            {sentReports.map((r) => (
-            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
-              <div>
-                <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>Week of {r.week_of}</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginTop: '2px' }}>
-                  Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </p>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {r.archived && (
-                  <span style={{ fontSize: '0.7rem', color: 'var(--color-muted)', backgroundColor: 'var(--color-border)', padding: '2px 8px', borderRadius: '999px' }}>Archived</span>
-                )}
-                <span style={{
-                  fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '999px',
-                  backgroundColor: r.read_at ? '#064e3b' : '#1e3a5f',
-                  color: r.read_at ? '#34d399' : '#93c5fd'
-                }}>
-                  {r.read_at ? '✓ Read' : 'Unread'}
-                </span>
-              </div>
-            </div>
-            ))}
+            {groupByWeek(sentReports).map(([week, weekReports]) => {
+              const isCollapsed = collapsedSentWeeks[week] !== false
+              const unreadCount = weekReports.filter(r => !r.read_at).length
+              return (
+                <div key={week} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                  <div
+                    onClick={() => setCollapsedSentWeeks(prev => ({ ...prev, [week]: !isCollapsed }))}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', backgroundColor: 'var(--color-bg)' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Week of {week}</span>
+                      <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                        {weekReports.length} {weekReports.length === 1 ? 'report' : 'reports'}
+                      </span>
+                      {unreadCount > 0 && (
+                        <span style={{ backgroundColor: '#1e3a5f', color: '#93c5fd', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                          {unreadCount} unread
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{isCollapsed ? '▶' : '▼'}</span>
+                  </div>
+                  {!isCollapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
+                      {weekReports.map(r => (
+                        <div key={r.id} style={{ borderLeft: `3px solid ${r.read_at ? '#34d399' : 'var(--color-primary)'}`, backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                              Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {r.archived && (
+                                <span style={{ fontSize: '0.65rem', color: 'var(--color-muted)', backgroundColor: 'var(--color-border)', padding: '2px 7px', borderRadius: '999px' }}>Archived</span>
+                              )}
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', backgroundColor: r.read_at ? '#064e3b' : '#1e3a5f', color: r.read_at ? '#34d399' : '#93c5fd' }}>
+                                {r.read_at ? '✓ Read' : 'Unread'}
+                              </span>
+                            </div>
+                          </div>
+                          <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </SectionHeader>
         </div>
       )}
