@@ -109,6 +109,15 @@ function ClientView({ profile }) {
     stepsChart: true,
   })
 
+  function formatTime(timeStr) {
+    if (!timeStr) return null
+    const [hours, minutes] = timeStr.split(':')
+    const h = parseInt(hours)
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const hour = h % 12 || 12
+    return `${hour}:${minutes} ${ampm}`
+  }
+
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
   }
@@ -809,7 +818,7 @@ async function sendMessage() {
             <StatCard label="Protein" value={`${totals.protein}g`} />
             <StatCard label="Carbs" value={`${totals.carbs}g`} />
             <StatCard label="Fat" value={`${totals.fat}g`} />
-            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} />
+            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} />
           </div>
         </SectionHeader>
       </div>

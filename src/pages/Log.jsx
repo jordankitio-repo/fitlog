@@ -22,6 +22,15 @@ function toLocalDateString(date) {
 function Log({ session, profile }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
 
+  function formatTime(timeStr) {
+    if (!timeStr) return null
+    const [hours, minutes] = timeStr.split(':')
+    const h = parseInt(hours)
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const hour = h % 12 || 12
+    return `${hour}:${minutes} ${ampm}`
+  }
+
   // Nutrition state
   const [food, setFood] = useState('')
   const [calories, setCalories] = useState('')
@@ -317,7 +326,7 @@ function startEditCardio(entry) {
         <h2>Weight</h2>
         {savedWeight && (
   <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-    Logged: {savedWeight.weight} {savedWeight.unit}{savedWeight.weighed_at ? ` · ${savedWeight.weighed_at}` : ''}
+    Logged: {savedWeight.weight} {savedWeight.unit}{savedWeight.weighed_at ? ` · ${formatTime(savedWeight.weighed_at)}` : ''}
   </p>
 )}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -371,7 +380,7 @@ function startEditCardio(entry) {
         {savedSteps && <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Logged: {savedSteps.steps.toLocaleString()} steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}</p>}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
-          <input type="number" placeholder="Distance (mi)" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+          <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
           <Button onClick={saveSteps} variant="primary">
             {savedSteps ? 'Update' : 'Log'}
           </Button>
