@@ -1,16 +1,47 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import Dashboard from './pages/Dashboard'
 import Log from './pages/Log'
 import Profile from './pages/Profile'
 import Login from './pages/Login'
+import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
 import CoachDashboard from './pages/CoachDashboard'
 import Join from './pages/Join'
 import ClientView from './pages/ClientView'
 import ResetPassword from './pages/ResetPassword'
 import RolePicker from './pages/RolePicker'
+
+function AppRoutes({ session, profile }) {
+  const location = useLocation()
+  const isLanding = !session && location.pathname === '/'
+
+  const mainStyle = isLanding
+    ? { width: '100%' }
+    : { maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }
+
+  return (
+    <>
+      {session && <NavBar profile={profile} />}
+      <main style={mainStyle}>
+        <Routes>
+          <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+          <Route path="/" element={session ? (
+            profile?.role === 'coach'
+              ? <CoachDashboard profile={profile} />
+              : <Dashboard profile={profile} />
+          ) : <Landing />} />
+          <Route path="/log" element={session ? <Log session={session} profile={profile} /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={session ? <Profile session={session} profile={profile} /> : <Navigate to="/login" />} />
+          <Route path="/join" element={<Join />} />
+          <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+        </Routes>
+      </main>
+    </>
+  )
+}
 
 function App() {
   const [session, setSession] = useState(null)
@@ -53,22 +84,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      {session && <NavBar profile={profile} />}
-      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
-        <Routes>
-          <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
-          <Route path="/" element={session ? (
-            profile?.role === 'coach'
-              ? <CoachDashboard profile={profile} />
-              : <Dashboard profile={profile} />
-          ) : <Navigate to="/login" />} />
-          <Route path="/log" element={session ? <Log session={session} profile={profile} /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={session ? <Profile session={session} profile={profile} /> : <Navigate to="/login" />} />
-          <Route path="/join" element={<Join />} />
-          <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-        </Routes>
-      </main>
+      <AppRoutes session={session} profile={profile} />
     </BrowserRouter>
   )
 }

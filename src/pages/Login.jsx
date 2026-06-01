@@ -1,14 +1,19 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Login() {
+  const [searchParams] = useSearchParams()
+  const requestedRole = searchParams.get('role')
+  const initialRole = requestedRole === 'coach' || requestedRole === 'solo' ? requestedRole : 'solo'
+  const initialIsSignUp = searchParams.get('mode') === 'signup'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [role, setRole] = useState('solo')
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [role, setRole] = useState(initialRole)
+  const [isSignUp, setIsSignUp] = useState(initialIsSignUp)
   const [error, setError] = useState('')
   const [errors, setErrors] = useState({})
   const [showForgot, setShowForgot] = useState(false)
