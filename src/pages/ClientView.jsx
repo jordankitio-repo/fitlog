@@ -618,7 +618,19 @@ async function sendMessage() {
 
   const chartOptions = {
     responsive: true,
-    plugins: { legend: { display: false } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1a1a1a',
+        borderColor: '#2a2a2a',
+        borderWidth: 1,
+        titleColor: '#f0f0f0',
+        bodyColor: '#888',
+        padding: 10,
+        cornerRadius: 6,
+        displayColors: false,
+      }
+    },
     scales: {
       x: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } },
       y: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } }
