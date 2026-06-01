@@ -80,6 +80,8 @@ function ClientView({ profile }) {
   const [targetsSaved, setTargetsSaved] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
   const [coachNotes, setCoachNotes] = useState('')
+  const [newNoteEntry, setNewNoteEntry] = useState('')
+  const [editingNotes, setEditingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
   const [consistency, setConsistency] = useState({ streak: 0, days7: 0, days30: 0 })
   const [sentReports, setSentReports] = useState([])
@@ -322,6 +324,30 @@ async function saveCoachNotes() {
     }, { onConflict: 'coach_id,client_id' })
   if (error) console.error(error)
   else { setNotesSaved(true); setTimeout(() => setNotesSaved(false), 2000) }
+}
+
+async function addNoteEntry() {
+  if (!newNoteEntry.trim()) return
+
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+  const dateStamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const entry = `── ${dateStamp} ──\n${newNoteEntry.trim()}`
+  const updatedContent = coachNotes ? `${entry}\n\n${coachNotes}` : entry
+
+  const { error } = await supabase.from('coach_notes').upsert({
+    coach_id: currentSession.user.id,
+    client_id: clientId,
+    content: updatedContent,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'coach_id,client_id' })
+
+  if (error) console.error(error)
+  else {
+    setCoachNotes(updatedContent)
+    setNewNoteEntry('')
+    setNotesSaved(true)
+    setTimeout(() => setNotesSaved(false), 2000)
+  }
 }
 
   async function fetchClientTargets() {
@@ -1127,24 +1153,62 @@ async function sendMessage() {
             <textarea
               value={coachNotes}
               onChange={(e) => setCoachNotes(e.target.value)}
-              placeholder="Injuries, life context, goals, observations..."
-              rows={5}
+              readOnly={!editingNotes}
+              placeholder="Notes history will appear here..."
+              rows={6}
               style={{
                 backgroundColor: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
+                border: `1px solid ${editingNotes ? 'var(--color-primary)' : 'var(--color-border)'}`,
                 borderRadius: 'var(--radius)',
                 padding: '12px 14px',
-                color: 'var(--color-text)',
-                fontSize: '0.875rem',
-                lineHeight: '1.6',
-                resize: 'vertical',
-                fontFamily: 'inherit',
-                width: '100%'
+                color: editingNotes ? 'var(--color-text)' : 'var(--color-muted)',
+                fontSize: '0.8rem',
+                lineHeight: '1.8',
+                resize: editingNotes ? 'vertical' : 'none',
+                fontFamily: 'monospace',
+                width: '100%',
+                cursor: editingNotes ? 'text' : 'default'
               }}
             />
-            <Button onClick={saveCoachNotes} variant="outline" size="sm">
-              {notesSaved ? 'Saved ✓' : 'Save notes'}
-            </Button>
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <textarea
+                value={newNoteEntry}
+                onChange={(e) => setNewNoteEntry(e.target.value)}
+                placeholder="Add a note..."
+                rows={3}
+                style={{
+                  backgroundColor: 'var(--color-bg)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius)',
+                  padding: '10px 14px',
+                  color: 'var(--color-text)',
+                  fontSize: '0.875rem',
+                  lineHeight: '1.6',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  width: '100%'
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <Button onClick={addNoteEntry} variant="primary" size="sm">
+                  {notesSaved ? 'Saved ✓' : 'Add note'}
+                </Button>
+                {!editingNotes ? (
+                  <Button onClick={() => setEditingNotes(true)} variant="ghost" size="sm">
+                    Edit history
+                  </Button>
+                ) : (
+                  <>
+                    <Button onClick={() => { saveCoachNotes(); setEditingNotes(false) }} variant="outline" size="sm">
+                      Save edits
+                    </Button>
+                    <Button onClick={() => { fetchCoachNotes(); setEditingNotes(false) }} variant="ghost" size="sm">
+                      Cancel
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
         </SectionHeader>
       </div>
 
