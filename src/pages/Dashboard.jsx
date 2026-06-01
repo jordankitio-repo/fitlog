@@ -26,7 +26,7 @@ function toLocalDateString(date) {
   return d.toISOString().split('T')[0]
 }
 
-function SectionHeader({ title, collapsed, onToggle, badge, children }) {
+function SectionHeader({ title, collapsed, onToggle, badge, children, animated = true }) {
   return (
     <>
       <div
@@ -41,16 +41,18 @@ function SectionHeader({ title, collapsed, onToggle, badge, children }) {
         </div>
         <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{collapsed ? '▶' : '▼'}</span>
       </div>
-      <div style={{
-        display: 'grid',
-        gridTemplateRows: collapsed ? '0fr' : '1fr',
-        transition: 'grid-template-rows 0.25s ease',
-        overflow: 'hidden',
-      }}>
-        <div style={{ minHeight: 0 }}>
-          {children}
+      {animated ? (
+        <div style={{
+          display: 'grid',
+          gridTemplateRows: collapsed ? '0fr' : '1fr',
+          transition: 'grid-template-rows 0.25s ease',
+          overflow: 'hidden',
+        }}>
+          <div style={{ minHeight: 0 }}>{children}</div>
         </div>
-      </div>
+      ) : (
+        !collapsed && <div style={{ paddingTop: '8px' }}>{children}</div>
+      )}
     </>
   )
 }
@@ -431,6 +433,7 @@ async function reactToMessage(messageId, emoji) {
   }
   const chartOptions = {
     responsive: true,
+    animation: false,
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -795,8 +798,10 @@ async function reactToMessage(messageId, emoji) {
       {/* Weight trend */}
       {weightHistory.length > 1 && (
         <div style={cardStyle}>
-          <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')}>
-            <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', pointBackgroundColor: '#4f8ef7', tension: 0.3, fill: true }] }} options={chartOptions} />
+          <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
+            {!sectionsCollapsed.weightChart && (
+              <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', pointBackgroundColor: '#4f8ef7', tension: 0.3, fill: true }] }} options={chartOptions} />
+            )}
           </SectionHeader>
         </div>
       )}
@@ -804,8 +809,10 @@ async function reactToMessage(messageId, emoji) {
       {/* Calories chart */}
       {calorieHistory.length > 0 && (
         <div style={cardStyle}>
-          <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')}>
-            <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: '#4f8ef7', borderRadius: 4 }] }} options={chartOptions} />
+          <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
+            {!sectionsCollapsed.calorieChart && (
+              <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: '#4f8ef7', borderRadius: 4 }] }} options={chartOptions} />
+            )}
           </SectionHeader>
         </div>
       )}
@@ -813,8 +820,10 @@ async function reactToMessage(messageId, emoji) {
       {/* Cardio chart */}
       {cardioHistory.length > 0 && (
         <div style={cardStyle}>
-          <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')}>
-            <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: '#a78bfa', borderRadius: 4 }] }} options={chartOptions} />
+          <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+            {!sectionsCollapsed.cardioChart && (
+              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: '#a78bfa', borderRadius: 4 }] }} options={chartOptions} />
+            )}
           </SectionHeader>
         </div>
       )}
@@ -822,8 +831,10 @@ async function reactToMessage(messageId, emoji) {
       {/* Steps chart */}
       {stepsHistory.length > 0 && (
         <div style={cardStyle}>
-          <SectionHeader title="Steps — last 14 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')}>
-            <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
+          <SectionHeader title="Steps — last 14 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+            {!sectionsCollapsed.stepsChart && (
+              <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
+            )}
           </SectionHeader>
         </div>
       )}
