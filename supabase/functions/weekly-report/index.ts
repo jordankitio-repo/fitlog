@@ -9,7 +9,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { clientName, weekData, checkIn } = await req.json()
+    const { clientName, weekData, checkIn, weekRange } = await req.json()
+    const rangeLabel = weekRange?.label || (
+      weekData?.length
+        ? `${weekData[0].date} - ${weekData[weekData.length - 1].date}`
+        : 'the provided reporting period'
+    )
 
     const days = weekData.map((day: any) => {
       const mealsText = day.meals.length > 0 ? day.meals.join(', ') : 'No meals logged'
@@ -36,7 +41,11 @@ Client's weekly check-in:
 
 Client: ${clientName}
 
-Last 7 days of data:
+Reporting period: ${rangeLabel}
+
+Use exactly this reporting period. Do not infer, rewrite, or add a different date range.
+
+Data for this reporting period:
 
 ${days}
 
@@ -51,7 +60,7 @@ Write a structured weekly coaching report with these sections:
 6. Client Check-in Response (respond directly to their adherence rating, energy, obstacles, and notes if submitted)
 7. Top 3 Recommendations for next week
 
-Be direct, specific, and encouraging. Use the actual numbers from their data. If the client submitted a check-in, make sure to address it personally.`
+Be direct, specific, and encouraging. Use the actual numbers from their data. If the client submitted a check-in, make sure to address it personally. Do not include a date-range title; the app will add it.`
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
 
@@ -78,7 +87,7 @@ Be direct, specific, and encouraging. Use the actual numbers from their data. If
       })
     }
 
-    const report = data.content[0].text
+    const report = `Weekly Report (${rangeLabel})\n\n${data.content[0].text}`
 
     return new Response(JSON.stringify({ report }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

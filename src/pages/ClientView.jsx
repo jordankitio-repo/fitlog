@@ -56,7 +56,67 @@ function SectionHeader({ title, collapsed, onToggle, badge, children, animated =
 
 function toLocalDateString(date) {
   const d = new Date(date)
-  return d.toISOString().split('T')[0]
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function parseLocalDateString(dateString) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return new Date(year, month - 1, day, 12)
+}
+
+function addDays(date, days) {
+  const d = new Date(date)
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+function getCurrentWeekStart(date = new Date()) {
+  const d = new Date(date)
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() - d.getDay())
+  return d
+}
+
+function getWeeklyReportRange(date = new Date()) {
+  const currentWeekStart = getCurrentWeekStart(date)
+  const start = addDays(currentWeekStart, -7)
+  const end = addDays(currentWeekStart, -1)
+
+  return {
+    start,
+    end,
+    startDate: toLocalDateString(start),
+    endDate: toLocalDateString(end),
+    label: formatDateRange(start, end)
+  }
+}
+
+function getDatesInRange(start, end) {
+  const dates = []
+  for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+    dates.push(toLocalDateString(d))
+  }
+  return dates
+}
+
+function formatDateRange(start, end) {
+  const sameYear = start.getFullYear() === end.getFullYear()
+  const sameMonth = sameYear && start.getMonth() === end.getMonth()
+  const monthDay = { month: 'long', day: 'numeric' }
+
+  if (sameMonth) {
+    return `${start.toLocaleDateString('en-US', monthDay)} - ${end.toLocaleDateString('en-US', { ...monthDay, year: 'numeric' })}`
+  }
+
+  if (sameYear) {
+    return `${start.toLocaleDateString('en-US', monthDay)} - ${end.toLocaleDateString('en-US', { ...monthDay, year: 'numeric' })}`
+  }
+
+  return `${start.toLocaleDateString('en-US', { ...monthDay, year: 'numeric' })} - ${end.toLocaleDateString('en-US', { ...monthDay, year: 'numeric' })}`
 }
 
 function ClientView({ profile }) {
@@ -68,6 +128,7 @@ function ClientView({ profile }) {
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
   const [report, setReport] = useState('')
+  const [reportWeekRange, setReportWeekRange] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [weightHistory, setWeightHistory] = useState([])
   const [calorieHistory, setCalorieHistory] = useState([])
@@ -397,15 +458,12 @@ async function addNoteEntry() {
   async function generateWeeklyReport() {
     setReportLoading(true)
     setReport('')
+    setReportWeekRange(null)
 
     const { data: { session } } = await supabase.auth.getSession()
 
-    const days = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      days.push(toLocalDateString(d))
-    }
+    const weekRange = getWeeklyReportRange()
+    const days = getDatesInRange(weekRange.start, weekRange.end)
 
     const { data: nutritionData } = await supabase
       .from('nutrition_log').select('*').eq('user_id', clientId).in('logged_date', days)
@@ -419,9 +477,8 @@ async function addNoteEntry() {
     const { data: stepsData } = await supabase
       .from('steps_log').select('*').eq('user_id', clientId).in('logged_date', days)
 
-    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
     const { data: checkInData } = await supabase
-      .from('check_ins').select('*').eq('client_id', clientId).eq('week_of', weekOf).maybeSingle()
+      .from('check_ins').select('*').eq('client_id', clientId).eq('week_of', weekRange.endDate).maybeSingle()
 
     const weekData = days.map(date => {
       const dayEntries = nutritionData?.filter(e => e.logged_date === date) || []
@@ -452,6 +509,11 @@ async function addNoteEntry() {
         },
         body: JSON.stringify({
           clientName: clientProfile?.full_name || 'Client',
+          weekRange: {
+            startDate: weekRange.startDate,
+            endDate: weekRange.endDate,
+            label: weekRange.label
+          },
           weekData,
           checkIn: checkInData ? {
             adherence: checkInData.adherence_rating,
@@ -465,13 +527,25 @@ async function addNoteEntry() {
 
     const data = await response.json()
     setReport(data.report || data.error || 'Failed to generate report.')
+    setReportWeekRange({
+      startDate: weekRange.startDate,
+      endDate: weekRange.endDate,
+      label: weekRange.label
+    })
     setReportLoading(false)
   }
 
   async function sendReport() {
     const { data: { session } } = await supabase.auth.getSession()
 
-    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+    const weekRange = reportWeekRange || (() => {
+      const fallback = getWeeklyReportRange()
+      return {
+        startDate: fallback.startDate,
+        endDate: fallback.endDate,
+        label: fallback.label
+      }
+    })()
 
     const { error } = await supabase
       .from('reports')
@@ -479,7 +553,7 @@ async function addNoteEntry() {
         coach_id: session.user.id,
         client_id: clientId,
         content: report,
-        week_of: weekOf
+        week_of: weekRange.startDate
       }])
 
     if (error) {
@@ -498,7 +572,7 @@ async function addNoteEntry() {
           clientEmail: clientProfile.email,
           clientName: clientProfile.full_name || 'there',
           coachName: profile?.full_name || 'Your coach',
-          weekOf
+          weekOf: weekRange.label
         }),
       })
     }
@@ -629,14 +703,12 @@ async function sendMessage() {
   }
 
   function goToPrevDay() {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() - 1)
+    const d = addDays(parseLocalDateString(selectedDate), -1)
     setSelectedDate(toLocalDateString(d))
   }
 
   function goToNextDay() {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() + 1)
+    const d = addDays(parseLocalDateString(selectedDate), 1)
     setSelectedDate(toLocalDateString(d))
   }
 

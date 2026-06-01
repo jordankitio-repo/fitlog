@@ -49,6 +49,11 @@ function Log({ session, profile }) {
   const [servingSize, setServingSize] = useState('100')
   const [servingUnit, setServingUnit] = useState('g')
   const [baseNutrients, setBaseNutrients] = useState(null)
+  const [showCopyPanel, setShowCopyPanel] = useState(false)
+  const [copyFromDate, setCopyFromDate] = useState('')
+  const [copyEntries, setCopyEntries] = useState([])
+  const [selectedCopyIds, setSelectedCopyIds] = useState(new Set())
+  const [copyLoading, setCopyLoading] = useState(false)
   const [editingCardio, setEditingCardio] = useState(null)
 
   // Weight state
@@ -93,6 +98,48 @@ function Log({ session, profile }) {
       .eq('logged_date', selectedDate).order('created_at', { ascending: true })
     if (error) console.error('Error fetching:', error)
     else setEntries(data)
+  }
+
+  async function fetchCopyEntries(date) {
+    if (!date) return
+    const { data, error } = await supabase
+      .from('nutrition_log').select('*')
+      .eq('logged_date', date)
+      .order('created_at', { ascending: true })
+
+    if (error) console.error('Error fetching copy entries:', error)
+    else setCopyEntries(data || [])
+  }
+
+  async function copySelectedToToday() {
+    if (selectedCopyIds.size === 0) return
+
+    setCopyLoading(true)
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const inserts = copyEntries
+      .filter(e => selectedCopyIds.has(e.id))
+      .map(e => ({
+        food: e.food,
+        calories: e.calories,
+        protein: e.protein,
+        carbs: e.carbs,
+        fat: e.fat,
+        serving_size: e.serving_size,
+        serving_unit: e.serving_unit,
+        logged_date: selectedDate,
+        user_id: currentSession.user.id
+      }))
+
+    const { error } = await supabase.from('nutrition_log').insert(inserts)
+    if (error) console.error('Error copying entries:', error)
+    else {
+      fetchEntries()
+      setShowCopyPanel(false)
+      setSelectedCopyIds(new Set())
+      setCopyEntries([])
+      setCopyFromDate('')
+    }
+    setCopyLoading(false)
   }
 
   async function handleSubmit() {
@@ -430,6 +477,80 @@ function startEditCardio(entry) {
             </select>
           </div>
         </div>
+        <Button onClick={() => { setShowCopyPanel(!showCopyPanel); setCopyEntries([]); setSelectedCopyIds(new Set()) }} variant="ghost" size="sm">
+          {showCopyPanel ? 'Cancel' : '↩ Copy from another day'}
+        </Button>
+        {showCopyPanel && (
+          <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="date"
+                value={copyFromDate}
+                max={toLocalDateString(new Date())}
+                onChange={(e) => {
+                  setCopyFromDate(e.target.value)
+                  setCopyEntries([])
+                  setSelectedCopyIds(new Set())
+                  if (e.target.value) fetchCopyEntries(e.target.value)
+                }}
+                style={{ ...inputStyle, colorScheme: 'dark', flex: 1 }}
+              />
+              {copyEntries.length > 0 && (
+                <Button
+                  onClick={() => setSelectedCopyIds(selectedCopyIds.size === copyEntries.length ? new Set() : new Set(copyEntries.map(e => e.id)))}
+                  variant="ghost"
+                  size="sm"
+                >
+                  {selectedCopyIds.size === copyEntries.length ? 'Deselect all' : 'Select all'}
+                </Button>
+              )}
+            </div>
+
+            {copyFromDate && copyEntries.length === 0 && (
+              <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>No entries for this day.</p>
+            )}
+
+            {copyEntries.map(e => (
+              <div
+                key={e.id}
+                onClick={() => {
+                  const next = new Set(selectedCopyIds)
+                  next.has(e.id) ? next.delete(e.id) : next.add(e.id)
+                  setSelectedCopyIds(next)
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                  backgroundColor: selectedCopyIds.has(e.id) ? 'rgba(79,142,247,0.1)' : 'var(--color-bg)',
+                  border: `1px solid ${selectedCopyIds.has(e.id) ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--radius)'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCopyIds.has(e.id)}
+                  onChange={() => {}}
+                  style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px', flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem' }}>{e.food}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                    {e.calories} cal · P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {selectedCopyIds.size > 0 && (
+              <Button onClick={copySelectedToToday} variant="primary" loading={copyLoading}>
+                Add {selectedCopyIds.size} {selectedCopyIds.size === 1 ? 'item' : 'items'} to {selectedDate === toLocalDateString(new Date()) ? 'today' : selectedDate}
+              </Button>
+            )}
+          </div>
+        )}
         <Button onClick={handleSubmit} variant="primary">
           {editingEntry ? 'Update entry' : 'Add entry'}
         </Button>
