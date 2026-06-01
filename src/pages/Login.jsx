@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
+import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -22,7 +23,10 @@ function Login() {
     if (!email.trim()) newErrors.email = 'Email is required.'
     else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Enter a valid email.'
     if (!password) newErrors.password = 'Password is required.'
-    else if (isSignUp && password.length < 6) newErrors.password = 'Password must be at least 6 characters.'
+    else if (isSignUp) {
+      const passwordError = getPasswordValidationError(password)
+      if (passwordError) newErrors.password = passwordError
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
+import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Profile({ session, profile }) {
   const [targets, setTargets] = useState({
@@ -14,6 +15,7 @@ function Profile({ session, profile }) {
     weight_goal_unit: 'lbs'
   })
   const [saved, setSaved] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordStatus, setPasswordStatus] = useState('')
@@ -131,14 +133,19 @@ function Profile({ session, profile }) {
 
   async function changePassword() {
     if (!newPassword) { setPasswordStatus('Enter a new password.'); return }
-    if (newPassword.length < 6) { setPasswordStatus('Password must be at least 6 characters.'); return }
     if (newPassword !== confirmPassword) { setPasswordStatus('Passwords do not match.'); return }
+    const passwordError = getPasswordValidationError(newPassword, { shortMessages: true })
+    if (passwordError) { setPasswordStatus(passwordError); return }
 
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    const { error } = await supabase.auth.updateUser(
+      { password: newPassword },
+      { currentPassword }
+    )
 
     if (error) setPasswordStatus(error.message)
     else {
       setPasswordStatus('Password updated successfully.')
+      setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
       setTimeout(() => setPasswordStatus(''), 3000)
@@ -317,6 +324,13 @@ function Profile({ session, profile }) {
         gap: '16px'
       }}>
         <h2>Change password</h2>
+        <input
+          type="password"
+          placeholder="Current password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          style={inputStyle}
+        />
         <input
           type="password"
           placeholder="New password"
