@@ -47,8 +47,6 @@ function App() {
 
   if (loading) return <p style={{ padding: '24px' }}>Loading...</p>
 
-  console.log('Profile role:', profile?.role, '| Type:', typeof profile?.role)
-
   if (session && profile && !profile.role) {
     return <RolePicker session={session} onComplete={() => fetchProfile(session.user.id)} />
   }
