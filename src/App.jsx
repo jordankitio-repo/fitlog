@@ -10,6 +10,7 @@ import CoachDashboard from './pages/CoachDashboard'
 import Join from './pages/Join'
 import ClientView from './pages/ClientView'
 import ResetPassword from './pages/ResetPassword'
+import RolePicker from './pages/RolePicker'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -45,6 +46,10 @@ function App() {
   }
 
   if (loading) return <p style={{ padding: '24px' }}>Loading...</p>
+
+  if (session && profile && !profile.role) {
+    return <RolePicker session={session} onComplete={() => fetchProfile(session.user.id)} />
+  }
 
   return (
     <BrowserRouter>
