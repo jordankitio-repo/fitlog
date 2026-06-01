@@ -312,7 +312,7 @@ function CoachDashboard({ profile }) {
       {/* Invite section */}
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h2>Invite a client</h2>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input
             type="email"
             placeholder="Client email"
