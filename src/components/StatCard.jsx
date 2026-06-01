@@ -1,4 +1,4 @@
-function StatCard({ label, value, color }) {
+function StatCard({ label, value, color, sub }) {
   return (
     <div
       className="stat-card"
@@ -32,6 +32,9 @@ function StatCard({ label, value, color }) {
       }}>
         {value}
       </p>
+      {sub && (
+        <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', margin: 0 }}>{sub}</p>
+      )}
     </div>
   )
 }

@@ -191,10 +191,14 @@ function Log({ session, profile }) {
     if (!weight) return
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     if (savedWeight) {
-      const { error } = await supabase.from('weight_log').update({ weight: parseFloat(weight), unit: weightUnit }).eq('id', savedWeight.id)
+      const { error } = await supabase.from('weight_log').update({
+        weight: parseFloat(weight),
+        unit: weightUnit,
+        weighed_at: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+      }).eq('id', savedWeight.id)
       if (error) console.error(error); else fetchWeight()
     } else {
-      const { error } = await supabase.from('weight_log').insert([{ weight: parseFloat(weight), unit: weightUnit, logged_date: selectedDate, user_id: currentSession.user.id }])
+      const { error } = await supabase.from('weight_log').insert([{ weight: parseFloat(weight), unit: weightUnit, logged_date: selectedDate, user_id: currentSession.user.id, weighed_at: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) }])
       if (error) console.error(error); else fetchWeight()
     }
   }
@@ -311,7 +315,11 @@ function startEditCardio(entry) {
       {/* Weight */}
       <div style={sectionStyle}>
         <h2>Weight</h2>
-        {savedWeight && <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Logged: {savedWeight.weight} {savedWeight.unit}</p>}
+        {savedWeight && (
+  <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+    Logged: {savedWeight.weight} {savedWeight.unit}{savedWeight.weighed_at ? ` · ${savedWeight.weighed_at}` : ''}
+  </p>
+)}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
           <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
