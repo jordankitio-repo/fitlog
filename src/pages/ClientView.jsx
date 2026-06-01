@@ -89,11 +89,10 @@ function ClientView({ profile }) {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [messageSending, setMessageSending] = useState(false)
+  const [openReactId, setOpenReactId] = useState(null)
   const [callBriefing, setCallBriefing] = useState('')
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
-  const [clientMessages, setClientMessages] = useState([])
-  const [openClientReactId, setOpenClientReactId] = useState(null)
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
     stats: false,
@@ -145,7 +144,6 @@ function ClientView({ profile }) {
   fetchConsistency()
   fetchSentReports()
   fetchMessages()
-  fetchClientMessages()
 }, [clientId])
 
   useEffect(() => {
@@ -577,49 +575,35 @@ async function addNoteEntry() {
   async function fetchMessages() {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
   const { data, error } = await supabase
-    .from('coach_messages')
+    .from('messages')
     .select('*')
     .eq('coach_id', currentSession.user.id)
     .eq('client_id', clientId)
-    .order('created_at', { ascending: false })
-  if (error) console.error(error)
-  else setMessages(data)
-}
-
-async function fetchClientMessages() {
-  const { data, error } = await supabase
-    .from('client_messages')
-    .select('*')
-    .eq('client_id', clientId)
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: true })
   if (error) console.error(error)
   else {
-    setClientMessages(data)
-    const unreadIds = data.filter(m => !m.read_at).map(m => m.id)
+    setMessages(data)
+    const unreadIds = data.filter(m => !m.read_at && m.sender_id !== currentSession.user.id).map(m => m.id)
     if (unreadIds.length > 0) {
-      await supabase.from('client_messages')
-        .update({ read_at: new Date().toISOString() })
-        .in('id', unreadIds)
+      await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
     }
   }
 }
 
-async function reactToClientMessage(messageId, emoji) {
-  const { error } = await supabase
-    .from('client_messages')
-    .update({ reaction: emoji })
-    .eq('id', messageId)
+async function reactToMessage(messageId, emoji) {
+  const { error } = await supabase.from('messages').update({ reaction: emoji }).eq('id', messageId)
   if (error) console.error(error)
-  else fetchClientMessages()
+  else fetchMessages()
 }
 
 async function sendMessage() {
   if (!newMessage.trim()) return
   setMessageSending(true)
   const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const { error } = await supabase.from('coach_messages').insert([{
+  const { error } = await supabase.from('messages').insert([{
     coach_id: currentSession.user.id,
     client_id: clientId,
+    sender_id: currentSession.user.id,
     content: newMessage.trim()
   }])
   if (error) console.error(error)
@@ -880,99 +864,74 @@ async function sendMessage() {
           title="Messages"
           collapsed={sectionsCollapsed.messages}
           onToggle={() => toggleSection('messages')}
-          badge={clientMessages.some(m => !m.read_at) ? `${clientMessages.filter(m => !m.read_at).length} new from client` : null}
+          badge={messages.filter(m => !m.read_at && m.sender_id !== profile?.id).length > 0 ? `${messages.filter(m => !m.read_at && m.sender_id !== profile?.id).length} new` : null}
         >
-            {clientMessages.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {clientMessages.map(m => (
-                  <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#34d399', backgroundColor: 'var(--color-border)', padding: '2px 6px', borderRadius: '999px', whiteSpace: 'nowrap', marginTop: '2px' }}>Client</span>
-                          <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{m.content}</p>
-                        </div>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginLeft: '44px' }}>
-                          {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                        {!m.read_at && (
-                          <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '2px 6px', borderRadius: '999px' }}>NEW</span>
-                        )}
-                        {m.reaction && <span style={{ fontSize: '1rem' }}>{m.reaction}</span>}
+          {messages.length === 0 && (
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', paddingTop: '8px' }}>No messages yet. Send one below.</p>
+          )}
+          {messages.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px' }}>
+              {messages.map(m => {
+                const isMe = m.sender_id === profile?.id
+                return (
+                  <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: '4px' }}>
+                    <div style={{
+                      maxWidth: '80%',
+                      backgroundColor: isMe ? 'var(--color-primary)' : 'var(--color-bg)',
+                      border: isMe ? 'none' : '1px solid var(--color-border)',
+                      borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                      padding: '10px 14px',
+                    }}>
+                      <p style={{ fontSize: '0.875rem', lineHeight: '1.5', color: isMe ? '#fff' : 'var(--color-text)' }}>{m.content}</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>
+                        {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {m.reaction && <span style={{ fontSize: '0.875rem' }}>{m.reaction}</span>}
+                      {!isMe && (
                         <button
-                          onClick={() => setOpenClientReactId(openClientReactId === m.id ? null : m.id)}
-                          style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--color-muted)' }}
+                          onClick={() => setOpenReactId(openReactId === m.id ? null : m.id)}
+                          style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '1px 6px', cursor: 'pointer', fontSize: '0.65rem', color: 'var(--color-muted)' }}
                         >
                           {m.reaction ? '✎' : 'React +'}
                         </button>
-                      </div>
+                      )}
                     </div>
-                    {openClientReactId === m.id && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid var(--color-border)' }}>
+                    {openReactId === m.id && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                         {['👍', '💪', '🔥', '🎯', '👎', '😔', '😰', '🤕', '😴'].map(emoji => (
-                          <button
-                            key={emoji}
-                            onClick={() => { reactToClientMessage(m.id, m.reaction === emoji ? null : emoji); setOpenClientReactId(null) }}
-                            style={{ backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '1rem' }}
-                          >
+                          <button key={emoji} onClick={() => { reactToMessage(m.id, m.reaction === emoji ? null : emoji); setOpenReactId(null) }}
+                            style={{ backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.875rem' }}>
                             {emoji}
                           </button>
                         ))}
                         {m.reaction && (
-                          <button
-                            onClick={() => { reactToClientMessage(m.id, null); setOpenClientReactId(null) }}
-                            style={{ backgroundColor: 'transparent', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#f87171', fontWeight: 600 }}
-                          >
+                          <button onClick={() => { reactToMessage(m.id, null); setOpenReactId(null) }}
+                            style={{ backgroundColor: 'transparent', border: '1px solid #f87171', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.65rem', color: '#f87171', fontWeight: 600 }}>
                             Remove
                           </button>
                         )}
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
-
-            {clientMessages.length > 0 && <div style={{ borderTop: '1px solid var(--color-border)' }} />}
-
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>
-              Send a message to {clientProfile?.full_name || 'client'}
-            </p>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                placeholder="Great work this week! Keep it up..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
-              />
-              <Button onClick={sendMessage} disabled={messageSending} variant="primary" loading={messageSending}>
-                Send
-              </Button>
+                )
+              })}
             </div>
-
-            {messages.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--color-border)', paddingTop: '8px' }}>
-                {messages.map(m => (
-                  <div key={m.id} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#a78bfa', backgroundColor: 'var(--color-border)', padding: '2px 6px', borderRadius: '999px', whiteSpace: 'nowrap', marginTop: '2px' }}>You</span>
-                        <p style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{m.content}</p>
-                      </div>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', marginLeft: '44px' }}>
-                        {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        {!m.read_at && <span style={{ marginLeft: '8px', color: '#fbbf24' }}>· Unread</span>}
-                      </p>
-                    </div>
-                    {m.reaction && <span style={{ fontSize: '1.25rem' }}>{m.reaction}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
+          )}
+          <div style={{ display: 'flex', gap: '8px', borderTop: messages.length > 0 ? '1px solid var(--color-border)' : 'none', paddingTop: messages.length > 0 ? '12px' : '0' }}>
+            <input
+              type="text"
+              placeholder={`Message ${clientProfile?.full_name || 'client'}...`}
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+              style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
+            />
+            <Button onClick={sendMessage} disabled={messageSending} variant="primary" loading={messageSending}>
+              Send
+            </Button>
+          </div>
         </SectionHeader>
       </div>
 
