@@ -740,11 +740,11 @@ async function sendMessage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <Button onClick={generateCallPrep} variant="ai" loading={briefingLoading}>
-                {briefingLoading ? 'Preparing...' : '📋 Prep for call'}
+                {briefingLoading ? 'Preparing...' : 'Prep for call'}
               </Button>
 
               <Button onClick={generateWeeklyReport} variant="outline" loading={reportLoading}>
-                {reportLoading ? 'Generating...' : '📝 Generate weekly report'}
+                {reportLoading ? 'Generating...' : 'Generate weekly report'}
               </Button>
             </div>
 
@@ -964,7 +964,7 @@ async function sendMessage() {
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <SectionHeader title="Client targets" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '-8px' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '8px' }}>
             Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
@@ -988,7 +988,7 @@ async function sendMessage() {
               </div>
             ))}
           </div>
-          <div>
+          <div style={{ marginTop: '4px' }}>
             <p style={{ fontSize: '0.75rem', marginBottom: '6px', color: 'var(--color-muted)' }}>Weight goal</p>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
@@ -1008,9 +1008,11 @@ async function sendMessage() {
               </select>
             </div>
           </div>
-          <Button onClick={saveClientTargets} variant="primary">
-            {targetsSaved ? 'Saved ✓' : 'Save targets'}
-          </Button>
+          <div style={{ marginTop: '8px' }}>
+            <Button onClick={saveClientTargets} variant="primary">
+              {targetsSaved ? 'Saved ✓' : 'Save targets'}
+            </Button>
+          </div>
         </SectionHeader>
       </div>
 
