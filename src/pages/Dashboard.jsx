@@ -621,7 +621,7 @@ async function reactToMessage(messageId, emoji) {
       )}
 
       {/* Coach reports */}
-      {activeReports.length > 0 && (
+      {reports.length > 0 && (
         <div style={cardStyle}>
           <SectionHeader
             title="Reports from your coach"
@@ -657,20 +657,28 @@ async function reactToMessage(messageId, emoji) {
                   </div>
                   <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{isWeekCollapsed ? '▶' : '▼'}</span>
                 </div>
-                {!isWeekCollapsed && weekReports.map((r, i) => (
-                  <div key={r.id} style={{ padding: '14px 16px', borderTop: '1px solid var(--color-border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>Message {i + 1}</p>
-                        {!r.read_at && <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '1px 6px', borderRadius: '999px' }}>NEW</span>}
+                {!isWeekCollapsed && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
+                    {weekReports.map((r) => (
+                      <div key={r.id} style={{ borderLeft: '3px solid var(--color-primary)', backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                            Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            {!r.read_at && <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '2px 6px', borderRadius: '999px' }}>NEW</span>}
+                            {r.read_at && (
+                              <button onClick={() => archiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: '0.7rem' }}>
+                                Archive
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
                       </div>
-                      {r.read_at && (
-                        <Button onClick={() => archiveReport(r.id)} variant="ghost" size="sm">Archive</Button>
-                      )}
-                    </div>
-                    <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )
           })}
@@ -681,22 +689,42 @@ async function reactToMessage(messageId, emoji) {
               <button onClick={() => setShowArchived(!showArchived)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.8rem', padding: '4px 0' }}>
                 {showArchived ? '▼' : '▶'} Archived ({archivedReports.length})
               </button>
-              {showArchived && groupByWeek(archivedReports).map(([week, weekReports]) => (
-                <div key={week} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden', marginTop: '8px', opacity: 0.7 }}>
-                  <div style={{ padding: '10px 16px', backgroundColor: 'var(--color-bg)' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-muted)' }}>Week of {week}</span>
-                  </div>
-                  {weekReports.map((r, i) => (
-                    <div key={r.id} style={{ padding: '14px 16px', borderTop: '1px solid var(--color-border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>Message {i + 1}</p>
-                        <Button onClick={() => unarchiveReport(r.id)} variant="ghost" size="sm">Unarchive</Button>
+              {showArchived && groupByWeek(archivedReports).map(([week, weekReports]) => {
+                const isArchivedWeekCollapsed = collapsedWeeks[`archived_${week}`] !== false
+                return (
+                  <div key={week} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden', marginTop: '8px', opacity: 0.7 }}>
+                    <div
+                      onClick={() => setCollapsedWeeks(prev => ({ ...prev, [`archived_${week}`]: !isArchivedWeekCollapsed }))}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', backgroundColor: 'var(--color-bg)' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-muted)' }}>Week of {week}</span>
+                        <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                          {weekReports.length} {weekReports.length === 1 ? 'message' : 'messages'}
+                        </span>
                       </div>
-                      <p style={{ color: 'var(--color-muted)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
+                      <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{isArchivedWeekCollapsed ? '▶' : '▼'}</span>
                     </div>
-                  ))}
-                </div>
-              ))}
+                    {!isArchivedWeekCollapsed && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
+                        {weekReports.map((r) => (
+                          <div key={r.id} style={{ borderLeft: '3px solid var(--color-border)', backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                                Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                              <button onClick={() => unarchiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: '0.7rem' }}>
+                                Unarchive
+                              </button>
+                            </div>
+                            <p style={{ color: 'var(--color-muted)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
           </SectionHeader>

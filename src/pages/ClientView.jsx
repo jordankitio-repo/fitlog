@@ -423,9 +423,7 @@ async function saveCoachNotes() {
   async function sendReport() {
     const { data: { session } } = await supabase.auth.getSession()
 
-    const weekOf = toLocalDateString(new Date(
-      new Date().setDate(new Date().getDate() - 6)
-    ))
+    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
 
     const { error } = await supabase
       .from('reports')
