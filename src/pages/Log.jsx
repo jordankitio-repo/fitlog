@@ -35,6 +35,7 @@ function Log({ session, profile }) {
   const [showScanner, setShowScanner] = useState(false)
   const [barcodeInput, setBarcodeInput] = useState('')
   const [lookupError, setLookupError] = useState('')
+  const [nutritionErrors, setNutritionErrors] = useState({})
   const [showBarcodeInput, setShowBarcodeInput] = useState(false)
   const [servingSize, setServingSize] = useState('100')
   const [servingUnit, setServingUnit] = useState('g')
@@ -86,7 +87,16 @@ function Log({ session, profile }) {
   }
 
   async function handleSubmit() {
-    if (!food || !calories) return
+    const newErrors = {}
+    if (!food.trim()) newErrors.food = 'Food name is required.'
+    if (!calories) newErrors.calories = 'Calories is required.'
+    else if (parseInt(calories) < 0) newErrors.calories = 'Calories must be a positive number.'
+
+    if (Object.keys(newErrors).length > 0) {
+      setNutritionErrors(newErrors)
+      return
+    }
+    setNutritionErrors({})
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     if (editingEntry) {
       const { error } = await supabase.from('nutrition_log').update({
@@ -112,6 +122,7 @@ function Log({ session, profile }) {
     setFood(''); setCalories(''); setProtein('')
     setCarbs(''); setFat(''); setServingSize('100')
     setServingUnit('g'); setBaseNutrients(null)
+    setNutritionErrors({})
   }
 
   function startEdit(entry) {
@@ -362,7 +373,14 @@ function startEditCardio(entry) {
       {/* Nutrition */}
       <div style={sectionStyle}>
         <h2>Nutrition</h2>
-        <input type="text" placeholder="Food name" value={food} onChange={(e) => setFood(e.target.value)} style={inputStyle} />
+        <input
+          type="text"
+          placeholder="Food name"
+          value={food}
+          onChange={(e) => { setFood(e.target.value); setNutritionErrors(p => ({ ...p, food: '' })) }}
+          style={{ ...inputStyle, borderColor: nutritionErrors.food ? '#f87171' : 'var(--color-border)' }}
+        />
+        {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-4px' }}>{nutritionErrors.food}</p>}
         <div style={{ display: 'flex', gap: '8px' }}>
           <Button onClick={() => setShowScanner(true)} variant="muted" size="sm">📷 Scan barcode</Button>
           <Button onClick={() => setShowBarcodeInput(!showBarcodeInput)} variant="muted" size="sm"># Enter barcode</Button>
@@ -376,7 +394,14 @@ function startEditCardio(entry) {
         )}
         {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-          <input type="number" placeholder="Calories" value={calories} onChange={(e) => setCalories(e.target.value)} style={inputStyle} />
+          <input
+            type="number"
+            placeholder="Calories"
+            value={calories}
+            onChange={(e) => { setCalories(e.target.value); setNutritionErrors(p => ({ ...p, calories: '' })) }}
+            style={{ ...inputStyle, borderColor: nutritionErrors.calories ? '#f87171' : 'var(--color-border)', minWidth: 0 }}
+          />
+          {nutritionErrors.calories && <p style={{ color: '#f87171', fontSize: '0.75rem' }}>{nutritionErrors.calories}</p>}
           <input type="number" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Carbs (g)" value={carbs} onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Fat (g)" value={fat} onChange={(e) => setFat(e.target.value)} style={inputStyle} />

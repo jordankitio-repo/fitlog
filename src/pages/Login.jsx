@@ -9,26 +9,34 @@ function Login() {
   const [role, setRole] = useState('solo')
   const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
+  const [errors, setErrors] = useState({})
   const [showForgot, setShowForgot] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotStatus, setForgotStatus] = useState('')
 
   async function handleSubmit() {
     setError('')
+    const newErrors = {}
+
+    if (isSignUp && !fullName.trim()) newErrors.fullName = 'Name is required.'
+    if (!email.trim()) newErrors.email = 'Email is required.'
+    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Enter a valid email.'
+    if (!password) newErrors.password = 'Password is required.'
+    else if (isSignUp && password.length < 6) newErrors.password = 'Password must be at least 6 characters.'
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+    setErrors({})
 
     if (isSignUp) {
       const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
       if (signUpError) { setError(signUpError.message); return }
-
-      // Update profile with role and name
       if (data.user) {
-  await supabase
-    .from('profiles')
-    .update({ role, full_name: fullName })
-    .eq('id', data.user.id)
-
-  await supabase.auth.refreshSession()
-}
+        await supabase.from('profiles').update({ role, full_name: fullName }).eq('id', data.user.id)
+        await supabase.auth.refreshSession()
+      }
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) setError(signInError.message)
@@ -67,29 +75,34 @@ function Login() {
       <h1>{isSignUp ? 'Create account' : 'Sign in'}</h1>
 
       {isSignUp && (
-        <input
-          type="text"
-          placeholder="Full name"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          style={inputStyle}
-        />
+        <>
+          <input
+            type="text"
+            placeholder="Full name"
+            value={fullName}
+            onChange={(e) => { setFullName(e.target.value); setErrors(p => ({ ...p, fullName: '' })) }}
+            style={{ ...inputStyle, borderColor: errors.fullName ? '#f87171' : '#2a2a2a' }}
+          />
+          {errors.fullName && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.fullName}</p>}
+        </>
       )}
 
       <input
         type="email"
         placeholder="Email"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={inputStyle}
+        onChange={(e) => { setEmail(e.target.value); setErrors(p => ({ ...p, email: '' })) }}
+        style={{ ...inputStyle, borderColor: errors.email ? '#f87171' : '#2a2a2a' }}
       />
+      {errors.email && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.email}</p>}
       <input
         type="password"
         placeholder="Password"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={inputStyle}
+        onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}
+        style={{ ...inputStyle, borderColor: errors.password ? '#f87171' : '#2a2a2a' }}
       />
+      {errors.password && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.password}</p>}
 
       {isSignUp && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -167,7 +180,7 @@ function Login() {
   </div>
 )}
       <p
-        onClick={() => { setIsSignUp(!isSignUp); setError('') }}
+        onClick={() => { setIsSignUp(!isSignUp); setError(''); setErrors({}) }}
         style={{ cursor: 'pointer', textAlign: 'center', color: '#888' }}
       >
         {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
