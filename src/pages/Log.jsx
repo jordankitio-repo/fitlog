@@ -49,6 +49,8 @@ function Log({ session, profile }) {
   const [servingSize, setServingSize] = useState('100')
   const [servingUnit, setServingUnit] = useState('g')
   const [baseNutrients, setBaseNutrients] = useState(null)
+  const [baseServingSize, setBaseServingSize] = useState(null)
+  const [baseServingLabel, setBaseServingLabel] = useState('')
   const [showCopyPanel, setShowCopyPanel] = useState(false)
   const [copyFromDate, setCopyFromDate] = useState('')
   const [copyEntries, setCopyEntries] = useState([])
@@ -83,13 +85,23 @@ function Log({ session, profile }) {
 
   useEffect(() => {
     if (!baseNutrients) return
-    const grams = (parseInt(servingSize) || 100) * (unitConversions[servingUnit] || 1)
-    const multiplier = grams / 100
-    setCalories(Math.round(baseNutrients.calories * multiplier).toString())
-    setProtein(Math.round(baseNutrients.protein * multiplier).toString())
-    setCarbs(Math.round(baseNutrients.carbs * multiplier).toString())
-    setFat(Math.round(baseNutrients.fat * multiplier).toString())
-  }, [servingSize, servingUnit, baseNutrients])
+    if (baseServingSize != null) {
+      // Mode A: serving-based — multiplier is number of servings
+      const multiplier = parseFloat(servingSize) || 1
+      setCalories(Math.round(baseNutrients.calories * multiplier).toString())
+      setProtein(Math.round(baseNutrients.protein * multiplier).toString())
+      setCarbs(Math.round(baseNutrients.carbs * multiplier).toString())
+      setFat(Math.round(baseNutrients.fat * multiplier).toString())
+    } else {
+      // Mode B: 100g-based — same as before
+      const grams = (parseInt(servingSize) || 100) * (unitConversions[servingUnit] || 1)
+      const multiplier = grams / 100
+      setCalories(Math.round(baseNutrients.calories * multiplier).toString())
+      setProtein(Math.round(baseNutrients.protein * multiplier).toString())
+      setCarbs(Math.round(baseNutrients.carbs * multiplier).toString())
+      setFat(Math.round(baseNutrients.fat * multiplier).toString())
+    }
+  }, [servingSize, servingUnit, baseNutrients, baseServingSize])
 
   // Nutrition functions
   async function fetchEntries() {
@@ -158,7 +170,7 @@ function Log({ session, profile }) {
       const { error } = await supabase.from('nutrition_log').update({
         food, calories: parseInt(calories), protein: parseInt(protein) || 0,
         carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
-        serving_size: parseInt(servingSize) || 100, serving_unit: servingUnit
+        serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit
       }).eq('id', editingEntry.id)
       if (error) console.error('Error updating:', error)
       else { setEditingEntry(null); clearNutritionForm(); fetchEntries() }
@@ -166,7 +178,7 @@ function Log({ session, profile }) {
       const { error } = await supabase.from('nutrition_log').insert([{
         food, calories: parseInt(calories), protein: parseInt(protein) || 0,
         carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
-        serving_size: parseInt(servingSize) || 100, serving_unit: servingUnit,
+        serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit,
         logged_date: selectedDate, user_id: currentSession.user.id
       }])
       if (error) console.error('Error saving:', error)
@@ -178,6 +190,7 @@ function Log({ session, profile }) {
     setFood(''); setCalories(''); setProtein('')
     setCarbs(''); setFat(''); setServingSize('100')
     setServingUnit('g'); setBaseNutrients(null)
+    setBaseServingSize(null); setBaseServingLabel('')
     setNutritionErrors({})
   }
 
@@ -191,6 +204,8 @@ function Log({ session, profile }) {
     setServingSize(entry.serving_size.toString())
     setServingUnit(entry.serving_unit || 'g')
     setBaseNutrients(null)
+    setBaseServingSize(null)
+    setBaseServingLabel('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -218,19 +233,43 @@ function Log({ session, profile }) {
       const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`)
       const data = await response.json()
       if (data.status === 0) { setLookupError('Product not found.'); return }
+
       const nutrients = data.product.nutriments
-      const base = {
-        calories: Math.round(nutrients['energy-kcal_100g'] || 0),
-        protein: Math.round(nutrients['proteins_100g'] || 0),
-        carbs: Math.round(nutrients['carbohydrates_100g'] || 0),
-        fat: Math.round(nutrients['fat_100g'] || 0),
+      const hasServingData = nutrients['energy-kcal_serving'] != null
+
+      let base
+      if (hasServingData) {
+        base = {
+          calories: Math.round(nutrients['energy-kcal_serving'] || 0),
+          protein: Math.round(nutrients['proteins_serving'] || 0),
+          carbs: Math.round(nutrients['carbohydrates_serving'] || 0),
+          fat: Math.round(nutrients['fat_serving'] || 0),
+        }
+        setBaseServingSize(1)
+        setBaseServingLabel(data.product.serving_size || '1 serving')
+        setServingSize('1')
+        setServingUnit('serving')
+      } else {
+        base = {
+          calories: Math.round(nutrients['energy-kcal_100g'] || 0),
+          protein: Math.round(nutrients['proteins_100g'] || 0),
+          carbs: Math.round(nutrients['carbohydrates_100g'] || 0),
+          fat: Math.round(nutrients['fat_100g'] || 0),
+        }
+        setBaseServingSize(null)
+        setBaseServingLabel('')
+        setServingSize('100')
+        setServingUnit('g')
       }
+
       setBaseNutrients(base)
       setFood(data.product.product_name || '')
-      setServingSize('100'); setServingUnit('g')
-      setCalories(base.calories.toString()); setProtein(base.protein.toString())
-      setCarbs(base.carbs.toString()); setFat(base.fat.toString())
-      setShowBarcodeInput(false); setBarcodeInput('')
+      setCalories(base.calories.toString())
+      setProtein(base.protein.toString())
+      setCarbs(base.carbs.toString())
+      setFat(base.fat.toString())
+      setShowBarcodeInput(false)
+      setBarcodeInput('')
     } catch { setLookupError('Lookup failed.') }
   }
 
@@ -469,12 +508,35 @@ function startEditCardio(entry) {
           <input type="number" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Carbs (g)" value={carbs} onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Fat (g)" value={fat} onChange={(e) => setFat(e.target.value)} style={inputStyle} />
-          <div style={{ display: 'flex', gap: '8px', gridColumn: '1 / -1' }}>
-            <input type="number" placeholder="Serving size" value={servingSize} onChange={(e) => setServingSize(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-            <select value={servingUnit} onChange={(e) => setServingUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
-              <option value="g">g</option><option value="oz">oz</option><option value="ml">ml</option>
-              <option value="cup">cup</option><option value="tbsp">tbsp</option><option value="tsp">tsp</option>
-            </select>
+          <div style={{ display: 'flex', gap: '8px', gridColumn: '1 / -1', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="number"
+                placeholder={baseServingSize != null ? 'Servings' : 'Serving size'}
+                value={servingSize}
+                onChange={(e) => setServingSize(e.target.value)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              {baseServingSize == null && (
+                <select
+                  value={servingUnit}
+                  onChange={(e) => setServingUnit(e.target.value)}
+                  style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}
+                >
+                  <option value="g">g</option>
+                  <option value="oz">oz</option>
+                  <option value="ml">ml</option>
+                  <option value="cup">cup</option>
+                  <option value="tbsp">tbsp</option>
+                  <option value="tsp">tsp</option>
+                </select>
+              )}
+            </div>
+            {baseServingLabel && (
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: 0 }}>
+                1 serving = {baseServingLabel}
+              </p>
+            )}
           </div>
         </div>
         <Button onClick={() => { setShowCopyPanel(!showCopyPanel); setCopyEntries([]); setSelectedCopyIds(new Set()) }} variant="ghost" size="sm">
