@@ -115,6 +115,7 @@ function Dashboard({ profile }) {
   const [pageLoading, setPageLoading] = useState(true)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [showOffboardNotice, setShowOffboardNotice] = useState(false)
+  const [offboardedBy, setOffboardedBy] = useState('coach')
   const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
   const [selfOffboarding, setSelfOffboarding] = useState(false)
   const [selfOffboardError, setSelfOffboardError] = useState('')
@@ -497,8 +498,10 @@ async function reactToMessage(messageId, emoji) {
 
   async function fetchOffboardNotice() {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const selfOffboarded = localStorage.getItem(`self_offboarded_${currentSession.user.id}`)
+    if (selfOffboarded) localStorage.removeItem(`self_offboarded_${currentSession.user.id}`)
     const dismissed = localStorage.getItem(`offboard_notice_${currentSession.user.id}`)
-    if (dismissed) return
+    if (dismissed && !selfOffboarded) return
 
     const { data } = await supabase
       .from('coach_clients')
@@ -509,13 +512,21 @@ async function reactToMessage(messageId, emoji) {
       .limit(1)
       .maybeSingle()
 
-    if (data?.offboarded_at) setShowOffboardNotice(true)
+    if (data?.offboarded_at) {
+      setShowOffboardNotice(prev => {
+        if (!prev) setOffboardedBy(selfOffboarded ? 'client' : 'coach')
+        return true
+      })
+      localStorage.removeItem(`offboard_notice_${currentSession.user.id}`)
+    }
   }
 
   async function selfOffboard() {
     setSelfOffboarding(true)
     setSelfOffboardError('')
 
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    localStorage.setItem(`self_offboarded_${currentSession.user.id}`, 'true')
     const { error } = await supabase.functions.invoke('offboard-self')
 
     if (error) {
@@ -525,7 +536,7 @@ async function reactToMessage(messageId, emoji) {
     }
 
     await supabase.auth.refreshSession()
-    window.location.reload()
+    setTimeout(() => window.location.reload(), 800)
   }
 
   const isToday = selectedDate === toLocalDateString(new Date())
@@ -633,7 +644,10 @@ async function reactToMessage(messageId, emoji) {
 	          gap: '12px'
 	        }}>
 	          <p style={{ fontSize: '0.875rem', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
-	            Your coach has ended the coaching relationship. Your data is preserved and you can continue tracking on your own.
+	            {offboardedBy === 'client'
+	              ? "You've left your coaching plan. Your data is preserved and you can continue tracking on your own."
+	              : "Your coach has ended the coaching relationship. Your data is preserved and you can continue tracking on your own."
+	            }
 	          </p>
 	          <button
 	            onClick={() => {

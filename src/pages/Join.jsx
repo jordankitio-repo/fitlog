@@ -169,11 +169,13 @@ function Join() {
 
     const { error: relationshipError } = await supabase
       .from('coach_clients')
-      .insert([{
+      .upsert({
         coach_id: invitation.coach_id,
         client_id: userId,
         status: 'active',
-      }])
+        offboarded_at: null,
+        lock_cleared_at: null,
+      }, { onConflict: 'coach_id,client_id' })
 
     if (relationshipError) {
       setError(relationshipError.message)
