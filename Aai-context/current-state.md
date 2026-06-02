@@ -390,3 +390,108 @@ Chart colors: `#4f8ef7` (blue/weight), `#a78bfa` (purple/cardio), `#34d399` (gre
 ---
 
 *Document generated June 1, 2026. Update after each significant session.*
+
+## Session Update — June 1–2, 2026 (~commits 79–85)
+
+### Completed This Session
+
+**Landing Page (`src/pages/Landing.jsx`)**
+- Built full marketing landing page for logged-out visitors at `/`
+- Sections: hero, problem, features, how it works, pricing teaser, footer
+- Fixed parallax: `.landing-hero-media` is `position: fixed`, content sections use `rgba(12,12,14,0.88)` + `backdrop-filter: blur(2px)` to slide over background
+- Nav is `position: fixed` with `.landing-page` having `padding-top: 64px`
+- Four background UI cards: compliance pills, message thread, weight trend SVG, weekly report preview
+- CTAs: "Start free" → `/login?mode=signup&role=coach`, "Book a demo" → mailto
+- App.jsx: logged-out `/` shows Landing instead of redirecting to `/login`
+- Main container style is conditional: no max-width/padding when logged out
+
+**Authentication**
+- Google OAuth redirect fixed: `redirectTo: window.location.origin` (no trailing slash)
+- Added `http://localhost:5173/` (with slash) to Supabase Redirect URLs allowlist
+- Mobile OAuth via local IP is expected dev limitation — test OAuth on production
+
+**Messaging System Refactor**
+- Replaced `coach_messages` + `client_messages` tables with single `messages` table
+- Schema: `id, coach_id, client_id, sender_id, content, reaction, read_at, created_at`
+- RLS: `FOR ALL USING (coach_id = auth.uid() OR client_id = auth.uid()) WITH CHECK (same)`
+- Required explicit grant: `GRANT SELECT, INSERT, UPDATE, DELETE ON public.messages TO authenticated;`
+- Both Dashboard.jsx and ClientView.jsx use unified thread, ascending order, bubble design
+- `isMe = m.sender_id === profile?.id` (NOT session — Dashboard only receives profile prop)
+- Scrollable thread: `maxHeight: 400px`, `overflowY: auto`, dark scrollbar CSS, `messagesEndRef` auto-scroll
+- Old tables were already dropped by Supabase
+
+**Weekly Report Date Range Fix**
+- Added local date helpers to avoid `toISOString()` timezone shifts
+- Range: previous Sunday → previous Saturday (7 days exactly)
+- `getWeeklyReportRange()`: `start = addDays(currentWeekStart, -7)`, `end = addDays(currentWeekStart, -1)`
+- Explicit `weekRange` label passed to `weekly-report` Edge Function
+- Edge Function prepends deterministic header to report
+
+**`getCurrentWeekSunday()` — Consistent Week Calculation**
+- Added to Dashboard.jsx, ClientView.jsx, CoachDashboard.jsx
+- Replaces all inline `toLocalDateString(new Date(...getDay()...))` calculations
+- Avoids UTC/local timezone shift that caused week_of mismatches
+```js
+function getCurrentWeekSunday() {
+  const now = new Date()
+  const sunday = new Date(now)
+  sunday.setDate(now.getDate() - now.getDay())
+  return `${sunday.getFullYear()}-${String(sunday.getMonth()+1).padStart(2,'0')}-${String(sunday.getDate()).padStart(2,'0')}`
+}
+```
+- Deleted bad check_in row with `week_of: 2026-06-01` from DB
+
+**Weekly Check-in Improvements (Dashboard.jsx — client side)**
+- Red "To do" badge on SectionHeader when check-in not submitted
+- `SectionHeader` now accepts `badgeColor` prop
+- Spacing fixed between subtitle and Fill out button
+- All fields enforced before submission: `obstacles` and `notes` must not be empty
+- `saveCheckIn` uses `getCurrentWeekSunday()`
+
+**Weekly Check-in Improvements (ClientView.jsx — coach side)**
+- Check-in card always shows (removed `{clientCheckIn && ...}` gate)
+- Empty state: "No check-in submitted this week."
+- Obstacles and Notes labels: full text color, uppercase, letter-spacing
+- **Supabase Realtime subscription** — coach view auto-updates when client submits:
+```js
+supabase.channel(`check_ins_${clientId}`)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'check_ins', filter: `client_id=eq.${clientId}` }, () => {
+    fetchClientCheckIn()
+  })
+  .subscribe()
+```
+- No manual Refresh button needed — updates are instant
+
+**CoachDashboard.jsx**
+- `fetchAllClientStats` uses `getCurrentWeekSunday()` for check-in query
+- Client card now correctly shows check-in status
+
+**Copy Food from Another Day (Log.jsx)**
+- Inline panel with date picker + selectable food entries + select all + add button
+- Covers: repeat single food, repeat whole day, copy any subset
+- Nutrition only — weight/steps/cardio excluded (data integrity rationale)
+
+**Misc Fixes**
+- Steps "Distance" placeholder → "Miles"
+- Weight `weighed_at` display: `formatTime()` helper converts HH:MM:SS to 12hr format
+- Applied to both Log.jsx and ClientView.jsx
+- `vite.config.js`: `server: { host: true }` for LAN access
+
+### Pending (Lock Mechanic — Designed, Not Built)
+**Design agreed:**
+- After 3 consecutive days of no nutrition logging → lock client's "Today vs target" + charts
+- Client can still LOG data — never block data entry
+- Coach unlocks via button in ClientView
+- Auto-unlock after 7 days (prevents coach holding account hostage)
+- Coach sees "Locked" badge on client card in CoachDashboard
+- Requires: `locked_at` field in `coach_clients` table, lock check on Dashboard load, unlock endpoint in ClientView
+
+### Current Commit Count
+~85 commits
+
+### Updated Roadmap Priority
+1. Lock mechanic (designed, ready to build)
+2. Stripe / monetization
+3. Email domain verification (Resend)
+4. ToS / Privacy policy
+5. Google OAuth production verification
