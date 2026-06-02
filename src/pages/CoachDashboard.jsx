@@ -8,6 +8,14 @@ function toLocalDateString(date) {
   return new Date(date).toISOString().split('T')[0]
 }
 
+function getCurrentWeekSunday() {
+  const now = new Date()
+  const day = now.getDay()
+  const sunday = new Date(now)
+  sunday.setDate(now.getDate() - day)
+  return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
+}
+
 function CoachDashboard({ profile }) {
   const [clients, setClients] = useState([])
   const [clientStats, setClientStats] = useState({})
@@ -50,7 +58,7 @@ function CoachDashboard({ profile }) {
   }
 
   async function fetchAllClientStats(clientIds) {
-    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+    const weekOf = getCurrentWeekSunday()
     const negativeEmojis = ['👎', '😔', '😰', '🤕', '😴']
     const sevenDaysAgo = toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
     const today = toLocalDateString(new Date())
