@@ -207,6 +207,24 @@ function ClientView({ profile }) {
   }, [messages])
 
   useEffect(() => {
+    const subscription = supabase
+      .channel(`check_ins_${clientId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'check_ins',
+        filter: `client_id=eq.${clientId}`
+      }, () => {
+        fetchClientCheckIn()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(subscription)
+    }
+  }, [clientId])
+
+  useEffect(() => {
   fetchClientProfile()
   fetchWeightHistory()
   fetchCalorieHistory()
@@ -337,10 +355,6 @@ async function fetchStepsHistory() {
     .maybeSingle()
   if (error) console.error(error)
   else setClientCheckIn(data)
-}
-
-async function refreshCheckIn() {
-  await fetchClientCheckIn()
 }
 
   async function fetchCoachNotes() {
@@ -1173,7 +1187,6 @@ async function sendMessage() {
           {!clientCheckIn ? (
             <div style={{ paddingTop: '8px' }}>
               <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>No check-in submitted this week.</p>
-              <Button onClick={refreshCheckIn} variant="ghost" size="sm" style={{ marginTop: '8px' }}>↻ Refresh</Button>
             </div>
           ) : (
             <>
@@ -1199,7 +1212,6 @@ async function sendMessage() {
                   <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
                 </div>
               )}
-              <Button onClick={refreshCheckIn} variant="ghost" size="sm">↻ Refresh</Button>
             </>
           )}
         </SectionHeader>
