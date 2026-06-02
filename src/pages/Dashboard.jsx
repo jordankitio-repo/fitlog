@@ -115,7 +115,7 @@ function Dashboard({ profile }) {
   const [pageLoading, setPageLoading] = useState(true)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [showOffboardNotice, setShowOffboardNotice] = useState(false)
-  const [offboardedBy, setOffboardedBy] = useState('coach')
+  const offboardNoticeShownRef = useRef(false)
   const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
   const [selfOffboarding, setSelfOffboarding] = useState(false)
   const [selfOffboardError, setSelfOffboardError] = useState('')
@@ -497,11 +497,12 @@ async function reactToMessage(messageId, emoji) {
   }
 
   async function fetchOffboardNotice() {
+    if (offboardNoticeShownRef.current) return
+
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const selfOffboarded = localStorage.getItem(`self_offboarded_${currentSession.user.id}`)
-    if (selfOffboarded) localStorage.removeItem(`self_offboarded_${currentSession.user.id}`)
+    const offboardedBy = localStorage.getItem(`offboard_by_${currentSession.user.id}`) || 'coach'
     const dismissed = localStorage.getItem(`offboard_notice_${currentSession.user.id}`)
-    if (dismissed && !selfOffboarded) return
+    if (dismissed && offboardedBy !== 'client') return
 
     const { data } = await supabase
       .from('coach_clients')
@@ -513,10 +514,8 @@ async function reactToMessage(messageId, emoji) {
       .maybeSingle()
 
     if (data?.offboarded_at) {
-      setShowOffboardNotice(prev => {
-        if (!prev) setOffboardedBy(selfOffboarded ? 'client' : 'coach')
-        return true
-      })
+      offboardNoticeShownRef.current = true
+      setShowOffboardNotice(true)
       localStorage.removeItem(`offboard_notice_${currentSession.user.id}`)
     }
   }
@@ -526,7 +525,7 @@ async function reactToMessage(messageId, emoji) {
     setSelfOffboardError('')
 
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    localStorage.setItem(`self_offboarded_${currentSession.user.id}`, 'true')
+    localStorage.setItem(`offboard_by_${currentSession.user.id}`, 'client')
     const { error } = await supabase.functions.invoke('offboard-self')
 
     if (error) {
@@ -577,6 +576,7 @@ async function reactToMessage(messageId, emoji) {
   const activeReports = reports.filter(r => !r.archived)
   const archivedReports = reports.filter(r => r.archived)
   const unreadCount = activeReports.filter(r => !r.read_at).length
+  const offboardedBy = localStorage.getItem(`offboard_by_${profile?.id}`) || 'coach'
 
   const groupByWeek = (list) => {
     const grouped = {}
@@ -653,6 +653,7 @@ async function reactToMessage(messageId, emoji) {
 	            onClick={() => {
 	              supabase.auth.getSession().then(({ data: { session } }) => {
 	                localStorage.setItem(`offboard_notice_${session.user.id}`, 'true')
+	                localStorage.removeItem(`offboard_by_${session.user.id}`)
 	              })
 	              setShowOffboardNotice(false)
 	            }}
