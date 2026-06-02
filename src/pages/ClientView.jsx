@@ -62,6 +62,14 @@ function toLocalDateString(date) {
   return `${year}-${month}-${day}`
 }
 
+function getCurrentWeekSunday() {
+  const now = new Date()
+  const day = now.getDay()
+  const sunday = new Date(now)
+  sunday.setDate(now.getDate() - day)
+  return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
+}
+
 function parseLocalDateString(dateString) {
   const [year, month, day] = dateString.split('-').map(Number)
   return new Date(year, month - 1, day, 12)
@@ -320,7 +328,7 @@ async function fetchStepsHistory() {
 }
 
   async function fetchClientCheckIn() {
-  const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+  const weekOf = getCurrentWeekSunday()
   const { data, error } = await supabase
     .from('check_ins')
     .select('*')
@@ -329,6 +337,10 @@ async function fetchStepsHistory() {
     .maybeSingle()
   if (error) console.error(error)
   else setClientCheckIn(data)
+}
+
+async function refreshCheckIn() {
+  await fetchClientCheckIn()
 }
 
   async function fetchCoachNotes() {
@@ -1156,9 +1168,15 @@ async function sendMessage() {
         </SectionHeader>
       </div>
 
-      {clientCheckIn && (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <SectionHeader title="This week's check-in" collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
+      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <SectionHeader title="This week's check-in" collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
+          {!clientCheckIn ? (
+            <div style={{ paddingTop: '8px' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>No check-in submitted this week.</p>
+              <Button onClick={refreshCheckIn} variant="ghost" size="sm" style={{ marginTop: '8px' }}>↻ Refresh</Button>
+            </div>
+          ) : (
+            <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                 <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
                   <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
@@ -1170,20 +1188,22 @@ async function sendMessage() {
                 </div>
               </div>
               {clientCheckIn.obstacles && (
-                <div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Obstacles</p>
+                <div style={{ paddingTop: '4px' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
                   <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
                 </div>
               )}
               {clientCheckIn.notes && (
-                <div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Notes for coach</p>
+                <div style={{ paddingTop: '4px' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
                   <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
                 </div>
               )}
-          </SectionHeader>
-        </div>
-      )}
+              <Button onClick={refreshCheckIn} variant="ghost" size="sm">↻ Refresh</Button>
+            </>
+          )}
+        </SectionHeader>
+      </div>
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <SectionHeader title="Private notes" collapsed={sectionsCollapsed.privateNotes} onToggle={() => toggleSection('privateNotes')}>

@@ -26,7 +26,15 @@ function toLocalDateString(date) {
   return d.toISOString().split('T')[0]
 }
 
-function SectionHeader({ title, collapsed, onToggle, badge, children, animated = true }) {
+function getCurrentWeekSunday() {
+  const now = new Date()
+  const day = now.getDay()
+  const sunday = new Date(now)
+  sunday.setDate(now.getDate() - day)
+  return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
+}
+
+function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, children, animated = true }) {
   return (
     <>
       <div
@@ -36,7 +44,7 @@ function SectionHeader({ title, collapsed, onToggle, badge, children, animated =
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h2 style={{ margin: 0 }}>{title}</h2>
           {badge && (
-            <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>{badge}</span>
+            <span style={{ backgroundColor: badgeColor || 'var(--color-primary)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>{badge}</span>
           )}
         </div>
         <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{collapsed ? '▶' : '▼'}</span>
@@ -353,7 +361,7 @@ async function reactToMessage(messageId, emoji) {
 }
 
   async function fetchCheckIn() {
-    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+    const weekOf = getCurrentWeekSunday()
     const { data, error } = await supabase
       .from('check_ins').select('*')
       .eq('client_id', (await supabase.auth.getSession()).data.session.user.id)
@@ -371,8 +379,17 @@ async function reactToMessage(messageId, emoji) {
   }
 
   async function saveCheckIn() {
+    if (!checkIn.obstacles.trim()) {
+      alert('Please fill in the obstacles field before submitting.')
+      return
+    }
+    if (!checkIn.notes.trim()) {
+      alert('Please fill in the notes for your coach before submitting.')
+      return
+    }
+
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+    const weekOf = getCurrentWeekSunday()
 
     // Get coach info
     const { data: coachRelation } = await supabase
@@ -742,8 +759,14 @@ async function reactToMessage(messageId, emoji) {
       {/* Weekly check-in */}
       {profile?.role === 'client' && (
         <div style={cardStyle}>
-          <SectionHeader title="Weekly check-in" collapsed={sectionsCollapsed.checkin} onToggle={() => toggleSection('checkin')}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '-4px' }}>
+          <SectionHeader
+            title="Weekly check-in"
+            collapsed={sectionsCollapsed.checkin}
+            onToggle={() => toggleSection('checkin')}
+            badge={!existingCheckIn ? 'To do' : null}
+            badgeColor="#f87171"
+          >
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '8px', marginBottom: '8px' }}>
                 {existingCheckIn ? '✓ Submitted this week' : 'Let your coach know how your week went.'}
               </p>
               <Button
