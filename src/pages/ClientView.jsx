@@ -70,6 +70,28 @@ function getCurrentWeekSunday() {
   return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
 }
 
+// Lock mechanic — computed, no DB write needed from client
+function resolveLockState({ lastNutritionDate, connectionCreatedAt, lockClearedAt }) {
+  const LOCK_AFTER = 3
+  const AUTO_UNLOCK_AFTER = 7
+  const COACH_GRACE_HOURS = 48
+  function daysSince(dateStr) {
+    const a = new Date(dateStr + 'T00:00:00')
+    const now = new Date()
+    const b = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    return Math.floor((b - a) / 86400000)
+  }
+  const baseline = lastNutritionDate || connectionCreatedAt
+  const days = daysSince(baseline)
+  if (days < LOCK_AFTER) return { locked: false, days, reason: 'active' }
+  if (days >= LOCK_AFTER + AUTO_UNLOCK_AFTER) return { locked: false, days, reason: 'auto-unlocked' }
+  if (lockClearedAt && new Date(lockClearedAt) > new Date(baseline + 'T23:59:59')) {
+    const graceExpiry = new Date(new Date(lockClearedAt).getTime() + COACH_GRACE_HOURS * 60 * 60 * 1000)
+    if (new Date() < graceExpiry) return { locked: false, days, reason: 'coach-unlocked' }
+  }
+  return { locked: true, days, reason: 'locked' }
+}
+
 function parseLocalDateString(dateString) {
   const [year, month, day] = dateString.split('-').map(Number)
   return new Date(year, month - 1, day, 12)
@@ -148,6 +170,7 @@ function ClientView({ profile }) {
   })
   const [targetsSaved, setTargetsSaved] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
+  const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [coachNotes, setCoachNotes] = useState('')
   const [newNoteEntry, setNewNoteEntry] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
@@ -193,6 +216,10 @@ function ClientView({ profile }) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  function showToast(message, type = 'success') {
+    setToast({ message, type })
+  }
+
   function groupByWeek(list) {
     const grouped = {}
     list.forEach(r => {
@@ -232,6 +259,7 @@ function ClientView({ profile }) {
   fetchStepsHistory()
   fetchClientTargets()
   fetchClientCheckIn()
+  fetchLockState()
   fetchCoachNotes()
   fetchConsistency()
   fetchSentReports()
@@ -251,6 +279,64 @@ function ClientView({ profile }) {
       .single()
     if (error) console.error('Error fetching client profile:', error)
     else setClientProfile(data)
+  }
+
+  async function fetchLockState() {
+    if (!profile?.id) return
+
+    const [{ data: relationship, error: relationshipError }, { data: latestLog, error: latestLogError }] = await Promise.all([
+      supabase
+        .from('coach_clients')
+        .select('created_at, lock_cleared_at')
+        .eq('coach_id', profile.id)
+        .eq('client_id', clientId)
+        .eq('status', 'active')
+        .maybeSingle(),
+      supabase
+        .from('nutrition_log')
+        .select('logged_date')
+        .eq('user_id', clientId)
+        .order('logged_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ])
+
+    if (relationshipError) {
+      console.error(relationshipError)
+      return
+    }
+    if (latestLogError) {
+      console.error(latestLogError)
+      return
+    }
+    if (!relationship) {
+      setLockInfo({ locked: false, days: 0, reason: 'active' })
+      return
+    }
+
+    setLockInfo(resolveLockState({
+      lastNutritionDate: latestLog?.logged_date || null,
+      connectionCreatedAt: relationship.created_at?.split('T')[0],
+      lockClearedAt: relationship.lock_cleared_at
+    }))
+  }
+
+  async function unlockClient() {
+    if (!profile?.id) return
+
+    const { error } = await supabase
+      .from('coach_clients')
+      .update({ lock_cleared_at: new Date().toISOString() })
+      .eq('coach_id', profile.id)
+      .eq('client_id', clientId)
+
+    if (error) {
+      console.error(error)
+      showToast('Could not unlock client. Try again.', 'error')
+    } else {
+      await fetchLockState()
+      showToast('Client unlocked.', 'success')
+    }
   }
 
   async function fetchEntries() {
@@ -850,6 +936,21 @@ async function sendMessage() {
         <div>
           <h1>{clientProfile?.full_name || 'Client'}</h1>
           <p style={{ fontSize: '0.875rem', marginTop: '2px' }}>{clientProfile?.email}</p>
+          {lockInfo.locked && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+              <span style={{
+                fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
+                borderRadius: '999px', backgroundColor: 'var(--color-bg)',
+                border: '1px solid #f87171', color: '#f87171'
+              }}>
+                Locked
+              </span>
+              <span style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
+                No nutrition logged for {lockInfo.days} days
+              </span>
+              <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
+            </div>
+          )}
         </div>
       </div>
 

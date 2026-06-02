@@ -34,6 +34,28 @@ function getCurrentWeekSunday() {
   return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
 }
 
+// Lock mechanic — computed, no DB write needed from client
+function resolveLockState({ lastNutritionDate, connectionCreatedAt, lockClearedAt }) {
+  const LOCK_AFTER = 3
+  const AUTO_UNLOCK_AFTER = 7
+  const COACH_GRACE_HOURS = 48
+  function daysSince(dateStr) {
+    const a = new Date(dateStr + 'T00:00:00')
+    const now = new Date()
+    const b = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    return Math.floor((b - a) / 86400000)
+  }
+  const baseline = lastNutritionDate || connectionCreatedAt
+  const days = daysSince(baseline)
+  if (days < LOCK_AFTER) return { locked: false, days, reason: 'active' }
+  if (days >= LOCK_AFTER + AUTO_UNLOCK_AFTER) return { locked: false, days, reason: 'auto-unlocked' }
+  if (lockClearedAt && new Date(lockClearedAt) > new Date(baseline + 'T23:59:59')) {
+    const graceExpiry = new Date(new Date(lockClearedAt).getTime() + COACH_GRACE_HOURS * 60 * 60 * 1000)
+    if (new Date() < graceExpiry) return { locked: false, days, reason: 'coach-unlocked' }
+  }
+  return { locked: true, days, reason: 'locked' }
+}
+
 function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, children, animated = true }) {
   return (
     <>
@@ -91,6 +113,7 @@ function Dashboard({ profile }) {
   const [messageSent, setMessageSent] = useState(false)
   const [openReactId, setOpenReactId] = useState(null)
   const [pageLoading, setPageLoading] = useState(true)
+  const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
 
   // Section collapse state
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
@@ -130,7 +153,7 @@ function Dashboard({ profile }) {
         fetchStreak(),
       ])
       if (profile?.role === 'client') {
-        await Promise.all([fetchCheckIn(), fetchMessages()])
+        await Promise.all([fetchCheckIn(), fetchMessages(), fetchLockState()])
       }
       setPageLoading(false)
     }
@@ -441,6 +464,30 @@ async function reactToMessage(messageId, emoji) {
     }
   }
 
+  async function fetchLockState() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const { data: connection } = await supabase
+      .from('coach_clients')
+      .select('id, created_at, lock_cleared_at')
+      .eq('client_id', currentSession.user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (!connection) return // no active coach — lock never applies
+    const { data: lastLog } = await supabase
+      .from('nutrition_log')
+      .select('logged_date')
+      .eq('user_id', currentSession.user.id)
+      .order('logged_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const result = resolveLockState({
+      lastNutritionDate: lastLog?.logged_date || null,
+      connectionCreatedAt: connection.created_at.split('T')[0],
+      lockClearedAt: connection.lock_cleared_at || null,
+    })
+    setLockInfo(result)
+  }
+
   const isToday = selectedDate === toLocalDateString(new Date())
   function goToPrevDay() { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
   function goToNextDay() { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
@@ -533,8 +580,8 @@ async function reactToMessage(messageId, emoji) {
         </div>
       ) : (
       <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <h1>{profile?.role === 'client' ? 'My Progress' : 'Dashboard'}</h1>
+	      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+	        <h1>{profile?.role === 'client' ? 'My Progress' : 'Dashboard'}</h1>
 
         {streak > 0 && (
           <div style={{
@@ -563,10 +610,34 @@ async function reactToMessage(messageId, emoji) {
           <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
           {isToday && <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
           {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
-        </div>
-      </div>
+	        </div>
+	      </div>
 
-      {profile?.role === 'client' && (
+	      {profile?.role === 'client' && (lockInfo.locked || lockInfo.reason === 'coach-unlocked') && (
+	        <div style={{
+	          ...cardStyle,
+	          borderColor: '#f87171',
+	          borderLeftWidth: '4px',
+	          backgroundColor: 'rgba(248, 113, 113, 0.05)',
+	        }}>
+	          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+	            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+	              <span style={{ fontSize: '1.25rem' }}>🔒</span>
+	              <h2 style={{ margin: 0 }}>Progress view paused</h2>
+	            </div>
+		            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', lineHeight: '1.6', margin: 0 }}>
+		              {lockInfo.reason === 'coach-unlocked'
+		                ? 'Your coach unlocked your account. You have 48 hours to log your nutrition before it locks again.'
+		                : `No nutrition logged for ${lockInfo.days} ${lockInfo.days === 1 ? 'day' : 'days'}. Log today to bring your progress view back, or ask your coach to unlock it.`}
+		            </p>
+	            <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: 0 }}>
+	              Your logging form is still fully available — keep adding entries any time.
+	            </p>
+	          </div>
+	        </div>
+	      )}
+
+	      {profile?.role === 'client' && (
         <div style={cardStyle}>
           <h2>Messages</h2>
           {messages.length === 0 && (
@@ -817,9 +888,9 @@ async function reactToMessage(messageId, emoji) {
         </SectionHeader>
       </div>
 
-      {/* Today vs target */}
-      {targets && (
-        <div style={cardStyle}>
+	      {/* Today vs target — hidden when client is locked */}
+	      {!(profile?.role === 'client' && lockInfo.locked) && targets && (
+	        <div style={cardStyle}>
           <SectionHeader title="Today vs target" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
               {[
                 { label: 'Calories', actual: totals.calories, target: targets.calories, unit: 'cal' },
@@ -855,7 +926,7 @@ async function reactToMessage(messageId, emoji) {
       )}
 
       {/* Weight trend */}
-      {weightHistory.length > 1 && (
+      {!(profile?.role === 'client' && lockInfo.locked) && weightHistory.length > 1 && (
         <div style={cardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
@@ -866,7 +937,7 @@ async function reactToMessage(messageId, emoji) {
       )}
 
       {/* Calories chart */}
-      {calorieHistory.length > 0 && (
+      {!(profile?.role === 'client' && lockInfo.locked) && calorieHistory.length > 0 && (
         <div style={cardStyle}>
           <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
@@ -877,7 +948,7 @@ async function reactToMessage(messageId, emoji) {
       )}
 
       {/* Cardio chart */}
-      {cardioHistory.length > 0 && (
+      {!(profile?.role === 'client' && lockInfo.locked) && cardioHistory.length > 0 && (
         <div style={cardStyle}>
           <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
@@ -888,7 +959,7 @@ async function reactToMessage(messageId, emoji) {
       )}
 
       {/* Steps chart */}
-      {stepsHistory.length > 0 && (
+      {!(profile?.role === 'client' && lockInfo.locked) && stepsHistory.length > 0 && (
         <div style={cardStyle}>
           <SectionHeader title="Steps — last 14 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (

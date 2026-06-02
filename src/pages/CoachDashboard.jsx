@@ -16,6 +16,28 @@ function getCurrentWeekSunday() {
   return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
 }
 
+// Lock mechanic — computed, no DB write needed from client
+function resolveLockState({ lastNutritionDate, connectionCreatedAt, lockClearedAt }) {
+  const LOCK_AFTER = 3
+  const AUTO_UNLOCK_AFTER = 7
+  const COACH_GRACE_HOURS = 48
+  function daysSince(dateStr) {
+    const a = new Date(dateStr + 'T00:00:00')
+    const now = new Date()
+    const b = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    return Math.floor((b - a) / 86400000)
+  }
+  const baseline = lastNutritionDate || connectionCreatedAt
+  const days = daysSince(baseline)
+  if (days < LOCK_AFTER) return { locked: false, days, reason: 'active' }
+  if (days >= LOCK_AFTER + AUTO_UNLOCK_AFTER) return { locked: false, days, reason: 'auto-unlocked' }
+  if (lockClearedAt && new Date(lockClearedAt) > new Date(baseline + 'T23:59:59')) {
+    const graceExpiry = new Date(new Date(lockClearedAt).getTime() + COACH_GRACE_HOURS * 60 * 60 * 1000)
+    if (new Date() < graceExpiry) return { locked: false, days, reason: 'coach-unlocked' }
+  }
+  return { locked: true, days, reason: 'locked' }
+}
+
 function CoachDashboard({ profile }) {
   const [clients, setClients] = useState([])
   const [clientStats, setClientStats] = useState({})
@@ -33,7 +55,7 @@ function CoachDashboard({ profile }) {
 
     const { data: relationships, error } = await supabase
       .from('coach_clients')
-      .select('*')
+      .select('id, coach_id, client_id, status, created_at, lock_cleared_at')
       .eq('coach_id', profile.id)
       .eq('status', 'active')
 
@@ -53,11 +75,11 @@ function CoachDashboard({ profile }) {
     }))
 
     setClients(merged)
-    await fetchAllClientStats(clientIds)
+    await fetchAllClientStats(clientIds, relationships)
     setLoading(false)
   }
 
-  async function fetchAllClientStats(clientIds) {
+  async function fetchAllClientStats(clientIds, relationships = []) {
     const weekOf = getCurrentWeekSunday()
     const negativeEmojis = ['👎', '😔', '😰', '🤕', '😴']
     const sevenDaysAgo = toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
@@ -89,6 +111,12 @@ function CoachDashboard({ profile }) {
     clientIds.forEach(id => {
       const clientLogs = recentLogs.filter(l => l.user_id === id)
       const lastLogDate = clientLogs.length > 0 ? clientLogs[0].logged_date : null
+      const relationship = relationships.find(r => r.client_id === id)
+      const lockInfo = relationship ? resolveLockState({
+        lastNutritionDate: lastLogDate,
+        connectionCreatedAt: relationship.created_at?.split('T')[0],
+        lockClearedAt: relationship.lock_cleared_at
+      }) : { locked: false, days: 0, reason: 'active' }
       const todayStr = toLocalDateString(new Date())
       let daysSinceLog = null
       if (lastLogDate) daysSinceLog = Math.floor((new Date(todayStr) - new Date(lastLogDate)) / 86400000)
@@ -135,7 +163,7 @@ function CoachDashboard({ profile }) {
         complianceItems.push({ label: 'Steps', value: count })
       }
 
-      stats[id] = { lastLogDate, daysSinceLog, checkIn, concerningReactions, complianceItems }
+      stats[id] = { lastLogDate, daysSinceLog, checkIn, concerningReactions, complianceItems, lockInfo }
     })
 
     setClientStats(stats)
@@ -290,12 +318,21 @@ function CoachDashboard({ profile }) {
                 )}
 
                 {/* 7-day compliance pills */}
-                {s?.complianceItems?.length > 0 && (
+                {(s?.complianceItems?.length > 0 || s?.lockInfo?.locked) && (
                   <div style={{ paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
                     <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                       7-day compliance
                     </p>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {s.lockInfo?.locked && (
+                        <span style={{
+                          fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px',
+                          borderRadius: '999px', backgroundColor: 'var(--color-bg)',
+                          border: '1px solid #f87171', color: '#f87171'
+                        }}>
+                          Locked
+                        </span>
+                      )}
                       {s.complianceItems.map(({ label, value }) => {
                         const color = value >= 5 ? '#34d399' : value >= 3 ? '#fbbf24' : '#f87171'
                         return (
