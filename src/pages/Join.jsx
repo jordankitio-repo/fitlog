@@ -2,91 +2,139 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
+import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Join() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const token = searchParams.get('token')
+  const urlToken = searchParams.get('token')
 
+  const [inviteToken, setInviteToken] = useState(urlToken || '')
   const [invitation, setInvitation] = useState(null)
+  const [existingAccount, setExistingAccount] = useState(null)
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [existingSession, setExistingSession] = useState(null)
   const [connecting, setConnecting] = useState(false)
+  const [authLoading, setAuthLoading] = useState(false)
 
   useEffect(() => {
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('session check', session?.user?.email)
-      if (session) setExistingSession(session)
-      if (token) await fetchInvitation()
-      else setLoading(false)
-    }
-    init()
-  }, [token])
+      setLoading(true)
+      const activeToken = urlToken
+      setInviteToken(activeToken || '')
 
-  async function fetchInvitation() {
-    const { data, error } = await supabase
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) setExistingSession(session)
+
+      if (activeToken) await fetchInvitation(activeToken)
+      else {
+        setError('This invite link is missing a token.')
+        setLoading(false)
+      }
+    }
+
+    init()
+  }, [urlToken])
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setExistingSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function fetchInvitation(activeToken) {
+    const { data, error: inviteError } = await supabase
       .from('invitations')
       .select('*')
-      .eq('token', token)
+      .eq('token', activeToken)
       .eq('status', 'pending')
       .single()
 
-    if (error || !data) {
+    if (inviteError || !data) {
       setError('This invite link is invalid or has already been used.')
-    } else {
-      setInvitation(data)
+      setLoading(false)
+      return
     }
+
+    setInvitation(data)
+
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('email', data.client_email)
+      .maybeSingle()
+
+    setExistingAccount(existingProfile || null)
     setLoading(false)
   }
 
   async function handleSignUp() {
-    if (!fullName || !password) { setError('Please fill in all fields.'); return }
+    if (!fullName.trim() || !password) {
+      setError('Please fill in all fields.')
+      return
+    }
+
+    const passwordError = getPasswordValidationError(password)
+    if (passwordError) {
+      setError(passwordError)
+      return
+    }
+
+    if (existingAccount) {
+      setError('This email already has a FitLog account. Log in to accept your coach\'s invite.')
+      return
+    }
+
+    setAuthLoading(true)
     setError('')
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: invitation.client_email,
-      password
+      password,
     })
 
-    if (signUpError) { setError(signUpError.message); return }
+    if (signUpError) {
+      setError(signUpError.message)
+      setAuthLoading(false)
+      return
+    }
 
-    const userId = data.user.id
-
-    await supabase
-  .from('profiles')
-  .upsert({
-    id: userId,
-    email: invitation.client_email,
-    full_name: fullName,
-    role: 'client'
-  })
-
-    await supabase
-      .from('coach_clients')
-      .insert([{
-        coach_id: invitation.coach_id,
-        client_id: userId,
-        status: 'active'
-      }])
-
-    await supabase
-      .from('invitations')
-      .update({ status: 'accepted' })
-      .eq('token', token)
-
-    navigate('/')
+    await acceptInvite(data.user.id, { fullName: fullName.trim() })
+    setAuthLoading(false)
   }
 
-  async function handleConnect() {
-    if (!existingSession) return
-    setConnecting(true)
+  async function handleLoginToAccept() {
+    if (!password) {
+      setError('Enter your password to accept this invite.')
+      return
+    }
+
+    setAuthLoading(true)
     setError('')
 
-    const userId = existingSession.user.id
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: invitation.client_email,
+      password,
+    })
+
+    if (signInError) {
+      setError(signInError.message)
+      setAuthLoading(false)
+      return
+    }
+
+    await acceptInvite(data.user.id)
+    setAuthLoading(false)
+  }
+
+  async function acceptInvite(userId, options = {}) {
+    setConnecting(true)
+    setError('')
 
     const { data: existingRelation } = await supabase
       .from('coach_clients')
@@ -101,29 +149,70 @@ function Join() {
       return
     }
 
-    // Update role to client
-    await supabase
-      .from('profiles')
-      .update({ role: 'client' })
-      .eq('id', userId)
+    const profilePayload = {
+      id: userId,
+      email: invitation.client_email,
+      role: 'client',
+    }
 
-    // Create coach-client relationship
-    await supabase
+    if (options.fullName) profilePayload.full_name = options.fullName
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert(profilePayload)
+
+    if (profileError) {
+      setError(profileError.message)
+      setConnecting(false)
+      return
+    }
+
+    const { error: relationshipError } = await supabase
       .from('coach_clients')
       .insert([{
         coach_id: invitation.coach_id,
         client_id: userId,
-        status: 'active'
+        status: 'active',
       }])
 
-    // Mark invite as accepted
-    await supabase
+    if (relationshipError) {
+      setError(relationshipError.message)
+      setConnecting(false)
+      return
+    }
+
+    const { error: invitationError } = await supabase
       .from('invitations')
       .update({ status: 'accepted' })
-      .eq('token', token)
+      .eq('token', inviteToken)
 
+    if (invitationError) {
+      setError(invitationError.message)
+      setConnecting(false)
+      return
+    }
+
+    await supabase.auth.refreshSession()
     setConnecting(false)
     navigate('/')
+  }
+
+  async function handleConnect() {
+    if (!existingSession) return
+    const sessionEmail = existingSession.user.email?.toLowerCase()
+    const invitedEmail = invitation.client_email?.toLowerCase()
+
+    if (sessionEmail !== invitedEmail) {
+      setError(`Log in with ${invitation.client_email} to accept this invite.`)
+      return
+    }
+
+    if (existingAccount?.role === 'coach') {
+      setError('This email belongs to a coach account and cannot accept a client invite.')
+      return
+    }
+
+    await acceptInvite(existingSession.user.id)
   }
 
   const inputStyle = {
@@ -133,7 +222,7 @@ function Join() {
     padding: '10px 14px',
     color: '#f0f0f0',
     fontSize: '1rem',
-    width: '100%'
+    width: '100%',
   }
 
   if (loading) return <p style={{ padding: '24px' }}>Loading...</p>
@@ -150,7 +239,7 @@ function Join() {
       margin: '80px auto',
       display: 'flex',
       flexDirection: 'column',
-      gap: '16px'
+      gap: '16px',
     }}>
       <h1>Accept invitation</h1>
       <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
@@ -158,7 +247,11 @@ function Join() {
         Your email: <strong style={{ color: 'var(--color-text)' }}>{invitation?.client_email}</strong>
       </p>
 
-      {existingSession ? (
+      {existingAccount?.role === 'coach' ? (
+        <p style={{ color: '#f87171', fontSize: '0.875rem' }}>
+          This email belongs to a coach account and cannot accept a client invite.
+        </p>
+      ) : existingSession ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
             You're logged in as <strong>{existingSession.user.email}</strong>. Accepting this invite will connect you to your coach as a client. Your existing data is preserved.
@@ -169,6 +262,23 @@ function Join() {
           </Button>
           <Button onClick={() => navigate('/')} variant="ghost">
             Cancel
+          </Button>
+        </div>
+      ) : existingAccount ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+            You already have a FitLog account with this email. Log in to accept your coach's invite.
+          </p>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={inputStyle}
+          />
+          {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
+          <Button onClick={handleLoginToAccept} variant="primary" fullWidth loading={authLoading}>
+            Log in and accept
           </Button>
         </div>
       ) : (
@@ -188,19 +298,11 @@ function Join() {
             style={inputStyle}
           />
 
-          {error && <p style={{ color: '#f87171' }}>{error}</p>}
+          {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
 
-          <button onClick={handleSignUp} style={{
-            backgroundColor: '#4f8ef7',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '10px 20px',
-            cursor: 'pointer',
-            fontWeight: 600
-          }}>
+          <Button onClick={handleSignUp} variant="primary" fullWidth loading={authLoading || connecting}>
             Create account
-          </button>
+          </Button>
         </>
       )}
     </div>

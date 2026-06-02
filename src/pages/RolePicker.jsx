@@ -1,24 +1,31 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 
-function RolePicker({ session, onComplete }) {
+function RolePicker({ session, onComplete, onCancel }) {
+  const userId = session.user.id
+  const userEmail = session.user.email
+  const metadataFullName = session.user.user_metadata?.full_name
+
   const [role, setRole] = useState('solo')
   const [fullName, setFullName] = useState(
-    session?.user?.user_metadata?.full_name || ''
+    metadataFullName || ''
   )
   const [loading, setLoading] = useState(false)
 
-  async function handleConfirm() {
+  const confirm = useCallback(async (roleToUse) => {
     setLoading(true)
-    await supabase.from('profiles').update({
-      role,
-      full_name: fullName
-    }).eq('id', session.user.id)
+    const name = metadataFullName || fullName
+    await supabase.from('profiles').upsert({
+      id: userId,
+      email: userEmail,
+      role: roleToUse,
+      full_name: name,
+    })
     await supabase.auth.refreshSession()
     onComplete()
     setLoading(false)
-  }
+  }, [fullName, metadataFullName, onComplete, userEmail, userId])
 
   const inputStyle = {
     backgroundColor: '#1a1a1a',
@@ -78,9 +85,23 @@ function RolePicker({ session, onComplete }) {
         )}
       </div>
 
-      <Button onClick={handleConfirm} variant="primary" fullWidth loading={loading}>
+      <Button onClick={() => confirm(role)} variant="primary" fullWidth loading={loading}>
         Get started
       </Button>
+      <button
+        type="button"
+        onClick={onCancel}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'var(--color-muted)',
+          cursor: 'pointer',
+          fontSize: '0.875rem',
+          textDecoration: 'underline'
+        }}
+      >
+        ← Back
+      </button>
     </div>
   )
 }

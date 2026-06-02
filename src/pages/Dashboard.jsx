@@ -115,6 +115,9 @@ function Dashboard({ profile }) {
   const [pageLoading, setPageLoading] = useState(true)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [showOffboardNotice, setShowOffboardNotice] = useState(false)
+  const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
+  const [selfOffboarding, setSelfOffboarding] = useState(false)
+  const [selfOffboardError, setSelfOffboardError] = useState('')
 
   // Section collapse state
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
@@ -507,6 +510,22 @@ async function reactToMessage(messageId, emoji) {
       .maybeSingle()
 
     if (data?.offboarded_at) setShowOffboardNotice(true)
+  }
+
+  async function selfOffboard() {
+    setSelfOffboarding(true)
+    setSelfOffboardError('')
+
+    const { error } = await supabase.functions.invoke('offboard-self')
+
+    if (error) {
+      setSelfOffboardError(error.message)
+      setSelfOffboarding(false)
+      return
+    }
+
+    await supabase.auth.refreshSession()
+    window.location.reload()
   }
 
   const isToday = selectedDate === toLocalDateString(new Date())
@@ -1016,6 +1035,35 @@ async function reactToMessage(messageId, emoji) {
               <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
+        </div>
+      )}
+
+      {profile?.role === 'client' && (
+        <div style={cardStyle}>
+          <h2>Coaching</h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', lineHeight: '1.6', margin: 0 }}>
+            Leave your current coaching plan and return to an individual account. Your data is preserved.
+          </p>
+          {!showSelfOffboardConfirm ? (
+            <Button onClick={() => setShowSelfOffboardConfirm(true)} variant="danger" size="sm">
+              Leave coaching plan
+            </Button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p style={{ fontSize: '0.875rem', margin: 0 }}>
+                Are you sure? You'll return to a solo account.
+              </p>
+              {selfOffboardError && <p style={{ color: '#f87171', fontSize: '0.875rem', margin: 0 }}>{selfOffboardError}</p>}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <Button onClick={selfOffboard} variant="danger-solid" size="sm" loading={selfOffboarding}>
+                  Confirm
+                </Button>
+                <Button onClick={() => { setShowSelfOffboardConfirm(false); setSelfOffboardError('') }} variant="ghost" size="sm">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       </>

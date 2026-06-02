@@ -42,7 +42,8 @@ function CoachDashboard({ profile }) {
   const [clients, setClients] = useState([])
   const [clientStats, setClientStats] = useState({})
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteStatus, setInviteStatus] = useState('')
+  const [inviteLink, setInviteLink] = useState('')
+  const [inviteError, setInviteError] = useState('')
   const [soloAccountDetected, setSoloAccountDetected] = useState(false)
   const [pendingInviteEmail, setPendingInviteEmail] = useState('')
   const [loading, setLoading] = useState(true)
@@ -186,29 +187,68 @@ function CoachDashboard({ profile }) {
   }
 
   async function checkAndInvite() {
-    if (!inviteEmail) return
-    setInviteStatus('')
+    const normalizedEmail = inviteEmail.trim().toLowerCase()
+    if (!normalizedEmail) return
+    setInviteLink('')
+    setInviteError('')
+    setSoloAccountDetected(false)
+    setPendingInviteEmail('')
 
     // Check if email already exists in profiles
     const { data: existing } = await supabase
       .from('profiles')
       .select('id, role')
-      .eq('email', inviteEmail)
+      .eq('email', normalizedEmail)
       .maybeSingle()
 
+    if (existing?.role === 'coach') {
+      setInviteError('This email belongs to a coach account and cannot be invited as a client.')
+      setInviteLink('')
+      return
+    }
+
     if (existing?.role === 'client') {
-      setInviteStatus('This person is already connected to a coach.')
+      const { data: alreadyMyClient } = await supabase
+        .from('coach_clients')
+        .select('id')
+        .eq('coach_id', profile.id)
+        .eq('client_id', existing.id)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      if (alreadyMyClient) {
+        setInviteError('This person is already your client.')
+        setInviteLink('')
+        return
+      }
+
+      setInviteError('This person is already connected to another coach.')
+      setInviteLink('')
+      return
+    }
+
+    const { data: pendingInvite } = await supabase
+      .from('invitations')
+      .select('id')
+      .eq('coach_id', profile.id)
+      .eq('client_email', normalizedEmail)
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    if (pendingInvite) {
+      setInviteError('You already sent an invite to this email.')
+      setInviteLink('')
       return
     }
 
     if (existing?.role === 'solo') {
-      setPendingInviteEmail(inviteEmail)
+      setPendingInviteEmail(normalizedEmail)
       setSoloAccountDetected(true)
       return
     }
 
     // No existing account or existing solo confirmed — send invite
-    await sendInvite(inviteEmail)
+    await sendInvite(normalizedEmail)
   }
 
   async function sendInvite(email) {
@@ -216,9 +256,14 @@ function CoachDashboard({ profile }) {
       .from('invitations')
       .insert([{ coach_id: profile.id, client_email: email }])
       .select().single()
-    if (error) { setInviteStatus('Error sending invite.'); console.error(error) }
+    if (error) {
+      setInviteError('Error sending invite.')
+      setInviteLink('')
+      console.error(error)
+    }
     else {
-      setInviteStatus(`${window.location.origin}/join?token=${data.token}`)
+      setInviteLink(`${window.location.origin}/join?token=${data.token}`)
+      setInviteError('')
       setInviteEmail('')
       setSoloAccountDetected(false)
       setPendingInviteEmail('')
@@ -393,7 +438,11 @@ function CoachDashboard({ profile }) {
             type="email"
             placeholder="Client email"
             value={inviteEmail}
-	            onChange={(e) => setInviteEmail(e.target.value)}
+	            onChange={(e) => {
+	              setInviteEmail(e.target.value)
+	              setInviteError('')
+	              setInviteLink('')
+	            }}
 	            style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem' }}
 	          />
 	          <Button onClick={checkAndInvite} variant="primary">Send invite</Button>
@@ -429,13 +478,18 @@ function CoachDashboard({ profile }) {
 	            </div>
 	          </div>
 	        )}
-	        {inviteStatus && (
-          <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>Share this link with your client:</p>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-primary)', wordBreak: 'break-all', fontFamily: 'monospace' }}>{inviteStatus}</p>
-            <Button onClick={() => navigator.clipboard.writeText(inviteStatus)} variant="ghost" size="sm">
-              Copy link
-            </Button>
+	        {inviteError && (
+          <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{inviteError}</p>
+        )}
+        {inviteLink && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', wordBreak: 'break-all' }}>{inviteLink}</p>
+            <button
+              onClick={() => navigator.clipboard.writeText(inviteLink)}
+              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-text)', whiteSpace: 'nowrap' }}
+            >
+              Copy
+            </button>
           </div>
         )}
       </div>

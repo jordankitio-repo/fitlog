@@ -1,3 +1,17 @@
+function Spinner({ color }) {
+  return (
+    <span style={{
+      width: '14px', height: '14px',
+      border: `2px solid ${color}`,
+      borderTopColor: 'transparent',
+      borderRadius: '50%',
+      display: 'inline-block',
+      animation: 'spin 0.7s linear infinite',
+      flexShrink: 0
+    }} />
+  )
+}
+
 function Button({
   children,
   onClick,
@@ -69,17 +83,7 @@ function Button({
     },
   }
 
-  const Spinner = () => (
-    <span style={{
-      width: '14px', height: '14px',
-      border: `2px solid ${variant === 'primary' ? '#fff' : variant === 'ai' ? '#a78bfa' : 'var(--color-primary)'}`,
-      borderTopColor: 'transparent',
-      borderRadius: '50%',
-      display: 'inline-block',
-      animation: 'spin 0.7s linear infinite',
-      flexShrink: 0
-    }} />
-  )
+  const spinnerColor = variant === 'primary' ? '#fff' : variant === 'ai' ? '#a78bfa' : 'var(--color-primary)'
 
   return (
     <button
@@ -89,7 +93,7 @@ function Button({
       className="btn"
       style={{ ...base, ...sizes[size], ...variants[variant], ...style }}
     >
-      {loading && <Spinner />}
+      {loading && <Spinner color={spinnerColor} />}
       {children}
     </button>
   )

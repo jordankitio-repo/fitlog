@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 import Dashboard from './pages/Dashboard'
 import Log from './pages/Log'
@@ -48,38 +48,62 @@ function App() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session) fetchProfile(session.user.id)
-      else setLoading(false)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      if (session) fetchProfile(session.user.id)
-      else { setProfile(null); setLoading(false) }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  async function fetchProfile(userId) {
+  const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
-    if (error) console.error('Error fetching profile:', error)
-    else setProfile(data)
+    if (error) {
+      console.error('Error fetching profile:', error)
+      setLoading(false)
+      return
+    }
+
+    setProfile(data)
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session) {
+        setLoading(true)
+        fetchProfile(session.user.id)
+      }
+      else setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') return
+
+      setSession(session)
+      if (session) {
+        setLoading(true)
+        fetchProfile(session.user.id)
+      }
+      else { setProfile(null); setLoading(false) }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [fetchProfile])
 
   if (loading) return <p style={{ padding: '24px' }}>Loading...</p>
 
   if (session && profile && !profile.role) {
-    return <RolePicker session={session} onComplete={() => fetchProfile(session.user.id)} />
+    return (
+      <RolePicker
+        session={session}
+        onComplete={() => fetchProfile(session.user.id)}
+        onCancel={async () => {
+          await supabase.auth.signOut()
+          setSession(null)
+          setProfile(null)
+          setLoading(false)
+        }}
+      />
+    )
   }
 
   return (
