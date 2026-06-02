@@ -186,6 +186,8 @@ function ClientView({ profile }) {
   const [callBriefing, setCallBriefing] = useState('')
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
+  const [showOffboardConfirm, setShowOffboardConfirm] = useState(false)
+  const [offboarding, setOffboarding] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
     stats: false,
@@ -336,6 +338,30 @@ function ClientView({ profile }) {
     } else {
       await fetchLockState()
       showToast('Client unlocked.', 'success')
+    }
+  }
+
+  async function offboardClient() {
+    setOffboarding(true)
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    console.log('offboard token', currentSession?.access_token?.slice(0, 20))
+    const res = await fetch(
+      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/offboard-client',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`,
+        },
+        body: JSON.stringify({ clientId }),
+      }
+    )
+    const data = await res.json()
+    if (data.error) {
+      showToast('Failed to offboard client', 'error')
+      setOffboarding(false)
+    } else {
+      navigate('/')
     }
   }
 
@@ -949,6 +975,51 @@ async function sendMessage() {
                 No nutrition logged for {lockInfo.days} days
               </span>
               <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
+            </div>
+          )}
+          {/* Offboard */}
+          {!showOffboardConfirm && (
+            <Button
+              onClick={() => setShowOffboardConfirm(true)}
+              variant="ghost"
+              size="sm"
+              style={{ marginTop: '10px' }}
+            >
+              Offboard client
+            </Button>
+          )}
+          {showOffboardConfirm && (
+            <div style={{
+              marginTop: '12px',
+              padding: '14px 16px',
+              border: '1px solid #f87171',
+              borderRadius: 'var(--radius)',
+              backgroundColor: 'rgba(248,113,113,0.05)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <p style={{ fontSize: '0.875rem', margin: 0 }}>
+                This will end the coaching relationship and return <strong>{clientProfile?.full_name}</strong> to a solo account. Their data is preserved and they can continue tracking independently.
+              </p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Button
+                  onClick={offboardClient}
+                  variant="danger-solid"
+                  size="sm"
+                  loading={offboarding}
+                >
+                  Confirm offboard
+                </Button>
+                <Button
+                  onClick={() => setShowOffboardConfirm(false)}
+                  variant="ghost"
+                  size="sm"
+                  disabled={offboarding}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
         </div>

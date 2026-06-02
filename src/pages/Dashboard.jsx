@@ -114,6 +114,7 @@ function Dashboard({ profile }) {
   const [openReactId, setOpenReactId] = useState(null)
   const [pageLoading, setPageLoading] = useState(true)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
+  const [showOffboardNotice, setShowOffboardNotice] = useState(false)
 
   // Section collapse state
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
@@ -154,6 +155,9 @@ function Dashboard({ profile }) {
       ])
       if (profile?.role === 'client') {
         await Promise.all([fetchCheckIn(), fetchMessages(), fetchLockState()])
+      }
+      if (profile?.role === 'solo') {
+        await fetchOffboardNotice()
       }
       setPageLoading(false)
     }
@@ -488,6 +492,23 @@ async function reactToMessage(messageId, emoji) {
     setLockInfo(result)
   }
 
+  async function fetchOffboardNotice() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const dismissed = localStorage.getItem(`offboard_notice_${currentSession.user.id}`)
+    if (dismissed) return
+
+    const { data } = await supabase
+      .from('coach_clients')
+      .select('offboarded_at')
+      .eq('client_id', currentSession.user.id)
+      .eq('status', 'offboarded')
+      .order('offboarded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (data?.offboarded_at) setShowOffboardNotice(true)
+  }
+
   const isToday = selectedDate === toLocalDateString(new Date())
   function goToPrevDay() { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
   function goToNextDay() { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
@@ -578,8 +599,37 @@ async function reactToMessage(messageId, emoji) {
             <Skeleton height="180px" />
           </div>
         </div>
-      ) : (
-      <>
+	      ) : (
+	      <>
+	      {showOffboardNotice && (
+	        <div style={{
+	          padding: '14px 16px',
+	          border: '1px solid var(--color-border)',
+	          borderLeft: '4px solid #f87171',
+	          borderRadius: 'var(--radius)',
+	          backgroundColor: 'rgba(248,113,113,0.05)',
+	          display: 'flex',
+	          justifyContent: 'space-between',
+	          alignItems: 'flex-start',
+	          gap: '12px'
+	        }}>
+	          <p style={{ fontSize: '0.875rem', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
+	            Your coach has ended the coaching relationship. Your data is preserved and you can continue tracking on your own.
+	          </p>
+	          <button
+	            onClick={() => {
+	              supabase.auth.getSession().then(({ data: { session } }) => {
+	                localStorage.setItem(`offboard_notice_${session.user.id}`, 'true')
+	              })
+	              setShowOffboardNotice(false)
+	            }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
+	          >
+	            ✕
+	          </button>
+	        </div>
+	      )}
+
 	      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 	        <h1>{profile?.role === 'client' ? 'My Progress' : 'Dashboard'}</h1>
 
