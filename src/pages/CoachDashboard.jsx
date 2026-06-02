@@ -43,6 +43,8 @@ function CoachDashboard({ profile }) {
   const [clientStats, setClientStats] = useState({})
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteStatus, setInviteStatus] = useState('')
+  const [soloAccountDetected, setSoloAccountDetected] = useState(false)
+  const [pendingInviteEmail, setPendingInviteEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
@@ -183,15 +185,44 @@ function CoachDashboard({ profile }) {
     return `${days} days ago`
   }
 
-  async function sendInvite() {
+  async function checkAndInvite() {
     if (!inviteEmail) return
     setInviteStatus('')
+
+    // Check if email already exists in profiles
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('email', inviteEmail)
+      .maybeSingle()
+
+    if (existing?.role === 'client') {
+      setInviteStatus('This person is already connected to a coach.')
+      return
+    }
+
+    if (existing?.role === 'solo') {
+      setPendingInviteEmail(inviteEmail)
+      setSoloAccountDetected(true)
+      return
+    }
+
+    // No existing account or existing solo confirmed — send invite
+    await sendInvite(inviteEmail)
+  }
+
+  async function sendInvite(email) {
     const { data, error } = await supabase
       .from('invitations')
-      .insert([{ coach_id: profile.id, client_email: inviteEmail }])
+      .insert([{ coach_id: profile.id, client_email: email }])
       .select().single()
     if (error) { setInviteStatus('Error sending invite.'); console.error(error) }
-    else { setInviteStatus(`${window.location.origin}/join?token=${data.token}`); setInviteEmail('') }
+    else {
+      setInviteStatus(`${window.location.origin}/join?token=${data.token}`)
+      setInviteEmail('')
+      setSoloAccountDetected(false)
+      setPendingInviteEmail('')
+    }
   }
 
   const needsAttention = clients.filter(c => {
@@ -362,12 +393,43 @@ function CoachDashboard({ profile }) {
             type="email"
             placeholder="Client email"
             value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem' }}
-          />
-          <Button onClick={sendInvite} variant="primary">Send invite</Button>
-        </div>
-        {inviteStatus && (
+	            onChange={(e) => setInviteEmail(e.target.value)}
+	            style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem' }}
+	          />
+	          <Button onClick={checkAndInvite} variant="primary">Send invite</Button>
+	        </div>
+	        {soloAccountDetected && (
+	          <div style={{
+	            padding: '14px 16px',
+	            border: '1px solid var(--color-border)',
+	            borderRadius: 'var(--radius)',
+	            backgroundColor: 'var(--color-bg)',
+	            display: 'flex',
+	            flexDirection: 'column',
+	            gap: '10px'
+	          }}>
+	            <p style={{ fontSize: '0.875rem', margin: 0 }}>
+	              <strong>{pendingInviteEmail}</strong> already has a FitLog account. Send them an invite to connect as your client? Their existing data will be preserved.
+	            </p>
+	            <div style={{ display: 'flex', gap: '8px' }}>
+	              <Button
+	                onClick={() => sendInvite(pendingInviteEmail)}
+	                variant="primary"
+	                size="sm"
+	              >
+	                Send invite anyway
+	              </Button>
+	              <Button
+	                onClick={() => { setSoloAccountDetected(false); setPendingInviteEmail('') }}
+	                variant="ghost"
+	                size="sm"
+	              >
+	                Cancel
+	              </Button>
+	            </div>
+	          </div>
+	        )}
+	        {inviteStatus && (
           <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>Share this link with your client:</p>
             <p style={{ fontSize: '0.8rem', color: 'var(--color-primary)', wordBreak: 'break-all', fontFamily: 'monospace' }}>{inviteStatus}</p>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
+import Button from '../components/Button'
 
 function Join() {
   const [searchParams] = useSearchParams()
@@ -12,10 +13,18 @@ function Join() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [existingSession, setExistingSession] = useState(null)
+  const [connecting, setConnecting] = useState(false)
 
   useEffect(() => {
-    if (token) fetchInvitation()
-    else setLoading(false)
+    async function init() {
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('session check', session?.user?.email)
+      if (session) setExistingSession(session)
+      if (token) await fetchInvitation()
+      else setLoading(false)
+    }
+    init()
   }, [token])
 
   async function fetchInvitation() {
@@ -72,6 +81,51 @@ function Join() {
     navigate('/')
   }
 
+  async function handleConnect() {
+    if (!existingSession) return
+    setConnecting(true)
+    setError('')
+
+    const userId = existingSession.user.id
+
+    const { data: existingRelation } = await supabase
+      .from('coach_clients')
+      .select('id')
+      .eq('client_id', userId)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (existingRelation) {
+      setError('You are already connected to a coach.')
+      setConnecting(false)
+      return
+    }
+
+    // Update role to client
+    await supabase
+      .from('profiles')
+      .update({ role: 'client' })
+      .eq('id', userId)
+
+    // Create coach-client relationship
+    await supabase
+      .from('coach_clients')
+      .insert([{
+        coach_id: invitation.coach_id,
+        client_id: userId,
+        status: 'active'
+      }])
+
+    // Mark invite as accepted
+    await supabase
+      .from('invitations')
+      .update({ status: 'accepted' })
+      .eq('token', token)
+
+    setConnecting(false)
+    navigate('/')
+  }
+
   const inputStyle = {
     backgroundColor: '#1a1a1a',
     border: '1px solid #2a2a2a',
@@ -104,34 +158,51 @@ function Join() {
         Your email: <strong style={{ color: 'var(--color-text)' }}>{invitation?.client_email}</strong>
       </p>
 
-      <input
-        type="text"
-        placeholder="Your full name"
-        value={fullName}
-        onChange={(e) => setFullName(e.target.value)}
-        style={inputStyle}
-      />
-      <input
-        type="password"
-        placeholder="Create a password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={inputStyle}
-      />
+      {existingSession ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+            You're logged in as <strong>{existingSession.user.email}</strong>. Accepting this invite will connect you to your coach as a client. Your existing data is preserved.
+          </p>
+          {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
+          <Button onClick={handleConnect} variant="primary" loading={connecting}>
+            Accept invite
+          </Button>
+          <Button onClick={() => navigate('/')} variant="ghost">
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <>
+          <input
+            type="text"
+            placeholder="Your full name"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            style={inputStyle}
+          />
+          <input
+            type="password"
+            placeholder="Create a password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={inputStyle}
+          />
 
-      {error && <p style={{ color: '#f87171' }}>{error}</p>}
+          {error && <p style={{ color: '#f87171' }}>{error}</p>}
 
-      <button onClick={handleSignUp} style={{
-        backgroundColor: '#4f8ef7',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '8px',
-        padding: '10px 20px',
-        cursor: 'pointer',
-        fontWeight: 600
-      }}>
-        Create account
-      </button>
+          <button onClick={handleSignUp} style={{
+            backgroundColor: '#4f8ef7',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '10px 20px',
+            cursor: 'pointer',
+            fontWeight: 600
+          }}>
+            Create account
+          </button>
+        </>
+      )}
     </div>
   )
 }

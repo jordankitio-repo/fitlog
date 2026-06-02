@@ -344,7 +344,6 @@ function ClientView({ profile }) {
   async function offboardClient() {
     setOffboarding(true)
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    console.log('offboard token', currentSession?.access_token?.slice(0, 20))
     const res = await fetch(
       'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/offboard-client',
       {
