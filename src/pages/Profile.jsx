@@ -175,11 +175,11 @@ function Profile({ session, profile }) {
         gap: '16px'
       }}>
         <div>
-          <p style={{ fontSize: '0.75rem', marginBottom: '4px' }}>Email</p>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Email</p>
           <p style={{ color: 'var(--color-text)', fontSize: '1rem' }}>{session.user.email}</p>
         </div>
         <div>
-          <p style={{ fontSize: '0.75rem', marginBottom: '4px' }}>Member since</p>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Member since</p>
           <p style={{ color: 'var(--color-text)', fontSize: '1rem' }}>
             {new Date(session.user.created_at).toLocaleDateString('en-US', {
               year: 'numeric', month: 'long', day: 'numeric'
@@ -188,7 +188,7 @@ function Profile({ session, profile }) {
         </div>
         {profile?.role && (
           <div>
-            <p style={{ fontSize: '0.75rem', marginBottom: '4px' }}>Account type</p>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Account type</p>
             <p style={{ color: 'var(--color-text)', fontSize: '1rem', textTransform: 'capitalize' }}>
               {profile.role}
             </p>
@@ -318,7 +318,7 @@ function Profile({ session, profile }) {
         flexDirection: 'column',
         gap: '16px'
       }}>
-        <h2>Change password</h2>
+        <h2>Security</h2>
         <input
           type="password"
           placeholder="Current password"
@@ -353,42 +353,51 @@ function Profile({ session, profile }) {
         </Button>
       </div>
 
-      {/* Data export */}
-      <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h2>Export your data</h2>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-          Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file.
-        </p>
-        <Button onClick={exportData} variant="outline" loading={exportLoading}>
-          {exportLoading ? 'Exporting...' : '⬇ Download data'}
-        </Button>
-      </div>
+      {/* Data */}
+      <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <h2>Data</h2>
 
-      {/* Delete account */}
-      <div style={{ ...cardStyle, border: '1px solid #f87171', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h2 style={{ color: '#f87171' }}>Delete account</h2>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-          Permanently delete your account and all associated data. This cannot be undone.
-        </p>
-        {!showDeleteConfirm ? (
-          <Button onClick={() => setShowDeleteConfirm(true)} variant="danger">
-            Delete my account
-          </Button>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <p style={{ fontSize: '0.875rem', color: '#f87171', fontWeight: 600 }}>
-              Are you sure? This will delete all your data permanently.
-            </p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <Button onClick={deleteAccount} variant="danger-solid" loading={deleteLoading}>
-                {deleteLoading ? 'Deleting...' : 'Yes, delete everything'}
-              </Button>
-              <Button onClick={() => setShowDeleteConfirm(false)} variant="ghost">
-                Cancel
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>Export</p>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+            Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file.
+          </p>
+          <div>
+            <Button onClick={exportData} variant="outline" loading={exportLoading}>
+              {exportLoading ? 'Exporting...' : '⬇ Download data'}
+            </Button>
+          </div>
+        </div>
+
+        <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: '#f87171', margin: 0 }}>Delete account</p>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+            Permanently delete your account and all associated data. This cannot be undone.
+          </p>
+          {!showDeleteConfirm ? (
+            <div>
+              <Button onClick={() => setShowDeleteConfirm(true)} variant="danger">
+                Delete my account
               </Button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: '#f87171', fontWeight: 600, margin: 0 }}>
+                Are you sure? This will delete all your data permanently.
+              </p>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <Button onClick={deleteAccount} variant="danger-solid" loading={deleteLoading}>
+                  {deleteLoading ? 'Deleting...' : 'Yes, delete everything'}
+                </Button>
+                <Button onClick={() => setShowDeleteConfirm(false)} variant="ghost">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
