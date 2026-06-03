@@ -129,12 +129,10 @@ function Log({ session, profile }) {
 
   useEffect(() => {
     if (!savedWeight) setWeightExpanded(true)
-    else setWeightExpanded(false)
   }, [savedWeight])
 
   useEffect(() => {
     if (!savedSteps) setStepsExpanded(true)
-    else setStepsExpanded(false)
   }, [savedSteps])
 
   // Nutrition functions
@@ -468,7 +466,7 @@ function startEditCardio(entry) {
               <option value="lbs">lbs</option>
               <option value="kg">kg</option>
             </select>
-            <Button onClick={() => { saveWeight(); setWeightExpanded(false) }} variant="primary">
+            <Button onClick={saveWeight} variant="primary">
               {savedWeight ? 'Update' : 'Log'}
             </Button>
           </div>
@@ -644,20 +642,20 @@ function startEditCardio(entry) {
               {editingCardio ? 'Update session' : 'Log session'}
             </Button>
             {editingCardio && <Button onClick={() => { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); setCardioExpanded(false) }} variant="ghost">Cancel</Button>}
-            {cardioEntries.map(e => (
-              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--color-border)' }}>
-                <div>
-                  <p style={{ fontWeight: 600 }}>{e.exercise_type}</p>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>{e.duration} min{e.calories_burned ? ` · ${e.calories_burned} cal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm` : ''}</p>
-                </div>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => startEditCardio(e)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
-                  <button onClick={() => deleteCardio(e.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✕</button>
-                </div>
-              </div>
-            ))}
           </div>
         </SectionHeader>
+        {cardioEntries.map(e => (
+          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--color-border)' }}>
+            <div>
+              <p style={{ fontWeight: 600 }}>{e.exercise_type}</p>
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>{e.duration} min{e.calories_burned ? ` · ${e.calories_burned} cal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm` : ''}</p>
+            </div>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button onClick={() => startEditCardio(e)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
+              <button onClick={() => deleteCardio(e.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✕</button>
+            </div>
+          </div>
+        ))}
 
         {/* Divider */}
         <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
@@ -672,6 +670,11 @@ function startEditCardio(entry) {
             </Button>
           </div>
         </SectionHeader>
+        {savedSteps && (
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+            {savedSteps.steps.toLocaleString()} steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}
+          </p>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
