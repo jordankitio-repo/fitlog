@@ -802,7 +802,7 @@ async function sendMessage() {
       datasets.push({
         type: 'line', label: 'Weight',
         data: allDates.map(date => weightHistory.find(d => d.date === date)?.weight ?? null),
-        borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)',
+        borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)',
         tension: 0.3, fill: false, yAxisID: 'yWeight', pointRadius: 3, spanGaps: true,
       })
     }
@@ -814,7 +814,7 @@ async function sendMessage() {
           const cal = calorieHistory.find(d => d.date === date)?.calories
           return cal ? Math.round((cal / calTarget) * 100) : null
         }),
-        backgroundColor: 'rgba(251,191,36,0.5)', borderColor: '#fbbf24',
+        backgroundColor: 'rgba(251, 191, 36, 0.7)', borderColor: '#fbbf24',
         borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
       })
     }
@@ -826,7 +826,7 @@ async function sendMessage() {
           const mins = cardioHistory.find(d => d.date === date)?.minutes
           return mins ? Math.round((mins / cardioTarget) * 100) : null
         }),
-        backgroundColor: 'rgba(167,139,250,0.5)', borderColor: '#a78bfa',
+        backgroundColor: 'rgba(79, 142, 247, 0.7)', borderColor: '#4f8ef7',
         borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
       })
     }
@@ -848,7 +848,7 @@ async function sendMessage() {
       x: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } },
       yWeight: {
         type: 'linear', position: 'left',
-        ticks: { color: '#4f8ef7' }, grid: { color: '#2a2a2a' },
+        ticks: { color: '#34d399' }, grid: { color: '#2a2a2a' },
       },
       yPct: {
         type: 'linear', position: 'right', min: 0, max: 150,
@@ -1034,11 +1034,11 @@ async function sendMessage() {
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            <StatCard label="Calories" value={totals.calories} />
-            <StatCard label="Protein" value={`${totals.protein}g`} />
-            <StatCard label="Carbs" value={`${totals.carbs}g`} />
-            <StatCard label="Fat" value={`${totals.fat}g`} />
-            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} />
+            <StatCard label="Calories" value={totals.calories} color="#fbbf24" />
+            <StatCard label="Protein" value={`${totals.protein}g`} color="#f87171" />
+            <StatCard label="Carbs" value={`${totals.carbs}g`} color="#e2d5b0" />
+            <StatCard label="Fat" value={`${totals.fat}g`} color="#fb923c" />
+            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="#34d399" />
           </div>
         </SectionHeader>
       </div>
@@ -1431,7 +1431,7 @@ async function sendMessage() {
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
-              <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', tension: 0.3, fill: true }] }} options={chartOptions} />
+              <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)', tension: 0.3, fill: true }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1441,7 +1441,7 @@ async function sendMessage() {
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
-              <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: '#4f8ef7', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: 'rgba(251, 191, 36, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1451,7 +1451,7 @@ async function sendMessage() {
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: '#a78bfa', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(79, 142, 247, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1461,7 +1461,7 @@ async function sendMessage() {
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <SectionHeader title="Steps — last 14 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
-              <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>

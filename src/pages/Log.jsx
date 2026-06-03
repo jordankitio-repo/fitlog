@@ -42,7 +42,7 @@ function Log({ session, profile }) {
   const [lookupError, setLookupError] = useState('')
   const [nutritionErrors, setNutritionErrors] = useState({})
   const [showBarcodeInput, setShowBarcodeInput] = useState(false)
-  const [servingSize, setServingSize] = useState('100')
+  const [servingSize, setServingSize] = useState('')
   const [servingUnit, setServingUnit] = useState('g')
   const [baseNutrients, setBaseNutrients] = useState(null)
   const [baseServingSize, setBaseServingSize] = useState(null)
@@ -206,7 +206,7 @@ function Log({ session, profile }) {
 
   function clearNutritionForm() {
     setFood(''); setCalories(''); setProtein('')
-    setCarbs(''); setFat(''); setServingSize('100')
+    setCarbs(''); setFat(''); setServingSize('')
     setServingUnit('g'); setBaseNutrients(null)
     setBaseServingSize(null); setBaseServingLabel('')
     setNutritionErrors({})
@@ -657,6 +657,31 @@ function startEditCardio(entry) {
                 {!hideCalories && (
                   <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.875rem' }}>{entry.calories} cal</span>
                 )}
+                <button
+                  onClick={() => {
+                    setFood(entry.food)
+                    setCalories(entry.calories.toString())
+                    setProtein(entry.protein.toString())
+                    setCarbs(entry.carbs.toString())
+                    setFat(entry.fat.toString())
+                    setServingSize(entry.serving_size.toString())
+                    setServingUnit(entry.serving_unit || 'g')
+                    setBaseNutrients({
+                      calories: entry.calories,
+                      protein: entry.protein,
+                      carbs: entry.carbs,
+                      fat: entry.fat,
+                    })
+                    setBaseServingSize(null)
+                    setBaseServingLabel('')
+                    setEditingEntry(null)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                  style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}
+                  title="Repeat this entry"
+                >
+                  ↻
+                </button>
                 <button onClick={() => startEdit(entry)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
                 <button onClick={() => deleteEntry(entry.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✕</button>
               </div>

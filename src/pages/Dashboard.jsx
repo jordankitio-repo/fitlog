@@ -101,6 +101,15 @@ function Dashboard({ profile }) {
   })
   const [collapsedWeeks, setCollapsedWeeks] = useState({})
 
+  function formatTime(timeStr) {
+    if (!timeStr) return null
+    const [hours, minutes] = timeStr.split(':')
+    const h = parseInt(hours)
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const hour = h % 12 || 12
+    return `${hour}:${minutes} ${ampm}`
+  }
+
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
   }
@@ -933,13 +942,15 @@ async function reactToMessage(messageId, emoji) {
       <div style={cardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            {!hideCalories && <StatCard label="Calories" value={totals.calories} />}
-            <StatCard label="Protein" value={`${totals.protein}g`} />
-            <StatCard label="Carbs" value={`${totals.carbs}g`} />
-            <StatCard label="Fat" value={`${totals.fat}g`} />
-            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} />
-            <StatCard label="Cardio" value={cardioToday.minutes > 0 ? `${cardioToday.minutes} min` : '—'} />
-            <StatCard label="Steps" value={stepsToday ? stepsToday.steps.toLocaleString() : '—'} />
+            {!hideCalories && <StatCard label="Calories" value={totals.calories} color="#fbbf24" />}
+            <StatCard label="Protein" value={`${totals.protein}g`} color="#f87171" />
+            <StatCard label="Carbs" value={`${totals.carbs}g`} color="#e2d5b0" />
+            <StatCard label="Fat" value={`${totals.fat}g`} color="#fb923c" />
+            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="#34d399" />
+            <StatCard label="Cardio" value={cardioToday?.minutes > 0 ? `${cardioToday.minutes} min` : '—'} color="#4f8ef7" />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <StatCard label="Steps" value={stepsToday ? stepsToday.steps.toLocaleString() : '—'} color="#a78bfa" />
+            </div>
           </div>
         </SectionHeader>
       </div>
@@ -986,7 +997,7 @@ async function reactToMessage(messageId, emoji) {
         <div style={cardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
-              <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', pointBackgroundColor: '#4f8ef7', tension: 0.3, fill: true }] }} options={chartOptions} />
+              <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)', pointBackgroundColor: '#34d399', tension: 0.3, fill: true }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -997,7 +1008,7 @@ async function reactToMessage(messageId, emoji) {
         <div style={cardStyle}>
           <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
-              <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: '#4f8ef7', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: 'rgba(251, 191, 36, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1008,7 +1019,7 @@ async function reactToMessage(messageId, emoji) {
         <div style={cardStyle}>
           <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: '#a78bfa', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(79, 142, 247, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1019,7 +1030,7 @@ async function reactToMessage(messageId, emoji) {
         <div style={cardStyle}>
           <SectionHeader title="Steps — last 14 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
-              <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: '#34d399', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>

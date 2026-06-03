@@ -5,29 +5,31 @@ function StatCard({ label, value, color, sub }) {
       style={{
         backgroundColor: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
+        borderLeft: color ? `3px solid ${color}` : '1px solid var(--color-border)',
         borderRadius: 'var(--radius)',
         padding: '16px 20px',
+        minHeight: '80px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
+        gap: '4px',
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
       }}
     >
       <p style={{
-        fontSize: '0.7rem',
+        fontSize: '0.65rem',
         color: 'var(--color-muted)',
         fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: '0.06em',
+        letterSpacing: '0.08em',
         margin: 0
       }}>
         {label}
       </p>
       <p style={{
-        fontSize: '1.5rem',
+        fontSize: '2rem',
         fontWeight: 700,
-        color: color || 'var(--color-text)',
-        lineHeight: 1.2,
+        color: 'var(--color-text)',
+        lineHeight: 1.1,
         margin: 0
       }}>
         {value}
