@@ -53,6 +53,7 @@ function Log({ session, profile }) {
   const [selectedCopyIds, setSelectedCopyIds] = useState(new Set())
   const [copyLoading, setCopyLoading] = useState(false)
   const [editingCardio, setEditingCardio] = useState(null)
+  const [hideCalories, setHideCalories] = useState(false)
 
   // Weight state
   const [weight, setWeight] = useState('')
@@ -78,6 +79,27 @@ function Log({ session, profile }) {
     fetchSteps()
     setFeedback('')
   }, [selectedDate])
+
+  useEffect(() => {
+    async function loadHideCalories() {
+      if (profile?.role !== 'client' || !session?.user?.id) {
+        setHideCalories(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('coach_clients')
+        .select('hide_calories')
+        .eq('client_id', session.user.id)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      if (error) console.error('Error fetching calorie visibility:', error)
+      else setHideCalories(Boolean(data?.hide_calories))
+    }
+
+    loadHideCalories()
+  }, [session?.user?.id, profile?.role])
 
   useEffect(() => {
     if (!baseNutrients) return
@@ -596,7 +618,7 @@ function startEditCardio(entry) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontWeight: 600, fontSize: '0.875rem' }}>{e.food}</p>
                   <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
-                    {e.calories} cal · P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g
+                    {!hideCalories && <>{e.calories} cal · </>}P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g
                   </p>
                 </div>
               </div>
@@ -632,7 +654,9 @@ function startEditCardio(entry) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 600, flex: 1, marginRight: '8px', fontSize: '0.875rem' }}>{entry.food}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.875rem' }}>{entry.calories} cal</span>
+                {!hideCalories && (
+                  <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.875rem' }}>{entry.calories} cal</span>
+                )}
                 <button onClick={() => startEdit(entry)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
                 <button onClick={() => deleteEntry(entry.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✕</button>
               </div>

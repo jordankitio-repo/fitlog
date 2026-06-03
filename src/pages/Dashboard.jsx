@@ -81,6 +81,7 @@ function Dashboard({ profile }) {
   const [openReactId, setOpenReactId] = useState(null)
   const [pageLoading, setPageLoading] = useState(true)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
+  const [hideCalories, setHideCalories] = useState(false)
   const [showOffboardNotice, setShowOffboardNotice] = useState(false)
   const offboardNoticeShownRef = useRef(false)
   const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
@@ -443,11 +444,15 @@ async function reactToMessage(messageId, emoji) {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const { data: connection } = await supabase
       .from('coach_clients')
-      .select('id, created_at, lock_cleared_at')
+      .select('id, created_at, lock_cleared_at, hide_calories')
       .eq('client_id', currentSession.user.id)
       .eq('status', 'active')
       .maybeSingle()
-    if (!connection) return // no active coach — lock never applies
+    if (!connection) {
+      setHideCalories(false)
+      return // no active coach — lock never applies
+    }
+    setHideCalories(Boolean(connection.hide_calories))
     const { data: lastLog } = await supabase
       .from('nutrition_log')
       .select('logged_date')
@@ -928,7 +933,7 @@ async function reactToMessage(messageId, emoji) {
       <div style={cardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            <StatCard label="Calories" value={totals.calories} />
+            {!hideCalories && <StatCard label="Calories" value={totals.calories} />}
             <StatCard label="Protein" value={`${totals.protein}g`} />
             <StatCard label="Carbs" value={`${totals.carbs}g`} />
             <StatCard label="Fat" value={`${totals.fat}g`} />
@@ -939,12 +944,12 @@ async function reactToMessage(messageId, emoji) {
         </SectionHeader>
       </div>
 
-	      {/* Today vs target — hidden when client is locked */}
-	      {!(profile?.role === 'client' && lockInfo.locked) && targets && (
-	        <div style={cardStyle}>
+      {/* Today vs target — hidden when client is locked */}
+      {!(profile?.role === 'client' && lockInfo.locked) && targets && (
+        <div style={cardStyle}>
           <SectionHeader title="Today vs target" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
               {[
-                { label: 'Calories', actual: totals.calories, target: targets.calories, unit: 'cal' },
+                ...(!hideCalories ? [{ label: 'Calories', actual: totals.calories, target: targets.calories, unit: 'cal' }] : []),
                 { label: 'Protein', actual: totals.protein, target: targets.protein, unit: 'g' },
                 { label: 'Carbs', actual: totals.carbs, target: targets.carbs, unit: 'g' },
                 { label: 'Fat', actual: totals.fat, target: targets.fat, unit: 'g' },
@@ -988,7 +993,7 @@ async function reactToMessage(messageId, emoji) {
       )}
 
       {/* Calories chart */}
-      {!(profile?.role === 'client' && lockInfo.locked) && calorieHistory.length > 0 && (
+      {!(profile?.role === 'client' && lockInfo.locked) && !hideCalories && calorieHistory.length > 0 && (
         <div style={cardStyle}>
           <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (

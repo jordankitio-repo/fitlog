@@ -85,6 +85,7 @@ function ClientView({ profile }) {
   const [targetsSaved, setTargetsSaved] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
+  const [hideCaloriesToggle, setHideCaloriesToggle] = useState(false)
   const [coachNotes, setCoachNotes] = useState('')
   const [newNoteEntry, setNewNoteEntry] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
@@ -203,7 +204,7 @@ function ClientView({ profile }) {
     const [{ data: relationship, error: relationshipError }, { data: latestLog, error: latestLogError }] = await Promise.all([
       supabase
         .from('coach_clients')
-        .select('created_at, lock_cleared_at')
+        .select('created_at, lock_cleared_at, hide_calories')
         .eq('coach_id', profile.id)
         .eq('client_id', clientId)
         .eq('status', 'active')
@@ -227,9 +228,11 @@ function ClientView({ profile }) {
     }
     if (!relationship) {
       setLockInfo({ locked: false, days: 0, reason: 'active' })
+      setHideCaloriesToggle(false)
       return
     }
 
+    setHideCaloriesToggle(Boolean(relationship.hide_calories))
     setLockInfo(resolveLockState({
       lastNutritionDate: latestLog?.logged_date || null,
       connectionCreatedAt: relationship.created_at?.split('T')[0],
@@ -252,6 +255,25 @@ function ClientView({ profile }) {
     } else {
       await fetchLockState()
       showToast('Client unlocked.', 'success')
+    }
+  }
+
+  async function toggleHideCalories() {
+    if (!profile?.id) return
+
+    const newValue = !hideCaloriesToggle
+    setHideCaloriesToggle(newValue)
+
+    const { error } = await supabase
+      .from('coach_clients')
+      .update({ hide_calories: newValue })
+      .eq('coach_id', profile.id)
+      .eq('client_id', clientId)
+
+    if (error) {
+      console.error(error)
+      setHideCaloriesToggle(!newValue)
+      showToast('Could not update client setting. Try again.', 'error')
     }
   }
 
@@ -1183,6 +1205,33 @@ async function sendMessage() {
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '8px' }}>
             Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
           </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '14px 0', borderBottom: '1px solid var(--color-border)', marginBottom: '12px' }}>
+            <div>
+              <p style={{ fontWeight: 600, margin: 0 }}>Hide calories from client</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: 0 }}>
+                For clients with a sensitive relationship with calorie tracking.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleHideCalories}
+              aria-pressed={hideCaloriesToggle}
+              aria-label="Hide calories from client"
+              style={{
+                width: '44px', height: '24px', borderRadius: '999px', border: 'none',
+                backgroundColor: hideCaloriesToggle ? 'var(--color-primary)' : 'var(--color-border)',
+                cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s',
+                flexShrink: 0
+              }}
+            >
+              <span style={{
+                position: 'absolute', top: '2px',
+                left: hideCaloriesToggle ? '22px' : '2px',
+                width: '20px', height: '20px', borderRadius: '50%',
+                backgroundColor: '#fff', transition: 'left 0.2s',
+              }} />
+            </button>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
             {[
               { label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
