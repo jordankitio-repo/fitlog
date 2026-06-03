@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import { getPasswordValidationError } from '../utils/passwordValidation'
+import { cardStyle } from '../utils/styles'
 
 function Profile({ session, profile }) {
   const [targets, setTargets] = useState({
@@ -167,9 +168,7 @@ function Profile({ session, profile }) {
       <h1>Profile</h1>
 
       <div style={{
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius)',
+        ...cardStyle,
         padding: '24px',
         display: 'flex',
         flexDirection: 'column',
@@ -199,9 +198,7 @@ function Profile({ session, profile }) {
 
       {profile?.role !== 'coach' && (
       <div style={{
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius)',
+        ...cardStyle,
         padding: '24px',
         display: 'flex',
         flexDirection: 'column',
@@ -315,9 +312,7 @@ function Profile({ session, profile }) {
       )}
 
       <div style={{
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius)',
+        ...cardStyle,
         padding: '24px',
         display: 'flex',
         flexDirection: 'column',
@@ -359,7 +354,7 @@ function Profile({ session, profile }) {
       </div>
 
       {/* Data export */}
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h2>Export your data</h2>
         <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
           Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file.
@@ -370,7 +365,7 @@ function Profile({ session, profile }) {
       </div>
 
       {/* Delete account */}
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid #f87171', borderRadius: 'var(--radius)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ ...cardStyle, border: '1px solid #f87171', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h2 style={{ color: '#f87171' }}>Delete account</h2>
         <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
           Permanently delete your account and all associated data. This cannot be undone.

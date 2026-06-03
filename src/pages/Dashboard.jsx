@@ -5,6 +5,7 @@ import Button from '../components/Button'
 import Skeleton from '../components/Skeleton'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
+import { cardStyle as baseCardStyle } from '../utils/styles'
 import { Line, Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -550,8 +551,7 @@ async function reactToMessage(messageId, emoji) {
     }
   }
   const cardStyle = {
-    backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '20px',
+    ...baseCardStyle,
     display: 'flex', flexDirection: 'column', gap: '12px'
   }
   const activeReports = reports.filter(r => !r.archived)
@@ -583,7 +583,7 @@ async function reactToMessage(messageId, emoji) {
           </div>
 
           {/* Stats skeleton */}
-          <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={cardStyle}>
             <Skeleton height="22px" width="120px" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
               {[...Array(6)].map((_, i) => <Skeleton key={i} height="72px" />)}
@@ -591,7 +591,7 @@ async function reactToMessage(messageId, emoji) {
           </div>
 
           {/* Targets skeleton */}
-          <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ ...cardStyle, gap: '14px' }}>
             <Skeleton height="22px" width="140px" />
             {[...Array(4)].map((_, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -605,7 +605,7 @@ async function reactToMessage(messageId, emoji) {
           </div>
 
           {/* Chart skeleton */}
-          <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={cardStyle}>
             <Skeleton height="22px" width="160px" />
             <Skeleton height="180px" />
           </div>

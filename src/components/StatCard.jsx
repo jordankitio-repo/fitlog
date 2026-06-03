@@ -1,12 +1,12 @@
+import { cardStyle } from '../utils/styles'
+
 function StatCard({ label, value, color, sub }) {
   return (
     <div
       className="stat-card"
       style={{
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
+        ...cardStyle,
         borderLeft: color ? `3px solid ${color}` : '1px solid var(--color-border)',
-        borderRadius: 'var(--radius)',
         padding: '16px 20px',
         minHeight: '80px',
         display: 'flex',

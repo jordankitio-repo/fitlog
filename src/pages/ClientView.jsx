@@ -14,6 +14,7 @@ import {
   parseLocalDateString,
   toLocalDateString
 } from '../utils/dateHelpers'
+import { cardStyle } from '../utils/styles'
 import { Line, Bar, Chart } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -867,6 +868,11 @@ async function sendMessage() {
     fontSize: '1rem'
   }
 
+  const sectionCardStyle = {
+    ...cardStyle,
+    display: 'flex', flexDirection: 'column', gap: '12px'
+  }
+
   const chartOptions = {
     responsive: true,
     animation: false,
@@ -961,7 +967,7 @@ async function sendMessage() {
       </div>
 
       {/* AI Tools */}
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ ...sectionCardStyle, gap: '16px' }}>
         <div
           onClick={() => setAiToolsCollapsed(!aiToolsCollapsed)}
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
@@ -1031,7 +1037,7 @@ async function sendMessage() {
         {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
       </div>
 
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={sectionCardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
             <StatCard label="Calories" value={totals.calories} color="#fbbf24" />
@@ -1043,7 +1049,7 @@ async function sendMessage() {
         </SectionHeader>
       </div>
 
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={sectionCardStyle}>
         <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
@@ -1069,7 +1075,7 @@ async function sendMessage() {
         </SectionHeader>
       </div>
 
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={sectionCardStyle}>
         <SectionHeader
           title="Messages"
           collapsed={sectionsCollapsed.messages}
@@ -1147,7 +1153,7 @@ async function sendMessage() {
       </div>
 
       {sentReports.length > 0 && (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={sectionCardStyle}>
           <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')}>
             {groupByWeek(sentReports).map(([week, weekReports]) => {
               const isCollapsed = collapsedSentWeeks[week] !== false
@@ -1200,7 +1206,7 @@ async function sendMessage() {
         </div>
       )}
 
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ ...sectionCardStyle, gap: '16px' }}>
         <SectionHeader title="Client targets" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '8px' }}>
             Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
@@ -1281,7 +1287,7 @@ async function sendMessage() {
         </SectionHeader>
       </div>
 
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={sectionCardStyle}>
         <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')}>
           {entries.length === 0 ? (
             <EmptyState
@@ -1316,7 +1322,7 @@ async function sendMessage() {
         </SectionHeader>
       </div>
 
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={sectionCardStyle}>
         <SectionHeader title="This week's check-in" collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
           {!clientCheckIn ? (
             <div style={{ paddingTop: '8px' }}>
@@ -1351,7 +1357,7 @@ async function sendMessage() {
         </SectionHeader>
       </div>
 
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={sectionCardStyle}>
         <SectionHeader title="Private notes" collapsed={sectionsCollapsed.privateNotes} onToggle={() => toggleSection('privateNotes')}>
             <textarea
               value={coachNotes}
@@ -1416,7 +1422,7 @@ async function sendMessage() {
       </div>
 
       {(weightHistory.length > 0 || calorieHistory.length > 0) && (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={sectionCardStyle}>
           <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
             {!sectionsCollapsed.correlatedChart && (
               <div style={{ paddingTop: '8px' }}>
@@ -1428,7 +1434,7 @@ async function sendMessage() {
       )}
 
       {weightHistory.length > 1 && (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={sectionCardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
               <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)', tension: 0.3, fill: true }] }} options={chartOptions} />
@@ -1438,7 +1444,7 @@ async function sendMessage() {
       )}
 
       {calorieHistory.length > 0 && (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={sectionCardStyle}>
           <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
               <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: 'rgba(251, 191, 36, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
@@ -1448,7 +1454,7 @@ async function sendMessage() {
       )}
 
       {cardioHistory.length > 0 && (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={sectionCardStyle}>
           <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
               <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(79, 142, 247, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
@@ -1458,7 +1464,7 @@ async function sendMessage() {
       )}
 
       {stepsHistory.length > 0 && (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={sectionCardStyle}>
           <SectionHeader title="Steps — last 14 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
               <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />

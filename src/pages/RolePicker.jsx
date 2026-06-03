@@ -28,11 +28,11 @@ function RolePicker({ session, onComplete, onCancel }) {
   }, [fullName, metadataFullName, onComplete, userEmail, userId])
 
   const inputStyle = {
-    backgroundColor: '#1a1a1a',
-    border: '1px solid #2a2a2a',
-    borderRadius: '8px',
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
     padding: '10px 14px',
-    color: '#f0f0f0',
+    color: 'var(--color-text)',
     fontSize: '1rem',
     width: '100%'
   }
@@ -65,10 +65,10 @@ function RolePicker({ session, onComplete, onCancel }) {
               style={{
                 flex: 1,
                 padding: '12px',
-                borderRadius: '8px',
-                border: role === r ? '2px solid #4f8ef7' : '1px solid #2a2a2a',
-                backgroundColor: role === r ? '#1a2a3a' : '#1a1a1a',
-                color: role === r ? '#4f8ef7' : '#888',
+                borderRadius: 'var(--radius)',
+                border: role === r ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                backgroundColor: role === r ? '#1a2a3a' : 'var(--color-surface)',
+                color: role === r ? 'var(--color-primary)' : 'var(--color-muted)',
                 cursor: 'pointer',
                 fontWeight: role === r ? 600 : 400,
                 fontSize: '0.875rem'

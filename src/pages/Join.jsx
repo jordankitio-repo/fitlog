@@ -218,11 +218,11 @@ function Join() {
   }
 
   const inputStyle = {
-    backgroundColor: '#1a1a1a',
-    border: '1px solid #2a2a2a',
-    borderRadius: '8px',
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
     padding: '10px 14px',
-    color: '#f0f0f0',
+    color: 'var(--color-text)',
     fontSize: '1rem',
     width: '100%',
   }

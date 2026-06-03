@@ -4,6 +4,7 @@ import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import { toLocalDateString } from '../utils/dateHelpers'
+import { cardStyle } from '../utils/styles'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -394,8 +395,7 @@ function startEditCardio(entry) {
   }
 
   const sectionStyle = {
-    backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '20px',
+    ...cardStyle,
     display: 'flex', flexDirection: 'column', gap: '12px'
   }
 
@@ -650,7 +650,7 @@ function startEditCardio(entry) {
           />
         )}
         {entries.map((entry) => (
-          <div key={entry.id} style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div key={entry.id} style={{ ...cardStyle, padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 600, flex: 1, marginRight: '8px', fontSize: '0.875rem' }}>{entry.food}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -700,7 +700,7 @@ function startEditCardio(entry) {
       )}
 
       {feedback && profile?.role !== 'client' && (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ ...cardStyle, lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <p style={{ color: 'var(--color-text)' }}>{feedback}</p>
           <Button onClick={() => setFeedback('')} variant="ghost" size="sm">Clear</Button>
         </div>

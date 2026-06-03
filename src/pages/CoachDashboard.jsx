@@ -6,6 +6,7 @@ import EmptyState from '../components/EmptyState'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
 import { getInviteBlockReason } from '../utils/inviteValidation'
+import { cardStyle } from '../utils/styles'
 
 function CoachDashboard({ profile }) {
   const [clients, setClients] = useState([])
@@ -256,18 +257,18 @@ function CoachDashboard({ profile }) {
       {/* Summary bar */}
       {clients.length > 0 && !loading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-          <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '16px', textAlign: 'center' }}>
+          <div style={{ ...cardStyle, padding: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Total clients</p>
             <p style={{ fontSize: '1.5rem', fontWeight: 700 }}>{clients.length}</p>
           </div>
-          <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '16px', textAlign: 'center' }}>
+          <div style={{ ...cardStyle, padding: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Checked in this week</p>
             <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34d399' }}>
               {clients.filter(c => clientStats[c.client_id]?.checkIn).length}
               <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{clients.length}</span>
             </p>
           </div>
-          <div style={{ backgroundColor: 'var(--color-surface)', border: `1px solid ${needsAttention > 0 ? '#f87171' : 'var(--color-border)'}`, borderRadius: 'var(--radius)', padding: '16px', textAlign: 'center' }}>
+          <div style={{ ...cardStyle, border: `1px solid ${needsAttention > 0 ? '#f87171' : 'var(--color-border)'}`, padding: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Need attention</p>
             <p style={{ fontSize: '1.5rem', fontWeight: 700, color: needsAttention > 0 ? '#f87171' : '#34d399' }}>{needsAttention}</p>
           </div>
@@ -291,9 +292,8 @@ function CoachDashboard({ profile }) {
             const hasAlert = s && (s.daysSinceLog === null || s.daysSinceLog >= 4 || s.concerningReactions.length > 0)
             return (
               <div key={c.id} style={{
-                backgroundColor: 'var(--color-surface)',
+                ...cardStyle,
                 border: `1px solid ${hasAlert ? '#f87171' : 'var(--color-border)'}`,
-                borderRadius: 'var(--radius)',
                 padding: '16px 20px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -401,7 +401,7 @@ function CoachDashboard({ profile }) {
       </div>
 
       {/* Invite section */}
-      <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h2>Invite a client</h2>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input

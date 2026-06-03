@@ -88,11 +88,11 @@ function Login() {
 }
 
   const inputStyle = {
-    backgroundColor: '#1a1a1a',
-    border: '1px solid #2a2a2a',
-    borderRadius: '8px',
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
     padding: '10px 14px',
-    color: '#f0f0f0',
+    color: 'var(--color-text)',
     fontSize: '1rem',
     width: '100%'
   }
@@ -114,7 +114,7 @@ function Login() {
             placeholder="Full name"
             value={fullName}
             onChange={(e) => { setFullName(e.target.value); setErrors(p => ({ ...p, fullName: '' })) }}
-            style={{ ...inputStyle, borderColor: errors.fullName ? '#f87171' : '#2a2a2a' }}
+            style={{ ...inputStyle, borderColor: errors.fullName ? '#f87171' : 'var(--color-border)' }}
           />
           {errors.fullName && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.fullName}</p>}
         </>
@@ -125,7 +125,7 @@ function Login() {
         placeholder="Email"
         value={email}
         onChange={(e) => { setEmail(e.target.value); setErrors(p => ({ ...p, email: '' })) }}
-        style={{ ...inputStyle, borderColor: errors.email ? '#f87171' : '#2a2a2a' }}
+        style={{ ...inputStyle, borderColor: errors.email ? '#f87171' : 'var(--color-border)' }}
       />
       {errors.email && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.email}</p>}
       <input
@@ -133,7 +133,7 @@ function Login() {
         placeholder="Password"
         value={password}
         onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}
-        style={{ ...inputStyle, borderColor: errors.password ? '#f87171' : '#2a2a2a' }}
+        style={{ ...inputStyle, borderColor: errors.password ? '#f87171' : 'var(--color-border)' }}
       />
       {errors.password && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.password}</p>}
 
@@ -149,10 +149,10 @@ function Login() {
                 style={{
                   flex: 1,
                   padding: '10px',
-                  borderRadius: '8px',
-                  border: role === r ? '2px solid #4f8ef7' : '1px solid #2a2a2a',
-                  backgroundColor: role === r ? '#1a2a3a' : '#1a1a1a',
-                  color: role === r ? '#4f8ef7' : '#888',
+                  borderRadius: 'var(--radius)',
+                  border: role === r ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  backgroundColor: role === r ? '#1a2a3a' : 'var(--color-surface)',
+                  color: role === r ? 'var(--color-primary)' : 'var(--color-muted)',
                   cursor: 'pointer',
                   fontWeight: role === r ? 600 : 400,
                   fontSize: '0.875rem'
