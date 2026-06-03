@@ -140,7 +140,7 @@ function Landing() {
           }}>
             <p style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Messages</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ alignSelf: 'flex-start', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: '12px 12px 12px 2px', padding: '6px 12px', fontSize: '0.75rem', maxWidth: '160px' }}>Great job hitting protein today 💪</div>
+              <div style={{ alignSelf: 'flex-start', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: '12px 12px 12px 2px', padding: '6px 12px', fontSize: '0.75rem', maxWidth: '160px' }}>Great job hitting protein today</div>
               <div style={{ alignSelf: 'flex-end', backgroundColor: '#4f8ef7', borderRadius: '12px 12px 2px 12px', padding: '6px 12px', fontSize: '0.75rem', color: '#fff', maxWidth: '160px' }}>Thanks! Felt good today</div>
             </div>
           </div>

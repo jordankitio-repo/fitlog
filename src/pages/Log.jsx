@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
+import SectionHeader from '../components/SectionHeader'
 import { toLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
 
@@ -11,9 +12,9 @@ const unitConversions = {
 }
 
 const EXERCISE_TYPES = [
-  '🏃 Running', '🚴 Cycling', '🏋️ Elliptical', '🏊 Swimming',
-  '🚣 Rowing', '⛹️ Jump Rope', '🪜 Stair Climber', '🚶 Walking',
-  '⚡ HIIT', '🔥 Other'
+  'Running', 'Cycling', 'Elliptical', 'Swimming',
+  'Rowing', 'Jump Rope', 'Stair Climber', 'Walking',
+  'HIIT', 'Other'
 ]
 
 function Log({ session, profile }) {
@@ -55,6 +56,10 @@ function Log({ session, profile }) {
   const [copyLoading, setCopyLoading] = useState(false)
   const [editingCardio, setEditingCardio] = useState(null)
   const [hideCalories, setHideCalories] = useState(false)
+  const [weightExpanded, setWeightExpanded] = useState(false)
+  const [nutritionExpanded, setNutritionExpanded] = useState(true)
+  const [cardioExpanded, setCardioExpanded] = useState(true)
+  const [stepsExpanded, setStepsExpanded] = useState(false)
 
   // Weight state
   const [weight, setWeight] = useState('')
@@ -121,6 +126,16 @@ function Log({ session, profile }) {
       setFat(Math.round(baseNutrients.fat * multiplier).toString())
     }
   }, [servingSize, servingUnit, baseNutrients, baseServingSize])
+
+  useEffect(() => {
+    if (!savedWeight) setWeightExpanded(true)
+    else setWeightExpanded(false)
+  }, [savedWeight])
+
+  useEffect(() => {
+    if (!savedSteps) setStepsExpanded(true)
+    else setStepsExpanded(false)
+  }, [savedSteps])
 
   // Nutrition functions
   async function fetchEntries() {
@@ -360,6 +375,7 @@ function startEditCardio(entry) {
   setDuration(entry.duration.toString())
   setCaloriesBurned(entry.calories_burned?.toString() || '')
   setAvgHeartRate(entry.avg_heart_rate?.toString() || '')
+  setCardioExpanded(true)
 }
 
   // Steps functions
@@ -401,6 +417,8 @@ function startEditCardio(entry) {
 
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Date nav */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <h1>Log</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -427,94 +445,60 @@ function startEditCardio(entry) {
 
       {/* Weight */}
       <div style={sectionStyle}>
-        <h2>Weight</h2>
-        {savedWeight && (
-  <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-    Logged: {savedWeight.weight} {savedWeight.unit}{savedWeight.weighed_at ? ` · ${formatTime(savedWeight.weighed_at)}` : ''}
-  </p>
-)}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-          <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
-            <option value="lbs">lbs</option>
-            <option value="kg">kg</option>
-          </select>
-          <Button onClick={saveWeight} variant="primary">
-            {savedWeight ? 'Update' : 'Log'}
-          </Button>
-        </div>
-      </div>
-
-      {/* Cardio */}
-      <div style={sectionStyle}>
-        <h2>Cardio</h2>
-        <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-          {EXERCISE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
-          <input type="number" placeholder="Duration (min)" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />
-          <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
-          <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
-        </div>
-        <Button onClick={logCardio} variant="primary">
-          {editingCardio ? 'Update session' : 'Log session'}
-        </Button>
-        {editingCardio && (
-          <Button onClick={() => { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate('') }} variant="ghost">
-            Cancel
-          </Button>
-        )}
-        {cardioEntries.map(e => (
-          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--color-border)' }}>
-            <div>
-              <p style={{ fontWeight: 600 }}>{e.exercise_type}</p>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-                {e.duration} min{e.calories_burned ? ` · ${e.calories_burned} cal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm` : ''}
-              </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>Weight</h2>
+          {savedWeight && !weightExpanded ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--color-text)' }}>
+                {savedWeight.weight} {savedWeight.unit}
+                {savedWeight.weighed_at && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', fontWeight: 400 }}> · {formatTime(savedWeight.weighed_at)}</span>}
+              </span>
+              <button onClick={() => setWeightExpanded(true)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
             </div>
-            <button onClick={() => deleteCardio(e.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>✕</button>
-            <button onClick={() => startEditCardio(e)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>✎</button>
-          </div>
-        ))}
-      </div>
-
-      {/* Steps */}
-      <div style={sectionStyle}>
-        <h2>Steps</h2>
-        {savedSteps && <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Logged: {savedSteps.steps.toLocaleString()} steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}</p>}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
-          <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-          <Button onClick={saveSteps} variant="primary">
-            {savedSteps ? 'Update' : 'Log'}
-          </Button>
+          ) : (
+            <button onClick={() => setWeightExpanded(!weightExpanded)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '2px 6px', lineHeight: 1 }}>
+              {weightExpanded ? '−' : '+'}
+            </button>
+          )}
         </div>
+        {weightExpanded && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+            <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
+              <option value="lbs">lbs</option>
+              <option value="kg">kg</option>
+            </select>
+            <Button onClick={() => { saveWeight(); setWeightExpanded(false) }} variant="primary">
+              {savedWeight ? 'Update' : 'Log'}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Nutrition */}
       <div style={sectionStyle}>
-        <h2>Nutrition</h2>
-        <input
-          type="text"
-          placeholder="Food name"
-          value={food}
-          onChange={(e) => { setFood(e.target.value); setNutritionErrors(p => ({ ...p, food: '' })) }}
-          style={{ ...inputStyle, borderColor: nutritionErrors.food ? '#f87171' : 'var(--color-border)' }}
-        />
-        {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-4px' }}>{nutritionErrors.food}</p>}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Button onClick={() => setShowScanner(true)} variant="muted" size="sm">📷 Scan barcode</Button>
-          <Button onClick={() => setShowBarcodeInput(!showBarcodeInput)} variant="muted" size="sm"># Enter barcode</Button>
-        </div>
-        {showScanner && <BarcodeScanner onDetected={(barcode) => { setShowScanner(false); lookupBarcode(barcode) }} onClose={() => setShowScanner(false)} />}
-        {showBarcodeInput && (
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input type="text" placeholder="Enter barcode number" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-            <Button onClick={() => lookupBarcode(barcodeInput)} variant="primary">Lookup</Button>
-          </div>
-        )}
-        {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+        <SectionHeader title="Nutrition" collapsed={!nutritionExpanded} onToggle={() => setNutritionExpanded(!nutritionExpanded)}>
+            <input
+              type="text"
+              placeholder="Food name"
+              value={food}
+              onChange={(e) => { setFood(e.target.value); setNutritionErrors(p => ({ ...p, food: '' })) }}
+              style={{ ...inputStyle, borderColor: nutritionErrors.food ? '#f87171' : 'var(--color-border)' }}
+            />
+            {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-4px' }}>{nutritionErrors.food}</p>}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button onClick={() => setShowScanner(true)} variant="muted" size="sm">Scan barcode</Button>
+              <Button onClick={() => setShowBarcodeInput(!showBarcodeInput)} variant="muted" size="sm"># Enter barcode</Button>
+            </div>
+            {showScanner && <BarcodeScanner onDetected={(barcode) => { setShowScanner(false); lookupBarcode(barcode) }} onClose={() => setShowScanner(false)} />}
+            {showBarcodeInput && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input type="text" placeholder="Enter barcode number" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                <Button onClick={() => lookupBarcode(barcodeInput)} variant="primary">Lookup</Button>
+              </div>
+            )}
+            {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           <input
             type="number"
             placeholder="Calories"
@@ -639,12 +623,61 @@ function startEditCardio(entry) {
             Cancel
           </Button>
         )}
+        </SectionHeader>
+      </div>
+
+      {/* Cardio + Steps */}
+      <div style={sectionStyle}>
+
+        {/* Cardio */}
+        <SectionHeader title="Cardio" collapsed={!cardioExpanded} onToggle={() => setCardioExpanded(!cardioExpanded)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+              {EXERCISE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
+              <input type="number" placeholder="Duration (min)" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />
+              <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
+              <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
+            </div>
+            <Button onClick={() => { logCardio(); if (!editingCardio) setCardioExpanded(false) }} variant="primary">
+              {editingCardio ? 'Update session' : 'Log session'}
+            </Button>
+            {editingCardio && <Button onClick={() => { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); setCardioExpanded(false) }} variant="ghost">Cancel</Button>}
+            {cardioEntries.map(e => (
+              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--color-border)' }}>
+                <div>
+                  <p style={{ fontWeight: 600 }}>{e.exercise_type}</p>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>{e.duration} min{e.calories_burned ? ` · ${e.calories_burned} cal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm` : ''}</p>
+                </div>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button onClick={() => startEditCardio(e)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
+                  <button onClick={() => deleteCardio(e.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionHeader>
+
+        {/* Divider */}
+        <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
+
+        {/* Steps */}
+        <SectionHeader title="Steps" collapsed={!stepsExpanded} onToggle={() => setStepsExpanded(!stepsExpanded)}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
+            <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+            <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary">
+              {savedSteps ? 'Update' : 'Log'}
+            </Button>
+          </div>
+        </SectionHeader>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {entries.length === 0 && (
           <EmptyState
-            icon="🍽️"
+            icon={null}
             title="Nothing logged yet"
             description="Add your first meal above to start tracking today's nutrition."
           />

@@ -364,7 +364,7 @@ function Profile({ session, profile }) {
           </p>
           <div>
             <Button onClick={exportData} variant="outline" loading={exportLoading}>
-              {exportLoading ? 'Exporting...' : '⬇ Download data'}
+              {exportLoading ? 'Exporting...' : 'Download data'}
             </Button>
           </div>
         </div>

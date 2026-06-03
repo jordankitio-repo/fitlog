@@ -4,6 +4,7 @@ import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
+import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
 import { resolveLockState } from '../utils/lockState'
 import {
@@ -32,37 +33,6 @@ ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, Title, Tooltip, Legend
 )
-
-function SectionHeader({ title, collapsed, onToggle, badge, children, animated = true }) {
-  return (
-    <>
-      <div
-        onClick={onToggle}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <h2 style={{ margin: 0 }}>{title}</h2>
-          {badge && (
-            <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>{badge}</span>
-          )}
-        </div>
-        <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{collapsed ? '▶' : '▼'}</span>
-      </div>
-      {animated ? (
-        <div style={{
-          display: 'grid',
-          gridTemplateRows: collapsed ? '0fr' : '1fr',
-          transition: 'grid-template-rows 0.25s ease',
-          overflow: 'hidden',
-        }}>
-          <div style={{ minHeight: 0 }}>{children}</div>
-        </div>
-      ) : (
-        !collapsed && <div style={{ paddingTop: '8px' }}>{children}</div>
-      )}
-    </>
-  )
-}
 
 function ClientView({ profile }) {
   const { clientId } = useParams()
@@ -1291,7 +1261,7 @@ async function sendMessage() {
         <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')}>
           {entries.length === 0 ? (
             <EmptyState
-              icon="🍽️"
+              icon={null}
               title="No entries for this day"
               description="Client hasn't logged any nutrition yet."
             />

@@ -158,7 +158,7 @@ function Login() {
                   fontSize: '0.875rem'
                 }}
               >
-                {r === 'solo' ? '🧍 Individual' : '🏋️ Coach'}
+                {r === 'solo' ? 'Individual' : 'Coach'}
               </button>
             ))}
           </div>
