@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 function Spinner({ color }) {
   return (
     <span style={{
@@ -23,6 +25,8 @@ function Button({
   type = 'button',
   style = {}
 }) {
+  const [hovered, setHovered] = useState(false)
+
   const base = {
     display: 'inline-flex',
     alignItems: 'center',
@@ -54,7 +58,7 @@ function Button({
     ghost: {
       backgroundColor: 'transparent',
       color: 'var(--color-muted)',
-      border: '1px solid var(--color-border)',
+      border: '1px solid transparent',
     },
     danger: {
       backgroundColor: 'transparent',
@@ -84,14 +88,19 @@ function Button({
   }
 
   const spinnerColor = variant === 'primary' ? '#fff' : variant === 'ai' ? '#a78bfa' : 'var(--color-primary)'
+  const hoverStyle = hovered && !disabled && !loading ? { filter: 'brightness(1.12)' } : {}
 
   return (
     <button
       type={type}
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       disabled={disabled || loading}
       className="btn"
-      style={{ ...base, ...sizes[size], ...variants[variant], ...style }}
+      style={{ ...base, ...sizes[size], ...variants[variant], ...style, ...hoverStyle }}
     >
       {loading && <Spinner color={spinnerColor} />}
       {children}

@@ -65,7 +65,7 @@ html, body, #root {
 
 /* Hover states */
 button:not(:disabled):hover {
-  filter: brightness(1.1);
+  filter: brightness(1.08);
   transition: filter 0.15s ease;
 }
 

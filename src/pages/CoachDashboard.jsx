@@ -273,31 +273,30 @@ function CoachDashboard({ profile }) {
       {clients.length > 0 && !loading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
           <div style={{ ...cardStyle, padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Total clients</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 700 }}>{clients.length}</p>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: 600 }}>Total clients</p>
+            <p style={{ fontSize: '2rem', fontWeight: 700 }}>{clients.length}</p>
           </div>
           <div style={{ ...cardStyle, padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Checked in this week</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34d399' }}>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: 600 }}>Checked in this week</p>
+            <p style={{ fontSize: '2rem', fontWeight: 700, color: '#34d399' }}>
               {clients.filter(c => clientStats[c.client_id]?.checkIn).length}
               <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{clients.length}</span>
             </p>
           </div>
           <div style={{ ...cardStyle, border: `1px solid ${needsAttention > 0 ? '#f87171' : 'var(--color-border)'}`, padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Need attention</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 700, color: needsAttention > 0 ? '#f87171' : '#34d399' }}>{needsAttention}</p>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: 600 }}>Need attention</p>
+            <p style={{ fontSize: '2rem', fontWeight: 700, color: needsAttention > 0 ? '#f87171' : '#34d399' }}>{needsAttention}</p>
           </div>
         </div>
       )}
 
       {/* Client list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h2>Your clients</h2>
         {loading ? (
           <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Loading...</p>
         ) : clients.length === 0 ? (
           <EmptyState
-            icon="👥"
+            icon={null}
             title="No clients yet"
             description="Send an invite below to add your first client."
           />
@@ -312,15 +311,20 @@ function CoachDashboard({ profile }) {
                 padding: '16px 20px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px'
+                gap: '16px'
               }}>
                 {/* Header row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <p style={{ fontWeight: 600 }}>{c.client?.full_name || 'Unnamed'}</p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>{c.client?.email}</p>
+                    <p style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>{c.client?.full_name || 'Unnamed'}</p>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px', letterSpacing: '0.01em' }}>{c.client?.email}</p>
                   </div>
-                  <Button onClick={() => navigate(`/client/${c.client_id}`)} variant="outline" size="sm">
+                  <Button
+                    onClick={() => navigate(`/client/${c.client_id}`)}
+                    variant="ghost"
+                    size="sm"
+                    style={{ border: '1px solid rgba(255, 255, 255, 0.08)', padding: '5px 10px' }}
+                  >
                     View data →
                   </Button>
                 </div>
@@ -340,12 +344,15 @@ function CoachDashboard({ profile }) {
 
                     {/* Check-in */}
                     {s.checkIn ? (
-                      <span style={{
-                        fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px',
-                        borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                        border: '1px solid #34d399', color: '#34d399'
-                      }}>
-                        ✓ Check-in: {s.checkIn.adherence_rating}/10 adherence · {s.checkIn.energy_level}/10 energy
+                      <span
+                        title={`Check-in: ${s.checkIn.adherence_rating}/10 adherence · ${s.checkIn.energy_level}/10 energy`}
+                        style={{
+                          fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px',
+                          borderRadius: '999px', backgroundColor: 'var(--color-bg)',
+                          border: '1px solid #34d399', color: '#34d399'
+                        }}
+                      >
+                        {s.checkIn.adherence_rating}/10 adherence · {s.checkIn.energy_level}/10 energy
                       </span>
                     ) : (
                       <span style={{
@@ -372,10 +379,10 @@ function CoachDashboard({ profile }) {
 
                 {/* Obstacles preview */}
                 {s?.checkIn?.obstacles && (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', paddingTop: '4px', borderTop: '1px solid var(--color-border)' }}>
-                    <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>Obstacles: </span>
-                    {s.checkIn.obstacles}
-                  </p>
+                  <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: '4px' }}>Obstacles</p>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>{s.checkIn.obstacles}</p>
+                  </div>
                 )}
 
                 {/* 7-day compliance pills */}
