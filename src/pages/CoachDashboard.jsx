@@ -102,38 +102,46 @@ function CoachDashboard({ profile }) {
 
       if (clientTargets?.calories) {
         let count = 0
+        let logged = 0
         last7Days.forEach(date => {
           const dayTotal = nutritionData.filter(n => n.user_id === id && n.logged_date === date).reduce((sum, n) => sum + (n.calories || 0), 0)
+          if (dayTotal > 0) logged++
           if (dayTotal > 0 && dayTotal >= clientTargets.calories * 0.9) count++
         })
-        complianceItems.push({ label: 'Calories', value: count })
+        complianceItems.push({ label: 'Calories', value: count, logged, hasData: logged > 0 })
       }
 
       if (clientTargets?.protein) {
         let count = 0
+        let logged = 0
         last7Days.forEach(date => {
           const dayTotal = nutritionData.filter(n => n.user_id === id && n.logged_date === date).reduce((sum, n) => sum + (n.protein || 0), 0)
+          if (dayTotal > 0) logged++
           if (dayTotal > 0 && dayTotal >= clientTargets.protein * 0.9) count++
         })
-        complianceItems.push({ label: 'Protein', value: count })
+        complianceItems.push({ label: 'Protein', value: count, logged, hasData: logged > 0 })
       }
 
       if (clientTargets?.cardio_minutes) {
         let count = 0
+        let logged = 0
         last7Days.forEach(date => {
           const dayTotal = cardioData.filter(c => c.user_id === id && c.logged_date === date).reduce((sum, c) => sum + (c.duration || 0), 0)
-          if (dayTotal >= clientTargets.cardio_minutes * 0.9) count++
+          if (dayTotal > 0) logged++
+          if (dayTotal > 0 && dayTotal >= clientTargets.cardio_minutes * 0.9) count++
         })
-        complianceItems.push({ label: 'Cardio', value: count })
+        complianceItems.push({ label: 'Cardio', value: count, logged, hasData: logged > 0 })
       }
 
       if (clientTargets?.steps) {
         let count = 0
+        let logged = 0
         last7Days.forEach(date => {
           const daySteps = stepsData.find(s => s.user_id === id && s.logged_date === date)
-          if (daySteps && daySteps.steps >= clientTargets.steps * 0.9) count++
+          if ((daySteps?.steps || 0) > 0) logged++
+          if ((daySteps?.steps || 0) > 0 && daySteps.steps >= clientTargets.steps * 0.9) count++
         })
-        complianceItems.push({ label: 'Steps', value: count })
+        complianceItems.push({ label: 'Steps', value: count, logged, hasData: logged > 0 })
       }
 
       stats[id] = { lastLogDate, daysSinceLog, checkIn, concerningReactions, complianceItems, lockInfo }
@@ -246,6 +254,13 @@ function CoachDashboard({ profile }) {
     if (!s) return false
     return (s.daysSinceLog === null || s.daysSinceLog >= 4) || s.concerningReactions.length > 0
   }).length
+
+  const metricColors = {
+    Calories: '#fbbf24',
+    Protein: '#f87171',
+    Cardio: '#4f8ef7',
+    Steps: '#a78bfa',
+  }
 
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -364,7 +379,7 @@ function CoachDashboard({ profile }) {
                 )}
 
                 {/* 7-day compliance pills */}
-                {(s?.complianceItems?.length > 0 || s?.lockInfo?.locked) && (
+                {(s?.complianceItems?.some(i => i.logged > 0) || s?.lockInfo?.locked) && (
                   <div style={{ paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
                     <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                       7-day compliance
@@ -379,13 +394,18 @@ function CoachDashboard({ profile }) {
                           Locked
                         </span>
                       )}
-                      {s.complianceItems.map(({ label, value }) => {
-                        const color = value >= 5 ? '#34d399' : value >= 3 ? '#fbbf24' : '#f87171'
+                      {s.complianceItems.map(({ label, value, logged }) => {
+                        if (logged === 0) return null
+                        const metricColor = metricColors[label] || 'var(--color-muted)'
+                        const opacity = value >= 5 ? 1 : value >= 3 ? 0.75 : 0.55
                         return (
                           <span key={label} style={{
                             fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px',
-                            borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                            border: `1px solid ${color}`, color
+                            borderRadius: '999px',
+                            backgroundColor: value < 3 ? `${metricColor}26` : 'var(--color-bg)',
+                            border: `1px solid ${metricColor}`,
+                            color: metricColor,
+                            opacity,
                           }}>
                             {label} {value}/7
                           </span>
