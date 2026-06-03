@@ -55,6 +55,8 @@ function Dashboard({ profile }) {
   const [hideCalories, setHideCalories] = useState(false)
   const [showOffboardNotice, setShowOffboardNotice] = useState(false)
   const offboardNoticeShownRef = useRef(false)
+  const [showNudgeNotice, setShowNudgeNotice] = useState(false)
+  const [nudgeTimestamp, setNudgeTimestamp] = useState('')
   const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
   const [selfOffboarding, setSelfOffboarding] = useState(false)
   const [selfOffboardError, setSelfOffboardError] = useState('')
@@ -106,7 +108,7 @@ function Dashboard({ profile }) {
         fetchStreak(),
       ])
       if (profile?.role === 'client') {
-        await Promise.all([fetchCheckIn(), fetchMessages(), fetchLockState()])
+        await Promise.all([fetchCheckIn(), fetchMessages(), fetchLockState(), fetchNudgeNotice()])
       }
       if (profile?.role === 'solo') {
         await fetchOffboardNotice()
@@ -472,6 +474,58 @@ async function reactToMessage(messageId, emoji) {
     }
   }
 
+  async function fetchNudgeNotice() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    if (!currentSession?.user?.id) return
+
+    const { data: connection, error: connectionError } = await supabase
+      .from('coach_clients')
+      .select('last_nudged_at')
+      .eq('client_id', currentSession.user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (connectionError) {
+      console.error(connectionError)
+      return
+    }
+
+    const lastNudgedAt = connection?.last_nudged_at
+    if (!lastNudgedAt) {
+      setShowNudgeNotice(false)
+      return
+    }
+
+    const nudgeTime = new Date(lastNudgedAt).getTime()
+    const isRecent = Date.now() - nudgeTime < 48 * 60 * 60 * 1000
+    if (!isRecent) {
+      setShowNudgeNotice(false)
+      return
+    }
+
+    const dismissed = localStorage.getItem(`nudge_dismissed_${currentSession.user.id}_${lastNudgedAt}`)
+    if (dismissed) {
+      setShowNudgeNotice(false)
+      return
+    }
+
+    const { data: todayLog, error: logError } = await supabase
+      .from('nutrition_log')
+      .select('id')
+      .eq('user_id', currentSession.user.id)
+      .eq('logged_date', toLocalDateString(new Date()))
+      .limit(1)
+      .maybeSingle()
+
+    if (logError) {
+      console.error(logError)
+      return
+    }
+
+    setNudgeTimestamp(lastNudgedAt)
+    setShowNudgeNotice(!todayLog)
+  }
+
   async function selfOffboard() {
     setSelfOffboarding(true)
     setSelfOffboardError('')
@@ -607,6 +661,33 @@ async function reactToMessage(messageId, emoji) {
 	                localStorage.removeItem(`offboard_by_${session.user.id}`)
 	              })
 	              setShowOffboardNotice(false)
+	            }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
+	          >
+	            ✕
+	          </button>
+	        </div>
+	      )}
+
+	      {showNudgeNotice && (
+	        <div style={{
+	          padding: '14px 16px',
+	          border: '1px solid var(--color-border)',
+	          borderLeft: '4px solid var(--color-primary)',
+	          borderRadius: 'var(--radius)',
+	          backgroundColor: 'rgba(79,142,247,0.08)',
+	          display: 'flex',
+	          justifyContent: 'space-between',
+	          alignItems: 'flex-start',
+	          gap: '12px'
+	        }}>
+	          <p style={{ fontSize: '0.875rem', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
+	            Your coach checked in on you. Log your nutrition today to keep your progress on track.
+	          </p>
+	          <button
+	            onClick={() => {
+	              localStorage.setItem(`nudge_dismissed_${profile.id}_${nudgeTimestamp}`, 'true')
+	              setShowNudgeNotice(false)
 	            }}
 	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
 	          >

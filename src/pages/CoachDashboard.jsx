@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
+import Toast from '../components/Toast'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
 import { getInviteBlockReason } from '../utils/inviteValidation'
@@ -17,6 +18,8 @@ function CoachDashboard({ profile }) {
   const [soloAccountDetected, setSoloAccountDetected] = useState(false)
   const [pendingInviteEmail, setPendingInviteEmail] = useState('')
   const [loading, setLoading] = useState(true)
+  const [nudgeLoadingIds, setNudgeLoadingIds] = useState({})
+  const [toast, setToast] = useState({ message: '', type: 'success' })
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -28,7 +31,7 @@ function CoachDashboard({ profile }) {
 
     const { data: relationships, error } = await supabase
       .from('coach_clients')
-      .select('id, coach_id, client_id, status, created_at, lock_cleared_at')
+      .select('id, coach_id, client_id, status, created_at, lock_cleared_at, last_nudged_at')
       .eq('coach_id', profile.id)
       .eq('status', 'active')
 
@@ -61,7 +64,7 @@ function CoachDashboard({ profile }) {
     const [logsResult, checkInsResult, messagesResult, nutritionResult, cardioResult, stepsResult, targetsResult] = await Promise.all([
       supabase.from('nutrition_log').select('user_id, logged_date').in('user_id', clientIds).order('logged_date', { ascending: false }),
       supabase.from('check_ins').select('*').in('client_id', clientIds).eq('week_of', weekOf),
-      supabase.from('coach_messages').select('client_id, reaction, content, created_at').in('client_id', clientIds).eq('coach_id', profile.id).not('reaction', 'is', null).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+      supabase.from('messages').select('client_id, reaction, content, created_at').in('client_id', clientIds).eq('coach_id', profile.id).not('reaction', 'is', null).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       supabase.from('nutrition_log').select('user_id, logged_date, calories, protein').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
       supabase.from('cardio_log').select('user_id, logged_date, duration').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
       supabase.from('steps_log').select('user_id, logged_date, steps').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
@@ -162,6 +165,38 @@ function CoachDashboard({ profile }) {
     if (days === 0) return 'Logged today'
     if (days === 1) return 'Logged yesterday'
     return `${days} days ago`
+  }
+
+  function showToast(message, type = 'success') {
+    setToast({ message, type })
+  }
+
+  async function nudgeClient(client) {
+    setNudgeLoadingIds(prev => ({ ...prev, [client.client_id]: true }))
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const response = await fetch(
+      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nudge-client',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ clientId: client.client_id }),
+      }
+    )
+    const data = await response.json()
+
+    if (data.error === 'too_soon') {
+      showToast(`You nudged ${client.client?.full_name || 'this client'} recently. Wait 48 hours before nudging again.`, 'error')
+    } else if (data.error) {
+      showToast('Could not send nudge. Try again.', 'error')
+    } else {
+      showToast(`Nudge sent to ${client.client?.full_name || 'client'}.`, 'success')
+    }
+
+    setNudgeLoadingIds(prev => ({ ...prev, [client.client_id]: false }))
   }
 
   async function checkAndInvite() {
@@ -304,6 +339,7 @@ function CoachDashboard({ profile }) {
           clients.map((c) => {
             const s = clientStats[c.client_id]
             const hasAlert = s && (s.daysSinceLog === null || s.daysSinceLog >= 4 || s.concerningReactions.length > 0)
+            const canNudge = s && (s.daysSinceLog === null || s.daysSinceLog >= 2)
             return (
               <div key={c.id} style={{
                 ...cardStyle,
@@ -319,14 +355,27 @@ function CoachDashboard({ profile }) {
                     <p style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>{c.client?.full_name || 'Unnamed'}</p>
                     <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px', letterSpacing: '0.01em' }}>{c.client?.email}</p>
                   </div>
-                  <Button
-                    onClick={() => navigate(`/client/${c.client_id}`)}
-                    variant="ghost"
-                    size="sm"
-                    style={{ border: '1px solid rgba(255, 255, 255, 0.08)', padding: '5px 10px' }}
-                  >
-                    View data →
-                  </Button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {canNudge && (
+                      <Button
+                        onClick={() => nudgeClient(c)}
+                        variant="ghost"
+                        size="sm"
+                        loading={Boolean(nudgeLoadingIds[c.client_id])}
+                        style={{ border: '1px solid rgba(255, 255, 255, 0.08)', padding: '5px 10px' }}
+                      >
+                        Nudge
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => navigate(`/client/${c.client_id}`)}
+                      variant="ghost"
+                      size="sm"
+                      style={{ border: '1px solid rgba(255, 255, 255, 0.08)', padding: '5px 10px' }}
+                    >
+                      View data →
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Stats row */}
@@ -490,6 +539,7 @@ function CoachDashboard({ profile }) {
           </div>
         )}
       </div>
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
     </div>
   )
 }

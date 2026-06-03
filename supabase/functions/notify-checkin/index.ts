@@ -1,46 +1,102 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import "@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "@supabase/server";
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 
-console.log("Hello from Functions!");
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-// This endpoint uses 'publishable' | 'secret' access, apiKey is required.
-// Use publishable for Client-facing, key-validated endpoints
-// Use secret for Server-to-server, internal calls
-export default {
-  fetch: withSupabase({ auth: ["publishable", "secret"] }, async (req, ctx) => {
-    // Called by another service with a secret key
-    // ctx.supabaseAdmin bypasses RLS — use for privileged operations
-    /*
-    if (ctx.authMode === "secret") {
-      const { user_id } = await req.json();
-      const { data } = await ctx.supabaseAdmin.auth.admin.getUserById(user_id);
+  try {
+    const {
+      coachEmail,
+      coachName,
+      clientName,
+      adherence,
+      energy,
+      obstacles,
+      notes,
+    } = await req.json()
 
-      return Response.json({
-        email: data?.user?.email,
-      });
+    if (!coachEmail) {
+      return new Response(JSON.stringify({ error: 'coachEmail is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
-    */
 
-    const { name } = await req.json();
+    const apiKey = Deno.env.get('RESEND_API_KEY')
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'RESEND_API_KEY is not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    return Response.json({
-      message: `Hello ${name}!`,
-    });
-  }),
-};
+    const safeCoachName = escapeHtml(coachName || 'Coach')
+    const safeClientName = escapeHtml(clientName || 'Your client')
+    const safeAdherence = escapeHtml(adherence)
+    const safeEnergy = escapeHtml(energy)
+    const safeObstacles = escapeHtml(obstacles || 'None reported')
+    const safeNotes = escapeHtml(notes || 'None')
 
-/* To invoke locally:
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from: 'FitLog <noreply@tryfitlog.com>',
+        to: [coachEmail],
+        subject: `New check-in from ${clientName || 'your client'}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
+            <h2 style="color: #4f8ef7;">New weekly check-in submitted</h2>
+            <p>Hi ${safeCoachName},</p>
+            <p><strong>${safeClientName}</strong> submitted a weekly check-in.</p>
+            <div style="margin: 20px 0; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <p><strong>Adherence:</strong> ${safeAdherence}/10</p>
+              <p><strong>Energy:</strong> ${safeEnergy}/10</p>
+              <p><strong>Obstacles:</strong><br>${safeObstacles}</p>
+              <p><strong>Notes:</strong><br>${safeNotes}</p>
+            </div>
+            <a href="https://www.tryfitlog.com/login" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #4f8ef7; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
+              View client
+            </a>
+            <p style="margin-top: 24px; color: #888; font-size: 0.875rem;">FitLog - your fitness coaching platform</p>
+          </div>
+        `
+      }),
+    })
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+    const data = await response.json()
 
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/notify-checkin' \
-    --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
-    --data '{"name":"Functions"}'
+    if (!response.ok) {
+      return new Response(JSON.stringify({ success: false, error: data }), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-*/
+    return new Response(JSON.stringify({ success: true, data }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})

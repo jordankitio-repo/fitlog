@@ -56,6 +56,7 @@ function ClientView({ profile }) {
   const [targetsSaved, setTargetsSaved] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
+  const [daysSinceLog, setDaysSinceLog] = useState(null)
   const [hideCaloriesToggle, setHideCaloriesToggle] = useState(false)
   const [coachNotes, setCoachNotes] = useState('')
   const [newNoteEntry, setNewNoteEntry] = useState('')
@@ -74,6 +75,7 @@ function ClientView({ profile }) {
   const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
   const [showOffboardConfirm, setShowOffboardConfirm] = useState(false)
   const [offboarding, setOffboarding] = useState(false)
+  const [nudging, setNudging] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
     stats: false,
@@ -199,10 +201,15 @@ function ClientView({ profile }) {
     }
     if (!relationship) {
       setLockInfo({ locked: false, days: 0, reason: 'active' })
+      setDaysSinceLog(null)
       setHideCaloriesToggle(false)
       return
     }
 
+    setDaysSinceLog(latestLog?.logged_date
+      ? Math.floor((new Date() - new Date(`${latestLog.logged_date}T00:00:00`)) / 86400000)
+      : null
+    )
     setHideCaloriesToggle(Boolean(relationship.hide_calories))
     setLockInfo(resolveLockState({
       lastNutritionDate: latestLog?.logged_date || null,
@@ -269,6 +276,33 @@ function ClientView({ profile }) {
     } else {
       navigate('/')
     }
+  }
+
+  async function nudgeClient() {
+    setNudging(true)
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const response = await fetch(
+      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nudge-client',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`,
+        },
+        body: JSON.stringify({ clientId }),
+      }
+    )
+    const data = await response.json()
+
+    if (data.error === 'too_soon') {
+      showToast(`You nudged ${clientProfile?.full_name || 'this client'} recently. Wait 48 hours before nudging again.`, 'error')
+    } else if (data.error) {
+      showToast('Could not send nudge. Try again.', 'error')
+    } else {
+      showToast(`Nudge sent to ${clientProfile?.full_name || 'client'}.`, 'success')
+    }
+
+    setNudging(false)
   }
 
   async function fetchEntries() {
@@ -647,7 +681,7 @@ async function addNoteEntry() {
       .from('check_ins').select('*').eq('client_id', clientId).eq('week_of', weekOf).maybeSingle()
 
     const { data: messagesData } = await supabase
-      .from('coach_messages').select('content, reaction, created_at')
+      .from('messages').select('content, reaction, created_at')
       .eq('coach_id', session.user.id).eq('client_id', clientId)
       .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
@@ -888,51 +922,18 @@ async function sendMessage() {
               <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
             </div>
           )}
-          {/* Offboard */}
-          {!showOffboardConfirm && (
-            <Button
-              onClick={() => setShowOffboardConfirm(true)}
-              variant="ghost"
-              size="sm"
-              style={{ marginTop: '10px' }}
-            >
-              Offboard client
-            </Button>
-          )}
-          {showOffboardConfirm && (
-            <div style={{
-              marginTop: '12px',
-              padding: '14px 16px',
-              border: '1px solid #f87171',
-              borderRadius: 'var(--radius)',
-              backgroundColor: 'rgba(248,113,113,0.05)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px'
-            }}>
-              <p style={{ fontSize: '0.875rem', margin: 0 }}>
-                This will end the coaching relationship and return <strong>{clientProfile?.full_name}</strong> to a solo account. Their data is preserved and they can continue tracking independently.
-              </p>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Button
-                  onClick={offboardClient}
-                  variant="danger-solid"
-                  size="sm"
-                  loading={offboarding}
-                >
-                  Confirm offboard
-                </Button>
-                <Button
-                  onClick={() => setShowOffboardConfirm(false)}
-                  variant="ghost"
-                  size="sm"
-                  disabled={offboarding}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+            {(daysSinceLog === null || daysSinceLog >= 2) && (
+              <Button
+                onClick={nudgeClient}
+                variant="ghost"
+                size="sm"
+                loading={nudging}
+              >
+                Nudge
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1442,6 +1443,56 @@ async function sendMessage() {
           </SectionHeader>
         </div>
       )}
+
+      <div style={{ ...sectionCardStyle }}>
+        <h2>Coaching</h2>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+          End the coaching relationship and return {clientProfile?.full_name || 'this client'} to a solo account. Their data is preserved.
+        </p>
+        {!showOffboardConfirm ? (
+          <div>
+            <Button
+              onClick={() => setShowOffboardConfirm(true)}
+              variant="danger"
+              size="sm"
+            >
+              Offboard client
+            </Button>
+          </div>
+        ) : (
+          <div style={{
+            padding: '14px 16px',
+            border: '1px solid #f87171',
+            borderRadius: 'var(--radius)',
+            backgroundColor: 'rgba(248,113,113,0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <p style={{ fontSize: '0.875rem', margin: 0 }}>
+              This will end the coaching relationship and return <strong>{clientProfile?.full_name}</strong> to a solo account. Their data is preserved and they can continue tracking independently.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <Button
+                onClick={offboardClient}
+                variant="danger-solid"
+                size="sm"
+                loading={offboarding}
+              >
+                Confirm offboard
+              </Button>
+              <Button
+                onClick={() => setShowOffboardConfirm(false)}
+                variant="ghost"
+                size="sm"
+                disabled={offboarding}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
     <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
     </>
