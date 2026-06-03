@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
+import { toLocalDateString } from '../utils/dateHelpers'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -13,11 +14,6 @@ const EXERCISE_TYPES = [
   '🚣 Rowing', '⛹️ Jump Rope', '🪜 Stair Climber', '🚶 Walking',
   '⚡ HIIT', '🔥 Other'
 ]
-
-function toLocalDateString(date) {
-  const d = new Date(date)
-  return d.toISOString().split('T')[0]
-}
 
 function Log({ session, profile }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))

@@ -5,6 +5,15 @@ import StatCard from '../components/StatCard'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import Toast from '../components/Toast'
+import { resolveLockState } from '../utils/lockState'
+import {
+  addDays,
+  getCurrentWeekSunday,
+  getDatesInRange,
+  getWeeklyReportRange,
+  parseLocalDateString,
+  toLocalDateString
+} from '../utils/dateHelpers'
 import { Line, Bar, Chart } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -52,101 +61,6 @@ function SectionHeader({ title, collapsed, onToggle, badge, children, animated =
       )}
     </>
   )
-}
-
-function toLocalDateString(date) {
-  const d = new Date(date)
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getCurrentWeekSunday() {
-  const now = new Date()
-  const day = now.getDay()
-  const sunday = new Date(now)
-  sunday.setDate(now.getDate() - day)
-  return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
-}
-
-// Lock mechanic — computed, no DB write needed from client
-function resolveLockState({ lastNutritionDate, connectionCreatedAt, lockClearedAt }) {
-  const LOCK_AFTER = 3
-  const AUTO_UNLOCK_AFTER = 7
-  const COACH_GRACE_HOURS = 48
-  function daysSince(dateStr) {
-    const a = new Date(dateStr + 'T00:00:00')
-    const now = new Date()
-    const b = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    return Math.floor((b - a) / 86400000)
-  }
-  const baseline = lastNutritionDate || connectionCreatedAt
-  const days = daysSince(baseline)
-  if (days < LOCK_AFTER) return { locked: false, days, reason: 'active' }
-  if (days >= LOCK_AFTER + AUTO_UNLOCK_AFTER) return { locked: false, days, reason: 'auto-unlocked' }
-  if (lockClearedAt && new Date(lockClearedAt) > new Date(baseline + 'T23:59:59')) {
-    const graceExpiry = new Date(new Date(lockClearedAt).getTime() + COACH_GRACE_HOURS * 60 * 60 * 1000)
-    if (new Date() < graceExpiry) return { locked: false, days, reason: 'coach-unlocked' }
-  }
-  return { locked: true, days, reason: 'locked' }
-}
-
-function parseLocalDateString(dateString) {
-  const [year, month, day] = dateString.split('-').map(Number)
-  return new Date(year, month - 1, day, 12)
-}
-
-function addDays(date, days) {
-  const d = new Date(date)
-  d.setHours(12, 0, 0, 0)
-  d.setDate(d.getDate() + days)
-  return d
-}
-
-function getCurrentWeekStart(date = new Date()) {
-  const d = new Date(date)
-  d.setHours(12, 0, 0, 0)
-  d.setDate(d.getDate() - d.getDay())
-  return d
-}
-
-function getWeeklyReportRange(date = new Date()) {
-  const currentWeekStart = getCurrentWeekStart(date)
-  const start = addDays(currentWeekStart, -7)
-  const end = addDays(currentWeekStart, -1)
-
-  return {
-    start,
-    end,
-    startDate: toLocalDateString(start),
-    endDate: toLocalDateString(end),
-    label: formatDateRange(start, end)
-  }
-}
-
-function getDatesInRange(start, end) {
-  const dates = []
-  for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
-    dates.push(toLocalDateString(d))
-  }
-  return dates
-}
-
-function formatDateRange(start, end) {
-  const sameYear = start.getFullYear() === end.getFullYear()
-  const sameMonth = sameYear && start.getMonth() === end.getMonth()
-  const monthDay = { month: 'long', day: 'numeric' }
-
-  if (sameMonth) {
-    return `${start.toLocaleDateString('en-US', monthDay)} - ${end.toLocaleDateString('en-US', { ...monthDay, year: 'numeric' })}`
-  }
-
-  if (sameYear) {
-    return `${start.toLocaleDateString('en-US', monthDay)} - ${end.toLocaleDateString('en-US', { ...monthDay, year: 'numeric' })}`
-  }
-
-  return `${start.toLocaleDateString('en-US', { ...monthDay, year: 'numeric' })} - ${end.toLocaleDateString('en-US', { ...monthDay, year: 'numeric' })}`
 }
 
 function ClientView({ profile }) {
