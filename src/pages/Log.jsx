@@ -410,7 +410,7 @@ function startEditCardio(entry) {
 
   const sectionStyle = {
     ...cardStyle,
-    display: 'flex', flexDirection: 'column', gap: '12px'
+    display: 'flex', flexDirection: 'column', gap: 'var(--space-md)'
   }
 
   return (
@@ -460,7 +460,7 @@ function startEditCardio(entry) {
           )}
         </div>
         {weightExpanded && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
               <option value="lbs">lbs</option>
@@ -484,9 +484,9 @@ function startEditCardio(entry) {
               style={{ ...inputStyle, borderColor: nutritionErrors.food ? '#f87171' : 'var(--color-border)' }}
             />
             {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-4px' }}>{nutritionErrors.food}</p>}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <Button onClick={() => setShowScanner(true)} variant="muted" size="sm">Scan barcode</Button>
-              <Button onClick={() => setShowBarcodeInput(!showBarcodeInput)} variant="muted" size="sm"># Enter barcode</Button>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
+              <Button onClick={() => setShowScanner(true)} variant="ghost" size="sm">Scan barcode</Button>
+              <Button onClick={() => setShowBarcodeInput(!showBarcodeInput)} variant="ghost" size="sm"># Enter barcode</Button>
             </div>
             {showScanner && <BarcodeScanner onDetected={(barcode) => { setShowScanner(false); lookupBarcode(barcode) }} onClose={() => setShowScanner(false)} />}
             {showBarcodeInput && (
@@ -496,7 +496,7 @@ function startEditCardio(entry) {
               </div>
             )}
             {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-md)' }}>
           <input
             type="number"
             placeholder="Calories"
@@ -504,7 +504,6 @@ function startEditCardio(entry) {
             onChange={(e) => { setCalories(e.target.value); setNutritionErrors(p => ({ ...p, calories: '' })) }}
             style={{ ...inputStyle, borderColor: nutritionErrors.calories ? '#f87171' : 'var(--color-border)', minWidth: 0 }}
           />
-          {nutritionErrors.calories && <p style={{ color: '#f87171', fontSize: '0.75rem' }}>{nutritionErrors.calories}</p>}
           <input type="number" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Carbs (g)" value={carbs} onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Fat (g)" value={fat} onChange={(e) => setFat(e.target.value)} style={inputStyle} />
@@ -539,9 +538,15 @@ function startEditCardio(entry) {
             )}
           </div>
         </div>
-        <Button onClick={() => { setShowCopyPanel(!showCopyPanel); setCopyEntries([]); setSelectedCopyIds(new Set()) }} variant="ghost" size="sm">
-          {showCopyPanel ? 'Cancel' : '↩ Copy from another day'}
-        </Button>
+        {nutritionErrors.calories && <p style={{ color: '#f87171', fontSize: '0.75rem' }}>{nutritionErrors.calories}</p>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+          <Button onClick={() => { setShowCopyPanel(!showCopyPanel); setCopyEntries([]); setSelectedCopyIds(new Set()) }} variant="ghost" size="sm">
+            {showCopyPanel ? 'Cancel' : '↩ Copy from another day'}
+          </Button>
+          <Button onClick={handleSubmit} variant="primary" size="sm">
+            {editingEntry ? 'Update entry' : 'Add entry'}
+          </Button>
+        </div>
         {showCopyPanel && (
           <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -613,9 +618,6 @@ function startEditCardio(entry) {
             )}
           </div>
         )}
-        <Button onClick={handleSubmit} variant="primary">
-          {editingEntry ? 'Update entry' : 'Add entry'}
-        </Button>
         {editingEntry && (
           <Button onClick={() => { setEditingEntry(null); clearNutritionForm() }} variant="ghost">
             Cancel
@@ -638,10 +640,16 @@ function startEditCardio(entry) {
               <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
               <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
             </div>
-            <Button onClick={() => { logCardio(); if (!editingCardio) setCardioExpanded(false) }} variant="primary">
-              {editingCardio ? 'Update session' : 'Log session'}
-            </Button>
-            {editingCardio && <Button onClick={() => { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); setCardioExpanded(false) }} variant="ghost">Cancel</Button>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <Button onClick={() => { logCardio(); if (!editingCardio) setCardioExpanded(false) }} variant="primary" size="sm">
+                {editingCardio ? 'Update session' : 'Log session'}
+              </Button>
+              {editingCardio && (
+                <Button onClick={() => { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); setCardioExpanded(false) }} variant="ghost" size="sm">
+                  Cancel
+                </Button>
+              )}
+            </div>
           </div>
         </SectionHeader>
         {cardioEntries.map(e => (
@@ -662,7 +670,7 @@ function startEditCardio(entry) {
 
         {/* Steps */}
         <SectionHeader title="Steps" collapsed={!stepsExpanded} onToggle={() => setStepsExpanded(!stepsExpanded)}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
             <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary">
