@@ -5,6 +5,7 @@ import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
+import { getInviteBlockReason } from '../utils/inviteValidation'
 
 function CoachDashboard({ profile }) {
   const [clients, setClients] = useState([])
@@ -169,30 +170,16 @@ function CoachDashboard({ profile }) {
       .eq('email', normalizedEmail)
       .maybeSingle()
 
-    if (existing?.role === 'coach') {
-      setInviteError('This email belongs to a coach account and cannot be invited as a client.')
-      setInviteLink('')
-      return
-    }
-
+    let existingRelation = null
     if (existing?.role === 'client') {
-      const { data: alreadyMyClient } = await supabase
+      const { data } = await supabase
         .from('coach_clients')
         .select('id')
         .eq('coach_id', profile.id)
         .eq('client_id', existing.id)
         .eq('status', 'active')
         .maybeSingle()
-
-      if (alreadyMyClient) {
-        setInviteError('This person is already your client.')
-        setInviteLink('')
-        return
-      }
-
-      setInviteError('This person is already connected to another coach.')
-      setInviteLink('')
-      return
+      existingRelation = data
     }
 
     const { data: pendingInvite } = await supabase
@@ -203,19 +190,34 @@ function CoachDashboard({ profile }) {
       .eq('status', 'pending')
       .maybeSingle()
 
-    if (pendingInvite) {
-      setInviteError('You already sent an invite to this email.')
-      setInviteLink('')
-      return
+    const blockReason = getInviteBlockReason(existing, existingRelation, pendingInvite)
+
+    switch (blockReason) {
+      case 'coach':
+        setInviteError('This email belongs to a coach account and cannot be invited as a client.')
+        setInviteLink('')
+        return
+      case 'already-your-client':
+        setInviteError('This person is already your client.')
+        setInviteLink('')
+        return
+      case 'client-of-another':
+        setInviteError('This person is already connected to another coach.')
+        setInviteLink('')
+        return
+      case 'duplicate-pending':
+        setInviteError('You already sent an invite to this email.')
+        setInviteLink('')
+        return
+      case 'existing-solo':
+        setPendingInviteEmail(normalizedEmail)
+        setSoloAccountDetected(true)
+        return
+      default:
+        break
     }
 
-    if (existing?.role === 'solo') {
-      setPendingInviteEmail(normalizedEmail)
-      setSoloAccountDetected(true)
-      return
-    }
-
-    // No existing account or existing solo confirmed — send invite
+    // No blocking account state - send invite
     await sendInvite(normalizedEmail)
   }
 
