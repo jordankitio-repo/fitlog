@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import { getPasswordValidationError } from '../utils/passwordValidation'
@@ -217,6 +217,12 @@ function Login() {
         style={{ cursor: 'pointer', textAlign: 'center', color: '#888' }}
       >
         {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+      </p>
+      <p style={{ textAlign: 'center', marginTop: 16, fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.6 }}>
+        By signing up, you agree to our{' '}
+        <Link to="/terms" style={{ color: 'var(--color-primary)' }}>Terms of Service</Link>
+        {' '}and{' '}
+        <Link to="/privacy" style={{ color: 'var(--color-primary)' }}>Privacy Policy</Link>.
       </p>
     </div>
   )

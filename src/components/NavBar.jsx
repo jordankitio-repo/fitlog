@@ -21,6 +21,13 @@ function NavBar({ profile }) {
     }
   }
 
+  const legalLinkStyle = {
+    color: 'var(--color-muted)',
+    textDecoration: 'none',
+    fontSize: 'var(--text-xs)',
+    whiteSpace: 'nowrap',
+  }
+
   return (
     <nav style={{
       backgroundColor: 'var(--color-surface)',
@@ -58,6 +65,9 @@ function NavBar({ profile }) {
           <Link to="/profile" style={linkStyle('/profile')}>Profile</Link>
         </>
       )}
+
+      <Link to="/terms" style={legalLinkStyle}>Terms</Link>
+      <Link to="/privacy" style={legalLinkStyle}>Privacy</Link>
 
       <Button onClick={handleSignOut} variant="muted" size="sm">
         Sign out

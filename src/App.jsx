@@ -7,16 +7,20 @@ import Profile from './pages/Profile'
 import Login from './pages/Login'
 import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
+import CoachPaywall from './components/CoachPaywall'
 import CoachDashboard from './pages/CoachDashboard'
 import Join from './pages/Join'
 import ClientView from './pages/ClientView'
 import ResetPassword from './pages/ResetPassword'
 import RolePicker from './pages/RolePicker'
 import BillingSuccess from './pages/BillingSuccess'
+import Terms from './pages/Terms'
+import Privacy from './pages/Privacy'
 
 export const BILLING_ENABLED = false
+const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
 
-function AppRoutes({ session, profile }) {
+function AppRoutes({ session, profile, subscription }) {
   const location = useLocation()
   const isLanding = !session && location.pathname === '/'
 
@@ -36,11 +40,13 @@ function AppRoutes({ session, profile }) {
               : <Dashboard profile={profile} />
           ) : <Landing />} />
           <Route path="/log" element={session ? <Log session={session} profile={profile} /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={session ? <Profile session={session} profile={profile} /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} /> : <Navigate to="/login" />} />
           <Route path="/join" element={<Join />} />
           <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/billing/success" element={<BillingSuccess />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
         </Routes>
       </main>
     </>
@@ -51,6 +57,8 @@ function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [subscription, setSubscription] = useState(null)
+  const [subLoading, setSubLoading] = useState(false)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase
@@ -67,6 +75,15 @@ function App() {
 
     setProfile(data)
     setLoading(false)
+  }, [])
+
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut()
+    setSession(null)
+    setProfile(null)
+    setSubscription(null)
+    setLoading(false)
+    setSubLoading(false)
   }, [])
 
   useEffect(() => {
@@ -87,17 +104,55 @@ function App() {
         setLoading(true)
         fetchProfile(session.user.id)
       }
-      else { setProfile(null); setLoading(false) }
+      else {
+        setProfile(null)
+        setSubscription(null)
+        setLoading(false)
+        setSubLoading(false)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [fetchProfile])
 
-  if (window.location.pathname === '/billing/success') {
+  useEffect(() => {
+    if (profile?.role !== 'coach') {
+      setSubscription(null)
+      setSubLoading(false)
+      return
+    }
+
+    let active = true
+
+    async function fetchSubscription() {
+      setSubLoading(true)
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('status, trial_end, current_period_end, stripe_price_id')
+        .eq('coach_id', profile.id)
+        .maybeSingle()
+
+      if (!active) return
+
+      if (error) console.error('Error fetching subscription:', error)
+      setSubscription(data || null)
+      setSubLoading(false)
+    }
+
+    fetchSubscription()
+
+    return () => {
+      active = false
+    }
+  }, [profile])
+
+  if (PUBLIC_ROUTES.includes(window.location.pathname)) {
     return (
       <BrowserRouter>
         <Routes>
           <Route path="/billing/success" element={<BillingSuccess />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
         </Routes>
       </BrowserRouter>
     )
@@ -110,19 +165,27 @@ function App() {
       <RolePicker
         session={session}
         onComplete={() => fetchProfile(session.user.id)}
-        onCancel={async () => {
-          await supabase.auth.signOut()
-          setSession(null)
-          setProfile(null)
-          setLoading(false)
-        }}
+        onCancel={handleSignOut}
       />
     )
   }
 
+  if (BILLING_ENABLED && profile?.role === 'coach' && subLoading) {
+    return <p style={{ padding: '24px' }}>Loading...</p>
+  }
+
+  if (BILLING_ENABLED && profile?.role === 'coach') {
+    const allowed = ['trialing', 'active', 'past_due']
+    const status = subscription?.status
+
+    if (!status || !allowed.includes(status)) {
+      return <CoachPaywall subscription={subscription} onSignOut={handleSignOut} />
+    }
+  }
+
   return (
     <BrowserRouter>
-      <AppRoutes session={session} profile={profile} />
+      <AppRoutes session={session} profile={profile} subscription={subscription} />
     </BrowserRouter>
   )
 }

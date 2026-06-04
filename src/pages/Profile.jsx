@@ -4,7 +4,7 @@ import Button from '../components/Button'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 
-function Profile({ session, profile }) {
+function Profile({ session, profile, subscription }) {
   const [targets, setTargets] = useState({
     calories: '',
     protein: '',
@@ -132,26 +132,6 @@ function Profile({ session, profile }) {
     }
   }
 
-  async function handleUpgrade() {
-    const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const res = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/create-checkout-session',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentSession.access_token}`,
-        },
-        body: JSON.stringify({
-          priceId: import.meta.env.VITE_STRIPE_FOUNDING_PRICE_ID?.trim(),
-        }),
-      }
-    )
-    const data = await res.json()
-    if (data.url) window.location.href = data.url
-    else console.error('Checkout error', data)
-  }
-
   async function changePassword() {
     if (!newPassword) { setPasswordStatus('Enter a new password.'); return }
     if (newPassword !== confirmPassword) { setPasswordStatus('Passwords do not match.'); return }
@@ -172,6 +152,8 @@ function Profile({ session, profile }) {
       setTimeout(() => setPasswordStatus(''), 3000)
     }
   }
+
+  const subscriptionDate = subscription?.current_period_end || subscription?.trial_end
 
   const inputStyle = {
     backgroundColor: 'var(--color-bg)',
@@ -334,12 +316,22 @@ function Profile({ session, profile }) {
       {profile?.role === 'coach' && (
         <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2>Billing</h2>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-            FitLog is currently free during beta. Billing will activate when you're ready to go live.
-          </p>
-          <Button onClick={handleUpgrade} variant="primary">
-            Start free trial
-          </Button>
+          {subscription ? (
+            <div>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
+                {subscription.status}
+              </p>
+              {subscriptionDate && (
+                <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
+                  {subscription.status === 'trialing' ? 'Trial ends' : 'Renews'}{' '}
+                  {new Date(subscriptionDate).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>No active subscription.</p>
+          )}
         </div>
       )}
 
