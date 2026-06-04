@@ -13,7 +13,7 @@ function FeedbackButton({ userEmail = '', userName = '' }) {
       userEmail ? `Email: ${userEmail}` : '',
     ].filter(Boolean).join('\n'))
 
-    window.location.href = `mailto:support@tryfitlog.com?subject=${subject}&body=${body}`
+    window.location.href = `mailto:digigardenllc@gmail.com?subject=${subject}&body=${body}`
   }
 
   return (
