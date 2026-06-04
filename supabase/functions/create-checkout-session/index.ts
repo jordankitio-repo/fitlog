@@ -39,6 +39,8 @@ async function stripePost(
 }
 
 Deno.serve(async (req) => {
+  console.log('function started', req.method)
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
