@@ -24,8 +24,6 @@ function Profile({ session, profile }) {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
 
-  console.log('profile in Profile.jsx', profile?.role)
-
   useEffect(() => {
     fetchTargets()
   }, [])

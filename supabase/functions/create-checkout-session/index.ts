@@ -157,10 +157,10 @@ Deno.serve(async (req) => {
         throw new Error(`Failed to update subscription: ${error}`)
       }
     } else {
-      const createRes = await fetch(`${supabaseUrl}/rest/v1/subscriptions?on_conflict=coach_id`, {
+      const createRes = await fetch(`${supabaseUrl}/rest/v1/subscriptions`, {
         method: 'POST',
         headers: { ...restHeaders, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
-        body: JSON.stringify({ ...subscriptionPayload }),
+        body: JSON.stringify(subscriptionPayload),
       })
 
       if (!createRes.ok) {

@@ -22,7 +22,6 @@ ${entryList}
 Give them brief, practical feedback in 3-4 sentences. Assess their calorie intake, comment on what you can infer about their nutrition, and give one concrete suggestion.`
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    console.log('API key present:', !!apiKey)
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -39,7 +38,6 @@ Give them brief, practical feedback in 3-4 sentences. Assess their calorie intak
     })
 
     const data = await response.json()
-    console.log('Anthropic response:', JSON.stringify(data))
 
     if (data.type === 'error') {
       return new Response(JSON.stringify({ error: data.error.message }), {
@@ -55,7 +53,7 @@ Give them brief, practical feedback in 3-4 sentences. Assess their calorie intak
     })
 
   } catch (error) {
-    console.log('Caught error:', error.message)
+    console.error('Nutrition coach error:', error.message)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
