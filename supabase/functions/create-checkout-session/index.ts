@@ -54,12 +54,15 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
+    console.log('stripe key present', !!stripeSecretKey, stripeSecretKey?.substring(0, 10))
 
     if (!stripeSecretKey) {
       return jsonResponse({ error: 'STRIPE_SECRET_KEY is not configured' }, 500)
     }
 
+    console.log('step 1: parsing body')
     const { priceId, price_id } = await req.json()
+    console.log('step 2: priceId', priceId)
     const stripePriceId = priceId || price_id
 
     if (!stripePriceId) {
