@@ -12,6 +12,9 @@ import Join from './pages/Join'
 import ClientView from './pages/ClientView'
 import ResetPassword from './pages/ResetPassword'
 import RolePicker from './pages/RolePicker'
+import BillingSuccess from './pages/BillingSuccess'
+
+export const BILLING_ENABLED = false
 
 function AppRoutes({ session, profile }) {
   const location = useLocation()
@@ -37,6 +40,7 @@ function AppRoutes({ session, profile }) {
           <Route path="/join" element={<Join />} />
           <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/billing/success" element={<BillingSuccess />} />
         </Routes>
       </main>
     </>
@@ -88,6 +92,16 @@ function App() {
 
     return () => subscription.unsubscribe()
   }, [fetchProfile])
+
+  if (window.location.pathname === '/billing/success') {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/billing/success" element={<BillingSuccess />} />
+        </Routes>
+      </BrowserRouter>
+    )
+  }
 
   if (loading) return <p style={{ padding: '24px' }}>Loading...</p>
 

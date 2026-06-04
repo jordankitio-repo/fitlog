@@ -24,6 +24,8 @@ function Profile({ session, profile }) {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
 
+  console.log('profile in Profile.jsx', profile?.role)
+
   useEffect(() => {
     fetchTargets()
   }, [])
@@ -130,6 +132,26 @@ function Profile({ session, profile }) {
       alert('Error deleting account: ' + data.error)
       setDeleteLoading(false)
     }
+  }
+
+  async function handleUpgrade() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const res = await fetch(
+      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/create-checkout-session',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`,
+        },
+        body: JSON.stringify({
+          priceId: import.meta.env.VITE_STRIPE_FOUNDING_PRICE_ID,
+        }),
+      }
+    )
+    const data = await res.json()
+    if (data.url) window.location.href = data.url
+    else console.error('Checkout error', data)
   }
 
   async function changePassword() {
@@ -309,6 +331,18 @@ function Profile({ session, profile }) {
           </Button>
         )}
       </div>
+      )}
+
+      {profile?.role === 'coach' && (
+        <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h2>Billing</h2>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+            FitLog is currently free during beta. Billing will activate when you're ready to go live.
+          </p>
+          <Button onClick={handleUpgrade} variant="primary">
+            Start free trial
+          </Button>
+        </div>
       )}
 
       <div style={{
