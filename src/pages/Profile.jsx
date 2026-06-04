@@ -145,7 +145,7 @@ function Profile({ session, profile }) {
           'Authorization': `Bearer ${currentSession.access_token}`,
         },
         body: JSON.stringify({
-          priceId: import.meta.env.VITE_STRIPE_FOUNDING_PRICE_ID,
+          priceId: import.meta.env.VITE_STRIPE_FOUNDING_PRICE_ID?.trim(),
         }),
       }
     )
