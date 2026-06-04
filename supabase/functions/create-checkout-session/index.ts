@@ -69,10 +69,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'priceId is required' }, 400)
     }
 
+    console.log('step 3: verifying auth')
     const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey },
     })
     const user = await userRes.json()
+    console.log('step 4: user', user?.id)
 
     if (!user.id) {
       return jsonResponse({ error: 'Unauthorized' }, 401)
@@ -84,12 +86,14 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json',
     }
 
+    console.log('step 5: fetching profile')
     const profileRes = await fetch(
       `${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=id,email,role`,
       { headers: restHeaders },
     )
     const profiles = await profileRes.json()
     const profile = profiles?.[0]
+    console.log('step 6: profile role', profile?.role)
 
     if (!profileRes.ok || !profile) {
       return jsonResponse({ error: 'Profile not found' }, 404)
@@ -99,11 +103,13 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Only coaches can start checkout' }, 403)
     }
 
+    console.log('step 7: checking subscription')
     const existingSubRes = await fetch(
       `${supabaseUrl}/rest/v1/subscriptions?coach_id=eq.${user.id}&select=id,stripe_customer_id&limit=1`,
       { headers: restHeaders },
     )
     const existingSubscriptions = await existingSubRes.json()
+    console.log('step 8: subscription result', existingSubRes.status)
 
     if (!existingSubRes.ok) {
       return jsonResponse({ error: 'Unable to fetch subscription' }, 500)
@@ -113,6 +119,7 @@ Deno.serve(async (req) => {
     let stripeCustomerId = existingSubscription?.stripe_customer_id
 
     if (!stripeCustomerId) {
+      console.log('step 9: creating stripe customer')
       const customerParams = new URLSearchParams({
         email: profile.email || user.email || '',
         'metadata[coach_id]': user.id,
@@ -122,6 +129,7 @@ Deno.serve(async (req) => {
       stripeCustomerId = customer.id
     }
 
+    console.log('step 10: creating checkout session')
     const sessionParams = new URLSearchParams({
       customer: stripeCustomerId,
       mode: 'subscription',
@@ -177,6 +185,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ url: checkoutSession.url })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error'
+    console.error('create-checkout-session error', message)
     return jsonResponse({ error: message }, 500)
   }
 })
