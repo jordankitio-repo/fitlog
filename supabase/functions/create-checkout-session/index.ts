@@ -39,8 +39,6 @@ async function stripePost(
 }
 
 Deno.serve(async (req) => {
-  console.log('function started', req.method)
-
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -54,27 +52,22 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
-    console.log('stripe key present', !!stripeSecretKey, stripeSecretKey?.substring(0, 10))
 
     if (!stripeSecretKey) {
       return jsonResponse({ error: 'STRIPE_SECRET_KEY is not configured' }, 500)
     }
 
-    console.log('step 1: parsing body')
     const { priceId, price_id } = await req.json()
-    console.log('step 2: priceId', priceId)
     const stripePriceId = priceId || price_id
 
     if (!stripePriceId) {
       return jsonResponse({ error: 'priceId is required' }, 400)
     }
 
-    console.log('step 3: verifying auth')
     const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey },
     })
     const user = await userRes.json()
-    console.log('step 4: user', user?.id)
 
     if (!user.id) {
       return jsonResponse({ error: 'Unauthorized' }, 401)
@@ -86,14 +79,12 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json',
     }
 
-    console.log('step 5: fetching profile')
     const profileRes = await fetch(
       `${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=id,email,role`,
       { headers: restHeaders },
     )
     const profiles = await profileRes.json()
     const profile = profiles?.[0]
-    console.log('step 6: profile role', profile?.role)
 
     if (!profileRes.ok || !profile) {
       return jsonResponse({ error: 'Profile not found' }, 404)
@@ -103,13 +94,11 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Only coaches can start checkout' }, 403)
     }
 
-    console.log('step 7: checking subscription')
     const existingSubRes = await fetch(
       `${supabaseUrl}/rest/v1/subscriptions?coach_id=eq.${user.id}&select=id,stripe_customer_id&limit=1`,
       { headers: restHeaders },
     )
     const existingSubscriptions = await existingSubRes.json()
-    console.log('step 8: subscription result', existingSubRes.status)
 
     if (!existingSubRes.ok) {
       return jsonResponse({ error: 'Unable to fetch subscription' }, 500)
@@ -119,7 +108,6 @@ Deno.serve(async (req) => {
     let stripeCustomerId = existingSubscription?.stripe_customer_id
 
     if (!stripeCustomerId) {
-      console.log('step 9: creating stripe customer')
       const customerParams = new URLSearchParams({
         email: profile.email || user.email || '',
         'metadata[coach_id]': user.id,
@@ -129,7 +117,6 @@ Deno.serve(async (req) => {
       stripeCustomerId = customer.id
     }
 
-    console.log('step 10: creating checkout session')
     const sessionParams = new URLSearchParams({
       customer: stripeCustomerId,
       mode: 'subscription',
