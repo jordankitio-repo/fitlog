@@ -1,9 +1,6 @@
-import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 
 function BillingSuccess() {
-  const navigate = useNavigate()
-
   return (
     <div style={{ maxWidth: '400px', margin: '80px auto', display: 'flex', flexDirection: 'column', gap: '24px', padding: '0 16px', textAlign: 'center' }}>
       <div>
@@ -13,7 +10,7 @@ function BillingSuccess() {
           Your 30-day free trial has started. You won't be charged until the trial ends.
         </p>
       </div>
-      <Button onClick={() => navigate('/')} variant="primary" fullWidth>
+      <Button onClick={() => window.location.href = '/'} variant="primary" fullWidth>
         Go to dashboard
       </Button>
     </div>
