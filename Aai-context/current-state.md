@@ -497,159 +497,235 @@ supabase.channel(`check_ins_${clientId}`)
 5. Google OAuth production verification
 ---
 
-## Session Update — June 3, 2026 (~commits 99–140)
+## Session Update — June 4, 2026 (~commits 140–160)
 
 ### Completed
 
 ---
 
-#### Design Sprint
+#### Stripe Billing — Full Implementation
 
-**Inter Font + Type Scale**
-- Added Inter from Google Fonts to `index.css`
-- Added CSS type scale variables: `--text-xl`, `--text-lg`, `--text-md`, `--text-sm`, `--text-xs`
-- Updated `h1` and `h2` global rules to use variables
-- Added `letter-spacing: -0.01em` to `h2`
-- Body font stack updated to use Inter first
+**Stripe account setup:**
+- Created Stripe account (individual/sole proprietor)
+- Sandbox mode for development and testing
+- Two products created on `FitLog Coach`:
+  - Founding rate: `$19/month` — Price ID: `price_1TechtAWijxnniIjAWpCOW1X`
+  - Standard rate: `$29/month` — Price ID: `price_1Ted6xAWijxnniIjuaByj6pQ`
+- Both prices use monthly recurring billing with 30-day free trial
 
-**Stat Cards — Metric Color System**
-- Updated `StatCard.jsx` with left accent border using `color` prop
-- Value size increased to `2rem`, label tightened to `0.65rem` uppercase
-- Added `minHeight: '80px'` for consistent card height
-- Metric color assignments:
-  - Calories: `#fbbf24`
-  - Protein: `#f87171`
-  - Carbs: `#e2d5b0`
-  - Fat: `#fb923c`
-  - Weight: `#34d399`
-  - Cardio: `#4f8ef7`
-  - Steps: `#a78bfa`
-- Colors applied in `Dashboard.jsx` and `ClientView.jsx`
-- Steps card spans full width (`gridColumn: '1 / -1'`)
+**Environment variables added:**
+- Vercel (Production + Preview): `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `VITE_STRIPE_FOUNDING_PRICE_ID`, `VITE_STRIPE_STANDARD_PRICE_ID`
+- Supabase Edge Function secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- Local `.env`: all four variables
 
-**Chart Color + Opacity System**
-- Bar charts (Calories, Cardio, Steps): `backgroundColor` at `0.7` opacity, solid `borderColor`
-- Line charts (Weight): `backgroundColor` at `0.15` opacity, solid `borderColor`
-- All chart colors updated to match stat card metric colors
+**Database:**
+```sql
+CREATE TABLE public.subscriptions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  coach_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  stripe_price_id text,
+  status text CHECK (status IN ('trialing', 'active', 'past_due', 'canceled', 'incomplete')),
+  trial_end timestamptz,
+  current_period_end timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY subscriptions_select_own ON public.subscriptions FOR SELECT USING (coach_id = auth.uid());
+GRANT SELECT, INSERT, UPDATE ON public.subscriptions TO service_role;
+ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_coach_id_unique UNIQUE (coach_id);
+```
 
-**Surface Depth**
-- Extracted shared `cardStyle` to `src/utils/styles.js`
-- Added `boxShadow: '0 1px 3px rgba(0, 0, 0, 0.4)'` to all cards
-- Updated CSS variables: `--color-bg: #0a0a0a`, `--color-surface: #141414`, `--color-border: #242424`
-- Applied shared `cardStyle` across Dashboard, ClientView, CoachDashboard, Log, Profile, Join, Login, RolePicker
+**Edge functions:**
+- `create-checkout-session` — verifies coach auth, creates/reuses Stripe customer, creates checkout session with 30-day trial, upserts subscriptions row
+- `stripe-webhook` — verifies Stripe signature (HMAC-SHA256), handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+- JWT verification disabled on `stripe-webhook` (Stripe doesn't send JWTs)
+- Webhook registered in Stripe Dashboard pointing to Supabase function URL
 
-**NavBar**
-- Active link detection via `useLocation`
-- Active link: `color-text`, `fontWeight: 600`
-- Inactive links: `color-muted`, `fontWeight: 400`
-- FitLog logo converted from `span` to `Link to="/"`
-- Gap increased from `16px` to `24px`
-- Logo gets `letterSpacing: -0.02em`
+**Frontend:**
+- `src/pages/BillingSuccess.jsx` — success page at `/billing/success`, renders outside auth gate via early return in `App.jsx`
+- `App.jsx` — `export const BILLING_ENABLED = false` flag, early return for `/billing/success` route
+- `Profile.jsx` — Billing card for coaches with "Start free trial" button calling `create-checkout-session`
+- `/billing/success` route added to `AppRoutes`
 
-**Compliance Pills — CoachDashboard**
-- Pills now use metric identity colors instead of generic red/yellow/green
-- Opacity signals compliance level: `1.0` high, `0.75` medium, `0.55` low
-- Low compliance pills get subtle colored background fill (`${color}26`) as pre-attentive signal
-- Pills suppress entirely when `logged === 0` (no data, not a compliance failure)
-- Section only renders when at least one metric has logged data or client is locked
+**Known issues fixed during implementation:**
+- Trailing space in `VITE_STRIPE_FOUNDING_PRICE_ID` Vercel env var caused "No such price" Stripe error — trimmed
+- `STRIPE_SECRET_KEY` needed to be set in Supabase Edge Function secrets separately from Vercel
+- Multiple simultaneous clicks created duplicate subscription rows — fixed with `UNIQUE (coach_id)` constraint and `Prefer: resolution=merge-duplicates` upsert header
+- Webhook returning 401 — fixed by disabling JWT verification on `stripe-webhook` function
 
-**Log Page Restructure**
-- Progressive disclosure: Weight, Nutrition, Cardio+Steps as collapsible sections
+**Flow tested end-to-end on production:**
+1. Coach clicks "Start free trial" on Profile page
+2. Redirected to Stripe Checkout (sandbox)
+3. Completes with test card `4242 4242 4242 4242`
+4. Lands on `/billing/success`
+5. Stripe fires `checkout.session.completed` webhook
+6. `subscriptions` row updated: `status = 'active'`, `stripe_subscription_id` populated
+7. "Go to dashboard" returns to CoachDashboard
+
+---
+
+#### Monetization Architecture (decided June 4, 2026)
+
+**Roles:**
+- `coach` — pays monthly, manages clients
+- `client` — free, connected to a coach
+- `solo` — self-tracker, free or paid tier
+
+**Coach pricing:**
+- Founding: $19/month (locked for first coaches)
+- Standard: $29/month (public launch)
+- 30-day free trial on both
+- `BILLING_ENABLED = false` in `App.jsx` — flip to activate paywall
+- Access allowed for `active`, `trialing`, `past_due` statuses
+- `canceled` → upgrade prompt shown, data preserved, clients unaffected
+- Missed payments: Stripe Smart Retries over ~2 weeks, coach keeps access during `past_due` (grace)
+
+**Solo tiers (not yet built):**
+- Free Solo: basic logging, limited history, no AI, no charts, no targets
+- Paid Solo (~$9-12/month): full history, all charts, targets, AI feedback, data export
+
+**Client → Solo transition logic (not yet built):**
+- Triggered by: coach offboards client, client self-offboards, coach subscription canceled
+- 30-day grace period with full access
+- At day 30: in-app banner + email offering Free Solo or Paid Solo
+- No action → defaults to Free Solo
+- Solo → Client: free immediately, paid solo pauses, if offboarded again grace restarts
+
+**Coach subscription canceled:**
+- Auto-offboard all active clients → 30-day grace period (webhook trigger, not yet built)
+
+**Data policy:**
+- Data NEVER deleted regardless of payment status
+- Access restricted, not data
+
+**Build order:**
+1. ✅ Coach Stripe billing
+2. ⬜ Paywall gate (`BILLING_ENABLED = true`) — after ToS + beta coaches
+3. ⬜ Auto-offboard clients on coach subscription cancel
+4. ⬜ Solo tier feature gating
+5. ⬜ Grace period flow
+6. ⬜ Paid solo Stripe product + checkout
+
+---
+
+#### Design Sprint (completed June 3, 2026)
+
+**Inter font + type scale:**
+- Added Inter from Google Fonts
+- CSS variables: `--text-xl`, `--text-lg`, `--text-md`, `--text-sm`, `--text-xs`
+- `h1` uses `var(--text-xl)`, `h2` uses `var(--text-lg)` with `letter-spacing: -0.01em`
+- Body font stack updated to Inter first
+
+**Stat cards — metric color system:**
+- Left accent border per metric using `color` prop
+- Value size `2rem`, label `0.65rem` uppercase, `minHeight: 80px`
+- Colors: Calories `#fbbf24`, Protein `#f87171`, Carbs `#e2d5b0`, Fat `#fb923c`, Weight `#34d399`, Cardio `#4f8ef7`, Steps `#a78bfa`
+- Applied in Dashboard and ClientView
+- Steps card spans full width
+
+**Chart color + opacity:**
+- Bar charts (Calories, Cardio, Steps): `backgroundColor` at `0.7` opacity
+- Line charts (Weight): `backgroundColor` at `0.15` opacity
+- All chart colors match stat card metric colors
+
+**Surface depth:**
+- Shared `cardStyle` extracted to `src/utils/styles.js`
+- `boxShadow: '0 1px 3px rgba(0, 0, 0, 0.4)'`
+- CSS vars: `--color-bg: #0a0a0a`, `--color-surface: #141414`, `--color-border: #242424`
+- Applied across all pages
+
+**NavBar:**
+- Active link via `useLocation`: white + weight 600; inactive: muted
+- FitLog logo is now `Link to="/"`
+- Gap `24px`, logo `letterSpacing: -0.02em`
+
+**Compliance pills (CoachDashboard):**
+- Metric identity colors always shown
+- Opacity: `1.0` high, `0.75` medium, `0.55` low compliance
+- Low compliance gets subtle colored background fill as pre-attentive signal
+- Pills suppress when `logged === 0` (no data)
+
+**Log page restructure:**
 - Order: Weight → Nutrition → Cardio+Steps → Entries
-- Weight: collapsed when logged (shows summary + edit button), expanded when not logged
-- Nutrition: always expanded by default, toggleable
-- Cardio + Steps: combined card with separate toggles, both expanded by default
-- Cardio sessions always visible regardless of expanded state
-- Steps summary always visible regardless of expanded state
-- Form collapses after saving; summary persists
-- Repeat button (`↻`) on each nutrition entry pre-fills form for new entry
-- Serving size prefill removed (starts empty)
-- Barcode buttons changed to ghost variant
-- Copy + Add entry row right-aligned; Add entry is `size="sm"`
-- All primary action buttons right-aligned consistently
+- Progressive disclosure: all sections collapsible via SectionHeader
+- Weight: shows summary when logged, expands to edit
+- Cardio sessions always visible when collapsed
+- Steps summary always visible when collapsed
+- Repeat button (`↻`) on each nutrition entry
+- Serving size prefill removed
+- Barcode buttons ghost variant
+- All primary action buttons right-aligned
 
-**SectionHeader Component**
-- Extracted `SectionHeader` from `Dashboard.jsx` into `src/components/SectionHeader.jsx`
-- Imported in Dashboard, ClientView, and Log
+**SectionHeader component:**
+- Extracted to `src/components/SectionHeader.jsx`
 - Consistent `▶`/`▼` toggle with animated grid-row collapse
+- Used in Dashboard, ClientView, Log
 
-**Profile Page Restructure**
-- Renamed "Change password" to "Security"
-- Merged Export + Delete into one "Data" card with divider
-- Account info labels use uppercase muted style
-- Dangerous actions (delete) stay red but share card with export
+**Profile page:**
+- "Change password" → "Security"
+- Export + Delete merged into one "Data" card
+- Account info labels: uppercase muted
 
-**CoachDashboard Polish**
-- Summary stat cards use uppercase muted labels, `2rem` bold numbers
-- Removed "Your clients" section heading
-- Client cards: `gap: 16px`, name `fontWeight: 700`, email `--text-xs`
-- "View data →" changed to `variant="ghost"`
-- Obstacles section has its own label + separated block
+**CoachDashboard:**
+- Summary stat cards: `2rem` numbers, uppercase muted labels
+- Removed "Your clients" heading
+- "View data →" → ghost variant
+- Client cards: `gap: 16px`, name `fontWeight: 700`
+- Obstacles: own labeled section
 - EmptyState emoji removed
 
-**Button Hover**
-- Added `filter: brightness(1.12)` on hover in `Button.jsx`
-- CSS `.btn:hover` updated to match
+**Button hover:** `brightness(1.12)` on hover
 
-**Emoji Cleanup**
-- Removed emojis from exercise types, empty states, barcode buttons, export button, role picker
-- Kept message reaction emojis (user-generated), checkmarks, streak milestone emojis
-- Exercise type emojis removed entirely (no accurate icons available; clean text preferred)
+**Emoji cleanup:**
+- Removed from exercise types, empty states, barcode buttons, export, role picker
+- Kept: message reactions, checkmarks, streak milestones
 
-**Spacing Rhythm**
-- Added spacing variables: `--space-xs`, `--space-sm`, `--space-md`, `--space-lg`, `--space-xl`
-- All page-level wrappers confirmed at `gap: 24px`
-- Internal card gaps standardized: `16px` between sections, `12px` between form fields, `8px` tight groupings
+**Spacing rhythm:**
+- Variables: `--space-xs` through `--space-xl`
+- All page wrappers: `gap: 24px`
+- Internal gaps: `16px` between sections, `12px` form fields, `8px` tight groups
 
 ---
 
 #### Features
 
-**Hide Calories Toggle (Coach per Client)**
-- Added `hide_calories BOOLEAN DEFAULT false` to `coach_clients`
+**Hide calories toggle:**
+- `hide_calories BOOLEAN DEFAULT false` on `coach_clients`
 - Toggle in ClientView targets section
-- When enabled: hides calories StatCard, progress bar, chart, and entry calorie display on client Dashboard and Log
-- Logging form still shows calories input (coach needs data even when client doesn't see it)
-- `fetchLockState` in Dashboard also fetches `hide_calories`
-- `Log.jsx` fetches `hide_calories` independently for entry row display
+- Hides calories StatCard, progress bar, chart, entry display on client Dashboard and Log
+- Logging form always shows calories input
 
-**Nudge Mechanic**
-- Added `last_nudged_at TIMESTAMPTZ` to `coach_clients`
-- New edge function `nudge-client`:
-  - Verifies coach owns active relationship
-  - Enforces 48-hour cooldown via `last_nudged_at`
-  - Sends Resend email: subject "Your coach is thinking of you"
-  - Updates `last_nudged_at` on success
-- Nudge button on CoachDashboard client card (only when `daysSinceLog >= 2`)
-- Nudge button on ClientView header (gated by computed `daysSinceLog`)
-- In-app nudge banner on client Dashboard (dismissible, localStorage key per nudge timestamp)
-- Cooldown feedback shown to coach if nudged within 48 hours
+**Nudge mechanic:**
+- `last_nudged_at TIMESTAMPTZ` on `coach_clients`
+- Edge function `nudge-client`: verifies coach, 48hr cooldown, Resend email, updates timestamp
+- Nudge button on CoachDashboard card (when `daysSinceLog >= 2`)
+- Nudge button on ClientView header (gated by `daysSinceLog`)
+- In-app nudge banner on client Dashboard (dismissible per nudge timestamp)
+- Cooldown feedback shown to coach
 
-**notify-checkin Edge Function**
-- Replaced starter function with full Resend email handler
-- Sends email to coach when client submits weekly check-in
-- Payload: `coachEmail`, `coachName`, `clientName`, `adherence`, `energy`, `obstacles`, `notes`
-- Deployed and tested end-to-end
+**notify-checkin:**
+- Replaced starter with full Resend email handler
+- Sends to coach when client submits weekly check-in
+- Deployed and tested end-to-end ✓
 
-**coach_messages → messages Migration**
-- Fixed stale `coach_messages` reference in `ClientView.jsx` line 650
-- Changed to unified `messages` table
+**coach_messages fix:**
+- `ClientView.jsx` line 650: `coach_messages` → `messages`
 
-**Offboard Card Redesign**
-- Moved "Offboard client" from ClientView header to bottom card
-- Renamed section to "Coaching" (neutral, matching client-side)
-- Red styling only on the button, not the card border
-- Matches client-side "Leave coaching plan" card pattern
+**Offboard card redesign:**
+- Moved from ClientView header to bottom card
+- Neutral "Coaching" title, red only on button
+- Matches client-side "Leave coaching plan" pattern
 
-**Domain Setup**
-- Purchased `tryfitlog.com` on Namecheap
-- Connected to Vercel (A record + CNAME)
-- SSL provisioned automatically
+**Domain setup:**
+- `tryfitlog.com` purchased on Namecheap
+- Connected to Vercel (A record + CNAME), SSL provisioned
 - Live at `https://www.tryfitlog.com`
 - Supabase redirect URLs updated
-- Resend domain verified with DKIM + SPF + DMARC records
-- `notify-report` updated: sender changed from `onboarding@resend.dev` to `noreply@tryfitlog.com`
-- `notify-report` CTA link updated from `fitlog-sepia.vercel.app` to `https://www.tryfitlog.com/login`
+- Resend domain verified (DKIM + SPF + DMARC)
+- `notify-report` sender: `noreply@tryfitlog.com`
+- `notify-report` CTA: `https://www.tryfitlog.com/login`
 
 ---
 
@@ -657,75 +733,83 @@ supabase.channel(`check_ins_${clientId}`)
 
 | Function | Purpose |
 |---|---|
-| `nudge-client` | Coach nudges inactive client; enforces 48hr cooldown; sends Resend email; updates `last_nudged_at` |
-| `notify-checkin` | Sends email to coach when client submits weekly check-in |
+| `nudge-client` | Coach nudges inactive client, 48hr cooldown, Resend email |
+| `notify-checkin` | Email to coach on client check-in submission |
+| `create-checkout-session` | Creates Stripe checkout session with 30-day trial |
+| `stripe-webhook` | Handles Stripe events, updates subscriptions table |
 
 ---
 
-#### Schema Changes (June 3, 2026)
+#### Schema Changes (June 3–4, 2026)
 
 ```sql
+-- June 3
 ALTER TABLE public.coach_clients ADD COLUMN IF NOT EXISTS hide_calories BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE public.coach_clients ADD COLUMN IF NOT EXISTS last_nudged_at TIMESTAMPTZ;
+
+-- June 4
+CREATE TABLE public.subscriptions (...); -- see full DDL above
+ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_coach_id_unique UNIQUE (coach_id);
+GRANT SELECT, INSERT, UPDATE ON public.subscriptions TO service_role;
 ```
 
 ---
 
-#### New Utilities
+#### New Utilities + Components
 
 | File | Purpose |
 |---|---|
-| `src/utils/styles.js` | Shared `cardStyle` object with surface, border, radius, shadow |
-| `src/utils/lockState.js` | Extracted `resolveLockState` pure function, shared across Dashboard/ClientView/CoachDashboard |
-| `src/utils/dateHelpers.js` | Extracted all date helpers from component files |
-| `src/utils/inviteValidation.js` | Extracted `getInviteBlockReason` pure function |
-| `src/components/SectionHeader.jsx` | Extracted collapsible section header with animated toggle |
+| `src/utils/styles.js` | Shared `cardStyle` |
+| `src/utils/lockState.js` | `resolveLockState` pure function |
+| `src/utils/dateHelpers.js` | All date helpers |
+| `src/utils/inviteValidation.js` | `getInviteBlockReason` |
+| `src/components/SectionHeader.jsx` | Collapsible section header |
+| `src/pages/BillingSuccess.jsx` | Stripe checkout success page |
 
 ---
 
 #### Unit Tests
 
-48 tests passing across 4 test files:
+48 tests passing across 4 files:
 
-| File | Tests | Coverage |
-|---|---|---|
-| `lockState.test.js` | 15 | Active, locked, auto-unlock, coach-unlock, grace expiry, never logged |
-| `passwordValidation.test.js` | 7 | Length, uppercase, lowercase, digit, symbol rules |
-| `dateHelpers.test.js` | 19 | Formatting, week calc, range, boundary crossing |
-| `inviteValidation.test.js` | 7 | All block reasons |
+| File | Tests |
+|---|---|
+| `lockState.test.js` | 15 |
+| `passwordValidation.test.js` | 7 |
+| `dateHelpers.test.js` | 19 |
+| `inviteValidation.test.js` | 7 |
 
 ---
 
-#### Known Issues Added
+#### Open Issues Updated
 
 | Issue | Status |
 |---|---|
-| Large Vite JS chunk warning (>500kB) | Deferred |
-| Offboard notice may show twice | Cosmetic, deferred |
-| `npm run lint` 4 errors / 9 warnings | Pre-existing, deferred |
+| Stripe webhook JWT 401 | Fixed — JWT verification disabled on stripe-webhook |
+| Duplicate subscriptions on rapid clicks | Fixed — UNIQUE constraint + upsert |
+| Trailing space in Vercel env var | Fixed — trimmed in function + env var corrected |
+| BillingSuccess blank on production | Fixed — early return in App.jsx before auth gate |
+| Large Vite JS chunk warning | Deferred |
+| `npm run lint` 4 errors / 9 warnings | Deferred |
+| Offboard notice shows twice | Cosmetic, deferred |
 
 ---
 
 ### Current Commit Count
-~140 commits
+~160 commits
+
+### Updated Live URL
+https://www.tryfitlog.com (previously fitlog-sepia.vercel.app)
 
 ### Updated Roadmap Priority
 1. ToS + Privacy Policy (required before charging)
-2. Stripe integration (revenue gate, implement with `BILLING_ENABLED = false` flag for beta)
-3. Beta coach outreach (3–5 free coaches, founding rate offer)
-4. Weekly coach digest email (feature #12 from master doc)
+2. Activate `BILLING_ENABLED = true` after ToS
+3. Beta coach outreach (3–5 founding coaches at $19/month)
+4. Weekly coach digest email (feature #12)
 5. Client compliance heatmap (feature #11)
-6. Fix lint errors
-7. Google OAuth re-architecture
-8. Account linking in settings
-
-### New DB Columns Summary (June 3)
-- `coach_clients.hide_calories` — boolean, coach toggle per client
-- `coach_clients.last_nudged_at` — timestamptz, nudge cooldown tracking
-
-### Design System Updates
-- Inter font added
-- Type scale variables: `--text-xl` through `--text-xs`
-- Spacing variables: `--space-xs` through `--space-xl`
-- Metric color system established and used consistently across stat cards and charts
-- Shared `cardStyle` in `src/utils/styles.js`
+6. Auto-offboard clients on coach subscription cancel (webhook)
+7. Rolling 7-day weight average
+8. Solo tier feature gating + paid solo product
+9. Grace period flow for client → solo transitions
+10. Fix lint errors
+11. Google OAuth re-architecture
