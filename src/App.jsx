@@ -179,7 +179,7 @@ function App() {
     const status = subscription?.status
 
     if (!status || !allowed.includes(status)) {
-      return <CoachPaywall subscription={subscription} onSignOut={handleSignOut} />
+      return <CoachPaywall subscription={subscription} profile={profile} onSignOut={handleSignOut} />
     }
   }
 

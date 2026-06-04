@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from './Button'
+import FeedbackButton from './FeedbackButton'
 
 function NavBar({ profile }) {
   const location = useLocation()
@@ -68,6 +69,10 @@ function NavBar({ profile }) {
 
       <Link to="/terms" style={legalLinkStyle}>Terms</Link>
       <Link to="/privacy" style={legalLinkStyle}>Privacy</Link>
+      <FeedbackButton
+        userEmail={profile?.email || ''}
+        userName={profile?.full_name || ''}
+      />
 
       <Button onClick={handleSignOut} variant="muted" size="sm">
         Sign out

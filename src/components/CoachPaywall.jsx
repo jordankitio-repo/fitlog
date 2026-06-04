@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
 import Button from './Button'
+import FeedbackButton from './FeedbackButton'
 
-function CoachPaywall({ subscription, onSignOut }) {
+function CoachPaywall({ subscription, profile, onSignOut }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -84,6 +85,10 @@ function CoachPaywall({ subscription, onSignOut }) {
         >
           Sign out
         </button>
+
+        <div style={{ marginTop: 16 }}>
+          <FeedbackButton userEmail={profile?.email || ''} userName={profile?.full_name || ''} />
+        </div>
       </div>
 
       <p style={{ marginTop: 24, fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
