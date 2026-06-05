@@ -21,7 +21,7 @@ export const BILLING_ENABLED = true
 export const SOLO_BILLING_ENABLED = false // flip to true when ready to charge solo users
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
 
-function AppRoutes({ session, profile, subscription, hasSoloPremium }) {
+function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium }) {
   const location = useLocation()
   const isLanding = !session && location.pathname === '/'
 
@@ -41,7 +41,7 @@ function AppRoutes({ session, profile, subscription, hasSoloPremium }) {
               : <Dashboard profile={profile} hasSoloPremium={hasSoloPremium} />
           ) : <Landing />} />
           <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
           <Route path="/join" element={<Join />} />
           <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
           <Route path="/reset-password" element={<ResetPassword />} />
@@ -232,6 +232,7 @@ function App() {
         session={session}
         profile={profile}
         subscription={subscription}
+        soloSubscription={soloSubscription}
         hasSoloPremium={hasSoloPremium}
       />
     </BrowserRouter>

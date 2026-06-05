@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
+import SoloUpgrade from '../components/SoloUpgrade'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 
-function Profile({ session, profile, subscription }) {
+function Profile({ session, profile, subscription, soloSubscription, hasSoloPremium = true }) {
   const [targets, setTargets] = useState({
     calories: '',
     protein: '',
@@ -331,6 +332,33 @@ function Profile({ session, profile, subscription }) {
             </div>
           ) : (
             <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>No active subscription.</p>
+          )}
+        </div>
+      )}
+
+      {profile?.role === 'solo' && (
+        <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h2>Solo Premium</h2>
+          {soloSubscription && ['trialing', 'active', 'past_due'].includes(soloSubscription.status) ? (
+            <div>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
+                {soloSubscription.status}
+              </p>
+              {(soloSubscription.current_period_end || soloSubscription.trial_end) && (
+                <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
+                  {soloSubscription.status === 'trialing' ? 'Trial ends' : 'Renews'}{' '}
+                  {new Date(soloSubscription.current_period_end || soloSubscription.trial_end).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                Unlock advanced analytics — rolling weight average, compliance heatmap, weekend vs weekday split, best week analysis, and AI nutrition feedback.
+              </p>
+              <SoloUpgrade feature="Solo Premium" />
+            </div>
           )}
         </div>
       )}
