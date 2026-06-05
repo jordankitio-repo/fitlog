@@ -168,7 +168,35 @@ Deno.serve(async (req) => {
       case 'checkout.session.completed': {
         const stripeCustomerId = getStringId(object?.customer)
         const stripeSubscriptionId = getStringId(object?.subscription)
-        const status = object?.payment_status === 'paid' ? 'active' : 'trialing'
+
+        if (!stripeSubscriptionId) {
+          throw new Error('Missing Stripe subscription ID on checkout session')
+        }
+
+        const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
+        if (!stripeSecretKey) {
+          throw new Error('STRIPE_SECRET_KEY is not configured')
+        }
+
+        const subResponse = await fetch(
+          `https://api.stripe.com/v1/subscriptions/${stripeSubscriptionId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${stripeSecretKey}`,
+            },
+          },
+        )
+
+        if (!subResponse.ok) {
+          const error = await subResponse.text()
+          throw new Error(`Failed to fetch Stripe subscription: ${error}`)
+        }
+
+        const sub = await subResponse.json()
+        const status = sub?.status ?? 'trialing'
+        const trialEnd = fromUnixSeconds(sub?.trial_end)
+        const currentPeriodEnd = fromUnixSeconds(sub?.current_period_end)
+        const priceId = sub?.items?.data?.[0]?.price?.id ?? null
 
         await updateSubscription(
           supabaseUrl,
@@ -178,7 +206,10 @@ Deno.serve(async (req) => {
           {
             stripe_customer_id: stripeCustomerId,
             stripe_subscription_id: stripeSubscriptionId,
+            stripe_price_id: priceId,
             status,
+            trial_end: trialEnd,
+            current_period_end: currentPeriodEnd,
           },
         )
         break
