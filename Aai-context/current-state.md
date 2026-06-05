@@ -737,6 +737,7 @@ ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_coach_id_unique UN
 | `notify-checkin` | Email to coach on client check-in submission |
 | `create-checkout-session` | Creates Stripe checkout session with 30-day trial |
 | `stripe-webhook` | Handles Stripe events, updates subscriptions table |
+| `pause-solo-subscription` | Locally pauses Solo Premium during coaching; active Stripe subs also pause collection |
 
 ---
 
@@ -751,7 +752,13 @@ ALTER TABLE public.coach_clients ADD COLUMN IF NOT EXISTS last_nudged_at TIMESTA
 CREATE TABLE public.subscriptions (...); -- see full DDL above
 ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_coach_id_unique UNIQUE (coach_id);
 GRANT SELECT, INSERT, UPDATE ON public.subscriptions TO service_role;
+
+-- June 5
+ALTER TABLE public.subscriptions
+ADD COLUMN IF NOT EXISTS paused_for_coaching BOOLEAN NOT NULL DEFAULT false;
 ```
+
+**Known billing limitation:** Solo trial subscriptions cannot be truly paused in Stripe. When a trialing Solo Premium user joins a coach, FitLog sets `paused_for_coaching = true` locally, but the Stripe trial clock continues to run during coaching. Offboarding clears the local marker; if the trial expired while coached, the user returns to whatever status Stripe has reached.
 
 ---
 

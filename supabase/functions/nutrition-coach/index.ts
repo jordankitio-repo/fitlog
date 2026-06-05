@@ -60,17 +60,17 @@ Deno.serve(async (req) => {
 
     if (role === 'solo') {
       const subRes = await fetch(
-        `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${user.id}&select=status&limit=1`,
+        `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${user.id}&select=status,paused_for_coaching&limit=1`,
         { headers: restHeaders },
       )
       const subs = await subRes.json()
-      const status = subs?.[0]?.status
+      const sub = subs?.[0]
 
       if (!subRes.ok) {
         return jsonResponse({ error: 'Unable to verify subscription' }, 500)
       }
 
-      if (!status || !PAID_STATUSES.includes(status)) {
+      if (!sub?.status || !PAID_STATUSES.includes(sub.status) || sub.paused_for_coaching) {
         return jsonResponse({ error: 'Solo Premium required' }, 403)
       }
     }

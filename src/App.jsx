@@ -166,7 +166,7 @@ function App() {
       setSoloSubLoading(true)
       const { data, error } = await supabase
         .from('subscriptions')
-        .select('status, trial_end, current_period_end, stripe_price_id')
+        .select('status, trial_end, current_period_end, stripe_price_id, paused_for_coaching')
         .eq('solo_id', profile.id)
         .maybeSingle()
 
@@ -188,7 +188,7 @@ function App() {
   const hasSoloPremium =
     !SOLO_BILLING_ENABLED ||
     profile?.role !== 'solo' ||
-    PAID_STATUSES.includes(soloSubscription?.status)
+    (PAID_STATUSES.includes(soloSubscription?.status) && !soloSubscription?.paused_for_coaching)
 
   if (PUBLIC_ROUTES.includes(window.location.pathname)) {
     return (

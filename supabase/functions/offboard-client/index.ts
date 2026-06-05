@@ -4,6 +4,79 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function stripeHeaders(stripeSecretKey: string) {
+  return {
+    'Authorization': `Basic ${btoa(stripeSecretKey + ':')}`,
+    'Content-Type': 'application/x-www-form-urlencoded',
+  }
+}
+
+async function resumeSoloSubscription(
+  supabaseUrl: string,
+  serviceKey: string,
+  clientId: string,
+) {
+  const headers = {
+    'Authorization': `Bearer ${serviceKey}`,
+    'apikey': serviceKey,
+    'Content-Type': 'application/json'
+  }
+
+  const subRes = await fetch(
+    `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${clientId}&paused_for_coaching=eq.true&select=id,status,stripe_subscription_id&limit=1`,
+    { headers }
+  )
+  const subText = await subRes.text()
+
+  if (!subRes.ok) {
+    console.error('Failed to fetch paused solo subscription:', subText)
+    return
+  }
+
+  const sub = JSON.parse(subText || '[]')?.[0]
+  if (!sub) return
+
+  let canClearLocalPause = true
+  if (sub.status === 'active' && sub.stripe_subscription_id) {
+    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
+    if (!stripeSecretKey) {
+      console.error('STRIPE_SECRET_KEY is not configured')
+      canClearLocalPause = false
+    } else {
+      const stripeRes = await fetch(
+        `https://api.stripe.com/v1/subscriptions/${sub.stripe_subscription_id}`,
+        {
+          method: 'POST',
+          headers: stripeHeaders(stripeSecretKey),
+          body: new URLSearchParams({ pause_collection: '' }).toString(),
+        }
+      )
+
+      if (!stripeRes.ok) {
+        const err = await stripeRes.text()
+        console.error('Stripe resume failed:', err)
+        canClearLocalPause = false
+      }
+    }
+  }
+
+  if (!canClearLocalPause) return
+
+  const patchRes = await fetch(
+    `${supabaseUrl}/rest/v1/subscriptions?id=eq.${sub.id}`,
+    {
+      method: 'PATCH',
+      headers: { ...headers, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ paused_for_coaching: false }),
+    }
+  )
+
+  if (!patchRes.ok) {
+    const err = await patchRes.text()
+    console.error('Failed to clear paused_for_coaching:', err)
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -92,6 +165,8 @@ Deno.serve(async (req) => {
     if (!profileRes.ok) {
       throw new Error(`Failed to update client profile: ${profileText}`)
     }
+
+    await resumeSoloSubscription(supabaseUrl, serviceKey, clientId)
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

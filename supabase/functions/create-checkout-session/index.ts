@@ -166,9 +166,9 @@ Deno.serve(async (req) => {
 
       const existingSub = existingSubs?.[0]
 
-      // Block if already on an active solo plan
-      if (existingSub && PAID_STATUSES.includes(existingSub.status)) {
-        return jsonResponse({ error: 'Already has an active solo subscription' }, 400)
+      const BLOCKED_STATUSES = [...PAID_STATUSES, 'canceled']
+      if (existingSub && BLOCKED_STATUSES.includes(existingSub.status)) {
+        return jsonResponse({ error: 'Solo subscription already exists' }, 400)
       }
 
       let stripeCustomerId = existingSub?.stripe_customer_id

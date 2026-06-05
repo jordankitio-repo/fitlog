@@ -194,6 +194,24 @@ function Join() {
       return
     }
 
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (currentSession?.access_token) {
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pause-solo-subscription`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${currentSession.access_token}`,
+            },
+          },
+        )
+      }
+    } catch (e) {
+      console.error('Failed to pause solo subscription:', e)
+    }
+
     await supabase.auth.refreshSession()
     setConnecting(false)
     navigate('/')

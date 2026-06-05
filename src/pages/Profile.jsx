@@ -339,7 +339,7 @@ function Profile({ session, profile, subscription, soloSubscription, hasSoloPrem
       {profile?.role === 'solo' && (
         <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2>Solo Premium</h2>
-          {soloSubscription && ['trialing', 'active', 'past_due'].includes(soloSubscription.status) ? (
+          {soloSubscription && ['trialing', 'active', 'past_due'].includes(soloSubscription.status) && !soloSubscription.paused_for_coaching ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
               <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
