@@ -4,6 +4,7 @@ import StatCard from '../components/StatCard'
 import Button from '../components/Button'
 import Skeleton from '../components/Skeleton'
 import SectionHeader from '../components/SectionHeader'
+import SoloUpgrade from '../components/SoloUpgrade'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
 import { cardStyle as baseCardStyle } from '../utils/styles'
@@ -1138,34 +1139,41 @@ async function reactToMessage(messageId, emoji) {
         <div style={cardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
-              <Line
-                data={{
-                  labels: weightHistory.map(d => d.date),
-                  datasets: [
-                    {
-                      label: 'Weight',
-                      data: weightHistory.map(d => d.weight),
-                      borderColor: '#34d399',
-                      backgroundColor: 'rgba(52, 211, 153, 0.15)',
-                      pointBackgroundColor: '#34d399',
-                      pointRadius: 3,
-                      tension: 0.3,
-                      fill: true,
-                    },
-                    ...(hasSoloPremium ? [{
-                      label: '7-day avg',
-                      data: computeRollingAverage(weightHistory),
-                      borderColor: 'rgba(52, 211, 153, 0.45)',
-                      backgroundColor: 'transparent',
-                      borderDash: [4, 4],
-                      pointRadius: 0,
-                      tension: 0.3,
-                      fill: false,
-                    }] : []),
-                  ]
-                }}
-                options={chartOptions}
-              />
+              <>
+                <Line
+                  data={{
+                    labels: weightHistory.map(d => d.date),
+                    datasets: [
+                      {
+                        label: 'Weight',
+                        data: weightHistory.map(d => d.weight),
+                        borderColor: '#34d399',
+                        backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                        pointBackgroundColor: '#34d399',
+                        pointRadius: 3,
+                        tension: 0.3,
+                        fill: true,
+                      },
+                      ...(hasSoloPremium ? [{
+                        label: '7-day avg',
+                        data: computeRollingAverage(weightHistory),
+                        borderColor: 'rgba(52, 211, 153, 0.45)',
+                        backgroundColor: 'transparent',
+                        borderDash: [4, 4],
+                        pointRadius: 0,
+                        tension: 0.3,
+                        fill: false,
+                      }] : []),
+                    ]
+                  }}
+                  options={chartOptions}
+                />
+                {!hasSoloPremium && (
+                  <div style={{ marginTop: 16 }}>
+                    <SoloUpgrade feature="The 7-day weight average" />
+                  </div>
+                )}
+              </>
             )}
           </SectionHeader>
         </div>

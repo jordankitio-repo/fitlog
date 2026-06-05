@@ -4,6 +4,7 @@ import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import SectionHeader from '../components/SectionHeader'
+import SoloUpgrade from '../components/SoloUpgrade'
 import { toLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
 
@@ -775,13 +776,7 @@ function startEditCardio(entry) {
             {loading ? 'Analyzing...' : 'Get AI feedback'}
           </Button>
         ) : (
-          <Button
-            onClick={() => {}}
-            variant="ghost"
-            title="Upgrade to Solo Premium"
-          >
-            🔒 Get AI feedback
-          </Button>
+          <SoloUpgrade feature="AI nutrition feedback" compact />
         )
       )}
 
