@@ -81,6 +81,9 @@ function ClientView({ profile }) {
     weekendLogged: 0,
     weekdayTotal: 0,
     weekendTotal: 0,
+    bestWeekCount: 0,
+    bestWeekStart: null,
+    bestWeekEnd: null,
   })
   const [heatmapData, setHeatmapData] = useState({})
   const [sentReports, setSentReports] = useState([])
@@ -448,7 +451,7 @@ async function fetchConsistency() {
     .from('nutrition_log')
     .select('logged_date')
     .eq('user_id', clientId)
-    .gte('logged_date', toLocalDateString(new Date(new Date().setDate(new Date().getDate() - 30))))
+    .gte('logged_date', toLocalDateString(new Date(new Date().setDate(new Date().getDate() - 90))))
     .order('logged_date', { ascending: false })
 
   if (error) { console.error(error); return }
@@ -487,7 +490,49 @@ async function fetchConsistency() {
     else break
   }
 
-  setConsistency({ streak, days7, days30, weekdayLogged, weekendLogged, weekdayTotal, weekendTotal })
+  // Best week - find the Sun-Sat window with most logged days in last 90 days.
+  const today2 = new Date()
+  today2.setHours(0, 0, 0, 0)
+  const dow = today2.getDay()
+  const currentWeekStart = new Date(today2)
+  currentWeekStart.setDate(today2.getDate() - dow)
+
+  let bestWeek = null
+  let bestCount = -1
+
+  for (let w = 0; w < 13; w++) {
+    const weekStart = new Date(currentWeekStart)
+    weekStart.setDate(currentWeekStart.getDate() - w * 7)
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart)
+      d.setDate(weekStart.getDate() + i)
+      return toLocalDateString(d)
+    })
+    const count = weekDays.filter(d => loggedDates.includes(d)).length
+    if (count > bestCount) {
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() + 6)
+      bestCount = count
+      bestWeek = {
+        count,
+        startDate: weekStart,
+        endDate: weekEnd,
+      }
+    }
+  }
+
+  setConsistency({
+    streak,
+    days7,
+    days30,
+    weekdayLogged,
+    weekendLogged,
+    weekdayTotal,
+    weekendTotal,
+    bestWeekCount: bestWeek?.count ?? 0,
+    bestWeekStart: bestWeek?.startDate ?? null,
+    bestWeekEnd: bestWeek?.endDate ?? null,
+  })
 }
 
 async function fetchHeatmapData() {
@@ -1130,6 +1175,43 @@ async function sendMessage() {
               </p>
             </div>
           </div>
+          {consistency.bestWeekStart && (
+            <div style={{
+              backgroundColor: 'var(--color-bg)',
+              borderRadius: 'var(--radius)',
+              padding: '14px 18px',
+              marginTop: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>
+                  Best week (last 90 days)
+                </p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>
+                  {consistency.bestWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {' – '}
+                  {consistency.bestWeekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{
+                  fontWeight: 700,
+                  fontSize: '1.5rem',
+                  color: consistency.bestWeekCount === 7 ? '#34d399' : consistency.bestWeekCount >= 5 ? '#fbbf24' : 'var(--color-muted)',
+                  margin: 0,
+                  lineHeight: 1,
+                }}>
+                  {consistency.bestWeekCount}
+                  <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+                </p>
+                <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                  days logged
+                </p>
+              </div>
+            </div>
+          )}
           <div style={{
             borderTop: '1px solid var(--color-border)',
             paddingTop: 18,
