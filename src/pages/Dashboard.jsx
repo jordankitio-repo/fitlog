@@ -52,6 +52,7 @@ function Dashboard({ profile }) {
   const [checkInSaved, setCheckInSaved] = useState(false)
   const [existingCheckIn, setExistingCheckIn] = useState(null)
   const [streak, setStreak] = useState(0)
+  const [milestone, setMilestone] = useState(null)
   const [loggedToday, setLoggedToday] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [messages, setMessages] = useState([])
@@ -127,6 +128,38 @@ function Dashboard({ profile }) {
     }
     loadPage()
   }, [selectedDate])
+
+  useEffect(() => {
+    const MILESTONES = [7, 14, 30, 60, 90]
+    if (profile?.role !== 'client' || !streak || !MILESTONES.includes(streak)) return
+
+    async function fireMilestone() {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (!currentSession) return
+
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/milestone-reached`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${currentSession.access_token}`,
+            },
+            body: JSON.stringify({ streakCount: streak }),
+          },
+        )
+        const result = await res.json()
+        if (result?.ok && result?.milestone) {
+          setMilestone(result.milestone)
+        }
+      } catch (error) {
+        console.error('Milestone check failed:', error)
+      }
+    }
+
+    fireMilestone()
+  }, [streak, profile?.role])
 
   async function fetchTotals() {
     const { data, error } = await supabase
@@ -658,6 +691,41 @@ async function reactToMessage(messageId, emoji) {
         </div>
 	      ) : (
 	      <>
+	      {milestone && (
+	        <div style={{
+	          background: 'linear-gradient(135deg, #1a1a1a 0%, #1f2a1f 100%)',
+	          border: '1px solid #34d399',
+	          borderRadius: 'var(--radius)',
+	          padding: '16px 20px',
+	          display: 'flex',
+	          alignItems: 'center',
+	          justifyContent: 'space-between',
+	          gap: 16,
+	        }}>
+	          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+	            <span style={{ fontSize: '1.5rem' }}>🔥</span>
+	            <div>
+	              <p style={{ fontWeight: 700, color: '#34d399', margin: 0, fontSize: 'var(--text-md)' }}>
+	                {milestone}-day streak!
+	              </p>
+	              <p style={{ color: 'var(--color-muted)', margin: 0, fontSize: 'var(--text-xs)' }}>
+	                {milestone === 7 && 'One week straight. Keep it going.'}
+	                {milestone === 14 && "Two weeks consistent. You're building a habit."}
+	                {milestone === 30 && '30 days. This is who you are now.'}
+	                {milestone === 60 && '60 days. Seriously impressive.'}
+	                {milestone === 90 && "90 days. You've changed your life."}
+	              </p>
+	            </div>
+	          </div>
+	          <button
+	            onClick={() => setMilestone(null)}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: 4 }}
+	          >
+	            ✕
+	          </button>
+	        </div>
+	      )}
+
 	      {showOffboardNotice && (
 	        <div style={{
 	          padding: '14px 16px',
