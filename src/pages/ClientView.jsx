@@ -6,6 +6,7 @@ import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
+import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import { resolveLockState } from '../utils/lockState'
 import {
   addDays,
@@ -63,6 +64,7 @@ function ClientView({ profile }) {
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
   const [consistency, setConsistency] = useState({ streak: 0, days7: 0, days30: 0 })
+  const [heatmapData, setHeatmapData] = useState({})
   const [sentReports, setSentReports] = useState([])
   const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
   const [messages, setMessages] = useState([])
@@ -152,6 +154,7 @@ function ClientView({ profile }) {
   fetchLockState()
   fetchCoachNotes()
   fetchConsistency()
+  fetchHeatmapData()
   fetchSentReports()
   fetchMessages()
 }, [clientId])
@@ -452,6 +455,27 @@ async function fetchConsistency() {
   }
 
   setConsistency({ streak, days7, days30 })
+}
+
+async function fetchHeatmapData() {
+  const start = new Date()
+  start.setDate(start.getDate() - 97)
+
+  const { data, error } = await supabase
+    .from('nutrition_log')
+    .select('logged_date, calories')
+    .eq('user_id', clientId)
+    .gte('logged_date', toLocalDateString(start))
+
+  if (error) { console.error(error); return }
+
+  const byDate = {}
+  data.forEach(entry => {
+    if (!byDate[entry.logged_date]) byDate[entry.logged_date] = { calories: 0 }
+    byDate[entry.logged_date].calories += entry.calories || 0
+  })
+
+  setHeatmapData(byDate)
 }
 
 async function saveCoachNotes() {
@@ -1042,6 +1066,27 @@ async function sendMessage() {
                 {consistency.days30}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
               </p>
             </div>
+          </div>
+          <div style={{
+            borderTop: '1px solid var(--color-border)',
+            paddingTop: 18,
+            marginTop: 18,
+          }}>
+            <p style={{
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              fontWeight: 600,
+              marginBottom: 16,
+              marginTop: 0,
+            }}>
+              Calorie Compliance - Last 90 Days
+            </p>
+            <ComplianceHeatmap
+              logsByDate={heatmapData}
+              calorieTarget={clientTargets.calories}
+            />
           </div>
         </SectionHeader>
       </div>
