@@ -378,8 +378,12 @@ function startEditCardio(entry) {
 
   // Steps functions
   async function fetchSteps() {
+    if (!session?.user?.id) return
+
     const { data, error } = await supabase.from('steps_log').select('*')
-      .eq('logged_date', selectedDate).maybeSingle()
+      .eq('user_id', session.user.id)
+      .eq('logged_date', selectedDate)
+      .maybeSingle()
     if (error) { console.error(error); return }
     if (data) { setSavedSteps(data); setSteps(data.steps.toString()); setDistance(data.distance?.toString() || '') }
     else { setSavedSteps(null); setSteps(''); setDistance('') }
@@ -388,13 +392,25 @@ function startEditCardio(entry) {
   async function saveSteps() {
     if (!steps) return
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    if (savedSteps) {
-      const { error } = await supabase.from('steps_log').update({ steps: parseInt(steps), distance: parseFloat(distance) || null }).eq('id', savedSteps.id)
-      if (error) console.error(error); else fetchSteps()
-    } else {
-      const { error } = await supabase.from('steps_log').insert([{ steps: parseInt(steps), distance: parseFloat(distance) || null, logged_date: selectedDate, user_id: currentSession.user.id }])
-      if (error) console.error(error); else fetchSteps()
+
+    const { error } = await supabase
+      .from('steps_log')
+      .upsert(
+        {
+          ...(savedSteps ? { id: savedSteps.id } : {}),
+          user_id: currentSession.user.id,
+          logged_date: selectedDate,
+          steps: parseInt(steps),
+          distance: parseFloat(distance) || null,
+        },
+        { onConflict: 'user_id,logged_date' }
+      )
+
+    if (error) {
+      console.error(error)
+      return
     }
+    fetchSteps()
   }
 
   // Nav functions
