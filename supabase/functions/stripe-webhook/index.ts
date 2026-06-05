@@ -360,6 +360,7 @@ Deno.serve(async (req) => {
             status: object?.status,
             current_period_end: fromUnixSeconds(object?.current_period_end),
             trial_end: fromUnixSeconds(object?.trial_end),
+            cancel_at_period_end: object?.cancel_at_period_end ?? false,
           },
         )
         break
@@ -379,6 +380,7 @@ Deno.serve(async (req) => {
             status: 'canceled',
             current_period_end: fromUnixSeconds(object?.current_period_end),
             trial_end: fromUnixSeconds(object?.trial_end),
+            cancel_at_period_end: false,
           },
         )
 

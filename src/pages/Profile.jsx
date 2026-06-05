@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import SoloUpgrade from '../components/SoloUpgrade'
+import SubscriptionManager from '../components/SubscriptionManager'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 
@@ -323,11 +324,14 @@ function Profile({ session, profile, subscription, soloSubscription, hasSoloPrem
               <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
                 {subscription.status}
               </p>
-              {subscriptionDate && (
+              {subscriptionDate && !subscription.cancel_at_period_end && (
                 <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
                   {subscription.status === 'trialing' ? 'Trial ends' : 'Renews'}{' '}
                   {new Date(subscriptionDate).toLocaleDateString()}
                 </p>
+              )}
+              {['trialing', 'active', 'past_due'].includes(subscription.status) && (
+                <SubscriptionManager subscription={subscription} onChange={() => window.location.reload()} />
               )}
             </div>
           ) : (
@@ -345,11 +349,14 @@ function Profile({ session, profile, subscription, soloSubscription, hasSoloPrem
               <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
                 {soloSubscription.status}
               </p>
-              {(soloSubscription.current_period_end || soloSubscription.trial_end) && (
+              {(soloSubscription.current_period_end || soloSubscription.trial_end) && !soloSubscription.cancel_at_period_end && (
                 <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
                   {soloSubscription.status === 'trialing' ? 'Trial ends' : 'Renews'}{' '}
                   {new Date(soloSubscription.current_period_end || soloSubscription.trial_end).toLocaleDateString()}
                 </p>
+              )}
+              {['trialing', 'active', 'past_due'].includes(soloSubscription.status) && (
+                <SubscriptionManager subscription={soloSubscription} onChange={() => window.location.reload()} />
               )}
             </div>
           ) : (
