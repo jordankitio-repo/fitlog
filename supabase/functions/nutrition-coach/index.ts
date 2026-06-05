@@ -3,12 +3,78 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const PAID_STATUSES = ['trialing', 'active', 'past_due']
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return jsonResponse({ error: 'Missing authorization header' }, 401)
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: anonKey },
+    })
+    const user = await userRes.json()
+
+    if (!user.id) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    const restHeaders = {
+      Authorization: `Bearer ${serviceKey}`,
+      apikey: serviceKey,
+      'Content-Type': 'application/json',
+    }
+
+    const profileRes = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=role`,
+      { headers: restHeaders },
+    )
+    const profiles = await profileRes.json()
+    const role = profiles?.[0]?.role
+
+    if (!profileRes.ok || !role) {
+      return jsonResponse({ error: 'Profile not found' }, 404)
+    }
+
+    if (!['coach', 'client', 'solo'].includes(role)) {
+      return jsonResponse({ error: 'AI nutrition feedback is not available for this account type' }, 403)
+    }
+
+    if (role === 'solo') {
+      const subRes = await fetch(
+        `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${user.id}&select=status&limit=1`,
+        { headers: restHeaders },
+      )
+      const subs = await subRes.json()
+      const status = subs?.[0]?.status
+
+      if (!subRes.ok) {
+        return jsonResponse({ error: 'Unable to verify subscription' }, 500)
+      }
+
+      if (!status || !PAID_STATUSES.includes(status)) {
+        return jsonResponse({ error: 'Solo Premium required' }, 403)
+      }
+    }
+
     const { entries } = await req.json()
 
     const entryList = entries
@@ -16,9 +82,7 @@ Deno.serve(async (req) => {
       .join('\n')
 
     const prompt = `You are a nutrition coach. A user has logged the following meals today:
-
 ${entryList}
-
 Give them brief, practical feedback in 3-4 sentences. Assess their calorie intake, comment on what you can infer about their nutrition, and give one concrete suggestion.`
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
@@ -40,23 +104,16 @@ Give them brief, practical feedback in 3-4 sentences. Assess their calorie intak
     const data = await response.json()
 
     if (data.type === 'error') {
-      return new Response(JSON.stringify({ error: data.error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: data.error.message }, 500)
     }
 
     const message = data.content[0].text
 
-    return new Response(JSON.stringify({ message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse({ message })
 
   } catch (error) {
-    console.error('Nutrition coach error:', error.message)
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    const message = error instanceof Error ? error.message : 'Unexpected error'
+    console.error('Nutrition coach error:', message)
+    return jsonResponse({ error: message }, 500)
   }
 })
