@@ -17,7 +17,7 @@ import BillingSuccess from './pages/BillingSuccess'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 
-export const BILLING_ENABLED = false
+export const BILLING_ENABLED = true
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
 
 function AppRoutes({ session, profile, subscription }) {
