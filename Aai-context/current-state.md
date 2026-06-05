@@ -1003,3 +1003,189 @@ create extension if not exists pg_net;
 
 ### Current Commit Count
 ~180 commits
+
+---
+
+## Session — June 5, 2026
+
+### Summary
+Full Tier 1 feature sweep plus several bug fixes. Six new features shipped, six bugs fixed, one schema corrected. FitLog now has a complete analytics layer for coaches and clients.
+
+---
+
+### Features Shipped
+
+#### Compliance Heatmap
+- New component: `src/components/ComplianceHeatmap.jsx`
+- 13-week (91-day) calendar grid in `ClientView.jsx`, below logging consistency cards
+- Sunday-first grid matching app week convention — verified with date math tests
+- Color coding: green ≥90% calorie target, yellow 60–89%, red <60%, gray no log
+- Hover tooltip: date + calories logged + percentage of target
+- Month labels, day labels (every other row), legend
+- `overflowX: auto` scroll wrapper for narrow viewports
+- Cell size: 18px, gap: 2px
+- Data fetch: `fetchHeatmapData()` — 97-day window, aggregates calories per date from `nutrition_log`
+- Uses `toLocalDateString` helper throughout — avoids `new Date('YYYY-MM-DD')` UTC timezone bug
+
+#### Rolling 7-Day Weight Average
+- Added `computeRollingAverage(data, window=7)` utility function in `Dashboard.jsx` and `ClientView.jsx`
+- Second dataset on weight chart: dashed green line (`rgba(52,211,153,0.45)`, `borderDash:[4,4]`, no point dots)
+- Chart legend enabled to distinguish "Weight" vs "7-day avg"
+- Registered `Filler` plugin in both `Dashboard.jsx` and `ClientView.jsx` to fix Chart.js warning
+
+#### Weekday vs Weekend Compliance Split
+- Extended `fetchConsistency` fetch range from 30 to 90 days — this single change also powers best week analysis below
+- Weekday/weekend classification uses local `Date` object directly — avoids `new Date(dateString)` UTC parsing bug that shifts weekday by 1 in negative-offset timezones
+- New state fields: `weekdayLogged`, `weekendLogged`, `weekdayTotal`, `weekendTotal`
+- Two new stat cards below existing streak/last7/last30 cards in `ClientView.jsx`
+- Each card shows logged/total count + percentage
+
+#### Best Week Analysis
+- Computed inside `fetchConsistency` in `ClientView.jsx` — no new fetch needed
+- Scans all 13 Sunday–Saturday windows in last 90 days
+- Finds window with highest logged day count; ties broken by most recent
+- New state fields: `bestWeekCount`, `bestWeekStart`, `bestWeekEnd`
+- New card below weekday/weekend cards: shows date range + days/7 count
+- Color: green for 7/7, yellow for 5–6, muted otherwise
+
+#### Client Comparison/Ranking Dashboard
+- Added `scoreClient(s)` utility: sums `value` across all `hasData` compliance items
+- Added `sortBy` state (default: `'compliance'`)
+- Three sort modes: Compliance (score desc, recency tiebreak), Last logged (daysSinceLog asc), Check-in (submitted first)
+- No-stats clients score -1 and sink to bottom in all modes
+- Sort controls render only when `clients.length > 1`
+- Replaced `clients.map(` with `sortedClients.map(` in render
+
+#### Milestone Celebrations + Coach Notification
+- New DB column: `profiles.last_milestone_streak` (integer, default 0)
+- New Edge Function: `supabase/functions/milestone-reached/index.ts`
+  - Deployed with `--no-verify-jwt` (verifies caller internally via `auth/v1/user`)
+  - Milestones: 7, 14, 30, 60, 90 days
+  - Guard: only fires if `streakCount in MILESTONES AND last_milestone_streak < streakCount`
+  - Updates `last_milestone_streak` on fire — email sends once per milestone level, never duplicates
+  - Sends Resend email to coach: subject `🔥 {clientName} just hit a {N}-day streak`
+  - Returns `{ ok: true, milestone }` on fire, `{ skipped: true }` on duplicate
+- Frontend: `useEffect` in `Dashboard.jsx` watches `streak`, calls Edge Function when milestone hit
+- Banner only shows when backend returns `{ ok: true, milestone }` — never re-shows on refresh
+- In-app banner: green-bordered card with 🔥 emoji, streak count, contextual message, dismiss button
+- Milestone-specific messages: 7 ("One week straight"), 14 ("Two weeks"), 30 ("This is who you are now"), 60 ("Seriously impressive"), 90 ("You've changed your life")
+- Users with no active coach connection: in-app banner only, email skipped gracefully
+- Clients with an active coach: banner + coach email
+
+---
+
+### Bugs Fixed
+
+#### Stripe Webhook `trialing` Status
+- Root cause: `checkout.session.completed` handler inferred status from `payment_status === 'paid'` which was unreliable for trial checkouts
+- Fix: fetch the actual subscription object from Stripe API immediately after checkout to get real `status`, `trial_end`, `current_period_end`, and `price_id`
+- Also fixed: `stripe-webhook` redeployed with `--no-verify-jwt` — was returning 401 in live mode
+
+#### Steps Unique Constraint
+- Root cause: `steps_log` had `UNIQUE (logged_date)` — only one user could log steps per date globally
+- Fix: dropped `steps_log_logged_date_key`, added `steps_log_user_date_key UNIQUE (user_id, logged_date)`
+- Updated `saveSteps` in `Log.jsx` to use `upsert` with `onConflict: 'user_id,logged_date'`
+- Updated `fetchSteps` to filter by `user_id` in addition to `logged_date`
+
+#### fetchWeight Multiple Rows
+- Root cause: `fetchWeight` used `.maybeSingle()` which throws `PGRST116` when multiple weight rows exist for the same date (valid since `weight_log` has no unique constraint — supports multiple weigh-ins per day)
+- Fix: changed both `Dashboard.jsx` and `Log.jsx` to `.order('created_at', { ascending: false }).limit(1)` — always takes most recent entry
+- Also fixed: `weighed_at` was stored as locale-dependent string ("10:30 AM") — now stored as `HH:MM:SS` 24hr format to match PostgreSQL `time` column
+
+#### daysSinceLog Negative Value
+- Root cause: future-dated test data caused negative subtraction
+- Fix: `Math.max(0, ...)` clamp added to `daysSinceLog` calculation in `CoachDashboard.jsx`
+
+#### Chart.js Filler Plugin Warning
+- Added `Filler` to `ChartJS.register(...)` in both `Dashboard.jsx` and `ClientView.jsx`
+
+#### StatCard Regression
+- Local file had lost `import { cardStyle } from '../utils/styles'`, the `...cardStyle` spread, and `minHeight: '80px'`
+- Restored from git — file written directly via terminal to bypass editor conflict
+
+---
+
+### Schema Changes
+
+```sql
+-- Fix steps unique constraint
+alter table public.steps_log drop constraint steps_log_logged_date_key;
+alter table public.steps_log add constraint steps_log_user_date_key unique (user_id, logged_date);
+
+-- Milestone tracking
+alter table public.profiles
+add column if not exists last_milestone_streak integer default 0;
+```
+
+---
+
+### New Files This Session
+
+| File | Purpose |
+|---|---|
+| `src/components/ComplianceHeatmap.jsx` | 13-week calorie compliance calendar grid |
+| `supabase/functions/milestone-reached/index.ts` | Milestone detection + coach email notification |
+
+---
+
+### Edge Function Deployment Notes
+
+All functions requiring caller auth verification are deployed with `--no-verify-jwt` and verify internally:
+
+| Function | Flag | Auth method |
+|---|---|---|
+| `stripe-webhook` | `--no-verify-jwt` | Stripe signature header |
+| `milestone-reached` | `--no-verify-jwt` | `auth/v1/user` internal fetch |
+| `weekly-digest` | `--no-verify-jwt` | Called by pg_cron (no user context) |
+
+---
+
+### Test Data
+
+Generated 90 days of test data for `jordangarden44@gmail.com` and `gardenkitiojordan@yahoo.fr` via SQL inserts. To clean up:
+
+```sql
+delete from nutrition_log where food = 'Test meal';
+delete from weight_log where weighed_at = '07:00:00';
+delete from cardio_log where exercise_type = 'Running' and user_id in (
+  select id from profiles where email in ('jordangarden44@gmail.com','gardenkitiojordan@yahoo.fr')
+);
+-- Steps: no reliable filter column — delete by date range of test data
+delete from steps_log
+where logged_date between '2026-03-07' and '2026-06-04'
+and user_id in (
+  select id from profiles where email in ('jordangarden44@gmail.com','gardenkitiojordan@yahoo.fr')
+);
+```
+
+---
+
+### Updated Roadmap Priority
+
+**Tier 1 — Complete ✅**
+All 6 Tier 1 features shipped.
+
+**Next: Tier 2**
+1. Structured client onboarding assessment
+2. Body measurements tracking
+3. Rate of weight change alerts
+4. Auto-generated shareable PDF report card
+
+**Billing — Pending**
+1. Auto-offboard clients on coach cancel (webhook handler)
+2. Solo tier feature gating + paid solo Stripe product
+3. Grace period flow
+4. Self-serve cancellation in Profile
+5. Gate AI nutrition advice behind Solo Premium
+
+**Legal Doc Updates Pending**
+| Item | Document | Trigger |
+|---|---|---|
+| Self-serve cancellation | ToS Section 6 | When built |
+| Grace period terms | ToS Section 19 | When built |
+| Solo tier differences | ToS Section 6 | When built |
+| Solo Premium data usage | Privacy Policy Section 2 | When built |
+| AI nutrition advice gating | Privacy Policy Section 8 | When built |
+
+### Current Commit
+`e399b44 feat: milestone celebrations shipped, remove test milestone 4`
