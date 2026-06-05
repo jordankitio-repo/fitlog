@@ -3,6 +3,11 @@ import { toLocalDateString } from '../utils/dateHelpers'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const WEEKS = 13
+const CELL = 18
+const GAP = 2
+const DAY_LABEL_WIDTH = 22
+const DAY_LABEL_GAP = 4
+const WEEK_SLOT_WIDTH = CELL + GAP
 
 function getColor(calories, target, hasLog) {
   if (!hasLog) return 'var(--color-border)'
@@ -77,9 +82,9 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      <div style={{ display: 'flex', marginLeft: 28, marginBottom: 4 }}>
+      <div style={{ display: 'flex', marginLeft: DAY_LABEL_WIDTH + DAY_LABEL_GAP, marginBottom: 4 }}>
         {weeks.map((_, weekIndex) => (
-          <div key={weekIndex} style={{ width: 27, flexShrink: 0 }}>
+          <div key={weekIndex} style={{ width: WEEK_SLOT_WIDTH, flexShrink: 0 }}>
             {monthLabels.has(weekIndex) && (
               <span style={{ fontSize: '0.6rem', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>
                 {monthLabels.get(weekIndex)}
@@ -90,13 +95,13 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
       </div>
 
       <div style={{ display: 'flex', gap: 0 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginRight: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, marginRight: DAY_LABEL_GAP }}>
           {DAYS.map((day, index) => (
             <div
               key={day}
               style={{
-                height: 24,
-                width: 24,
+                height: CELL,
+                width: DAY_LABEL_WIDTH,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-end',
@@ -110,9 +115,9 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 3 }}>
+        <div style={{ display: 'flex', gap: GAP }}>
           {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div key={weekIndex} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
               {week.map((cell) => {
                 const tooltipText = formatTooltip(cell)
 
@@ -140,8 +145,8 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
                     }}
                     onMouseLeave={() => setTooltip(null)}
                     style={{
-                      width: 24,
-                      height: 24,
+                      width: CELL,
+                      height: CELL,
                       borderRadius: 4,
                       backgroundColor: cell.isFuture
                         ? 'transparent'

@@ -1071,6 +1071,8 @@ async function sendMessage() {
             borderTop: '1px solid var(--color-border)',
             paddingTop: 18,
             marginTop: 18,
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
           }}>
             <p style={{
               fontSize: 'var(--text-xs)',
