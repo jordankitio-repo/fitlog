@@ -1168,7 +1168,7 @@ async function reactToMessage(messageId, emoji) {
                   }}
                   options={chartOptions}
                 />
-                {!hasSoloPremium && (
+                {!hasSoloPremium && profile?.role !== 'client' && (
                   <div style={{ marginTop: 16 }}>
                     <SoloUpgrade feature="The 7-day weight average" />
                   </div>

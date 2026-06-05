@@ -187,8 +187,9 @@ function App() {
 
   const hasSoloPremium =
     !SOLO_BILLING_ENABLED ||
-    profile?.role !== 'solo' ||
-    (PAID_STATUSES.includes(soloSubscription?.status) && !soloSubscription?.paused_for_coaching)
+    (profile?.role === 'solo' &&
+      PAID_STATUSES.includes(soloSubscription?.status) &&
+      !soloSubscription?.paused_for_coaching)
 
   if (PUBLIC_ROUTES.includes(window.location.pathname)) {
     return (
