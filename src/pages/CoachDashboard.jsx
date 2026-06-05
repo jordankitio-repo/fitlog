@@ -9,6 +9,13 @@ import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
 import { getInviteBlockReason } from '../utils/inviteValidation'
 import { cardStyle } from '../utils/styles'
 
+function scoreClient(s) {
+  if (!s) return -1
+  return s.complianceItems
+    .filter(i => i.hasData)
+    .reduce((sum, i) => sum + i.value, 0)
+}
+
 function CoachDashboard({ profile }) {
   const [clients, setClients] = useState([])
   const [clientStats, setClientStats] = useState({})
@@ -20,6 +27,7 @@ function CoachDashboard({ profile }) {
   const [loading, setLoading] = useState(true)
   const [nudgeLoadingIds, setNudgeLoadingIds] = useState({})
   const [toast, setToast] = useState({ message: '', type: 'success' })
+  const [sortBy, setSortBy] = useState('compliance')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -297,6 +305,33 @@ function CoachDashboard({ profile }) {
     Steps: '#a78bfa',
   }
 
+  const sortedClients = [...clients].sort((a, b) => {
+    const sa = clientStats[a.client_id]
+    const sb = clientStats[b.client_id]
+
+    if (sortBy === 'compliance') {
+      const diff = scoreClient(sb) - scoreClient(sa)
+      if (diff !== 0) return diff
+      const da = sa?.daysSinceLog ?? 999
+      const db = sb?.daysSinceLog ?? 999
+      return da - db
+    }
+
+    if (sortBy === 'recent') {
+      const da = sa?.daysSinceLog ?? 999
+      const db = sb?.daysSinceLog ?? 999
+      return da - db
+    }
+
+    if (sortBy === 'checkin') {
+      const ca = sa?.checkIn ? 1 : 0
+      const cb = sb?.checkIn ? 1 : 0
+      return cb - ca
+    }
+
+    return 0
+  })
+
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
@@ -336,19 +371,49 @@ function CoachDashboard({ profile }) {
             description="Send an invite below to add your first client."
           />
         ) : (
-          clients.map((c) => {
-            const s = clientStats[c.client_id]
-            const hasAlert = s && (s.daysSinceLog === null || s.daysSinceLog >= 4 || s.concerningReactions.length > 0)
-            const canNudge = s && (s.daysSinceLog === null || s.daysSinceLog >= 2)
-            return (
-              <div key={c.id} style={{
-                ...cardStyle,
-                border: `1px solid ${hasAlert ? '#f87171' : 'var(--color-border)'}`,
-                padding: '16px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px'
-              }}>
+          <>
+            {clients.length > 1 && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', alignSelf: 'center', marginRight: 4 }}>
+                  Sort:
+                </p>
+                {[
+                  { key: 'compliance', label: 'Compliance' },
+                  { key: 'recent', label: 'Last logged' },
+                  { key: 'checkin', label: 'Check-in' },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortBy(key)}
+                    style={{
+                      background: sortBy === key ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: sortBy === key ? '#fff' : 'var(--color-muted)',
+                      border: `1px solid ${sortBy === key ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      borderRadius: 'var(--radius)',
+                      padding: '4px 12px',
+                      fontSize: 'var(--text-xs)',
+                      cursor: 'pointer',
+                      fontWeight: sortBy === key ? 600 : 400,
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {sortedClients.map((c) => {
+              const s = clientStats[c.client_id]
+              const hasAlert = s && (s.daysSinceLog === null || s.daysSinceLog >= 4 || s.concerningReactions.length > 0)
+              const canNudge = s && (s.daysSinceLog === null || s.daysSinceLog >= 2)
+              return (
+                <div key={c.id} style={{
+                  ...cardStyle,
+                  border: `1px solid ${hasAlert ? '#f87171' : 'var(--color-border)'}`,
+                  padding: '16px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px'
+                }}>
                 {/* Header row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
@@ -473,6 +538,8 @@ function CoachDashboard({ profile }) {
               </div>
             )
           })
+          }
+          </>
         )}
       </div>
 
