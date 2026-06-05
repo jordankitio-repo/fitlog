@@ -56,7 +56,7 @@ export default function SoloUpgrade({ feature = 'this feature', compact = false 
             Solo Premium
           </p>
           <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
-            AI feedback · $7.99/mo · 14-day free trial
+            AI feedback
           </p>
         </div>
         <Button onClick={handleUpgrade} variant="primary" loading={loading}>
@@ -90,7 +90,7 @@ export default function SoloUpgrade({ feature = 'this feature', compact = false 
         marginBottom: 24,
         lineHeight: 1.6,
       }}>
-        {feature} is part of Solo Premium. Start your 14-day free trial - $7.99/month after.
+        {feature} is part of Solo Premium.
       </p>
       {error && (
         <p style={{ color: '#f87171', fontSize: 'var(--text-sm)', marginBottom: 12 }}>{error}</p>
