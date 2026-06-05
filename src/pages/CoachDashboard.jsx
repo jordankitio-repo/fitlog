@@ -95,7 +95,7 @@ function CoachDashboard({ profile }) {
       }) : { locked: false, days: 0, reason: 'active' }
       const todayStr = toLocalDateString(new Date())
       let daysSinceLog = null
-      if (lastLogDate) daysSinceLog = Math.floor((new Date(todayStr) - new Date(lastLogDate)) / 86400000)
+      if (lastLogDate) daysSinceLog = Math.max(0, Math.floor((new Date(todayStr) - new Date(lastLogDate)) / 86400000))
 
       const checkIn = checkIns.find(c => c.client_id === id) || null
       const concerningReactions = messages.filter(m => m.client_id === id && negativeEmojis.includes(m.reaction))

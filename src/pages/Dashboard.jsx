@@ -17,12 +17,13 @@ import {
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 } from 'chart.js'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
-  BarElement, Title, Tooltip, Legend
+  BarElement, Title, Tooltip, Legend, Filler
 )
 
 function computeRollingAverage(data, window = 7) {
