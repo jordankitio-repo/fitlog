@@ -67,6 +67,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [hideCalories, setHideCalories] = useState(false)
   const [showOffboardNotice, setShowOffboardNotice] = useState(false)
   const offboardNoticeShownRef = useRef(false)
+  const offboardNoticeAtRef = useRef(null)
   const [showNudgeNotice, setShowNudgeNotice] = useState(false)
   const [nudgeTimestamp, setNudgeTimestamp] = useState('')
   const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
@@ -502,9 +503,6 @@ async function reactToMessage(messageId, emoji) {
     if (offboardNoticeShownRef.current) return
 
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const offboardedBy = localStorage.getItem(`offboard_by_${currentSession.user.id}`) || 'coach'
-    const dismissed = localStorage.getItem(`offboard_notice_${currentSession.user.id}`)
-    if (dismissed && offboardedBy !== 'client') return
 
     const { data } = await supabase
       .from('coach_clients')
@@ -515,11 +513,14 @@ async function reactToMessage(messageId, emoji) {
       .limit(1)
       .maybeSingle()
 
-    if (data?.offboarded_at) {
-      offboardNoticeShownRef.current = true
-      setShowOffboardNotice(true)
-      localStorage.removeItem(`offboard_notice_${currentSession.user.id}`)
-    }
+    if (!data?.offboarded_at) return
+
+    const dismissedAt = localStorage.getItem(`offboard_dismissed_at_${currentSession.user.id}`)
+    if (dismissedAt === data.offboarded_at) return
+
+    offboardNoticeShownRef.current = true
+    offboardNoticeAtRef.current = data.offboarded_at
+    setShowOffboardNotice(true)
   }
 
   async function fetchNudgeNotice() {
@@ -748,8 +749,9 @@ async function reactToMessage(messageId, emoji) {
 	          <button
 	            onClick={() => {
 	              supabase.auth.getSession().then(({ data: { session } }) => {
-	                localStorage.setItem(`offboard_notice_${session.user.id}`, 'true')
-	                localStorage.removeItem(`offboard_by_${session.user.id}`)
+	                if (offboardNoticeAtRef.current) {
+	                  localStorage.setItem(`offboard_dismissed_at_${session.user.id}`, offboardNoticeAtRef.current)
+	                }
 	              })
 	              setShowOffboardNotice(false)
 	            }}
