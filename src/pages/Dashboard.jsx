@@ -130,7 +130,7 @@ function Dashboard({ profile }) {
   }, [selectedDate])
 
   useEffect(() => {
-    const MILESTONES = [4, 7, 14, 30, 60, 90]
+    const MILESTONES = [7, 14, 30, 60, 90]
     if (profile?.role !== 'client' || !streak || !MILESTONES.includes(streak)) return
 
     async function fireMilestone() {
