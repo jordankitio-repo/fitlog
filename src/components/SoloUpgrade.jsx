@@ -42,12 +42,25 @@ export default function SoloUpgrade({ feature = 'this feature', compact = false 
   if (compact) {
     return (
       <div style={{
-        display: 'inline-flex',
+        display: 'flex',
         alignItems: 'center',
         gap: 8,
+        padding: '8px 12px',
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius)',
       }}>
-        <Button onClick={handleUpgrade} variant="ghost" loading={loading}>
-          🔒 Upgrade to unlock
+        <span style={{ fontSize: '0.9rem' }}>🔒</span>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text)' }}>
+            Solo Premium
+          </p>
+          <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
+            AI feedback · $7.99/mo · 14-day free trial
+          </p>
+        </div>
+        <Button onClick={handleUpgrade} variant="primary" loading={loading}>
+          Upgrade
         </Button>
         {error && <span style={{ fontSize: 'var(--text-xs)', color: '#f87171' }}>{error}</span>}
       </div>
