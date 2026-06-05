@@ -17,7 +17,7 @@ const EXERCISE_TYPES = [
   'HIIT', 'Other'
 ]
 
-function Log({ session, profile }) {
+function Log({ session, profile, hasSoloPremium = true }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
 
   function formatTime(timeStr) {
@@ -770,9 +770,19 @@ function startEditCardio(entry) {
       </div>
 
       {entries.length > 0 && profile?.role !== 'client' && (
-        <Button onClick={getAIFeedback} variant="ai" loading={loading}>
-          {loading ? 'Analyzing...' : 'Get AI feedback'}
-        </Button>
+        hasSoloPremium ? (
+          <Button onClick={getAIFeedback} variant="ai" loading={loading}>
+            {loading ? 'Analyzing...' : 'Get AI feedback'}
+          </Button>
+        ) : (
+          <Button
+            onClick={() => {}}
+            variant="ghost"
+            title="Upgrade to Solo Premium"
+          >
+            🔒 Get AI feedback
+          </Button>
+        )
       )}
 
       {feedback && profile?.role !== 'client' && (

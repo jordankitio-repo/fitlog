@@ -18,9 +18,10 @@ import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 
 export const BILLING_ENABLED = true
+export const SOLO_BILLING_ENABLED = false // flip to true when ready to charge solo users
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
 
-function AppRoutes({ session, profile, subscription }) {
+function AppRoutes({ session, profile, subscription, hasSoloPremium }) {
   const location = useLocation()
   const isLanding = !session && location.pathname === '/'
 
@@ -37,9 +38,9 @@ function AppRoutes({ session, profile, subscription }) {
           <Route path="/" element={session ? (
             profile?.role === 'coach'
               ? <CoachDashboard profile={profile} />
-              : <Dashboard profile={profile} />
+              : <Dashboard profile={profile} hasSoloPremium={hasSoloPremium} />
           ) : <Landing />} />
-          <Route path="/log" element={session ? <Log session={session} profile={profile} /> : <Navigate to="/login" />} />
+          <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
           <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} /> : <Navigate to="/login" />} />
           <Route path="/join" element={<Join />} />
           <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
@@ -59,6 +60,8 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [subscription, setSubscription] = useState(null)
   const [subLoading, setSubLoading] = useState(false)
+  const [soloSubscription, setSoloSubscription] = useState(null)
+  const [soloSubLoading, setSoloSubLoading] = useState(false)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase
@@ -82,8 +85,10 @@ function App() {
     setSession(null)
     setProfile(null)
     setSubscription(null)
+    setSoloSubscription(null)
     setLoading(false)
     setSubLoading(false)
+    setSoloSubLoading(false)
   }, [])
 
   useEffect(() => {
@@ -107,8 +112,10 @@ function App() {
       else {
         setProfile(null)
         setSubscription(null)
+        setSoloSubscription(null)
         setLoading(false)
         setSubLoading(false)
+        setSoloSubLoading(false)
       }
     })
 
@@ -146,6 +153,43 @@ function App() {
     }
   }, [profile])
 
+  useEffect(() => {
+    if (profile?.role !== 'solo') {
+      setSoloSubscription(null)
+      setSoloSubLoading(false)
+      return
+    }
+
+    let active = true
+
+    async function fetchSoloSubscription() {
+      setSoloSubLoading(true)
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('status, trial_end, current_period_end, stripe_price_id')
+        .eq('solo_id', profile.id)
+        .maybeSingle()
+
+      if (!active) return
+      if (error) console.error('Error fetching solo subscription:', error)
+      setSoloSubscription(data || null)
+      setSoloSubLoading(false)
+    }
+
+    fetchSoloSubscription()
+
+    return () => {
+      active = false
+    }
+  }, [profile])
+
+  const PAID_STATUSES = ['trialing', 'active', 'past_due']
+
+  const hasSoloPremium =
+    !SOLO_BILLING_ENABLED ||
+    profile?.role !== 'solo' ||
+    PAID_STATUSES.includes(soloSubscription?.status)
+
   if (PUBLIC_ROUTES.includes(window.location.pathname)) {
     return (
       <BrowserRouter>
@@ -175,17 +219,21 @@ function App() {
   }
 
   if (BILLING_ENABLED && profile?.role === 'coach') {
-    const allowed = ['trialing', 'active', 'past_due']
     const status = subscription?.status
 
-    if (!status || !allowed.includes(status)) {
+    if (!status || !PAID_STATUSES.includes(status)) {
       return <CoachPaywall subscription={subscription} profile={profile} onSignOut={handleSignOut} />
     }
   }
 
   return (
     <BrowserRouter>
-      <AppRoutes session={session} profile={profile} subscription={subscription} />
+      <AppRoutes
+        session={session}
+        profile={profile}
+        subscription={subscription}
+        hasSoloPremium={hasSoloPremium}
+      />
     </BrowserRouter>
   )
 }

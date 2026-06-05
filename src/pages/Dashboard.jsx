@@ -35,7 +35,7 @@ function computeRollingAverage(data, window = 7) {
   })
 }
 
-function Dashboard({ profile }) {
+function Dashboard({ profile, hasSoloPremium = true }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
@@ -1152,7 +1152,7 @@ async function reactToMessage(messageId, emoji) {
                       tension: 0.3,
                       fill: true,
                     },
-                    {
+                    ...(hasSoloPremium ? [{
                       label: '7-day avg',
                       data: computeRollingAverage(weightHistory),
                       borderColor: 'rgba(52, 211, 153, 0.45)',
@@ -1161,7 +1161,7 @@ async function reactToMessage(messageId, emoji) {
                       pointRadius: 0,
                       tension: 0.3,
                       fill: false,
-                    },
+                    }] : []),
                   ]
                 }}
                 options={chartOptions}

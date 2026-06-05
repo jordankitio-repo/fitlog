@@ -27,14 +27,11 @@ async function stripePost(
     headers: stripeHeaders(stripeSecretKey),
     body: params.toString(),
   })
-
   const data = await response.json()
-
   if (!response.ok) {
     const message = data?.error?.message || `Stripe ${path} request failed`
     throw new Error(message)
   }
-
   return data
 }
 
@@ -59,19 +56,14 @@ Deno.serve(async (req) => {
 
     const { priceId, price_id } = await req.json()
     const stripePriceId = priceId || price_id
+    if (!stripePriceId) return jsonResponse({ error: 'priceId is required' }, 400)
 
-    if (!stripePriceId) {
-      return jsonResponse({ error: 'priceId is required' }, 400)
-    }
-
+    // Verify caller
     const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey },
     })
     const user = await userRes.json()
-
-    if (!user.id) {
-      return jsonResponse({ error: 'Unauthorized' }, 401)
-    }
+    if (!user.id) return jsonResponse({ error: 'Unauthorized' }, 401)
 
     const restHeaders = {
       'Authorization': `Bearer ${serviceKey}`,
@@ -79,97 +71,164 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json',
     }
 
+    // Get profile
     const profileRes = await fetch(
       `${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=id,email,role`,
       { headers: restHeaders },
     )
     const profiles = await profileRes.json()
     const profile = profiles?.[0]
+    if (!profileRes.ok || !profile) return jsonResponse({ error: 'Profile not found' }, 404)
 
-    if (!profileRes.ok || !profile) {
-      return jsonResponse({ error: 'Profile not found' }, 404)
+    const role = profile.role
+
+    // Only coach and solo can subscribe
+    if (role !== 'coach' && role !== 'solo') {
+      return jsonResponse({ error: 'Only coaches and solo users can start checkout' }, 403)
     }
 
-    if (profile.role !== 'coach') {
-      return jsonResponse({ error: 'Only coaches can start checkout' }, 403)
-    }
+    const PAID_STATUSES = ['trialing', 'active', 'past_due']
 
-    const existingSubRes = await fetch(
-      `${supabaseUrl}/rest/v1/subscriptions?coach_id=eq.${user.id}&select=id,stripe_customer_id&limit=1`,
-      { headers: restHeaders },
-    )
-    const existingSubscriptions = await existingSubRes.json()
-
-    if (!existingSubRes.ok) {
-      return jsonResponse({ error: 'Unable to fetch subscription' }, 500)
-    }
-
-    const existingSubscription = existingSubscriptions?.[0]
-    let stripeCustomerId = existingSubscription?.stripe_customer_id
-
-    if (!stripeCustomerId) {
-      const customerParams = new URLSearchParams({
-        email: profile.email || user.email || '',
-        'metadata[coach_id]': user.id,
-      })
-
-      const customer = await stripePost('customers', customerParams, stripeSecretKey)
-      stripeCustomerId = customer.id
-    }
-
-    const sessionParams = new URLSearchParams({
-      customer: stripeCustomerId,
-      mode: 'subscription',
-      success_url: 'https://www.tryfitlog.com/billing/success',
-      cancel_url: 'https://www.tryfitlog.com/profile',
-      'line_items[0][price]': stripePriceId,
-      'line_items[0][quantity]': '1',
-      'subscription_data[trial_period_days]': '30',
-      'metadata[coach_id]': user.id,
-      'subscription_data[metadata][coach_id]': user.id,
-    })
-
-    const checkoutSession = await stripePost(
-      'checkout/sessions',
-      sessionParams,
-      stripeSecretKey,
-    )
-
-    const subscriptionPayload = {
-      coach_id: user.id,
-      stripe_customer_id: stripeCustomerId,
-      stripe_price_id: stripePriceId,
-      status: 'incomplete',
-    }
-
-    if (existingSubscription?.id) {
-      const updateRes = await fetch(
-        `${supabaseUrl}/rest/v1/subscriptions?id=eq.${existingSubscription.id}`,
-        {
-          method: 'PATCH',
-          headers: { ...restHeaders, 'Prefer': 'return=minimal' },
-          body: JSON.stringify(subscriptionPayload),
-        },
+    // --- COACH FLOW ---
+    if (role === 'coach') {
+      const existingSubRes = await fetch(
+        `${supabaseUrl}/rest/v1/subscriptions?coach_id=eq.${user.id}&select=id,stripe_customer_id&limit=1`,
+        { headers: restHeaders },
       )
+      const existingSubs = await existingSubRes.json()
+      if (!existingSubRes.ok) return jsonResponse({ error: 'Unable to fetch subscription' }, 500)
 
-      if (!updateRes.ok) {
-        const error = await updateRes.text()
-        throw new Error(`Failed to update subscription: ${error}`)
+      const existingSub = existingSubs?.[0]
+      let stripeCustomerId = existingSub?.stripe_customer_id
+
+      if (!stripeCustomerId) {
+        const customer = await stripePost('customers', new URLSearchParams({
+          email: profile.email || user.email || '',
+          'metadata[coach_id]': user.id,
+          'metadata[plan_type]': 'coach',
+        }), stripeSecretKey)
+        stripeCustomerId = customer.id
       }
-    } else {
-      const createRes = await fetch(`${supabaseUrl}/rest/v1/subscriptions`, {
-        method: 'POST',
-        headers: { ...restHeaders, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
-        body: JSON.stringify(subscriptionPayload),
+
+      const sessionParams = new URLSearchParams({
+        customer: stripeCustomerId,
+        mode: 'subscription',
+        success_url: 'https://www.tryfitlog.com/billing/success',
+        cancel_url: 'https://www.tryfitlog.com/profile',
+        'line_items[0][price]': stripePriceId,
+        'line_items[0][quantity]': '1',
+        'subscription_data[trial_period_days]': '30',
+        'metadata[coach_id]': user.id,
+        'metadata[plan_type]': 'coach',
+        'subscription_data[metadata][coach_id]': user.id,
+        'subscription_data[metadata][plan_type]': 'coach',
       })
 
-      if (!createRes.ok) {
-        const error = await createRes.text()
-        throw new Error(`Failed to create subscription: ${error}`)
+      const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
+
+      const payload = {
+        coach_id: user.id,
+        stripe_customer_id: stripeCustomerId,
+        stripe_price_id: stripePriceId,
+        status: 'incomplete',
       }
+
+      if (existingSub?.id) {
+        const res = await fetch(
+          `${supabaseUrl}/rest/v1/subscriptions?id=eq.${existingSub.id}`,
+          {
+            method: 'PATCH',
+            headers: { ...restHeaders, 'Prefer': 'return=minimal' },
+            body: JSON.stringify(payload),
+          },
+        )
+        if (!res.ok) throw new Error(`Failed to update subscription: ${await res.text()}`)
+      } else {
+        const res = await fetch(`${supabaseUrl}/rest/v1/subscriptions`, {
+          method: 'POST',
+          headers: { ...restHeaders, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) throw new Error(`Failed to create subscription: ${await res.text()}`)
+      }
+
+      return jsonResponse({ url: session.url })
     }
 
-    return jsonResponse({ url: checkoutSession.url })
+    // --- SOLO FLOW ---
+    if (role === 'solo') {
+      const existingSubRes = await fetch(
+        `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${user.id}&select=id,stripe_customer_id,status&limit=1`,
+        { headers: restHeaders },
+      )
+      const existingSubs = await existingSubRes.json()
+      if (!existingSubRes.ok) return jsonResponse({ error: 'Unable to fetch subscription' }, 500)
+
+      const existingSub = existingSubs?.[0]
+
+      // Block if already on an active solo plan
+      if (existingSub && PAID_STATUSES.includes(existingSub.status)) {
+        return jsonResponse({ error: 'Already has an active solo subscription' }, 400)
+      }
+
+      let stripeCustomerId = existingSub?.stripe_customer_id
+
+      if (!stripeCustomerId) {
+        const customer = await stripePost('customers', new URLSearchParams({
+          email: profile.email || user.email || '',
+          'metadata[solo_id]': user.id,
+          'metadata[plan_type]': 'solo',
+        }), stripeSecretKey)
+        stripeCustomerId = customer.id
+      }
+
+      const sessionParams = new URLSearchParams({
+        customer: stripeCustomerId,
+        mode: 'subscription',
+        success_url: 'https://www.tryfitlog.com/billing/success',
+        cancel_url: 'https://www.tryfitlog.com/profile',
+        'line_items[0][price]': stripePriceId,
+        'line_items[0][quantity]': '1',
+        'subscription_data[trial_period_days]': '14',
+        'metadata[solo_id]': user.id,
+        'metadata[plan_type]': 'solo',
+        'subscription_data[metadata][solo_id]': user.id,
+        'subscription_data[metadata][plan_type]': 'solo',
+      })
+
+      const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
+
+      const payload = {
+        solo_id: user.id,
+        stripe_customer_id: stripeCustomerId,
+        stripe_price_id: stripePriceId,
+        status: 'incomplete',
+      }
+
+      if (existingSub?.id) {
+        const res = await fetch(
+          `${supabaseUrl}/rest/v1/subscriptions?id=eq.${existingSub.id}`,
+          {
+            method: 'PATCH',
+            headers: { ...restHeaders, 'Prefer': 'return=minimal' },
+            body: JSON.stringify(payload),
+          },
+        )
+        if (!res.ok) throw new Error(`Failed to update subscription: ${await res.text()}`)
+      } else {
+        const res = await fetch(`${supabaseUrl}/rest/v1/subscriptions`, {
+          method: 'POST',
+          headers: { ...restHeaders, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) throw new Error(`Failed to create subscription: ${await res.text()}`)
+      }
+
+      return jsonResponse({ url: session.url })
+    }
+
+    return jsonResponse({ error: 'Unhandled role' }, 400)
+
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error'
     console.error('create-checkout-session error', message)
