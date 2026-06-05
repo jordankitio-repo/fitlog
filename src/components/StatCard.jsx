@@ -26,7 +26,7 @@ function StatCard({ label, value, color, sub }) {
         {label}
       </p>
       <p style={{
-        fontSize: '2rem',
+        fontSize: '1.75rem',
         fontWeight: 700,
         color: 'var(--color-text)',
         lineHeight: 1.1,
