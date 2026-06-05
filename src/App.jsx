@@ -18,7 +18,7 @@ import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 
 export const BILLING_ENABLED = true
-export const SOLO_BILLING_ENABLED = false // flip to true when ready to charge solo users
+export const SOLO_BILLING_ENABLED = true
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
 
 function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium }) {
