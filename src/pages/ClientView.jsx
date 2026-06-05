@@ -351,9 +351,10 @@ function ClientView({ profile }) {
       .select('*')
       .eq('user_id', clientId)
       .eq('logged_date', selectedDate)
-      .maybeSingle()
+      .order('created_at', { ascending: false })
+      .limit(1)
     if (error) console.error('Error fetching weight:', error)
-    else setWeightEntry(data)
+    else setWeightEntry(data?.[0] ?? null)
   }
   async function fetchWeightHistory() {
   const { data, error } = await supabase

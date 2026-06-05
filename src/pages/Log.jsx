@@ -307,25 +307,41 @@ function Log({ session, profile }) {
 
   // Weight functions
   async function fetchWeight() {
-    const { data, error } = await supabase.from('weight_log').select('*')
-      .eq('logged_date', selectedDate).maybeSingle()
+    const { data, error } = await supabase
+      .from('weight_log')
+      .select('*')
+      .eq('logged_date', selectedDate)
+      .order('created_at', { ascending: false })
+      .limit(1)
     if (error) { console.error(error); return }
-    if (data) { setSavedWeight(data); setWeight(data.weight.toString()); setWeightUnit(data.unit) }
+    const row = data?.[0] ?? null
+    if (row) { setSavedWeight(row); setWeight(row.weight.toString()); setWeightUnit(row.unit) }
     else { setSavedWeight(null); setWeight(''); setWeightUnit('lbs') }
   }
 
   async function saveWeight() {
     if (!weight) return
     const { data: { session: currentSession } } = await supabase.auth.getSession()
+
+    const now = new Date()
+    const weighed_at = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+
     if (savedWeight) {
-      const { error } = await supabase.from('weight_log').update({
-        weight: parseFloat(weight),
-        unit: weightUnit,
-        weighed_at: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-      }).eq('id', savedWeight.id)
+      const { error } = await supabase
+        .from('weight_log')
+        .update({ weight: parseFloat(weight), unit: weightUnit, weighed_at })
+        .eq('id', savedWeight.id)
       if (error) console.error(error); else fetchWeight()
     } else {
-      const { error } = await supabase.from('weight_log').insert([{ weight: parseFloat(weight), unit: weightUnit, logged_date: selectedDate, user_id: currentSession.user.id, weighed_at: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) }])
+      const { error } = await supabase
+        .from('weight_log')
+        .insert([{
+          weight: parseFloat(weight),
+          unit: weightUnit,
+          logged_date: selectedDate,
+          user_id: currentSession.user.id,
+          weighed_at,
+        }])
       if (error) console.error(error); else fetchWeight()
     }
   }

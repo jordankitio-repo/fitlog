@@ -143,9 +143,13 @@ function Dashboard({ profile }) {
 
   async function fetchWeight() {
     const { data, error } = await supabase
-      .from('weight_log').select('*').eq('logged_date', selectedDate).maybeSingle()
+      .from('weight_log')
+      .select('*')
+      .eq('logged_date', selectedDate)
+      .order('created_at', { ascending: false })
+      .limit(1)
     if (error) { console.error(error); return }
-    setWeightEntry(data)
+    setWeightEntry(data?.[0] ?? null)
   }
 
   async function fetchReports() {
