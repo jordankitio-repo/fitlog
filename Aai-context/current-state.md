@@ -813,3 +813,193 @@ https://www.tryfitlog.com (previously fitlog-sepia.vercel.app)
 9. Grace period flow for client → solo transitions
 10. Fix lint errors
 11. Google OAuth re-architecture
+
+---
+
+## Session — June 4, 2026 (~180 commits)
+
+### Summary
+This session completed the full pre-launch checklist: weekly coach digest email, legal documents, feedback mechanism, and Stripe live mode. FitLog is now live and billing real coaches.
+
+---
+
+### Completed This Session
+
+#### Weekly Coach Digest Email
+
+- New Edge Function: `supabase/functions/weekly-digest/index.ts`
+- Runs every Monday at 8:00 AM UTC via `pg_cron`
+- Queries all coaches with active clients
+- Per client: 7-day compliance for calories, protein, cardio, steps + check-in status + days logged
+- Sends one email per coach via Resend (dark-themed HTML table)
+- Compliance color coding: green ≥5/7, yellow 3-4/7, red <3/7
+- Manual trigger: `POST /functions/v1/weekly-digest` with anon key
+- Cron job name: `weekly-coach-digest`, schedule: `0 13 * * 1`
+
+**pg_cron setup (run in Supabase SQL Editor):**
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule(
+  'weekly-coach-digest',
+  '0 13 * * 1',
+  $$
+  select net.http_post(
+    url := 'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/weekly-digest',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer SUPABASE_ANON_KEY"}'::jsonb,
+    body := '{}'::jsonb
+  );
+  $$
+);
+```
+
+---
+
+#### Legal Documents
+
+- `src/pages/Terms.jsx` — full Terms of Service (21 sections)
+- `src/pages/Privacy.jsx` — full Privacy Policy (14 sections)
+- Both are public routes (no auth required)
+- Both use existing CSS variables — no extra CSS needed
+- Key FitLog-specific clauses included:
+  - Health Data Disclaimer (Section 19 of ToS)
+  - AI/Anthropic data processing disclosure (Section 8 of Privacy)
+  - Coach independence disclaimer
+  - Data retention on cancellation (data preserved, access suspended)
+  - CCPA/CPRA coverage for California users
+- Governing law: Texas, Harris County
+- Dispute resolution: informal negotiation (30 days) → binding arbitration (AAA rules, Harris County)
+- Liability cap: 6 months of payments
+- Contact: digigardenllc@gmail.com
+- Effective date: June 4, 2026
+
+**Legal doc tracker — pending updates (add when features are built):**
+| Item | Document | Trigger |
+|---|---|---|
+| Self-serve cancellation via account settings | ToS Section 6 | When cancel flow built in Profile |
+| Grace period terms for clients after coach cancels | ToS Section 19 | When auto-offboard webhook built |
+| Solo tier feature differences | ToS Section 6 | When solo gating built |
+
+---
+
+#### Feedback & Support Button
+
+- New component: `src/components/FeedbackButton.jsx`
+- Opens pre-filled mailto link to `digigardenllc@gmail.com`
+- Pre-fills: user name, user email, type selector (Feedback / Bug / Cancel / Other)
+- Added to `NavBar.jsx` (always visible when logged in)
+- Added to `CoachPaywall.jsx` (visible when coach is blocked)
+- `profile` prop passed into `CoachPaywall` from `App.jsx`
+
+---
+
+#### Stripe Live Mode
+
+**Live price IDs:**
+| Product | Price ID |
+|---|---|
+| Founding ($19/month) | `price_1TemKxAYmISHFVlMiNx7SWQy` |
+| Standard ($29/month) | `price_1TemKwAYmISHFVlMnz5NENY8` |
+
+**Vercel env vars updated:**
+- `VITE_STRIPE_PUBLISHABLE_KEY` → `pk_live_...`
+- `VITE_STRIPE_FOUNDING_PRICE_ID` → `price_1TemKxAYmISHFVlMiNx7SWQy`
+- `VITE_STRIPE_STANDARD_PRICE_ID` → `price_1TemKwAYmISHFVlMnz5NENY8`
+
+**Supabase secrets updated:**
+- `STRIPE_SECRET_KEY` → `sk_live_...`
+- `STRIPE_WEBHOOK_SECRET` → `whsec_live_...`
+
+**Live webhook endpoint:**
+- URL: `https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/stripe-webhook`
+- Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+- Registered in Stripe Dashboard → Live mode → Developers → Webhooks
+
+**Billing flag:**
+```jsx
+// src/App.jsx
+export const BILLING_ENABLED = true
+```
+
+**RLS fix required for subscription fetch:**
+```sql
+grant select on public.subscriptions to authenticated;
+
+create policy "Coaches can view own subscription"
+on public.subscriptions
+for select
+to authenticated
+using (coach_id = auth.uid());
+```
+
+**End-to-end verification (June 4, 2026):**
+- Stripe live customer created: `cus_Ue4tf5x7G7oYYj`
+- Live subscription created: `sub_1TemjPAYmISHFVlMiRGCXbV1`
+- Price ID confirmed: `price_1TemKxAYmISHFVlMiNx7SWQy` (Founding)
+- Trial end: July 4, 2026
+- No payment taken — free trial active ✅
+- Supabase `subscriptions` row confirmed ✅
+- App grants full access post-checkout ✅
+
+**Known minor issue:**
+- Supabase `subscriptions.status` writes `active` instead of `trialing` — webhook handler maps status incorrectly. Not breaking (both grant access). Fix webhook handler to read `subscription.status` from Stripe event correctly before next billing cycle.
+
+---
+
+### New Files This Session
+
+| File | Purpose |
+|---|---|
+| `src/pages/Terms.jsx` | Terms of Service — public route |
+| `src/pages/Privacy.jsx` | Privacy Policy — public route |
+| `src/components/FeedbackButton.jsx` | Pre-filled mailto support button |
+| `src/components/CoachPaywall.jsx` | Paywall gate for coaches with no active subscription |
+| `supabase/functions/weekly-digest/index.ts` | Monday digest email to coaches |
+
+---
+
+### Schema Changes This Session
+
+```sql
+-- RLS fix for subscription fetch from frontend
+grant select on public.subscriptions to authenticated;
+
+create policy "Coaches can view own subscription"
+on public.subscriptions
+for select
+to authenticated
+using (coach_id = auth.uid());
+
+-- pg_cron + pg_net extensions
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+```
+
+---
+
+### App.jsx Changes This Session
+
+- Added `/terms` and `/privacy` to public route early-return block
+- Added subscription fetch effect for coaches (`BILLING_ENABLED` gated)
+- Added `CoachPaywall` gate before main app render
+- Flipped `BILLING_ENABLED = true`
+- Added `CoachPaywall` and `Terms`/`Privacy` imports
+
+---
+
+### Updated Roadmap Priority
+
+1. Fix `subscriptions.status` webhook mapping (`trialing` vs `active`)
+2. Beta coach outreach (3–5 founding coaches at $19/month, locked forever)
+3. Auto-offboard clients on coach subscription cancel (webhook handler)
+4. Client compliance heatmap
+5. Rolling 7-day weight average
+6. Solo tier feature gating + paid solo product
+7. Grace period flow for client → solo transitions
+8. Self-serve cancellation in Profile page
+9. Fix lint errors
+10. Google OAuth re-architecture
+
+### Current Commit Count
+~180 commits
