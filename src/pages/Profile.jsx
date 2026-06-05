@@ -357,7 +357,7 @@ function Profile({ session, profile, subscription, soloSubscription, hasSoloPrem
               <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
                 Unlock advanced analytics — rolling weight average, compliance heatmap, weekend vs weekday split, best week analysis, and AI nutrition feedback.
               </p>
-              <SoloUpgrade feature="Solo Premium" />
+              <SoloUpgrade feature="Advanced analytics and AI nutrition feedback" />
             </div>
           )}
         </div>
