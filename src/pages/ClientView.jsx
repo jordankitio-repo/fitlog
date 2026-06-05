@@ -72,7 +72,15 @@ function ClientView({ profile }) {
   const [newNoteEntry, setNewNoteEntry] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
-  const [consistency, setConsistency] = useState({ streak: 0, days7: 0, days30: 0 })
+  const [consistency, setConsistency] = useState({
+    streak: 0,
+    days7: 0,
+    days30: 0,
+    weekdayLogged: 0,
+    weekendLogged: 0,
+    weekdayTotal: 0,
+    weekendTotal: 0,
+  })
   const [heatmapData, setHeatmapData] = useState({})
   const [sentReports, setSentReports] = useState([])
   const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
@@ -456,6 +464,20 @@ async function fetchConsistency() {
   const days7 = last7.filter(d => loggedDates.includes(d)).length
   const days30 = last30.filter(d => loggedDates.includes(d)).length
 
+  const last30WithDow = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    return { dateStr: toLocalDateString(d), dow: d.getDay() }
+  })
+
+  const weekdayDates = last30WithDow.filter(o => o.dow >= 1 && o.dow <= 5)
+  const weekendDates = last30WithDow.filter(o => o.dow === 0 || o.dow === 6)
+
+  const weekdayLogged = weekdayDates.filter(o => loggedDates.includes(o.dateStr)).length
+  const weekendLogged = weekendDates.filter(o => loggedDates.includes(o.dateStr)).length
+  const weekdayTotal = weekdayDates.length
+  const weekendTotal = weekendDates.length
+
   let streak = 0
   for (let i = 0; i < 30; i++) {
     const d = new Date(today); d.setDate(d.getDate() - i)
@@ -463,7 +485,7 @@ async function fetchConsistency() {
     else break
   }
 
-  setConsistency({ streak, days7, days30 })
+  setConsistency({ streak, days7, days30, weekdayLogged, weekendLogged, weekdayTotal, weekendTotal })
 }
 
 async function fetchHeatmapData() {
@@ -1081,6 +1103,28 @@ async function sendMessage() {
               <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 30 days</p>
               <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days30 >= 20 ? '#34d399' : consistency.days30 >= 10 ? 'var(--color-primary)' : '#f87171' }}>
                 {consistency.days30}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon-Fri)</p>
+              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? '#34d399' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
+                {consistency.weekdayLogged}
+                <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
+              </p>
+              <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                {consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}%
+              </p>
+            </div>
+            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat-Sun)</p>
+              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? '#34d399' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
+                {consistency.weekendLogged}
+                <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
+              </p>
+              <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                {consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}%
               </p>
             </div>
           </div>
