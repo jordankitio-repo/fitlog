@@ -25,6 +25,15 @@ ChartJS.register(
   BarElement, Title, Tooltip, Legend
 )
 
+function computeRollingAverage(data, window = 7) {
+  return data.map((_, i) => {
+    const start = Math.max(0, i - window + 1)
+    const slice = data.slice(start, i + 1)
+    const avg = slice.reduce((sum, d) => sum + d.weight, 0) / slice.length
+    return Math.round(avg * 10) / 10
+  })
+}
+
 function Dashboard({ profile }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
@@ -557,7 +566,15 @@ async function reactToMessage(messageId, emoji) {
     responsive: true,
     animation: false,
     plugins: {
-      legend: { display: false },
+      legend: {
+        display: true,
+        labels: {
+          color: '#888',
+          boxWidth: 12,
+          padding: 12,
+          font: { size: 11 },
+        }
+      },
       tooltip: {
         backgroundColor: '#1a1a1a',
         borderColor: '#2a2a2a',
@@ -1048,7 +1065,34 @@ async function reactToMessage(messageId, emoji) {
         <div style={cardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
-              <Line data={{ labels: weightHistory.map(d => d.date), datasets: [{ label: 'Weight', data: weightHistory.map(d => d.weight), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)', pointBackgroundColor: '#34d399', tension: 0.3, fill: true }] }} options={chartOptions} />
+              <Line
+                data={{
+                  labels: weightHistory.map(d => d.date),
+                  datasets: [
+                    {
+                      label: 'Weight',
+                      data: weightHistory.map(d => d.weight),
+                      borderColor: '#34d399',
+                      backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                      pointBackgroundColor: '#34d399',
+                      pointRadius: 3,
+                      tension: 0.3,
+                      fill: true,
+                    },
+                    {
+                      label: '7-day avg',
+                      data: computeRollingAverage(weightHistory),
+                      borderColor: 'rgba(52, 211, 153, 0.45)',
+                      backgroundColor: 'transparent',
+                      borderDash: [4, 4],
+                      pointRadius: 0,
+                      tension: 0.3,
+                      fill: false,
+                    },
+                  ]
+                }}
+                options={chartOptions}
+              />
             )}
           </SectionHeader>
         </div>
