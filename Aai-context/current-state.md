@@ -1457,3 +1457,182 @@ All billing/access items shipped.
 
 ### Current Commit
 `e5acdf4 feat: email cancellation confirmations`
+
+---
+
+## Session — June 6, 2026 (Rebranding + Landing Page)
+
+### Summary
+This session focused on the landing page and brand identity. No code was merged to main. The database and Stripe were cleared for a clean slate ahead of real user onboarding. One infrastructure item (profile creation trigger) needs verification before the first real signup.
+
+---
+
+### Brand Decision: FitLog → Gardnr
+
+**New product name:** Gardnr
+**Brand tagline:** "Coaches don't build physiques. They create conditions for growth."
+**Domain:** `gardnr.fit` — available at $2.98/yr on Namecheap (not yet purchased)
+**Rationale:** "FitLog" is a name already taken elsewhere, creating SEO and brand confusion risk. "Gardnr" ties directly to Digigarden LLC (the parent company), the garden metaphor fits the coaching philosophy (cultivating growth, not fixing people), and `gardnr.fit` is a strong TLD for a fitness product.
+
+**Domain research:**
+- `gardnr.com` — taken, parked, asking $166 (don't buy)
+- `gardnr.io` — available $34.98/yr
+- `gardnr.fit` — available $2.98/yr (first year promo, renews ~$33.98/yr) ← recommended
+- `gardnr.blog` — taken
+
+**Phase 1 rebrand (ready to apply, not yet merged to main):**
+- All UI text in `src/` and `supabase/` changed FitLog → Gardnr
+- Email display names changed: `'FitLog <noreply@tryfitlog.com>'` → `'Gardnr <noreply@tryfitlog.com>'`
+- Email body brand text changed: FitLog → Gardnr
+- Legal docs (Terms.jsx, Privacy.jsx) product name changed: FitLog → Gardnr
+- `index.html` title changed to Gardnr
+- Profile export filename changed: `fitlog-export-*.json` → `gardnr-export-*.json`
+- `package.json` name left as `fitlog` (internal npm identifier, not user-facing)
+
+**What was intentionally NOT changed in Phase 1:**
+- `noreply@tryfitlog.com` — sender address stays until gardnr.fit email is verified in Resend
+- `https://www.tryfitlog.com` — app URLs stay until gardnr.fit is connected to Vercel
+- `.supabase.co` references — never change, not brand-related
+- `Digigarden LLC` — already correct, not FitLog-branded
+- `digigardenllc@gmail.com` — not FitLog-branded
+
+**Phase 2 (when gardnr.fit is bought + DNS configured):**
+1. Buy `gardnr.fit` domain
+2. Connect to Vercel (A record + CNAME)
+3. Verify gardnr.fit in Resend (DKIM + SPF + DMARC)
+4. Switch sender to `noreply@gardnr.fit`
+5. One pass: swap all `tryfitlog.com` → `gardnr.fit` in codebase
+
+**Phase 1 rebrand was committed to `landing-page` branch then that branch was deleted.** The rebrand work was stashed and dropped. It will need to be re-applied to main cleanly — the approach and file-by-file changes are documented above.
+
+---
+
+### New Landing Page (Gardnr version)
+
+**Status:** Built and saved, NOT merged to main. File preserved as output from this session.
+
+**Strategic direction:**
+- Pain-led headline, not product-led: "Stop guessing how your clients' week actually went."
+- Subhead: "Your coaching runs on food screenshots and rebuilt spreadsheets. Gardnr gives you one place where client logging, compliance, and weekly reports actually live."
+- Product preview in the hero — the mock dashboard IS the trust signal (no social proof yet, none needed at this stage)
+- Trial framing: "30 days to run a real coaching cycle. See compliance, send reports, message clients — everything in one place from day one."
+- Final CTA: "Everything your coaching workflow needs, in one place. 30 days free, $19/month after."
+
+**What was cut from the FitLog version:**
+- Stat cards in the hero (weak features dressed as numbers)
+- Three "proof cards" (redundant with trial section)
+- Half-empty feature grid
+- Excessive section spacing
+- hero.png import
+
+**Page structure (6 sections):**
+1. Nav (logo + Sign in + Start free trial only — no section links)
+2. Hero — pain headline + product preview side by side
+3. Tagline band — "Coaches don't build physiques. They create conditions for growth."
+4. Pain — 3 cards (screenshots, spreadsheets, guessing)
+5. Contrast — Without Gardnr / With Gardnr table
+6. Workflow — 3 steps (invite, log, coach)
+7. Trial challenge — proof plan checklist
+8. Final CTA
+9. Footer with tagline
+
+**Trust signals used (all honest):**
+- "30 days free"
+- "$19/month after trial"
+- "No app download for clients"
+- NOT used: "no credit card required" (false — Stripe requires card for trial)
+- NOT used: testimonials, usage numbers, logos (don't have them yet)
+
+**Copy decisions:**
+- Pricing honesty: "$19/month after the trial. Cancel anytime before you're charged." — this language was debated and kept because it's accurate and honest, not because it's a "confident challenge" framing
+- Trial section: confident product claim, not a dare — "30 days to run a real coaching cycle" not "if it doesn't work cancel"
+
+**To deploy the new landing page:**
+1. Get the saved `Landing.jsx` from the session outputs
+2. Apply Phase 1 rebrand to main (all FitLog → Gardnr text changes)
+3. Replace `src/pages/Landing.jsx` with the Gardnr version
+4. Build and push to main
+
+---
+
+### Database + Stripe Reset
+
+**What was cleared:**
+- All Supabase table data (profiles, subscriptions, all log tables, coach_clients, etc.)
+- All Stripe customers and subscriptions
+
+**What was NOT cleared (schema intact):**
+- All Supabase table structures, columns, constraints
+- All RLS policies
+- All Edge Functions (deployed, unchanged)
+- Stripe products and price IDs (still valid)
+
+**Purpose:** Clean slate for real users. No test data, no orphaned records.
+
+---
+
+### ⚠️ Pending — Verify Before First Real Signup
+
+**Profile creation trigger needs verification.**
+
+The `current-state.md` documents that `on_auth_user_created` → `handle_new_user()` should fire on new auth user creation and insert a profile row. But a trigger query (`select trigger_name from information_schema.triggers where trigger_schema = 'public'`) returned no rows during this session.
+
+This may be because:
+- The trigger was dropped when data was cleared (unlikely — triggers are schema, not data)
+- The trigger lives in a different schema namespace (the query only checked `public`)
+- The trigger genuinely doesn't exist and profile creation is handled purely client-side in `Login.jsx`
+
+Reading `current-state.md` more carefully: the doc says the trigger exists AND `Login.jsx` also does a client-side `profiles.upsert()` after signup. Both mechanisms may be in play. The trigger is the safety net.
+
+**Before first real signup, verify:**
+
+```sql
+-- Check if trigger exists (checking auth schema this time)
+select trigger_name, event_object_schema, event_object_table
+from information_schema.triggers
+where trigger_name = 'on_auth_user_created';
+```
+
+If it returns no rows, recreate it:
+
+```sql
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email)
+  values (new.id, new.email);
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create or replace trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+```
+
+---
+
+### Current State of Main Branch
+
+**Last commit:** `6d80066 current-state update` (same as end of previous session)
+**Code:** Unchanged from previous session — all billing features, Tier 1 analytics, and bug fixes intact
+**Build:** Was passing at end of previous session
+**Landing page:** Still the old FitLog version on main
+**Rebrand:** Not yet applied to main
+
+---
+
+### Next Session Priority Order
+
+1. **Verify `on_auth_user_created` trigger** — first thing, before any real user testing
+2. **Test full signup → coach workflow on tryfitlog.com** — fresh coach signup, trial checkout, client invite, compliance, report
+3. **Buy `gardnr.fit` domain** — $2.98/yr, low-risk
+4. **Apply Phase 1 rebrand to main** — text-only FitLog → Gardnr
+5. **Merge new landing page** — swap Landing.jsx with the Gardnr version
+6. **Phase 2 domain migration** — when gardnr.fit DNS is ready
+
+### Tier 2 Features (still pending from previous session)
+1. Structured client onboarding assessment
+2. Body measurements tracking
+3. Rate of weight change alerts
+4. Auto-generated shareable PDF report card
