@@ -1196,3 +1196,264 @@ All 6 Tier 1 features shipped.
 
 ### Current Commit
 `e399b44 feat: milestone celebrations shipped, remove test milestone 4`
+
+---
+
+## Session — June 5, 2026 (Billing Layer Completion)
+
+### Summary
+Completed the entire billing and access-control layer. Shipped coach cancellation auto-offboarding, the full Solo Premium tier ($7.99/mo, 14-day trial), subscription pause/resume during coaching, server-side AI gating, self-serve cancel/resume, and cancellation emails. This session was heavy on Stripe integration, schema changes, and edge-case reasoning — the design notes below matter for future work.
+
+---
+
+## Part 1 — Auto-Offboard Clients on Coach Cancel
+
+### Reasoning
+When a coach's Stripe subscription ends (`customer.subscription.deleted`), their clients must transition cleanly to solo mode. Previously the webhook only set `subscriptions.status = 'canceled'` and left clients orphaned.
+
+### Design
+- Offboarding sets `coach_clients.status = 'offboarded'` + `offboarded_at`, and flips client `profiles.role` to `'solo'` (matching the existing manual-offboard behavior in `offboard-client`/`offboard-self`).
+- Clients keep all data; they just lose the coaching layer and naturally fall through to solo free tier.
+- Email notification to each client via Resend.
+
+### Architecture
+- Logic lives in `stripe-webhook` `customer.subscription.deleted` case → calls new `offboardCoachClients(supabaseUrl, serviceKey, coachId)` helper.
+- `coachId` resolved via `fetchSubscriptionRow` (selects `id, coach_id`), which works because the subscription row still exists at deletion time (only status changed, row not deleted).
+- **Critical:** email loop wrapped in try/catch that logs but never throws — otherwise email failure → 500 → Stripe retries the whole webhook → duplicate offboarding work. Idempotency holds anyway (re-patching `offboarded` rows is harmless), but emails would re-send.
+- Solo subscriptions correctly untouched: `offboardCoachClients` only runs when `subRow.coach_id` is non-null. Solo rows have `coach_id = null`.
+
+---
+
+## Part 2 — Solo Premium Tier
+
+### Reasoning
+Solo users were getting AI nutrition advice and analytics for free, which costs money per AI call and gives away the product. Solo Premium ($7.99/mo) gates advanced self-analytics WITHOUT competing with the coach product — the coach-client interaction layer (reports, check-ins, nudges, targets) remains hard-walled and is never available to solo users regardless of tier.
+
+### Pricing
+| Tier | Price | Trial |
+|---|---|---|
+| Solo Free | $0 | — |
+| Solo Premium | $7.99/mo | 14 days |
+| Coach Founding | $19/mo | 30 days |
+| Coach Standard | $29/mo | 30 days |
+
+Solo Premium price ID (live): `price_1Tf3sfAYmISHFVlM9Q90VjMS`
+Env var: `VITE_STRIPE_SOLO_PRICE_ID`
+
+### Schema
+```sql
+alter table public.subscriptions add column if not exists solo_id uuid references profiles(id);
+```
+- `subscriptions` rows are parallel: a coach row has `coach_id` set, `solo_id` null; a solo row has `solo_id` set, `coach_id` null. No restructuring — kept churn low. Future migration to `profile_id + plan_type` deferred.
+- RLS: added a second SELECT policy so solo users can read their own subscription:
+```sql
+create policy "Solo users can view own subscription"
+on public.subscriptions for select to authenticated
+using (solo_id = auth.uid());
+```
+(The coach policy `coach_id = auth.uid()` already existed. Without the solo policy, solo subscription fetches silently returned nothing — this was a real bug found during testing.)
+
+### create-checkout-session (extended for solo)
+- Was coach-only (rejected non-coach roles). Now branches on `profile.role`:
+  - **coach:** lookup by `coach_id`, 30-day trial, metadata `plan_type=coach`
+  - **solo:** lookup by `solo_id`, 14-day trial, metadata `plan_type=solo` + `solo_id`
+- Stripe metadata includes `plan_type` on both customer and subscription for future webhook routing (currently webhook routes by Stripe IDs, not metadata, so no webhook change was needed for basic solo billing).
+- Blocks re-checkout if existing solo sub status is in `[trialing, active, past_due, canceled]` — `canceled` was the gap (a canceled solo user could otherwise start a fresh 14-day trial). `past_due` was already blocked via `PAID_STATUSES`.
+
+### Frontend gating
+- Flags in `App.jsx`:
+```js
+export const BILLING_ENABLED = true
+export const SOLO_BILLING_ENABLED = true
+const PAID_STATUSES = ['trialing', 'active', 'past_due']
+```
+- Solo billing is **feature-level gating, not an app-level route gate** (solo users keep core logging free). This differs from coach billing which is a full `CoachPaywall` route block.
+- Derived flag (final, corrected form):
+```js
+const hasSoloPremium =
+  !SOLO_BILLING_ENABLED ||
+  (profile?.role === 'solo' &&
+    PAID_STATUSES.includes(soloSubscription?.status) &&
+    !soloSubscription?.paused_for_coaching)
+```
+- **Important semantic:** `hasSoloPremium` means "has Solo Premium ACCESS." It is `false` for coaches and clients. Clients do NOT get solo analytics (7-day avg, AI) — those would compete with the coach product. This was corrected mid-session after an initial version made `hasSoloPremium` true for all non-solo roles.
+- Gated surfaces:
+  - Rolling 7-day weight average (Dashboard) — dataset conditionally excluded
+  - AI nutrition feedback button (Log) — already had `profile?.role !== 'client'` guard, plus `hasSoloPremium`
+  - SoloUpgrade prompts hidden for clients (they shouldn't be upsold; coach pays for them)
+- New component: `src/components/SoloUpgrade.jsx` — inline upgrade prompt (full + compact modes), starts solo checkout via `create-checkout-session`.
+
+### Server-side AI gate
+- `nutrition-coach` previously had NO auth at all — anyone with the URL could call it.
+- Now: verifies caller via `auth/v1/user`, loads role, allows coach/client unconditionally, requires solo users to have `PAID_STATUSES` subscription. Rejects unpaid solo with 403.
+- This is the enforcement source of truth; the UI gate is just pre-gating to avoid inviting users into a flow that will fail.
+
+---
+
+## Part 3 — Subscription Pause/Resume During Coaching
+
+### Reasoning
+If a paid Solo Premium user accepts a coach invite, they shouldn't be billed for Solo Premium while coached (the coach provides the analytics view of their data). When offboarded, they should resume their solo subscription where they left off.
+
+### The Stripe limitation that shaped the design
+Stripe's native subscription pause (`status=paused`) requires flexible billing mode and **cannot pause trialing subscriptions**. Since we need to pause both `active` and `trialing` solo subs, native pause doesn't fit. Solution: a local marker + `pause_collection` for active subs only.
+
+### Schema
+```sql
+alter table public.subscriptions add column if not exists paused_for_coaching boolean not null default false;
+```
+
+### Behavior matrix
+| Status on joining coach | Stripe action | DB action |
+|---|---|---|
+| `trialing` | none (can't pause trials) | `paused_for_coaching = true` |
+| `active` | `pause_collection[behavior]=void` | `paused_for_coaching = true` |
+| `canceled` / `past_due` | none | none |
+
+- `void` behavior means invoices created during pause are voided — customer not charged for coaching period. Resume only affects future invoices; it does not rewind billing periods.
+- `hasSoloPremium` requires `!paused_for_coaching`, so a paused sub correctly blocks premium access while the user is a client.
+
+### Architecture
+- New Edge Function `pause-solo-subscription` — called client-side from `Join.jsx` after invite acceptance, **non-blocking** (invite succeeds even if pause fails).
+  - **Bug fixed during review:** for active subs, the local marker is now only set if the Stripe `pause_collection` call succeeds. Otherwise a Stripe failure would block access locally while Stripe keeps billing — worst of both. Trialing subs (no Stripe call) always set the marker.
+- Resume logic added inline to BOTH `offboard-client` and `offboard-self` via a shared `resumeSoloSubscription` helper:
+  - Finds sub where `solo_id = clientId AND paused_for_coaching = true`
+  - If active + has Stripe sub: sends `pause_collection=''` (empty string) to Stripe to resume — this is the correct Stripe API to remove a pause.
+  - Only clears `paused_for_coaching` if the Stripe resume succeeded (`canClearLocalPause` guard).
+
+### Known v1 limitation (documented, accepted)
+Trial subscriptions keep aging in Stripe while the user is coached — there's no true trial-clock pause. If a solo user joins a coach mid-trial (14 days) and leaves 30 days later, the trial is over. Acceptable for v1; revisit if it becomes a real complaint.
+
+### Subscription resume scenarios (the three cases)
+| Who gets offboarded | Result |
+|---|---|
+| Never had solo / was free solo | Returns to free solo, can start trial |
+| Was paid Solo Premium | Returns to solo, existing subscription resumes (pause cleared) |
+
+Note: `Join.jsx` only changes `profiles.role` to `client` and creates the `coach_clients` row — it never deletes the subscription row, which is why resume works automatically once pause is cleared.
+
+---
+
+## Part 4 — Self-Serve Cancel + Resume
+
+### Reasoning
+Cancellation was email-only ("contact us"). Users expect self-serve. Built cancel-at-period-end (not immediate) — fairer, no refund logic, and the existing webhook already handles the eventual `deleted` event.
+
+### Design decision: cancel at period end (not immediate)
+- Sets Stripe `cancel_at_period_end = true`
+- User keeps access until period end; status stays `active`/`trialing` until then, so `hasSoloPremium`/coach access remains true — correct.
+- For coaches: clients are NOT offboarded until the period actually ends (the `deleted` event fires at period end, not at cancel time). Already handled correctly.
+- During trial: canceling means it cancels at trial end, no charge ever. Correct and desirable.
+
+### Schema
+```sql
+alter table public.subscriptions add column if not exists cancel_at_period_end boolean not null default false;
+```
+
+### Architecture
+- New Edge Function `cancel-subscription` with `{ action: 'cancel' | 'resume' }`.
+  - **Design fix during review:** finds the subscription by CURRENT role (`coach_id` if coach, `solo_id` if solo), NOT an `or=(coach_id,solo_id)` query. The OR query could pick the wrong row if a user ever had both a coach and an old solo subscription row. Role-based lookup is precise and also naturally blocks paused/client users (role `client` → 400, no subscription to manage).
+  - Sets Stripe `cancel_at_period_end` to true/false, then patches the local flag immediately so the UI reflects without waiting for the webhook.
+- Webhook `customer.subscription.updated` now persists `cancel_at_period_end: object?.cancel_at_period_end ?? false`. The `deleted` case resets it to false. Both writes are idempotent with the function's local patch (no race).
+- New component `src/components/SubscriptionManager.jsx` — cancel link → confirm dialog → cancel; shows "plan will end on [date]" + Resume button when `cancel_at_period_end` is true. Wired into both coach and solo billing cards in `Profile.jsx`.
+  - Uses `current_period_end || trial_end` for the end date (trialing subs have `current_period_end = null`).
+  - `onChange` does `window.location.reload()` — load-bearing because the subscription prop is fetched once in App.jsx and goes stale after cancel. Inelegant but correct; a refetch-callback refactor was deferred.
+- Date line in billing cards hides "Renews" when `cancel_at_period_end` is true (SubscriptionManager shows its own end-date notice instead).
+
+### Cancellation confirmation email
+- Sent from `cancel-subscription` on `action === 'cancel'` only (resume sends nothing).
+- Non-blocking try/catch. States plan name (Coach vs Solo Premium), end date, and a resume path.
+
+---
+
+## New Edge Functions This Session
+| Function | Auth | Purpose |
+|---|---|---|
+| `pause-solo-subscription` | `--no-verify-jwt`, internal auth check | Pause solo sub when joining coach |
+| `cancel-subscription` | `--no-verify-jwt`, internal auth check | Cancel/resume at period end + email |
+
+## Modified Edge Functions
+| Function | Change |
+|---|---|
+| `stripe-webhook` | offboardCoachClients on cancel; persist cancel_at_period_end |
+| `create-checkout-session` | coach + solo branching; block canceled re-trial |
+| `offboard-client` | resume solo sub; manual-offboard email |
+| `offboard-self` | resume solo sub |
+| `nutrition-coach` | auth + role + solo subscription gate |
+
+## Schema Changes This Session
+```sql
+alter table public.subscriptions add column if not exists solo_id uuid references profiles(id);
+alter table public.subscriptions add column if not exists paused_for_coaching boolean not null default false;
+alter table public.subscriptions add column if not exists cancel_at_period_end boolean not null default false;
+
+create policy "Solo users can view own subscription"
+on public.subscriptions for select to authenticated
+using (solo_id = auth.uid());
+```
+
+## New Frontend Files
+| File | Purpose |
+|---|---|
+| `src/components/SoloUpgrade.jsx` | Inline solo premium upgrade prompt (full + compact) |
+| `src/components/SubscriptionManager.jsx` | Cancel/resume control for billing cards |
+
+## Subscription Status Reference (for future work)
+- `incomplete` — checkout started, not yet confirmed
+- `trialing` — in free trial, grants access
+- `active` — paying, grants access
+- `past_due` — payment failed, still grants access (Stripe retries ~2 weeks)
+- `canceled` — ended, no access
+- `paused_for_coaching` (local flag, not a Stripe status) — solo sub paused while user is a coached client
+- `cancel_at_period_end` (flag) — scheduled to cancel; access continues until period end
+
+`PAID_STATUSES = ['trialing', 'active', 'past_due']` — the shared allow-list used everywhere for access checks.
+
+---
+
+## Bugs Fixed This Session
+| Bug | Fix |
+|---|---|
+| Solo subscription fetch returned nothing | Added RLS policy for `solo_id = auth.uid()` |
+| `hasSoloPremium` true for clients (gave them solo analytics) | Rewrote to require `role === 'solo'` |
+| Offboard in-app notice never re-showed after first dismissal | Dismissal now keyed by `offboarded_at` timestamp, not a permanent boolean |
+| No email on manual coach offboard | Added non-blocking Resend email to `offboard-client` |
+| pause-solo: local marker set even if Stripe pause failed | Only set marker if Stripe pause succeeds (active subs) |
+| canceled solo user could start a fresh trial | Block `canceled` in create-checkout-session |
+| `cancel-subscription` OR-query could cancel wrong sub | Look up by current role instead |
+
+---
+
+## Updated Roadmap
+
+### Billing Layer — COMPLETE ✅
+All billing/access items shipped.
+
+### Next: Tier 2
+1. Structured client onboarding assessment
+2. Body measurements tracking
+3. Rate of weight change alerts
+4. Auto-generated shareable PDF report card
+
+### Legal Doc Updates Pending (expanded this session)
+| Item | Document | Trigger |
+|---|---|---|
+| Self-serve cancellation (now exists) | ToS Section 6 | Update — cancellation is no longer email-only |
+| Solo Premium tier + $7.99 pricing | ToS Section 6 | Add solo tier terms |
+| Solo Premium data usage (AI) | Privacy Policy Section 8 | Add |
+| Pause/resume billing behavior | ToS Section 6 | Document pause-during-coaching |
+| Trial-aging-during-coaching limitation | ToS | Disclose trial clock continues during coaching |
+| Client reconnection requires new invite | ToS Section 19 | Clarify offboarded clients re-accept invite |
+| Coach cancel → clients offboarded at period end | ToS Section 19 | Clarify timing |
+
+### Technical Debt
+| Item | Notes |
+|---|---|
+| SubscriptionManager full-page reload | Could lift refetch callback from App.jsx |
+| Duplicate offboard email copy | `stripe-webhook` and `offboard-client` have separate copies; no shared helper |
+| Large Vite chunk warning | Still deferred |
+| Lint errors (pre-existing) | Still deferred |
+| `subscriptions` schema | Eventual migration to `profile_id + plan_type` instead of parallel `coach_id`/`solo_id` |
+
+### Current Commit
+`e5acdf4 feat: email cancellation confirmations`
