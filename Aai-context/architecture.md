@@ -86,7 +86,8 @@ src/
     BillingSuccess.jsx — Stripe checkout success page (/billing/success)
   components/
     NavBar.jsx, Button.jsx, StatCard.jsx, Skeleton.jsx, Toast.jsx, EmptyState.jsx,
-    BarcodeScanner.jsx, SectionHeader.jsx, CoachPaywall.jsx, FeedbackButton.jsx,
+    BarcodeScanner.jsx, SectionHeader.jsx, FeedbackButton.jsx,
+    CoachPaywall.jsx — gate for coaches without active subscription. Checks trial_ledger on mount via check-trial-eligibility; shows billing warning + confirm modal if trial used. Always exposes both "Sign out" and "Delete account" — users who abandon at the paywall can self-serve exit without contacting support.
     ComplianceHeatmap.jsx, SoloUpgrade.jsx, SubscriptionManager.jsx
   utils/
     passwordValidation.js, styles.js (cardStyle), lockState.js (resolveLockState),
@@ -193,21 +194,29 @@ All tables have RLS enabled. Policies are user-scoped (`user_id = auth.uid()`) o
 - `canceled` — ended, no access
 
 ### Webhook architecture
-- `stripe-webhook` verifies Stripe signature (HMAC-SHA256), deployed `--no-verify-jwt` (Stripe sends no JWT)
+- `stripe-webhook` verifies Stripe signature (HMAC-SHA256), deployed `--no-verify-jwt` (Stripe sends no JWT). `verify_jwt = false` is set permanently in `supabase/config.toml` — this persists through every redeploy. Same applies to `pause-solo-subscription`, `cancel-subscription`, `milestone-reached`, `check-trial-eligibility`. **Rule: any function that receives requests without a Supabase JWT must have `verify_jwt = false` in config.toml, not just the deploy flag.**
+- On `customer.subscription.deleted`: guard added — if `paused_for_coaching = true`, skip the update entirely (coaching-pause cancel, not real churn). Otherwise offboards coach's clients.
 - Handles: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
 - On `checkout.session.completed`: fetches the real subscription object from Stripe API to read true `status`, `trial_end`, `current_period_end`, `price_id` (this is the fix for the trialing-vs-active mapping)
 - On `deleted`: offboards coach's clients; resets `cancel_at_period_end` to false
 - `customer.subscription.updated`: persists `cancel_at_period_end`
 
 ### Checkout / cancel flow
-- `create-checkout-session`: verifies auth, branches coach vs solo, creates/reuses Stripe customer, 30-day trial, upserts subscriptions row (`Prefer: resolution=merge-duplicates`), blocks `canceled` users from re-trialing
+- `create-checkout-session`: verifies auth, branches coach vs solo, creates/reuses Stripe customer. Checks `trial_ledger` (SHA-256 peppered email hash) — omits `trial_period_days` if product flag already true; writes ledger entry at checkout start. 30-day coach trial / 14-day solo trial. Upserts subscriptions row (`Prefer: resolution=merge-duplicates`).
+- `check-trial-eligibility`: returns `{ coach_trial_used, solo_trial_used }` for the authenticated caller. Called by `CoachPaywall` on mount to show billing warning before redirecting to Stripe.
+- Trial ledger: `trial_ledger` table keyed by `email_hash` (SHA-256 of `EMAIL_HASH_PEPPER:email`). Never deleted with the account — survives for fraud prevention. `GRANT SELECT, INSERT, UPDATE TO service_role` required.
 - `cancel-subscription` (`{ action: 'cancel' | 'resume' }`): looks up sub by **current role** (coach_id if coach, solo_id if solo — not an OR query), sets Stripe `cancel_at_period_end` true/false, patches local flag immediately, sends confirmation email on cancel only
 - `SubscriptionManager.jsx`: cancel → confirm dialog → cancel; shows "plan ends on [date]" + Resume when `cancel_at_period_end` true. `onChange` does `window.location.reload()` (subscription prop fetched once in App.jsx, goes stale after cancel)
 
 ### Solo pause/resume
-- `pause-solo-subscription`: when a solo user joins a coach. Active subs → Stripe `pause_collection`; local marker set **only if** Stripe call succeeds. Trialing subs → marker only (no Stripe call).
-- Resume: shared `resumeSoloSubscription` helper in `offboard-client` and `offboard-self`. Sends Stripe `pause_collection=''` to resume; clears `paused_for_coaching` only if Stripe resume succeeded.
+- `pause-solo-subscription`: when a solo user joins a coach. Active subs → Stripe `pause_collection` (write DB guard first, then Stripe call — ordering is critical: webhook reads `paused_for_coaching` before acting on deletion events). Trialing subs → GET trial_end from Stripe, write DB (`paused_for_coaching=true`, `paused_trial_days_remaining=N`), then cancel Stripe sub (no charge). Rollback DB write if Stripe cancel fails.
+- Resume: `resumeSoloSubscription` helper (duplicated in `offboard-client`, `offboard-self`, `delete-account` — deferred extraction to `_shared/`). Trialing path: recreates Stripe sub via API with `trial_period_days = paused_trial_days_remaining` + customer's default PM. Active path: clears `pause_collection`. Clears `paused_for_coaching` + `paused_trial_days_remaining` only on success.
 - `Join.jsx` only sets `profiles.role = client` + creates `coach_clients` row — never deletes the subscription row, so resume works automatically once pause clears.
+
+### Account deletion
+- `delete-account`: role-aware. **Coach**: processes all clients first (resume paused subs, flip roles, write offboard markers, send emails), then bulk-deletes data rows, then cancels Stripe sub + **explicitly deletes `subscriptions?coach_id=eq.uid`** (FK: NO ACTION), then deletes auth user. **Solo/client**: cancels Stripe sub + **explicitly deletes `subscriptions?solo_id=eq.uid`** (FK: NO ACTION), then bulk-deletes data rows, then auth delete.
+- **Rule:** Both `subscriptions.coach_id → profiles.id` and `subscriptions.solo_id → profiles.id` are NO ACTION FKs. The subscriptions row must be explicitly deleted before auth delete or Postgres rejects the cascade. Response checking is mandatory — silent failures show as FK violations downstream. Any future billing role must follow the same pattern.
+- Offboard marker written to `profiles.offboarded_at` + `profiles.offboard_reason` — survives coach row deletion. Reason values: `coach_offboarded` (offboard-client), `coach_deleted` (delete-account coach branch). Self-leave writes no marker.
 
 ### Live mode
 - Founding $19/mo: `price_1TemKxAYmISHFVlMiNx7SWQy`
@@ -318,7 +327,8 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 
 | Function | Auth | Purpose |
 |---|---|---|
-| `delete-account` | user | Deletes all user data rows then auth user (service role) |
+| `delete-account` | user | Role-aware deletion. Coach: offboard clients → delete data → cancel Stripe + delete subscriptions row → auth delete. Solo/client: cancel Stripe + delete subscriptions row → delete data → auth delete |
+| `check-trial-eligibility` | user | Returns { coach_trial_used, solo_trial_used } from trial_ledger. Called by CoachPaywall on mount. |
 | `nutrition-coach` | user + role + solo gate | AI nutrition advice |
 | `weekly-report` | user | AI weekly coaching report |
 | `notify-report` | user | Email client when report sent |

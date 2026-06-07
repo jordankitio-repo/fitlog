@@ -107,7 +107,9 @@ AI call briefing for coaches
 nudge-client
 Coach nudge — 48hr cooldown, Resend email
 create-checkout-session
-Creates Stripe checkout session (30-day coach trial, 14-day solo trial). Checks trial_ledger before attaching trial (TBD — Part 5 gate).
+Creates Stripe checkout session (30-day coach trial, 14-day solo trial). Checks trial_ledger (hashed email) before attaching trial — omits trial_period_days if product flag already true. Writes ledger entry at checkout start.
+check-trial-eligibility
+Returns { coach_trial_used, solo_trial_used } for the authenticated user. Called by CoachPaywall on mount to show billing warning before Stripe redirect.
 stripe-webhook
 Handles Stripe events. Guards customer.subscription.deleted: skips update + offboarding when paused_for_coaching=true (coaching-pause cancellation, not real churn).
 weekly-digest
@@ -439,8 +441,8 @@ AI nutrition advice ungated
 Currently free for all users — gate when solo billing built
 Extract resumeSoloSubscription to _shared/
 Currently duplicated verbatim in offboard-self, offboard-client, delete-account. Extract to supabase/functions/_shared/resumeSoloSubscription.ts in a dedicated refactor pass.
-subscriptions FK on solo_id is NO ACTION
-Fixed in Part 5: cancel Stripe sub + explicit subscriptions DELETE (with response checking) before auth delete. Also required GRANT DELETE ON public.subscriptions TO service_role.
+subscriptions FK on solo_id and coach_id are both NO ACTION
+Fixed in Parts 5 + 6: both roles now explicitly cancel Stripe sub + DELETE subscriptions row (with response checking) before auth delete. GRANT DELETE ON public.subscriptions TO service_role required. Pattern: any future billing role must follow the same.
 
 
 ⏳ Deferred — Needs more users first

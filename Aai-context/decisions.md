@@ -146,9 +146,22 @@
 **Consequences:** `stripe-webhook` verifies the Stripe signature (HMAC-SHA256). Internal functions (`pause-solo-subscription`, `cancel-subscription`, `milestone-reached`) verify the caller via `auth/v1/user`.
 **Important:** `verify_jwt = false` must be set in `supabase/config.toml` for each affected function — redeploying without this resets to the default (JWT required) and breaks Stripe. Config entries added Jun 7 for `stripe-webhook`, `pause-solo-subscription`, `cancel-subscription`, `milestone-reached`. Git push does NOT deploy edge functions — `supabase functions deploy <name>` is always a separate step.
 
+### CoachPaywall always exposes a "Delete account" path
+**Reason:** Users who sign up, pick coach role, and reach the paywall but never subscribe are stuck — no Profile page is accessible from the paywall, only Sign out. Leaving without deleting creates a floating account they can never remove without contacting support.
+**Consequences:** CoachPaywall renders both "Sign out" and "Delete account" as separate actions at all times, regardless of subscription state. Two buttons, user decides. No conditional logic — simplest and least error-prone.
+
+### Every role that owns a subscriptions row must explicitly delete it before auth delete
+**Reason:** Both `subscriptions.solo_id → profiles.id` and `subscriptions.coach_id → profiles.id` are NO ACTION FKs. Any future role that owns a subscriptions row will hit the same issue.
+**Consequences:** `delete-account` has explicit DELETE blocks for both coach and solo before the auth delete. Any new billing role added in future must follow the same pattern: cancel Stripe → delete DB row (with response checking) → then auth delete.
+
 ### Solo account deletion must explicitly delete the subscriptions row before auth delete
 **Reason:** `subscriptions.solo_id` is a FK to `profiles.id` (NO ACTION). Deleting the auth user cascades to delete the profiles row, which Postgres rejects if the subscriptions row still references it.
 **Consequences:** `delete-account` solo branch: cancel Stripe sub → explicitly DELETE subscriptions row (with response checking, throw on failure) → then proceed with the generic deletions loop and auth delete. Response checking is mandatory — silent failures produce confusing FK violations downstream.
+
+### Every table used in edge function DELETEs/INSERTs needs explicit grants to service_role
+**Reason:** Tables don't automatically have DELETE or INSERT granted to service_role even though service_role bypasses RLS. Missing grants return `42501 permission denied` which fails silently if response codes aren't checked.
+**Applied grants so far:** `GRANT DELETE ON public.subscriptions TO service_role`, `GRANT SELECT, INSERT, UPDATE ON public.trial_ledger TO service_role`.
+**Rule:** When adding a new table operation in an edge function, verify the grant exists. Test with response checking — never ignore DELETE/INSERT response codes.
 
 ### `GRANT DELETE ON public.subscriptions TO service_role` is required
 **Reason:** The subscriptions table was created with only SELECT granted to authenticated/service_role. DELETE was never granted. Even though service_role bypasses RLS, it still needs explicit table-level DELETE permission.

@@ -24,6 +24,8 @@
 
 ## Recently Shipped (most recent first)
 
+**Part 6 — Checkout ledger gate + trial warning** — `create-checkout-session` now checks `trial_ledger` before attaching a trial period; marks trial used at checkout start. New `check-trial-eligibility` edge function (service-role ledger read, hashed email). `CoachPaywall` calls it on mount: shows "Subscribe to FitLog / will charge $19 immediately" + confirm modal when `coach_trial_used: true`. "Delete account" link added to paywall for users who want a clean exit without subscribing. Coach subscriptions row FK fix: same `subscriptions.coach_id → profiles.id` NO ACTION bug as solo — added explicit DELETE before auth delete. `GRANT SELECT, INSERT, UPDATE ON trial_ledger TO service_role` required (same pattern as subscriptions).
+
 **Part 5 — Solo self-delete with subscription** — Fixed latent FK violation: `subscriptions.solo_id → profiles.id` (NO ACTION) caused Postgres to reject the auth delete cascade. Fix: explicitly cancel Stripe sub + delete subscriptions row (with response checking) before auth delete. Also required `GRANT DELETE ON public.subscriptions TO service_role` — the table had SELECT granted but not DELETE, causing a silent 42501 that only surfaced once response checking was added.
 
 **Coach offboarding overhaul (Parts 1–4)** — Full coach account deletion flow with client protection:
@@ -46,13 +48,22 @@
 
 ## Verified This Session (June 7, 2026)
 
-**Part 5 verified:**
+**Parts 5 + 6 verified:**
 - Solo account with active premium trial → delete account → auth user gone, subscriptions row deleted, Stripe subscription cancelled, redirected to sign-in. ✓
+- Coach account with trial → complete checkout → `trial_ledger` row written with `coach_trial_used: true` ✓
+- Delete coach account → re-signup with same email → paywall shows billing warning + confirm modal before Stripe ✓
+- Coach account with no subscription → paywall shows "Delete account" link → deletes cleanly ✓
 
-**Part 5 issues encountered:**
-1. FK violation (`subscriptions_solo_id_fkey`) on auth delete — subscriptions row not cleared before Postgres cascade-deleted the profiles row → fixed: explicit subscriptions delete before auth delete
-2. Silent failure — subscriptions delete was in the generic loop with no response checking → fix didn't appear to work; moved to explicit block with `throw` on failure to surface real error
-3. `42501 permission denied` — subscriptions table missing `GRANT DELETE TO service_role` → fixed: `GRANT DELETE ON public.subscriptions TO service_role`
+**Part 5 issues:**
+1. FK violation (`subscriptions_solo_id_fkey`) — subscriptions row not cleared before auth delete → explicit delete with response checking
+2. Silent failure in generic deletions loop → moved to explicit block with throw
+3. `42501` — `GRANT DELETE ON public.subscriptions TO service_role` missing
+
+**Part 6 issues:**
+1. Coach subscriptions row FK (`subscriptions.coach_id → profiles.id` NO ACTION) — same bug as solo, different column → same fix: explicit DELETE before auth delete
+2. `trial_ledger` INSERT/SELECT silently failing — `GRANT SELECT, INSERT, UPDATE ON trial_ledger TO service_role` missing
+3. `check-trial-eligibility` request never appeared in Network — old frontend (no useEffect) still live on production; push + Vercel build required
+4. `price_1TechtAWijxnniIjAWpCOW1X` (founding price) deleted from Stripe in clean-slate reset — updated `.env` with active price ID
 
 **Lesson:** Always check responses on destructive DB ops in a deletion sequence. Silent failures produce confusing downstream FK errors.
 
@@ -150,7 +161,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
-- **Jun 7** — Coach offboarding overhaul Parts 1–4 (trial pause/resume upgrade, offboard marker on profiles, delete-account coach branch). Part 5 (solo self-delete with subscription FK fix + GRANT DELETE). Full end-to-end tests passed. Four production issues + three Part 5 issues resolved. Supabase upgraded to Pro. `config.toml` JWT bypass made permanent.
+- **Jun 7** — Parts 1–6 complete: coach offboarding overhaul, trial pause/resume, offboard marker on profiles, delete-account coach + solo branches, checkout ledger gate, trial warning on CoachPaywall, delete-account link on paywall. Coach + solo FK bugs fixed. GRANT issues resolved. Supabase upgraded to Pro. `config.toml` JWT bypass permanent.
 - **Jun 6** — Live workflow verification (all flows passing). Trigger confirmed. AI-context refactor: split into `architecture.md` + `decisions.md` + slim `current-state.md`.
 - **Jun 5/6 (prior session)** — Rebrand decision (Gardnr), new landing page built (not merged), DB + Stripe cleared for clean slate.
 - **Jun 5** — Tier 1 feature sweep (6 features), 6 bug fixes, steps unique-constraint fix.
