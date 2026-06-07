@@ -207,7 +207,7 @@ async function fetchSubscriptionRow(
 
   if (stripeSubscriptionId) {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/subscriptions?stripe_subscription_id=eq.${eq(stripeSubscriptionId)}&select=id,coach_id&limit=1`,
+      `${supabaseUrl}/rest/v1/subscriptions?stripe_subscription_id=eq.${eq(stripeSubscriptionId)}&select=id,coach_id,paused_for_coaching&limit=1`,
       { headers },
     )
     const rows = await response.json()
@@ -217,7 +217,7 @@ async function fetchSubscriptionRow(
 
   if (stripeCustomerId) {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/subscriptions?stripe_customer_id=eq.${eq(stripeCustomerId)}&select=id,coach_id&limit=1`,
+      `${supabaseUrl}/rest/v1/subscriptions?stripe_customer_id=eq.${eq(stripeCustomerId)}&select=id,coach_id,paused_for_coaching&limit=1`,
       { headers },
     )
     const rows = await response.json()
@@ -370,6 +370,16 @@ Deno.serve(async (req) => {
         const stripeCustomerId = getStringId(object?.customer)
         const stripeSubscriptionId = getStringId(object?.id)
 
+        const subRow = await fetchSubscriptionRow(
+          supabaseUrl,
+          serviceKey,
+          stripeCustomerId,
+          stripeSubscriptionId,
+        )
+
+        // Deletion was triggered by a coaching pause — skip status update and offboarding
+        if (subRow?.paused_for_coaching) break
+
         await updateSubscription(
           supabaseUrl,
           serviceKey,
@@ -384,12 +394,6 @@ Deno.serve(async (req) => {
           },
         )
 
-        const subRow = await fetchSubscriptionRow(
-          supabaseUrl,
-          serviceKey,
-          stripeCustomerId,
-          stripeSubscriptionId,
-        )
         if (subRow?.coach_id) {
           await offboardCoachClients(supabaseUrl, serviceKey, subRow.coach_id)
         }

@@ -22,7 +22,7 @@ async function resumeSoloSubscription(
   }
 
   const subRes = await fetch(
-    `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${userId}&paused_for_coaching=eq.true&select=id,status,stripe_subscription_id&limit=1`,
+    `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${userId}&paused_for_coaching=eq.true&select=id,status,stripe_subscription_id,paused_trial_days_remaining,stripe_customer_id,stripe_price_id&limit=1`,
     { headers },
   )
   const subText = await subRes.text()
@@ -36,7 +36,50 @@ async function resumeSoloSubscription(
   if (!sub) return
 
   let canClearLocalPause = true
-  if (sub.status === 'active' && sub.stripe_subscription_id) {
+  let newStripeSubId: string | null = null
+
+  if (sub.paused_trial_days_remaining != null) {
+    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
+    if (!stripeSecretKey) {
+      console.error('STRIPE_SECRET_KEY is not configured')
+      canClearLocalPause = false
+    } else {
+      let defaultPm: string | null = null
+      if (sub.stripe_customer_id) {
+        const customerRes = await fetch(
+          `https://api.stripe.com/v1/customers/${sub.stripe_customer_id}`,
+          { headers: { Authorization: `Basic ${btoa(stripeSecretKey + ':')}` } },
+        )
+        if (customerRes.ok) {
+          const customer = await customerRes.json()
+          defaultPm = customer?.invoice_settings?.default_payment_method ?? null
+        }
+      }
+
+      const subParams = new URLSearchParams({
+        customer: sub.stripe_customer_id,
+        'items[0][price]': sub.stripe_price_id,
+        trial_period_days: String(sub.paused_trial_days_remaining),
+        'metadata[solo_id]': userId,
+        'metadata[plan_type]': 'solo',
+      })
+      if (defaultPm) subParams.set('default_payment_method', defaultPm)
+
+      const newSubRes = await fetch('https://api.stripe.com/v1/subscriptions', {
+        method: 'POST',
+        headers: stripeHeaders(stripeSecretKey),
+        body: subParams.toString(),
+      })
+
+      if (!newSubRes.ok) {
+        console.error('Failed to recreate Stripe subscription:', await newSubRes.text())
+        canClearLocalPause = false
+      } else {
+        const newSub = await newSubRes.json()
+        newStripeSubId = newSub.id
+      }
+    }
+  } else if (sub.status === 'active' && sub.stripe_subscription_id) {
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
     if (!stripeSecretKey) {
       console.error('STRIPE_SECRET_KEY is not configured')
@@ -61,12 +104,19 @@ async function resumeSoloSubscription(
 
   if (!canClearLocalPause) return
 
+  const patchPayload: Record<string, unknown> = { paused_for_coaching: false }
+  if (newStripeSubId) {
+    patchPayload.paused_trial_days_remaining = null
+    patchPayload.stripe_subscription_id = newStripeSubId
+    patchPayload.status = 'trialing'
+  }
+
   const patchRes = await fetch(
     `${supabaseUrl}/rest/v1/subscriptions?id=eq.${sub.id}`,
     {
       method: 'PATCH',
       headers: { ...headers, 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ paused_for_coaching: false }),
+      body: JSON.stringify(patchPayload),
     },
   )
 

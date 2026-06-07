@@ -66,8 +66,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [hideCalories, setHideCalories] = useState(false)
   const [showOffboardNotice, setShowOffboardNotice] = useState(false)
-  const offboardNoticeShownRef = useRef(false)
-  const offboardNoticeAtRef = useRef(null)
+  const [offboardReason, setOffboardReason] = useState(null)
   const [showNudgeNotice, setShowNudgeNotice] = useState(false)
   const [nudgeTimestamp, setNudgeTimestamp] = useState('')
   const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
@@ -500,26 +499,22 @@ async function reactToMessage(messageId, emoji) {
   }
 
   async function fetchOffboardNotice() {
-    if (offboardNoticeShownRef.current) return
-
     const { data: { session: currentSession } } = await supabase.auth.getSession()
+    if (!currentSession) return
 
     const { data } = await supabase
-      .from('coach_clients')
-      .select('offboarded_at')
-      .eq('client_id', currentSession.user.id)
-      .eq('status', 'offboarded')
-      .order('offboarded_at', { ascending: false })
-      .limit(1)
+      .from('profiles')
+      .select('offboarded_at, offboard_reason')
+      .eq('id', currentSession.user.id)
       .maybeSingle()
 
-    if (!data?.offboarded_at) return
+    const coachInitiated =
+      data?.offboard_reason === 'coach_offboarded' ||
+      data?.offboard_reason === 'coach_deleted'
 
-    const dismissedAt = localStorage.getItem(`offboard_dismissed_at_${currentSession.user.id}`)
-    if (dismissedAt === data.offboarded_at) return
+    if (!data?.offboarded_at || !coachInitiated) return
 
-    offboardNoticeShownRef.current = true
-    offboardNoticeAtRef.current = data.offboarded_at
+    setOffboardReason(data.offboard_reason)
     setShowOffboardNotice(true)
   }
 
@@ -579,8 +574,6 @@ async function reactToMessage(messageId, emoji) {
     setSelfOffboarding(true)
     setSelfOffboardError('')
 
-    const { data: { session: currentSession } } = await supabase.auth.getSession()
-    localStorage.setItem(`offboard_by_${currentSession.user.id}`, 'client')
     const { error } = await supabase.functions.invoke('offboard-self')
 
     if (error) {
@@ -638,7 +631,6 @@ async function reactToMessage(messageId, emoji) {
   const activeReports = reports.filter(r => !r.archived)
   const archivedReports = reports.filter(r => r.archived)
   const unreadCount = activeReports.filter(r => !r.read_at).length
-  const offboardedBy = localStorage.getItem(`offboard_by_${profile?.id}`) || 'coach'
 
   const groupByWeek = (list) => {
     const grouped = {}
@@ -741,18 +733,21 @@ async function reactToMessage(messageId, emoji) {
 	          gap: '12px'
 	        }}>
 	          <p style={{ fontSize: '0.875rem', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
-	            {offboardedBy === 'client'
-	              ? "You've left your coaching plan. Your data is preserved and you can continue tracking on your own."
-	              : "Your coach has ended the coaching relationship. Your data is preserved and you can continue tracking on your own."
+	            {offboardReason === 'coach_deleted'
+	              ? "Your coach's account was closed. Your data is preserved — you're now on a solo plan and can keep tracking on your own."
+	              : "Your coach ended the coaching relationship. Your data is preserved — you're now on a solo plan and can keep tracking on your own."
 	            }
 	          </p>
 	          <button
-	            onClick={() => {
-	              supabase.auth.getSession().then(({ data: { session } }) => {
-	                if (offboardNoticeAtRef.current) {
-	                  localStorage.setItem(`offboard_dismissed_at_${session.user.id}`, offboardNoticeAtRef.current)
-	                }
-	              })
+	            onClick={async () => {
+	              const { data: { session } } = await supabase.auth.getSession()
+	              if (session) {
+	                const { error } = await supabase
+	                  .from('profiles')
+	                  .update({ offboarded_at: null, offboard_reason: null })
+	                  .eq('id', session.user.id)
+	                if (error) console.warn('Failed to clear offboard notice:', error.message)
+	              }
 	              setShowOffboardNotice(false)
 	            }}
 	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
