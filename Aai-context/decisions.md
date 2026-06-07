@@ -51,13 +51,43 @@
 **Reason:** Prevent trial-farming by repeatedly canceling and re-subscribing.
 **Consequences:** `create-checkout-session` blocks `canceled` status from re-trialing.
 
-### Trial clock continues during coaching (accepted v1 limitation)
-**Reason:** Stripe has no true trial-clock pause. Building one is disproportionate effort for an edge case.
-**Consequences:** If a solo user joins a coach mid-trial and leaves later, the trial may be over on return. `paused_for_coaching` is a local marker; offboarding clears it and the user returns to whatever status Stripe has reached. Documented and accepted; revisit only if it becomes a real complaint.
+### ~~Trial clock continues during coaching (accepted v1 limitation)~~ — OVERRIDDEN Jun 7
+**Original reason:** Stripe has no true trial-clock pause.
+**Override:** Trial time is now preserved. On pause: remaining days calculated from Stripe `trial_end`, Stripe trial subscription cancelled (no charge — trialing), `paused_trial_days_remaining` stored on the subscriptions row. On resume: new Stripe subscription created via API with `trial_period_days = paused_trial_days_remaining` on the same customer + saved payment method. Active (paying) subs unchanged — `pause_collection` still used for those.
+**Consequences:** Write-before-delete ordering is critical: DB row must have `paused_for_coaching=true` committed before Stripe DELETE fires, because `customer.subscription.deleted` webhook reads that flag. `stripe-webhook` skips the deleted handler when `paused_for_coaching=true` to prevent double-processing.
 
-### Data is never deleted regardless of payment status
+### Data is never deleted regardless of payment status (cancellation only)
 **Reason:** Trust and re-activation. A coach or solo user who lapses should not lose history.
 **Consequences:** Access is restricted, not data. Canceled accounts keep all rows; resubscribing restores access to intact data.
+**Exception (Jun 7):** Account deletion (explicit user action) IS a full hard delete — all rows + auth user. This is a legal right and a separate flow from cancellation. The `trial_ledger` table is the one thing that survives deletion by design (fraud prevention — see below).
+
+### Trial eligibility is per-product granular, not blanket
+**Reason:** A deleted coach who re-signs up as solo never used a solo trial. Burning both trials on one deletion is punitive and inconsistent.
+**Consequences:** `trial_ledger` tracks `coach_trial_used` and `solo_trial_used` separately. Deleting as coach burns `coach_trial_used` only; solo trial remains available. `create-checkout-session` checks the relevant flag before attaching a trial period.
+
+### `trial_ledger` stores SHA-256 peppered hash, not plaintext email
+**Reason:** Minimum PII retention for fraud prevention. Plaintext email retention post-deletion creates GDPR/CCPA exposure.
+**Consequences:** Hash = `SHA-256(EMAIL_HASH_PEPPER + ':' + lower(trim(email)))`. Pepper stored as Supabase secret. If pepper ever changes, old hashes can't be matched — treat as a breaking change. Legal todo: disclose fraud-prevention retention in Privacy Policy.
+
+### On deletion, cancel Stripe subscription but keep Stripe customer
+**Reason:** Cleaner re-signup (customer record preserved), Stripe-side history maintained, avoids recreating a customer on re-signup.
+**Consequences:** `delete-account` calls `DELETE /v1/subscriptions/:id` but never deletes the Stripe customer. The customer's payment method history is preserved for any future re-subscription.
+
+### Active Solo Premium resume = billing resumes where period left off
+**Reason:** Standard SaaS behavior. Extending the billing period by the paused duration is more complex and not expected by users.
+**Consequences:** `pause_collection` cleared on resume; Stripe resumes at the existing `current_period_end`. No period extension.
+
+### Coach re-signup after deletion = paywalled, no trial
+**Reason:** Coaches consumed their trial. Re-deletion + re-signup must not be a trial farming vector.
+**Consequences:** `create-checkout-session` checks `coach_trial_used` in `trial_ledger`; if true, no `trial_period_days` is attached — coach must subscribe directly. Account can exist (hits `CoachPaywall`) but has no free access.
+
+### Offboard notice lives on `profiles`, not `coach_clients`
+**Reason:** When a coach deletes their account, the `coach_clients` row is destroyed. A notice keyed to that row dies with it.
+**Consequences:** `profiles.offboarded_at` + `profiles.offboard_reason` are written at offboard time and survive coach deletion. Dashboard reads from `profiles`. Dismiss clears both fields to null server-side (cross-device, no localStorage timestamp key). Self-leave (`offboard-self`) writes no marker — the user did it themselves, no banner needed.
+
+### Offboard reason values: `coach_offboarded` | `coach_deleted`
+**Reason:** Banner copy differs by reason; the client deserves to know whether their coach chose to end the relationship or their account was closed.
+**Consequences:** `offboard-client` writes `coach_offboarded`; `delete-account` coach branch writes `coach_deleted`. `offboard-self` writes nothing. Dashboard renders different copy per value.
 
 ### Access allow-list is `['trialing', 'active', 'past_due']`
 **Reason:** `past_due` users should keep access during Stripe Smart Retries (~2 weeks) rather than being cut off the moment a card fails — fairer and reduces involuntary churn.
@@ -114,6 +144,15 @@
 ### Webhook and internal functions deployed `--no-verify-jwt`, verify internally
 **Reason:** Stripe doesn't send a Supabase JWT (caused 401s); internal functions need to verify the caller themselves rather than rely on gateway JWT checks.
 **Consequences:** `stripe-webhook` verifies the Stripe signature (HMAC-SHA256). Internal functions (`pause-solo-subscription`, `cancel-subscription`, `milestone-reached`) verify the caller via `auth/v1/user`.
+**Important:** `verify_jwt = false` must be set in `supabase/config.toml` for each affected function — redeploying without this resets to the default (JWT required) and breaks Stripe. Config entries added Jun 7 for `stripe-webhook`, `pause-solo-subscription`, `cancel-subscription`, `milestone-reached`. Git push does NOT deploy edge functions — `supabase functions deploy <name>` is always a separate step.
+
+### `delete-account` client offboarding ordering
+**Reason:** When a coach deletes, `coach_clients` rows must be processed before they are deleted, and the coach's Stripe sub must be cancelled after `coach_clients` rows are gone.
+**Consequences:** Order is: (1) fetch + process all clients (resume subs, flip roles, write offboard markers, send emails), (2) bulk DELETE all data rows including `coach_clients`, (3) cancel coach Stripe sub, (4) delete auth user. Stripe cancel goes last in the data deletion sequence so the resulting `customer.subscription.deleted` webhook finds no clients to re-offboard.
+
+### `resumeSoloSubscription` is duplicated across three files (deferred extraction)
+**Reason:** Extracting to `_shared/` mid-feature would require editing two live-billing functions as a side effect of shipping a new feature — bad change hygiene.
+**Consequences:** Verbatim copies in `offboard-self`, `offboard-client`, `delete-account`. Flagged as tech debt: extract to `supabase/functions/_shared/resumeSoloSubscription.ts` in a dedicated refactor pass where all three are visible and testable together.
 
 ### `checkout.session.completed` fetches the real subscription object from Stripe
 **Reason:** Inferring status from `payment_status === 'paid'` was unreliable for trial checkouts and wrote `active` when it should be `trialing`.

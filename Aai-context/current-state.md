@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`e5acdf4 feat: email cancellation confirmations` (~180+ commits)
+`1692441 Handle coach offboarding subscription pauses`
 
 ## Production
 - **Live URL:** https://www.tryfitlog.com
@@ -18,10 +18,19 @@
 - **Lint:** Failing on pre-existing issues only (4 errors / 9 warnings) — no new errors
 - **Deploy:** Auto on push to `main` via Vercel
 - **Billing:** Live mode active (`BILLING_ENABLED = true`)
+- **Supabase:** Upgraded to Pro (no longer free tier — auto-pause risk eliminated)
 
 ---
 
 ## Recently Shipped (most recent first)
+
+**Coach offboarding overhaul (Parts 1–4)** — Full coach account deletion flow with client protection:
+- **Part 1:** Migration — `profiles.offboarded_at`, `profiles.offboard_reason`, `subscriptions.paused_trial_days_remaining`, `trial_ledger` table (pre-built, not yet wired)
+- **Part 2:** Trial pause/resume upgrade — trialing solo subs now cancel on Stripe (saving days remaining) and recreate on offboard; write-before-delete ordering so webhook guard is set before Stripe DELETE fires; `stripe-webhook` guards `customer.subscription.deleted` when `paused_for_coaching=true`
+- **Part 3:** Offboard marker on `profiles` (survives coach row deletion); Dashboard repointed to read `profiles.offboarded_at + offboard_reason`; dismiss is now server-side null (cross-device); copy differs by reason (`coach_offboarded` vs `coach_deleted`); self-leave no longer triggers banner
+- **Part 4:** `delete-account` coach branch — offboards all clients before destructive ops, resumes paused subs, flips roles to solo, writes offboard marker, sends email notification; Stripe sub cancelled after `coach_clients` rows deleted (prevents webhook double-offboard); `resumeSoloSubscription` copied verbatim (deferred: extract to `_shared/`)
+
+**`config.toml` JWT bypass persistence** — `verify_jwt = false` added for `stripe-webhook`, `pause-solo-subscription`, `cancel-subscription`, `milestone-reached`; persists through every future redeploy
 
 **Self-serve cancel + resume** — `cancel-subscription` edge fn, `SubscriptionManager.jsx`, cancel-at-period-end, confirmation email.
 
@@ -33,12 +42,25 @@
 
 ---
 
-## Verified This Session (June 6, 2026)
+## Verified This Session (June 7, 2026)
 
-Full live workflow tested end-to-end — all passing:
+Parts 2–4 coach offboarding — tested end-to-end after full function redeploy:
+- Coach account created + trial started → Stripe checkout completed → `status: trialing` written correctly
+- Solo account created + premium trial started → paused when joined coach (`paused_for_coaching=true`, Stripe trial cancelled, days remaining stored)
+- Coach deleted account → client processed: role flipped to solo, offboard marker written to profiles, paused trial resumed (new Stripe sub recreated with remaining days), email sent, coach's Stripe sub cancelled
+- Client Dashboard → "account was closed" banner shown on next load, dismiss clears server-side
+- `stripe-webhook` correctly skips `customer.subscription.deleted` when `paused_for_coaching=true`
+
+**Production issues encountered and resolved this session:**
+1. Supabase free tier auto-paused → browser stuck on "Loading..." (JWT refresh can't reach server) → fixed: resumed project, cleared localStorage; **permanent fix: upgraded to Pro**
+2. Edge Functions not redeployed after git push → old code running in production → fixed: `supabase functions deploy` for all 5 changed functions; **lesson: git push ≠ function deploy**
+3. `stripe-webhook` JWT bypass reset on redeploy → Stripe events rejected with `UNAUTHORIZED_NO_AUTH_HEADER` → fixed: `supabase functions deploy stripe-webhook --no-verify-jwt`; **permanent fix: `verify_jwt = false` in `config.toml`**
+4. Missing `profiles.offboarded_at` + `offboard_reason` migration → columns written by edge functions but didn't exist in DB → fixed: `20260606130000_add_profiles_offboard_fields.sql` + `supabase db push`
+
+**Prior verified (June 6, 2026):**
 - `on_auth_user_created` trigger confirmed present in live DB
 - Coach signup → role picker → billing card → Stripe checkout → dashboard
-- Subscription row writes `status: trialing` correctly (confirms webhook fix)
+- Subscription row writes `status: trialing` correctly
 - Coach invite → client accept → connection
 - Coach offboard → client → solo + in-app notification
 - Solo Premium trial checkout
@@ -56,10 +78,10 @@ Full live workflow tested end-to-end — all passing:
 |---|---|
 | Chart.js Filler plugin warning | Cosmetic, deferred (Filler now registered — verify gone) |
 | `npm run lint` 4 errors / 9 warnings | Pre-existing, deferred |
-| Offboard in-app notice shows twice | Cosmetic, deferred |
 | Large Vite JS chunk warning | Deferred |
 
 **Resolved:** ~~`subscriptions.status` writes `active` instead of `trialing`~~ — fixed (webhook fetches real Stripe sub object); verified `trialing` live June 6.
+**Resolved:** ~~Offboard in-app notice shows twice~~ — fixed (Part 3: reads from `profiles.offboard_reason`, only coach-initiated paths write it, self-leave writes no marker).
 
 ---
 
@@ -116,7 +138,8 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
-- **Jun 6** — Live workflow verification (all flows passing). Trigger confirmed. Began AI-context refactor: split into `architecture.md` + `decisions.md` + slim `current-state.md` (+ existing `features.md`).
+- **Jun 7** — Coach offboarding overhaul Parts 1–4 (trial pause/resume upgrade, offboard marker on profiles, delete-account coach branch). Full end-to-end test passed. Four production issues resolved (see Verified section). Supabase upgraded to Pro. `config.toml` JWT bypass made permanent.
+- **Jun 6** — Live workflow verification (all flows passing). Trigger confirmed. AI-context refactor: split into `architecture.md` + `decisions.md` + slim `current-state.md`.
 - **Jun 5/6 (prior session)** — Rebrand decision (Gardnr), new landing page built (not merged), DB + Stripe cleared for clean slate.
 - **Jun 5** — Tier 1 feature sweep (6 features), 6 bug fixes, steps unique-constraint fix.
 - **Jun 4** — Solo Premium + self-serve cancel/resume; legal docs; Stripe live mode; weekly digest.

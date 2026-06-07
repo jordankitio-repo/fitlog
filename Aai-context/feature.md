@@ -85,7 +85,15 @@ Edge Functions
 Function
 Purpose
 delete-account
-Deletes all user data + auth user
+Deletes all user data + auth user. Coach branch: offboards all clients (resume paused subs, flip roles, write offboard markers, send emails), cancels coach Stripe sub, then deletes. Client branch: TBD (Part 5).
+offboard-client
+Coach removes a client. Ends connection, resumes client's paused solo sub (trial recreate or active unpause), writes offboard marker to profiles (coach_offboarded), sends email.
+offboard-self
+Client leaves coaching. Resumes paused solo sub. No offboard marker written (self-initiated).
+pause-solo-subscription
+Pauses a solo user's sub when they join a coach. Trialing: cancels Stripe sub + stores paused_trial_days_remaining. Active: pause_collection. Write-before-delete ordering: DB guard set before Stripe DELETE.
+cancel-subscription
+Self-serve cancel (cancel_at_period_end). Coach and solo.
 nutrition-coach
 AI nutrition advice
 weekly-report
@@ -99,9 +107,9 @@ AI call briefing for coaches
 nudge-client
 Coach nudge — 48hr cooldown, Resend email
 create-checkout-session
-Creates Stripe checkout session with 30-day trial
+Creates Stripe checkout session (30-day coach trial, 14-day solo trial). Checks trial_ledger before attaching trial (TBD — Part 5 gate).
 stripe-webhook
-Handles Stripe events, updates subscriptions table
+Handles Stripe events. Guards customer.subscription.deleted: skips update + offboarding when paused_for_coaching=true (coaching-pause cancellation, not real churn).
 weekly-digest
 Monday coach digest email via pg_cron
 Billing & Access
@@ -427,10 +435,12 @@ Lint errors (4 errors / 9 warnings)
 Deferred
 Google OAuth re-architecture
 Deferred
-Offboard notice shows twice
-Cosmetic, deferred
 AI nutrition advice ungated
 Currently free for all users — gate when solo billing built
+Extract resumeSoloSubscription to _shared/
+Currently duplicated verbatim in offboard-self, offboard-client, delete-account. Extract to supabase/functions/_shared/resumeSoloSubscription.ts in a dedicated refactor pass.
+subscriptions FK on solo_id is NO ACTION
+Deleting a solo user who holds a subscription row will be rejected by Postgres. Part 5 fixes: cancel Stripe sub + delete subscriptions row before auth delete.
 
 
 ⏳ Deferred — Needs more users first
@@ -502,6 +512,9 @@ Privacy Policy Section 2
 AI nutrition advice gating
 Privacy Policy Section 8
 ⬜ Update when gated
+Trial ledger fraud-prevention retention
+Privacy Policy
+⬜ Disclose that a hashed email is retained post-deletion for fraud prevention (legitimate interest basis). Not legal advice — flag for legal review before shipping trial_ledger gate.
 
 
 Pricing Summary
