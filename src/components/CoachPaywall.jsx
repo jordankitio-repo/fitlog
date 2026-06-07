@@ -14,7 +14,15 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
   useEffect(() => {
     async function checkEligibility() {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        let session = null
+        // getSession can return null on first render if auth is still initialising — retry once
+        const first = await supabase.auth.getSession()
+        session = first.data.session
+        if (!session) {
+          await new Promise((r) => setTimeout(r, 800))
+          const second = await supabase.auth.getSession()
+          session = second.data.session
+        }
         if (!session) return
         const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-trial-eligibility`,
