@@ -87,6 +87,9 @@ entrypoint = "./functions/weekly-digest/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/weekly-digest/*.html" ]
 
+[functions.check-trial-eligibility]
+verify_jwt = false
+
 [functions.stripe-webhook]
 verify_jwt = false
 
