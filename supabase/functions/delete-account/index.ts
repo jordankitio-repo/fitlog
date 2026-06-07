@@ -301,8 +301,18 @@ Deno.serve(async (req) => {
             headers: { 'Authorization': `Basic ${btoa(stripeKey + ':')}` },
           }).catch((e) => console.error('coach Stripe cancel failed:', e))
         }
+        // Delete the subscriptions row to clear the FK before auth delete
+        const delSubRes = await fetch(
+          `${supabaseUrl}/rest/v1/subscriptions?coach_id=eq.${uid}`,
+          { method: 'DELETE', headers },
+        )
+        if (!delSubRes.ok) {
+          const err = await delSubRes.text()
+          throw new Error(`Failed to delete coach subscriptions row: ${err}`)
+        }
       } catch (e) {
         console.error('Failed to cancel coach Stripe subscription:', e)
+        throw e
       }
     }
 
