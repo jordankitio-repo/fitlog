@@ -227,6 +227,28 @@ Deno.serve(async (req) => {
     }
     // --- end client-processing branch ---
 
+    // Solo/client deletion: cancel Stripe sub before the subscriptions row is deleted.
+    // subscriptions.solo_id has NO ACTION FK — row must be gone before auth delete or Postgres rejects it.
+    if (callerRole === 'solo' || callerRole === 'client') {
+      try {
+        const subRes = await fetch(
+          `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${uid}&select=stripe_subscription_id,status&limit=1`,
+          { headers },
+        )
+        const subRows = await subRes.json().catch(() => [])
+        const sub = Array.isArray(subRows) ? subRows[0] : null
+        const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
+        if (sub?.stripe_subscription_id && sub.status !== 'canceled' && stripeKey) {
+          await fetch(`https://api.stripe.com/v1/subscriptions/${sub.stripe_subscription_id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Basic ${btoa(stripeKey + ':')}` },
+          }).catch((e) => console.error('solo Stripe cancel failed:', e))
+        }
+      } catch (e) {
+        console.error('Failed to cancel solo subscription before deletion:', e)
+      }
+    }
+
     // Delete all user data explicitly before deleting auth user
     const deletions = [
       `nutrition_log?user_id=eq.${uid}`,
@@ -244,6 +266,7 @@ Deno.serve(async (req) => {
       `coach_clients?client_id=eq.${uid}`,
       `coach_clients?coach_id=eq.${uid}`,
       `invitations?coach_id=eq.${uid}`,
+      `subscriptions?solo_id=eq.${uid}`,
     ]
 
     for (const path of deletions) {
