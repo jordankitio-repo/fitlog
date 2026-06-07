@@ -142,7 +142,7 @@ supabase/
 - `id`, `coach_id`, `client_id`, `content` (timestamped append log, prepended each save), `updated_at`
 - Unique: `(coach_id, client_id)`
 
-**invite_tokens**
+**invitations**
 - `id`, `coach_id`, `email`, `token`, `used`, `created_at`
 
 **subscriptions**
@@ -220,7 +220,7 @@ All tables have RLS enabled. Policies are user-scoped (`user_id = auth.uid()`) o
 ## Coach–Client System
 
 ### Invite flow
-1. Coach enters client email in CoachDashboard → sends invite (creates `invite_tokens` row, Resend email)
+1. Coach enters client email in CoachDashboard → sends invite (creates `invitations` row, Resend email)
 2. Client clicks link → `/join?token=xxx`
 3. Client signs up or logs in → `Join.jsx` sets `profiles.role = client`, creates `coach_clients` row
 4. Existing users see contextual "you're already a FitLog user" messaging; existing data preserved

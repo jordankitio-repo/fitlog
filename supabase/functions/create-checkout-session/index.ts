@@ -35,6 +35,43 @@ async function stripePost(
   return data
 }
 
+async function hashEmail(email: string): Promise<string> {
+  const pepper = Deno.env.get('EMAIL_HASH_PEPPER') ?? ''
+  const data = new TextEncoder().encode(`${pepper}:${email.toLowerCase().trim()}`)
+  const buf = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function getLedgerEntry(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  emailHash: string,
+) {
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/trial_ledger?email_hash=eq.${emailHash}&select=coach_trial_used,solo_trial_used&limit=1`,
+    { headers },
+  )
+  const rows = await res.json().catch(() => [])
+  return Array.isArray(rows) ? rows[0] ?? null : null
+}
+
+async function markTrialUsed(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  emailHash: string,
+  field: 'coach_trial_used' | 'solo_trial_used',
+) {
+  await fetch(`${supabaseUrl}/rest/v1/trial_ledger`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
+    body: JSON.stringify({
+      email_hash: emailHash,
+      [field]: true,
+      updated_at: new Date().toISOString(),
+    }),
+  })
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -110,6 +147,10 @@ Deno.serve(async (req) => {
         stripeCustomerId = customer.id
       }
 
+      const emailHash = await hashEmail(profile.email || user.email || '')
+      const ledger = await getLedgerEntry(supabaseUrl, restHeaders, emailHash)
+      const coachTrialEligible = !ledger?.coach_trial_used
+
       const sessionParams = new URLSearchParams({
         customer: stripeCustomerId,
         mode: 'subscription',
@@ -117,14 +158,18 @@ Deno.serve(async (req) => {
         cancel_url: 'https://www.tryfitlog.com/profile',
         'line_items[0][price]': stripePriceId,
         'line_items[0][quantity]': '1',
-        'subscription_data[trial_period_days]': '30',
         'metadata[coach_id]': user.id,
         'metadata[plan_type]': 'coach',
         'subscription_data[metadata][coach_id]': user.id,
         'subscription_data[metadata][plan_type]': 'coach',
       })
+      if (coachTrialEligible) sessionParams.set('subscription_data[trial_period_days]', '30')
 
       const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
+
+      if (coachTrialEligible) {
+        await markTrialUsed(supabaseUrl, restHeaders, emailHash, 'coach_trial_used')
+      }
 
       const payload = {
         coach_id: user.id,
@@ -182,6 +227,10 @@ Deno.serve(async (req) => {
         stripeCustomerId = customer.id
       }
 
+      const emailHash = await hashEmail(profile.email || user.email || '')
+      const ledger = await getLedgerEntry(supabaseUrl, restHeaders, emailHash)
+      const soloTrialEligible = !ledger?.solo_trial_used
+
       const sessionParams = new URLSearchParams({
         customer: stripeCustomerId,
         mode: 'subscription',
@@ -189,14 +238,18 @@ Deno.serve(async (req) => {
         cancel_url: 'https://www.tryfitlog.com/profile',
         'line_items[0][price]': stripePriceId,
         'line_items[0][quantity]': '1',
-        'subscription_data[trial_period_days]': '14',
         'metadata[solo_id]': user.id,
         'metadata[plan_type]': 'solo',
         'subscription_data[metadata][solo_id]': user.id,
         'subscription_data[metadata][plan_type]': 'solo',
       })
+      if (soloTrialEligible) sessionParams.set('subscription_data[trial_period_days]', '14')
 
       const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
+
+      if (soloTrialEligible) {
+        await markTrialUsed(supabaseUrl, restHeaders, emailHash, 'solo_trial_used')
+      }
 
       const payload = {
         solo_id: user.id,
