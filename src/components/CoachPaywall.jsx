@@ -8,6 +8,7 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
   const [error, setError] = useState(null)
   const [trialUsed, setTrialUsed] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const isCanceled = subscription?.status === 'canceled'
 
@@ -36,6 +37,22 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
     }
     checkEligibility()
   }, [])
+
+  async function handleDeleteAccount() {
+    if (!window.confirm('Permanently delete your account? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      })
+      await supabase.auth.signOut()
+    } catch {
+      setDeleting(false)
+      setError('Could not delete account. Try again.')
+    }
+  }
 
   async function handleStartTrial() {
     if (trialUsed && !isCanceled) {
@@ -132,6 +149,14 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
           style={{ background: 'none', border: 'none', color: 'var(--color-muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', marginTop: 8 }}
         >
           Sign out
+        </button>
+        <br />
+        <button
+          onClick={handleDeleteAccount}
+          disabled={deleting}
+          style={{ background: 'none', border: 'none', color: '#f87171', fontSize: 'var(--text-xs)', cursor: 'pointer', marginTop: 8 }}
+        >
+          {deleting ? 'Deleting…' : 'Delete account'}
         </button>
 
         <div style={{ marginTop: 16 }}>
