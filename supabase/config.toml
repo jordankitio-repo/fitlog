@@ -86,3 +86,15 @@ entrypoint = "./functions/weekly-digest/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/weekly-digest/*.html" ]
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.pause-solo-subscription]
+verify_jwt = false
+
+[functions.cancel-subscription]
+verify_jwt = false
+
+[functions.milestone-reached]
+verify_jwt = false
