@@ -24,6 +24,8 @@
 
 ## Recently Shipped (most recent first)
 
+**Part 5 — Solo self-delete with subscription** — Fixed latent FK violation: `subscriptions.solo_id → profiles.id` (NO ACTION) caused Postgres to reject the auth delete cascade. Fix: explicitly cancel Stripe sub + delete subscriptions row (with response checking) before auth delete. Also required `GRANT DELETE ON public.subscriptions TO service_role` — the table had SELECT granted but not DELETE, causing a silent 42501 that only surfaced once response checking was added.
+
 **Coach offboarding overhaul (Parts 1–4)** — Full coach account deletion flow with client protection:
 - **Part 1:** Migration — `profiles.offboarded_at`, `profiles.offboard_reason`, `subscriptions.paused_trial_days_remaining`, `trial_ledger` table (pre-built, not yet wired)
 - **Part 2:** Trial pause/resume upgrade — trialing solo subs now cancel on Stripe (saving days remaining) and recreate on offboard; write-before-delete ordering so webhook guard is set before Stripe DELETE fires; `stripe-webhook` guards `customer.subscription.deleted` when `paused_for_coaching=true`
@@ -43,6 +45,16 @@
 ---
 
 ## Verified This Session (June 7, 2026)
+
+**Part 5 verified:**
+- Solo account with active premium trial → delete account → auth user gone, subscriptions row deleted, Stripe subscription cancelled, redirected to sign-in. ✓
+
+**Part 5 issues encountered:**
+1. FK violation (`subscriptions_solo_id_fkey`) on auth delete — subscriptions row not cleared before Postgres cascade-deleted the profiles row → fixed: explicit subscriptions delete before auth delete
+2. Silent failure — subscriptions delete was in the generic loop with no response checking → fix didn't appear to work; moved to explicit block with `throw` on failure to surface real error
+3. `42501 permission denied` — subscriptions table missing `GRANT DELETE TO service_role` → fixed: `GRANT DELETE ON public.subscriptions TO service_role`
+
+**Lesson:** Always check responses on destructive DB ops in a deletion sequence. Silent failures produce confusing downstream FK errors.
 
 Parts 2–4 coach offboarding — tested end-to-end after full function redeploy:
 - Coach account created + trial started → Stripe checkout completed → `status: trialing` written correctly
@@ -138,7 +150,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
-- **Jun 7** — Coach offboarding overhaul Parts 1–4 (trial pause/resume upgrade, offboard marker on profiles, delete-account coach branch). Full end-to-end test passed. Four production issues resolved (see Verified section). Supabase upgraded to Pro. `config.toml` JWT bypass made permanent.
+- **Jun 7** — Coach offboarding overhaul Parts 1–4 (trial pause/resume upgrade, offboard marker on profiles, delete-account coach branch). Part 5 (solo self-delete with subscription FK fix + GRANT DELETE). Full end-to-end tests passed. Four production issues + three Part 5 issues resolved. Supabase upgraded to Pro. `config.toml` JWT bypass made permanent.
 - **Jun 6** — Live workflow verification (all flows passing). Trigger confirmed. AI-context refactor: split into `architecture.md` + `decisions.md` + slim `current-state.md`.
 - **Jun 5/6 (prior session)** — Rebrand decision (Gardnr), new landing page built (not merged), DB + Stripe cleared for clean slate.
 - **Jun 5** — Tier 1 feature sweep (6 features), 6 bug fixes, steps unique-constraint fix.

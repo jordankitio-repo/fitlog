@@ -85,7 +85,7 @@ Edge Functions
 Function
 Purpose
 delete-account
-Deletes all user data + auth user. Coach branch: offboards all clients (resume paused subs, flip roles, write offboard markers, send emails), cancels coach Stripe sub, then deletes. Client branch: TBD (Part 5).
+Role-aware deletion. Coach: offboards all clients (resume paused subs, flip roles, write offboard markers, send emails), cancels coach Stripe sub after coach_clients rows deleted, then deletes. Solo/client: cancels Stripe sub + explicitly deletes subscriptions row (GRANT DELETE required) to clear FK before auth delete.
 offboard-client
 Coach removes a client. Ends connection, resumes client's paused solo sub (trial recreate or active unpause), writes offboard marker to profiles (coach_offboarded), sends email.
 offboard-self
@@ -440,7 +440,7 @@ Currently free for all users — gate when solo billing built
 Extract resumeSoloSubscription to _shared/
 Currently duplicated verbatim in offboard-self, offboard-client, delete-account. Extract to supabase/functions/_shared/resumeSoloSubscription.ts in a dedicated refactor pass.
 subscriptions FK on solo_id is NO ACTION
-Deleting a solo user who holds a subscription row will be rejected by Postgres. Part 5 fixes: cancel Stripe sub + delete subscriptions row before auth delete.
+Fixed in Part 5: cancel Stripe sub + explicit subscriptions DELETE (with response checking) before auth delete. Also required GRANT DELETE ON public.subscriptions TO service_role.
 
 
 ⏳ Deferred — Needs more users first

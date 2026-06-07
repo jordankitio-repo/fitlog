@@ -146,6 +146,14 @@
 **Consequences:** `stripe-webhook` verifies the Stripe signature (HMAC-SHA256). Internal functions (`pause-solo-subscription`, `cancel-subscription`, `milestone-reached`) verify the caller via `auth/v1/user`.
 **Important:** `verify_jwt = false` must be set in `supabase/config.toml` for each affected function — redeploying without this resets to the default (JWT required) and breaks Stripe. Config entries added Jun 7 for `stripe-webhook`, `pause-solo-subscription`, `cancel-subscription`, `milestone-reached`. Git push does NOT deploy edge functions — `supabase functions deploy <name>` is always a separate step.
 
+### Solo account deletion must explicitly delete the subscriptions row before auth delete
+**Reason:** `subscriptions.solo_id` is a FK to `profiles.id` (NO ACTION). Deleting the auth user cascades to delete the profiles row, which Postgres rejects if the subscriptions row still references it.
+**Consequences:** `delete-account` solo branch: cancel Stripe sub → explicitly DELETE subscriptions row (with response checking, throw on failure) → then proceed with the generic deletions loop and auth delete. Response checking is mandatory — silent failures produce confusing FK violations downstream.
+
+### `GRANT DELETE ON public.subscriptions TO service_role` is required
+**Reason:** The subscriptions table was created with only SELECT granted to authenticated/service_role. DELETE was never granted. Even though service_role bypasses RLS, it still needs explicit table-level DELETE permission.
+**Consequences:** Without this grant, any service_role DELETE on subscriptions returns `42501 permission denied` silently if not response-checked. Grant applied in SQL editor. Any new table used in edge function DELETEs must have this grant verified.
+
 ### `delete-account` client offboarding ordering
 **Reason:** When a coach deletes, `coach_clients` rows must be processed before they are deleted, and the coach's Stripe sub must be cancelled after `coach_clients` rows are gone.
 **Consequences:** Order is: (1) fetch + process all clients (resume subs, flip roles, write offboard markers, send emails), (2) bulk DELETE all data rows including `coach_clients`, (3) cancel coach Stripe sub, (4) delete auth user. Stripe cancel goes last in the data deletion sequence so the resulting `customer.subscription.deleted` webhook finds no clients to re-offboard.
