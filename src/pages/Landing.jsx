@@ -1,263 +1,299 @@
 import { Link } from 'react-router-dom'
-import heroArt from '../assets/hero.png'
+import './landing.css'
 
 const signupPath = '/login?mode=signup&role=coach'
 
-const featureCards = [
-  {
-    title: 'Native nutrition tracking',
-    copy: 'Clients log meals, macros, weight, cardio, and steps in the same place your coaching decisions happen.',
-    metric: '1 place'
-  },
-  {
-    title: 'Compliance at a glance',
-    copy: 'See 7-day adherence for calories, protein, cardio, and steps without sorting through screenshots.',
-    metric: '7 days'
-  },
-  {
-    title: 'Reports coaches can send',
-    copy: 'Generate weekly coaching reports from real client data, edit the message, and send it from FitLog.',
-    metric: 'AI draft'
-  },
-  {
-    title: 'Body composition context',
-    copy: 'Review weight trends alongside calorie and activity compliance so check-ins have a clear story.',
-    metric: 'trend'
-  }
+// ── Data ────────────────────────────────────────────────────────────────────
+
+const clientRows = [
+  { name: 'Maya Chen',  goal: 'Cut phase',    lastLog: 'Today',     status: 'ready' },
+  { name: 'Jordan Lee', goal: 'Reverse diet', lastLog: 'Yesterday', status: 'watch' },
+  { name: 'Sam Rivera', goal: 'Maintenance',  lastLog: '3 days',    status: 'nudge' },
 ]
 
-const problemItems = [
-  'Food screenshots scattered across text threads',
-  'Manual spreadsheets for targets and weekly averages',
-  'No simple way to see who is actually compliant'
+const compliancePills = [
+  { label: 'Calories', value: '5/7', tone: 'good' },
+  { label: 'Protein',  value: '6/7', tone: 'good' },
+  { label: 'Cardio',   value: '3/7', tone: 'warn' },
+  { label: 'Steps',    value: '6/7', tone: 'good' },
+]
+
+const pains = [
+  { icon: '📲', text: 'Food screenshots buried in three different message threads' },
+  { icon: '📊', text: 'Rebuilding the same compliance spreadsheet every week' },
+  { icon: '🤔', text: 'Starting every check-in by asking "how did your week go?"' },
+]
+
+const contrast = [
+  { before: 'Screenshots and text threads', after: 'Daily nutrition, weight, cardio, and steps — all tied to the client' },
+  { before: 'Manual weekly averages',       after: '7-day compliance across calories, protein, cardio, and steps' },
+  { before: 'Generic check-in questions',   after: "Reports and call prep grounded in the client's actual data" },
+  { before: 'Guessing who needs attention', after: 'Dashboard sorted by compliance and last log' },
 ]
 
 const steps = [
-  {
-    label: 'Invite client',
-    copy: 'Send a client invite and set their nutrition, cardio, steps, and weight targets.'
-  },
-  {
-    label: 'Client logs',
-    copy: 'Clients track food, weight, cardio, and steps from a simple web app.'
-  },
-  {
-    label: 'Coach sees everything',
-    copy: 'You review progress, compliance, check-ins, reports, notes, and messages in one view.'
-  }
+  { n: '01', title: 'Set the targets',          copy: 'Invite a client, set calories, macros, cardio, steps, and weight goals.' },
+  { n: '02', title: 'Clients log from the web', copy: 'No app download required. Clients record what you need from any browser.' },
+  { n: '03', title: 'Coach from the evidence',  copy: 'One view for compliance, messages, check-ins, notes, reports, and trends.' },
 ]
 
-function Landing() {
-  return (
-    <div className="landing-page page-fade-in">
-      <header className="landing-nav">
-        <Link to="/" className="landing-brand" aria-label="FitLog home">
-          <span className="landing-brand-mark">F</span>
-          <span>FitLog</span>
-        </Link>
-        <nav className="landing-nav-links" aria-label="Landing navigation">
-          <a href="#features">Features</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#demo">Book a demo</a>
-          <Link to="/login">Sign in</Link>
-        </nav>
-      </header>
+const trialSteps = [
+  'Invite one client and set their targets',
+  'Have them log a normal week from the web app',
+  'Review their compliance before the check-in',
+  'Generate, edit, and send the weekly report',
+]
 
-      <section className="landing-hero">
-        <div className="landing-hero-media" aria-hidden="true">
-          <img src={heroArt} alt="" className="landing-hero-art" />
-          <div className="landing-product-preview">
-            <div className="preview-topbar">
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className="preview-grid">
-              <div className="preview-panel preview-panel-wide">
-                <div>
-                  <p>Client compliance</p>
-                  <strong>86%</strong>
-                </div>
-                <div className="preview-bars">
-                  <span style={{ width: '92%', backgroundColor: '#34d399' }} />
-                  <span style={{ width: '78%', backgroundColor: '#4f8ef7' }} />
-                  <span style={{ width: '64%', backgroundColor: '#fbbf24' }} />
-                </div>
-              </div>
-              <div className="preview-panel">
-                <p>Protein</p>
-                <strong>6/7</strong>
-              </div>
-              <div className="preview-panel">
-                <p>Steps</p>
-                <strong>5/7</strong>
-              </div>
-              <div className="preview-panel preview-chart">
-                <span style={{ height: '34%' }} />
-                <span style={{ height: '54%' }} />
-                <span style={{ height: '48%' }} />
-                <span style={{ height: '74%' }} />
-                <span style={{ height: '67%' }} />
-                <span style={{ height: '86%' }} />
-              </div>
-              <div className="preview-panel preview-report">
-                <p>Weekly report</p>
-                <span />
-                <span />
-                <span />
-              </div>
-            </div>
+const badgeLabels = { ready: 'Ready', watch: 'Watch', nudge: 'Nudge' }
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function StatusBadge({ status }) {
+  return <span className={`lp-badge lp-badge-${status}`}>{badgeLabels[status]}</span>
+}
+
+function ProductPreview() {
+  return (
+    <div className="lp-pp">
+      {/* Chrome */}
+      <div className="lp-pp-chrome">
+        {['#ff5f57', '#febc2e', '#28c840'].map((c) => (
+          <span key={c} className="lp-pp-dot" style={{ background: c }} />
+        ))}
+        <span className="lp-pp-url">gardnr.fit — Coach dashboard</span>
+      </div>
+
+      <div className="lp-pp-grid">
+        {/* Left: client list */}
+        <div className="lp-pp-left">
+          <div className="lp-pp-listhead">
+            <span>Active clients</span>
+            <span className="lp-pp-sort">Sort: compliance</span>
           </div>
 
-          {/* Compliance card */}
-          <div style={{
-            position: 'absolute', bottom: '12%', left: '5%',
-            backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)', padding: '14px 18px',
-            display: 'flex', flexDirection: 'column', gap: '8px',
-            opacity: 0.75, filter: 'blur(0.4px)', minWidth: '200px'
-          }}>
-            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>7-day compliance</p>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              {[
-                ['Calories', '5/7', '#34d399'],
-                ['Protein', '4/7', '#4f8ef7'],
-                ['Cardio', '3/7', '#fbbf24'],
-                ['Steps', '6/7', '#34d399']
-              ].map(([label, val, color]) => (
-                <span key={label} style={{ fontSize: '0.7rem', fontWeight: 700, color, border: `1px solid ${color}`, borderRadius: '999px', padding: '2px 8px' }}>{label} {val}</span>
+          {clientRows.map((c) => (
+            <div key={c.name} className="lp-pp-client">
+              <div>
+                <p className="lp-pp-client-name">{c.name}</p>
+                <p className="lp-pp-client-meta">{c.goal} · {c.lastLog}</p>
+              </div>
+              <StatusBadge status={c.status} />
+            </div>
+          ))}
+
+          <div className="lp-pp-pills">
+            <p className="lp-pp-pills-label">Maya Chen · 7-day compliance</p>
+            <div className="lp-pp-pills-row">
+              {compliancePills.map((p) => (
+                <span key={p.label} className={`lp-pp-pill lp-pp-pill-${p.tone}`}>
+                  {p.label} {p.value}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: client detail */}
+        <div className="lp-pp-right">
+          <p className="lp-pp-label">Client view</p>
+          <p className="lp-pp-client-title">Maya Chen</p>
+
+          <div className="lp-pp-card">
+            <p className="lp-pp-card-label">Weight trend</p>
+            <div className="lp-pp-chart">
+              {[48, 55, 52, 65, 70, 78, 74].map((h, i) => (
+                <span
+                  key={i}
+                  className={`lp-pp-bar${i === 6 ? ' lp-pp-bar-last' : ''}`}
+                  style={{ height: `${h}%` }}
+                />
               ))}
             </div>
           </div>
 
-          {/* Message thread card */}
-          <div style={{
-            position: 'absolute', top: '18%', right: '3%',
-            backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)', padding: '14px 18px',
-            display: 'flex', flexDirection: 'column', gap: '8px',
-            opacity: 0.7, filter: 'blur(0.4px)', minWidth: '220px'
-          }}>
-            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Messages</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ alignSelf: 'flex-start', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: '12px 12px 12px 2px', padding: '6px 12px', fontSize: '0.75rem', maxWidth: '160px' }}>Great job hitting protein today</div>
-              <div style={{ alignSelf: 'flex-end', backgroundColor: '#4f8ef7', borderRadius: '12px 12px 2px 12px', padding: '6px 12px', fontSize: '0.75rem', color: '#fff', maxWidth: '160px' }}>Thanks! Felt good today</div>
+          <div className="lp-pp-card">
+            <div className="lp-pp-report-head">
+              <p className="lp-pp-card-label" style={{ margin: 0 }}>Weekly report</p>
+              <span className="lp-pp-report-status">Draft ready</span>
             </div>
+            <p className="lp-pp-report-text">
+              Protein on target 6/7 days. Cardio dipped midweek — weight still trending down.
+            </p>
           </div>
 
-          {/* Weight trend card */}
-          <div style={{
-            position: 'absolute', bottom: '20%', right: '8%',
-            backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)', padding: '14px 18px',
-            opacity: 0.7, filter: 'blur(0.4px)', minWidth: '180px'
-          }}>
-            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>Weight trend</p>
-            <svg viewBox="0 0 160 60" width="160" height="60">
-              <polyline points="0,50 30,44 60,38 90,35 120,28 160,20" fill="none" stroke="#4f8ef7" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="160" cy="20" r="3" fill="#4f8ef7" />
-            </svg>
-            <p style={{ fontSize: '0.75rem', color: '#34d399', margin: 0, fontWeight: 600 }}>↓ 4.2 lbs this month</p>
-          </div>
-
-          {/* Weekly report card */}
-          <div style={{
-            position: 'absolute', top: '55%', left: '3%',
-            backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)', padding: '14px 18px',
-            opacity: 0.65, filter: 'blur(0.6px)', minWidth: '190px'
-          }}>
-            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>Weekly report</p>
-            {['Overall solid week', 'Protein on target 4/7 days', 'Recommend increasing cardio', 'Weight down 1.2 lbs'].map((line, i) => (
-              <div key={line} style={{ height: '6px', backgroundColor: 'var(--color-border)', borderRadius: '3px', marginBottom: '6px', width: `${[90, 75, 85, 60][i]}%` }} />
-            ))}
-            <span style={{ fontSize: '0.65rem', color: '#4f8ef7', fontWeight: 600 }}>AI generated · May 24-30</span>
-          </div>
+          <div className="lp-pp-cta"><span>Review and send →</span></div>
         </div>
-
-        <div className="landing-hero-copy">
-          <p className="landing-eyebrow">Nutrition coaching software for online coaches</p>
-          <h1>The nutrition and body composition layer your coaching business is missing.</h1>
-          <p className="landing-subhead">
-            FitLog helps coaches set targets, track macro compliance, monitor body composition, and send data-backed weekly reports without depending on screenshots or spreadsheets.
-          </p>
-          <div className="landing-actions">
-            <Link to={signupPath} className="landing-button landing-button-primary">
-              Start free
-            </Link>
-            <a href="#demo" className="landing-button landing-button-secondary">
-              Book a demo
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section landing-problem" aria-labelledby="problem-heading">
-        <div>
-          <p className="landing-eyebrow">The problem</p>
-          <h2 id="problem-heading">Nutrition coaching still runs on manual work.</h2>
-        </div>
-        <div className="landing-problem-list">
-          {problemItems.map((item) => (
-            <div className="landing-problem-item" key={item}>
-              <span />
-              <p>{item}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-section" id="features" aria-labelledby="features-heading">
-        <div className="landing-section-heading">
-          <p className="landing-eyebrow">Why coaches care</p>
-          <h2 id="features-heading">The data you need before every check-in.</h2>
-        </div>
-        <div className="landing-feature-grid">
-          {featureCards.map((feature) => (
-            <article className="landing-card" key={feature.title}>
-              <div className="landing-card-metric">{feature.metric}</div>
-              <h3>{feature.title}</h3>
-              <p>{feature.copy}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-section landing-how" id="how-it-works" aria-labelledby="how-heading">
-        <div className="landing-section-heading">
-          <p className="landing-eyebrow">How it works</p>
-          <h2 id="how-heading">Invite, log, coach.</h2>
-        </div>
-        <div className="landing-steps">
-          {steps.map((step, index) => (
-            <article className="landing-step" key={step.label}>
-              <div className="landing-step-number">{index + 1}</div>
-              <h3>{step.label}</h3>
-              <p>{step.copy}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-section landing-demo" id="demo" aria-labelledby="demo-heading">
-        <div>
-          <p className="landing-eyebrow">Get started</p>
-          <h2 id="demo-heading">Start with a free coach account.</h2>
-          <p>
-            Try the coach dashboard, invite a client, and see how nutrition compliance and weekly reporting fit into your workflow.
-          </p>
-        </div>
-        <div className="landing-demo-actions">
-          <Link to={signupPath} className="landing-button landing-button-primary">
-            Start free
-          </Link>
-          <Link to="/login" className="landing-button landing-button-secondary">
-            Sign in
-          </Link>
-        </div>
-      </section>
+      </div>
     </div>
   )
 }
 
-export default Landing
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+export default function Landing() {
+  return (
+    <div className="lp">
+
+      {/* NAV */}
+      <nav className="lp-nav">
+        <Link to="/" className="lp-brand">
+          <span className="lp-brand-mark">G</span>
+          <span className="lp-brand-name">gardnr</span>
+        </Link>
+        <div className="lp-nav-right">
+          <div className="lp-nav-links">
+            {[['#contrast', 'vs. status quo'], ['#how', 'Workflow'], ['#trial', 'The trial']].map(([href, label]) => (
+              <a key={href} href={href} className="lp-nav-link">{label}</a>
+            ))}
+          </div>
+          <Link to="/login" className="lp-signin">Sign in</Link>
+          <Link to={signupPath} className="lp-cta-sm">Start free trial</Link>
+        </div>
+      </nav>
+
+      {/* HERO */}
+      <section className="lp-hero">
+        <div className="lp-hero-copy">
+          <div className="lp-eyebrow">
+            <span className="lp-eyebrow-dot" />
+            <span className="lp-eyebrow-label">Nutrition coaching software</span>
+          </div>
+          <h1 className="lp-h1">Stop guessing how your clients' week actually went.</h1>
+          <p className="lp-subhead">
+            Your coaching runs on food screenshots and rebuilt spreadsheets. Gardnr gives you one
+            place where client logging, compliance, and weekly reports actually live.
+          </p>
+          <div className="lp-cta-row">
+            <Link to={signupPath} className="lp-cta">Start 30-day free trial</Link>
+            <a href="#how" className="lp-link-arrow">See the workflow <span style={{ opacity: 0.6 }}>→</span></a>
+          </div>
+          <div className="lp-trust">
+            {['30 days free', '$19/month after trial', 'No app download for clients'].map((t) => (
+              <span key={t} className="lp-trust-item"><span className="lp-trust-check">✓</span>{t}</span>
+            ))}
+          </div>
+        </div>
+        <div className="lp-hero-visual">
+          <ProductPreview />
+        </div>
+      </section>
+
+      {/* TAGLINE BAND */}
+      <div className="lp-tagline">
+        <p>
+          <span className="lp-tagline-accent">Coaches don't build physiques.</span>{' '}
+          They create conditions for growth.
+        </p>
+      </div>
+
+      {/* PAIN */}
+      <section className="lp-section lp-band">
+        <div className="lp-section-narrow">
+          <p className="lp-eyebrow-text lp-eyebrow-red">The problem</p>
+          <h2 className="lp-h2">Nutrition coaching still loses the signal.</h2>
+          <div className="lp-pain-grid">
+            {pains.map((p) => (
+              <div key={p.text} className="lp-pain-card">
+                <span className="lp-pain-icon">{p.icon}</span>
+                <p className="lp-pain-text">{p.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CONTRAST */}
+      <section id="contrast" className="lp-section">
+        <div className="lp-section-inner">
+          <p className="lp-eyebrow-text lp-eyebrow-green">What changes</p>
+          <h2 className="lp-h2">Replace scattered proof with one coaching record.</h2>
+          <div className="lp-contrast-table">
+            <div className="lp-contrast-head">
+              <div className="lp-contrast-head-before"><span>Without Gardnr</span></div>
+              <div className="lp-contrast-head-after"><span>With Gardnr</span></div>
+            </div>
+            {contrast.map((row, i) => (
+              <div key={i} className="lp-contrast-row">
+                <div className="lp-contrast-before"><p>{row.before}</p></div>
+                <div className="lp-contrast-after"><p>{row.after}</p></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* WORKFLOW */}
+      <section id="how" className="lp-section lp-band">
+        <div className="lp-section-narrow">
+          <p className="lp-eyebrow-text lp-eyebrow-green">Workflow</p>
+          <h2 className="lp-h2">Invite, log, coach.</h2>
+          <div className="lp-step-grid">
+            {steps.map((s) => (
+              <div key={s.n} className="lp-step">
+                <span className="lp-step-num">{s.n}</span>
+                <h3 className="lp-step-title">{s.title}</h3>
+                <p className="lp-step-copy">{s.copy}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* TRIAL */}
+      <section id="trial" className="lp-section">
+        <div className="lp-section-inner">
+          <div className="lp-trial-card">
+            <div className="lp-trial-glow" />
+            <div className="lp-trial-left">
+              <p className="lp-eyebrow-text lp-eyebrow-green">The proof plan</p>
+              <h2 className="lp-trial-h2">Use the trial to run one real check-in.</h2>
+              <p className="lp-trial-copy">
+                30 days to run a real coaching cycle. See compliance, send reports, message
+                clients — everything in one place from day one.
+              </p>
+              <Link to={signupPath} className="lp-trial-cta">Start your 30-day trial</Link>
+              <p className="lp-trial-note">$19/month after the trial. Cancel anytime before you're charged.</p>
+            </div>
+            <div className="lp-trial-checklist">
+              {trialSteps.map((step, i) => (
+                <div key={step} className="lp-trial-item">
+                  <span className="lp-trial-num">{i + 1}</span>
+                  <p className="lp-trial-text">{step}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section className="lp-final">
+        <div className="lp-final-inner">
+          <h2 className="lp-final-h2">Start your next check-in from Gardnr.</h2>
+          <p className="lp-final-copy">
+            Everything your coaching workflow needs, in one place. 30 days free, $19/month after.
+          </p>
+          <div className="lp-final-row">
+            <Link to={signupPath} className="lp-cta">Start 30-day free trial</Link>
+            <Link to="/login" className="lp-signin">Sign in</Link>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="lp-footer">
+        <div className="lp-footer-brand">
+          <span className="lp-footer-mark">G</span>
+          <span className="lp-footer-name">gardnr</span>
+          <span className="lp-footer-tag">Create conditions for growth.</span>
+        </div>
+        <nav className="lp-footer-nav">
+          {[['Sign in', '/login'], ['Terms', '/terms'], ['Privacy', '/privacy']].map(([label, path]) => (
+            <Link key={path} to={path} className="lp-footer-link">{label}</Link>
+          ))}
+        </nav>
+      </footer>
+
+    </div>
+  )
+}

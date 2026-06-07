@@ -40,7 +40,7 @@ function RolePicker({ session, onComplete, onCancel }) {
   return (
     <div style={{ maxWidth: '400px', margin: '80px auto', display: 'flex', flexDirection: 'column', gap: '24px', padding: '0 16px' }}>
       <div>
-        <h1>Welcome to FitLog</h1>
+        <h1>Welcome to Gardnr</h1>
         <p style={{ color: 'var(--color-muted)', marginTop: '8px' }}>Tell us a bit about yourself to get started.</p>
       </div>
 

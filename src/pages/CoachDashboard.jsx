@@ -571,7 +571,7 @@ function CoachDashboard({ profile }) {
 	            gap: '10px'
 	          }}>
 	            <p style={{ fontSize: '0.875rem', margin: 0 }}>
-	              <strong>{pendingInviteEmail}</strong> already has a FitLog account. Send them an invite to connect as your client? Their existing data will be preserved.
+	              <strong>{pendingInviteEmail}</strong> already has a Gardnr account. Send them an invite to connect as your client? Their existing data will be preserved.
 	            </p>
 	            <div style={{ display: 'flex', gap: '8px' }}>
 	              <Button

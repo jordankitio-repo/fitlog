@@ -219,7 +219,7 @@ async function sendDigestEmail(
 <head><meta charset="utf-8"></head>
 <body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
   <div style="max-width:640px;margin:0 auto;padding:40px 24px">
-    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 4px">FitLog</p>
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 4px">Gardnr</p>
     <p style="font-size:13px;color:#555;margin:0 0 32px">Weekly Coach Digest</p>
 
     <h2 style="font-size:16px;font-weight:600;color:#f4f4f4;margin:0 0 4px">
@@ -245,12 +245,12 @@ async function sendDigestEmail(
 
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid #242424">
       <a href="https://www.tryfitlog.com" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
-        Open FitLog
+        Open Gardnr
       </a>
     </div>
 
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
-      You're receiving this because you have active clients on FitLog.<br>
+      You're receiving this because you have active clients on Gardnr.<br>
       <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
     </p>
   </div>
@@ -265,7 +265,7 @@ async function sendDigestEmail(
       Authorization: `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: 'FitLog <noreply@tryfitlog.com>',
+      from: 'Gardnr <noreply@tryfitlog.com>',
       to: coachEmail,
       subject: `Your weekly client digest - ${weekLabel}`,
       html,

@@ -24,7 +24,7 @@ export default function Terms() {
           as well as any other related products and services that refer or link to these legal terms (collectively, the "Services").
         </p>
         <p style={p}>
-          FitLog is a web-based fitness coaching platform that helps coaches track client nutrition, body composition,
+          Gardnr is a web-based fitness coaching platform that helps coaches track client nutrition, body composition,
           and activity data. Clients log daily nutrition, weight, cardio, and steps. Coaches set targets, monitor
           compliance, and send weekly coaching reports.
         </p>
@@ -269,12 +269,12 @@ export default function Terms() {
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>19. Health Data Disclaimer</h2>
         <p style={p}>
-          FitLog is a productivity and tracking tool, not a medical service. Nothing on FitLog constitutes medical
+          Gardnr is a productivity and tracking tool, not a medical service. Nothing on Gardnr constitutes medical
           advice, diagnosis, or treatment. Nutrition targets and AI-generated coaching reports are informational
           only. Always consult a qualified healthcare provider before making changes to your diet or exercise routine.
         </p>
         <p style={p}>
-          Coaches using FitLog are independent professionals. Digigarden LLC is not responsible for advice,
+          Coaches using Gardnr are independent professionals. Digigarden LLC is not responsible for advice,
           targets, or recommendations set by coaches for their clients.
         </p>
         <p style={p}>

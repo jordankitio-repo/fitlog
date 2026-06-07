@@ -143,10 +143,10 @@ Deno.serve(async (req) => {
 <head><meta charset="utf-8"></head>
 <body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
   <div style="max-width:560px;margin:0 auto;padding:40px 24px">
-    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">FitLog</p>
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">Gardnr</p>
     <h2 style="font-size:18px;font-weight:600;color:#f4f4f4;margin:0 0 16px">Your subscription is set to cancel</h2>
     <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">
-      Hi ${userName} &mdash; your FitLog ${planName} plan is scheduled to cancel.
+      Hi ${userName} &mdash; your Gardnr ${planName} plan is scheduled to cancel.
     </p>
     <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">
       <strong style="color:#f4f4f4">You'll keep full access until ${endDateStr}.</strong> After that, your plan won't renew and you won't be charged again.
@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
       Manage subscription
     </a>
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
-      FitLog &middot; <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
+      Gardnr &middot; <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
     </p>
   </div>
 </body>
@@ -171,9 +171,9 @@ Deno.serve(async (req) => {
               Authorization: `Bearer ${resendKey}`,
             },
             body: JSON.stringify({
-              from: 'FitLog <noreply@tryfitlog.com>',
+              from: 'Gardnr <noreply@tryfitlog.com>',
               to: profile.email,
-              subject: 'Your FitLog subscription is set to cancel',
+              subject: 'Your Gardnr subscription is set to cancel',
               html,
             }),
           })

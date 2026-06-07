@@ -258,10 +258,10 @@ Deno.serve(async (req) => {
 <head><meta charset="utf-8"></head>
 <body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
   <div style="max-width:560px;margin:0 auto;padding:40px 24px">
-    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">FitLog</p>
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">Gardnr</p>
     <h2 style="font-size:18px;font-weight:600;color:#f4f4f4;margin:0 0 16px">A note about your coaching plan</h2>
     <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">
-      Hi ${clientName} &mdash; ${safeCoachName} has ended your coaching connection on FitLog.
+      Hi ${clientName} &mdash; ${safeCoachName} has ended your coaching connection on Gardnr.
     </p>
     <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">
       <strong style="color:#f4f4f4">Your data is safe.</strong> All your logs, progress, and history are still there. You can continue logging on your own anytime.
@@ -270,10 +270,10 @@ Deno.serve(async (req) => {
       If you'd like to connect with a new coach in the future, they can send you an invite and you'll be back up and running.
     </p>
     <a href="https://www.tryfitlog.com" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
-      Open FitLog
+      Open Gardnr
     </a>
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
-      FitLog &middot; <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
+      Gardnr &middot; <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
     </p>
   </div>
 </body>
@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
               Authorization: `Bearer ${resendKey}`,
             },
             body: JSON.stringify({
-              from: 'FitLog <noreply@tryfitlog.com>',
+              from: 'Gardnr <noreply@tryfitlog.com>',
               to: client.email,
               subject: 'Your coaching connection has ended - your data is safe',
               html,

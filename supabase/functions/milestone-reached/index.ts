@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
 <head><meta charset="utf-8"></head>
 <body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
   <div style="max-width:560px;margin:0 auto;padding:40px 24px">
-    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">FitLog</p>
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">Gardnr</p>
 
     <div style="background:#141414;border:1px solid #242424;border-radius:8px;padding:32px;text-align:center;margin-bottom:24px">
       <p style="font-size:40px;margin:0 0 8px">🔥</p>
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
     </div>
 
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
-      FitLog &middot; <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
+      Gardnr &middot; <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
     </p>
   </div>
 </body>
@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: 'FitLog <noreply@tryfitlog.com>',
+        from: 'Gardnr <noreply@tryfitlog.com>',
         to: [coach.email],
         subject: `🔥 ${clientDisplayName} just hit a ${streakCount}-day streak`,
         html,

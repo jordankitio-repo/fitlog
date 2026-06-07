@@ -2,9 +2,9 @@ import Button from './Button'
 
 function FeedbackButton({ userEmail = '', userName = '' }) {
   function handleClick() {
-    const subject = encodeURIComponent('FitLog feedback')
+    const subject = encodeURIComponent('Gardnr feedback')
     const body = encodeURIComponent([
-      'Hi FitLog team,',
+      'Hi Gardnr team,',
       '',
       '',
       '',

@@ -212,10 +212,10 @@ Deno.serve(async (req) => {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                from: 'FitLog <noreply@tryfitlog.com>',
+                from: 'Gardnr <noreply@tryfitlog.com>',
                 to,
                 subject: 'Your coaching plan has ended',
-                html: `<p>Your coach's FitLog account was closed, so your coaching relationship has ended.</p><p>Your data is preserved — you're now on a solo plan and can keep tracking on your own.</p>`,
+                html: `<p>Your coach's Gardnr account was closed, so your coaching relationship has ended.</p><p>Your data is preserved — you're now on a solo plan and can keep tracking on your own.</p>`,
               }),
             }).catch((e) => console.error('coach-deleted email failed:', e))
           }

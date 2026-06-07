@@ -51,7 +51,7 @@ function NavBar({ profile }) {
         whiteSpace: 'nowrap',
         textDecoration: 'none',
       }}>
-        FitLog
+        Gardnr
       </Link>
 
       {profile?.role === 'coach' ? (

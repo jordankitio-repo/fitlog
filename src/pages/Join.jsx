@@ -86,7 +86,7 @@ function Join() {
     }
 
     if (existingAccount) {
-      setError('This email already has a FitLog account. Log in to accept your coach\'s invite.')
+      setError('This email already has a Gardnr account. Log in to accept your coach\'s invite.')
       return
     }
 
@@ -263,7 +263,7 @@ function Join() {
     }}>
       <h1>Accept invitation</h1>
       <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
-        You've been invited to join FitLog as a coached client.
+        You've been invited to join Gardnr as a coached client.
         Your email: <strong style={{ color: 'var(--color-text)' }}>{invitation?.client_email}</strong>
       </p>
 
@@ -287,7 +287,7 @@ function Join() {
       ) : existingAccount ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-            You already have a FitLog account with this email. Log in to accept your coach's invite.
+            You already have a Gardnr account with this email. Log in to accept your coach's invite.
           </p>
           <input
             type="password"

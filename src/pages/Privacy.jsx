@@ -94,7 +94,7 @@ export default function Privacy() {
         <p style={p}>
           Our Services offer you the ability to register and log in using your Google account. When you choose
           to do this, we receive your name and email address from Google. We use this information only to create
-          and manage your FitLog account. We do not control Google's use of your personal information — please
+          and manage your Gardnr account. We do not control Google's use of your personal information — please
           review Google's privacy policy for more information.
         </p>
       </section>
@@ -121,7 +121,7 @@ export default function Privacy() {
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>8. AI-Generated Content</h2>
         <p style={p}>
-          FitLog uses Anthropic Claude to generate weekly coaching reports and coach call preparation briefs.
+          Gardnr uses Anthropic Claude to generate weekly coaching reports and coach call preparation briefs.
           When these features are used, relevant health and fitness data (nutrition logs, weight trends, cardio
           and steps compliance, and check-in responses) is sent to Anthropic's API for processing.
         </p>
@@ -129,7 +129,7 @@ export default function Privacy() {
           This data is subject to{' '}
           <a href="https://www.anthropic.com/privacy" style={link} target="_blank" rel="noopener noreferrer">
             Anthropic's privacy policy
-          </a>. FitLog does not use your health data to train AI models.
+          </a>. Gardnr does not use your health data to train AI models.
         </p>
       </section>
 

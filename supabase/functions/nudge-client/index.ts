@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: 'FitLog <noreply@tryfitlog.com>',
+        from: 'Gardnr <noreply@tryfitlog.com>',
         to: [clientProfile.email],
         subject: 'Your coach is thinking of you',
         html: `
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
             <a href="https://www.tryfitlog.com/log" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #4f8ef7; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
               Log now &rarr;
             </a>
-            <p style="margin-top: 24px; color: #888; font-size: 0.875rem;">FitLog - your fitness coaching platform</p>
+            <p style="margin-top: 24px; color: #888; font-size: 0.875rem;">Gardnr - your fitness coaching platform</p>
           </div>
         `,
       }),

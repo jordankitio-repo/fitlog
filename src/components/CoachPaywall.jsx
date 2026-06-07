@@ -108,7 +108,7 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
     ? "Your coaching access has ended. Your data and your clients' data are safe. Reactivate anytime to regain access."
     : trialUsed
       ? 'You have already used your free trial. Subscribing will charge you $19 immediately.'
-      : 'FitLog for coaches is $19/month. Start with 30 days free. You will not be charged until your trial ends.'
+      : 'Gardnr for coaches is $19/month. Start with 30 days free. You will not be charged until your trial ends.'
 
   return (
     <div style={{
@@ -130,7 +130,7 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
         textAlign: 'center',
       }}>
         <h1 style={{ fontSize: 'var(--text-lg)', marginBottom: 8 }}>
-          {isCanceled ? 'Your subscription ended' : trialUsed ? 'Subscribe to FitLog' : 'Start your free trial'}
+          {isCanceled ? 'Your subscription ended' : trialUsed ? 'Subscribe to Gardnr' : 'Start your free trial'}
         </h1>
         <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginBottom: 32, lineHeight: 1.6 }}>
           {subtitle}
