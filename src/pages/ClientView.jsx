@@ -372,7 +372,7 @@ function ClientView({ profile }) {
 async function fetchCalorieHistory() {
   const end = new Date()
   const start = new Date()
-  start.setDate(start.getDate() - 13)
+  start.setDate(start.getDate() - 29)
   const { data, error } = await supabase
     .from('nutrition_log').select('logged_date, calories')
     .eq('user_id', clientId)
@@ -391,7 +391,7 @@ async function fetchCalorieHistory() {
 async function fetchCardioHistory() {
   const end = new Date()
   const start = new Date()
-  start.setDate(start.getDate() - 13)
+  start.setDate(start.getDate() - 29)
   const { data, error } = await supabase
     .from('cardio_log').select('logged_date, duration')
     .eq('user_id', clientId)
@@ -410,7 +410,7 @@ async function fetchCardioHistory() {
 async function fetchStepsHistory() {
   const end = new Date()
   const start = new Date()
-  start.setDate(start.getDate() - 13)
+  start.setDate(start.getDate() - 29)
   const { data, error } = await supabase
     .from('steps_log').select('logged_date, steps')
     .eq('user_id', clientId)
@@ -1634,7 +1634,7 @@ async function sendMessage() {
 
       {calorieHistory.length > 0 && (
         <div style={sectionCardStyle}>
-          <SectionHeader title="Calories — last 14 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
+          <SectionHeader title="Calories — last 30 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
               <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: 'rgba(251, 191, 36, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
@@ -1644,7 +1644,7 @@ async function sendMessage() {
 
       {cardioHistory.length > 0 && (
         <div style={sectionCardStyle}>
-          <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio — last 30 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
               <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
@@ -1654,7 +1654,7 @@ async function sendMessage() {
 
       {stepsHistory.length > 0 && (
         <div style={sectionCardStyle}>
-          <SectionHeader title="Steps — last 14 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps — last 30 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
               <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
