@@ -6,7 +6,7 @@ import Skeleton from '../components/Skeleton'
 import SectionHeader from '../components/SectionHeader'
 import SoloUpgrade from '../components/SoloUpgrade'
 import { resolveLockState } from '../utils/lockState'
-import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
+import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle as baseCardStyle } from '../utils/styles'
 import { Line, Bar } from 'react-chartjs-2'
 import {
@@ -587,8 +587,8 @@ async function reactToMessage(messageId, emoji) {
   }
 
   const isToday = selectedDate === toLocalDateString(new Date())
-  function goToPrevDay() { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
-  function goToNextDay() { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
+  function goToPrevDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
+  function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
 
   const inputStyle = {
     backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',

@@ -5,7 +5,7 @@ import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import SectionHeader from '../components/SectionHeader'
 import SoloUpgrade from '../components/SoloUpgrade'
-import { toLocalDateString } from '../utils/dateHelpers'
+import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
 
 const unitConversions = {
@@ -431,8 +431,8 @@ function startEditCardio(entry) {
   }
 
   // Nav functions
-  function goToPrevDay() { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
-  function goToNextDay() { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
+  function goToPrevDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
+  function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
   const isToday = selectedDate === toLocalDateString(new Date())
 
   const inputStyle = {
