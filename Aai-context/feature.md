@@ -1,5 +1,5 @@
 FitLog — Master Feature & Implementation List
-Last updated: June 5, 2026
+Last updated: June 8, 2026
 
 Note on feature numbers (#2, #5, #7, etc.): These reference the original tiered backlog from an earlier planning session. They are preserved as stable labels for cross-reference. The source list with full definitions of #1–#30 is not in current context — numbers are carried forward as-is, not independently re-verified.
 
@@ -82,9 +82,11 @@ Email to client from coach nudge
 Weekly coach digest
 Monday 8am UTC. Per-coach email summarizing all clients' 7-day compliance + check-in status
 Account deletion confirmation
-Email to client/solo user on successful account deletion (best-effort)
+Email on successful account deletion, all roles incl. coach (awaited; via sendEmail() with Resend response checking)
 Client deletion coach notification
-Email to coach when a client deletes their account (best-effort; fires only if active coach relationship exists)
+Email to coach when a client deletes their account (fires only if active coach relationship exists)
+Coach-leave notification
+Email to coach when a client voluntarily leaves coaching (offboard-self)
 Edge Functions
 Function
 Purpose
@@ -93,7 +95,7 @@ Role-aware deletion. Coach: offboards all clients (resume paused subs, flip role
 offboard-client
 Coach removes a client. Ends connection, resumes client's paused solo sub (trial recreate or active unpause), writes offboard marker to profiles (coach_offboarded), sends email.
 offboard-self
-Client leaves coaching. Resumes paused solo sub. No offboard marker written (self-initiated).
+Client leaves coaching. Resumes paused solo sub. No offboard marker written (self-initiated). Emails the coach (awaited) that the client has left.
 pause-solo-subscription
 Pauses a solo user's sub when they join a coach. Trialing: cancels Stripe sub + stores paused_trial_days_remaining. Active: pause_collection. Write-before-delete ordering: DB guard set before Stripe DELETE.
 cancel-subscription
@@ -111,11 +113,11 @@ AI call briefing for coaches
 nudge-client
 Coach nudge — 48hr cooldown, Resend email
 create-checkout-session
-Creates Stripe checkout session (30-day coach trial, 14-day solo trial). Checks trial_ledger (hashed email) before attaching trial — omits trial_period_days if product flag already true. Writes ledger entry at checkout start.
+Creates Stripe checkout session (30-day coach trial, 14-day solo trial). Checks trial_ledger (hashed email) before attaching trial — omits trial_period_days if already used. Does NOT write the ledger here (moved to stripe-webhook on actual trial start — Jun 8). Verifies stored stripe_customer_id via customerIsUsable() and recreates it if deleted in Stripe.
 check-trial-eligibility
 Returns { coach_trial_used, solo_trial_used } for the authenticated user. Called by CoachPaywall on mount to show billing warning before Stripe redirect.
 stripe-webhook
-Handles Stripe events. Guards customer.subscription.deleted: skips update + offboarding when paused_for_coaching=true (coaching-pause cancellation, not real churn).
+Handles Stripe events. Guards customer.subscription.deleted: skips update + offboarding when paused_for_coaching=true (coaching-pause cancellation, not real churn). On checkout.session.completed, records trial usage in trial_ledger when the sub enters trialing (upsert on_conflict=email_hash) — the single place trial usage is now marked.
 weekly-digest
 Monday coach digest email via pg_cron
 Billing & Access

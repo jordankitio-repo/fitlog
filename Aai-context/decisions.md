@@ -51,6 +51,20 @@
 **Reason:** Prevent trial-farming by repeatedly canceling and re-subscribing.
 **Consequences:** `create-checkout-session` blocks `canceled` status from re-trialing.
 
+### ~~Trial marked used at checkout-session creation~~ — OVERRIDDEN Jun 8
+**Original behavior:** `create-checkout-session` wrote the `trial_ledger` entry the moment the Stripe checkout session was created.
+**Override reason:** Opening the Stripe page and then abandoning it (never paying) still burned the trial — the next attempt showed an immediate charge instead of "free then $X".
+**New behavior:** Trial usage is recorded by `stripe-webhook` on `checkout.session.completed`, and only when the resulting subscription actually has `status === 'trialing'`. The webhook resolves the owner via `subscription.metadata.{solo_id,coach_id}` + `plan_type`, hashes the profile email (byte-identical to `create-checkout-session` / `check-trial-eligibility`), and upserts with `on_conflict=email_hash`.
+**Consequences:** Requires a unique index on `trial_ledger.email_hash` (migration `20260608120000`) — the merge-duplicates upsert needs it as the conflict target, or it inserts duplicate rows and the `limit=1` eligibility read becomes nondeterministic. Eligibility is still computed at checkout (to decide `trial_period_days`); only the *recording* moved. The ledger still survives account deletion, so re-signup with the same email cannot earn a second free trial.
+
+### Stored Stripe customer IDs are verified before reuse
+**Reason:** A `stripe_customer_id` can be orphaned if the customer is deleted in Stripe; reusing it makes checkout fail with "No such customer."
+**Consequences:** `create-checkout-session` calls `customerIsUsable()` (GET + `deleted` check) before reusing an ID, and creates a fresh customer if it's gone. The new ID is persisted by the existing subscription upsert.
+
+### Transactional emails are awaited, not fire-and-forget
+**Reason:** Supabase Edge (Deno) can tear down the isolate as soon as the response returns, killing an in-flight `fetch().catch()` before Resend receives it — silently dropping "sent" emails. The old code also never checked Resend's response, so 4xx errors were swallowed.
+**Consequences:** Deletion/offboard emails are `await`ed and routed through a `sendEmail()` helper that logs non-OK Resend responses. Costs ~300ms after the user-facing work is done; worth it for delivery reliability + diagnosability.
+
 ### ~~Trial clock continues during coaching (accepted v1 limitation)~~ — OVERRIDDEN Jun 7
 **Original reason:** Stripe has no true trial-clock pause.
 **Override:** Trial time is now preserved. On pause: remaining days calculated from Stripe `trial_end`, Stripe trial subscription cancelled (no charge — trialing), `paused_trial_days_remaining` stored on the subscriptions row. On resume: new Stripe subscription created via API with `trial_period_days = paused_trial_days_remaining` on the same customer + saved payment method. Active (paying) subs unchanged — `pause_collection` still used for those.

@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`ba98221 Add email notifications for account deletion and improve profile data fetching`
+`204ffbe Refactor email sending logic in account deletion process to use a dedicated sendEmail function`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,20 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Log screen redesign (Jun 8, session 2)** — `Log.jsx` rebuilt to match the mockup: "Daily Log" header with pill date-nav (tap date to open picker), per-section colored left-border accents (weight/nutrition/cardio/steps metric tokens), nutrition macro-totals row, inline food entries, prominent saved-value displays for weight/steps. All prior functionality preserved (barcode, copy-from-day, edit/delete/re-log, AI feedback, hide-calories).
+
+**Login error UX (Jun 8, session 2)** — `Login.jsx` auth calls wrapped in try/catch with a `friendlyError()` mapper; users see "Unable to connect to our servers…" instead of raw `Failed to fetch` (surfaced during a regional Supabase outage).
+
+**Progress charts 14 → 30 days (Jun 8, session 2)** — calorie/cardio/steps history windows extended from 13 to 29 days back (+ labels) in both `Dashboard.jsx` and `ClientView.jsx`. Applies to coach, solo, and client views.
+
+**Trial-marking moved to webhook (Jun 8, session 2)** — `create-checkout-session` no longer marks the trial used at session creation (that burned the trial when a user opened then abandoned the Stripe page). `stripe-webhook` now records trial usage on `checkout.session.completed` **only when the subscription actually enters `trialing`**, keyed by email hash via `on_conflict=email_hash`. Required a unique index on `trial_ledger.email_hash` (migration `20260608120000`, dedupe-safe) — without it the merge-duplicates upsert inserted duplicate rows and the `limit=1` eligibility read was nondeterministic (root cause of both early-burned and repeat trials).
+
+**Orphaned Stripe customer recovery (Jun 8, session 2)** — `create-checkout-session` now verifies a stored `stripe_customer_id` via `customerIsUsable()` and recreates the customer if it was deleted in Stripe, instead of failing checkout with "No such customer".
+
+**Coach-leave + deletion email completeness (Jun 8, session 2)** — `offboard-self` now emails the coach when a client voluntarily leaves. `delete-account` confirmation email now fires for **all roles incl. coach** (was solo/client only) and the coach-deletion client email gained a "Log in" button. All sends switched from fire-and-forget to `await` + a `sendEmail()` helper that checks the Resend response and logs failures (fire-and-forget was dropping sends as the Edge isolate tore down).
+
+**SoloUpgrade eligibility-aware label + in-app delete modal (Jun 8, session 2)** — `SoloUpgrade.jsx` calls `check-trial-eligibility` on mount; ineligible users see "Subscribe to Solo Premium" + immediate-charge warning instead of a misleading "free trial" label. `CoachPaywall.jsx` delete-account confirm replaced the native `window.confirm()` with an in-app modal matching the existing pattern.
 
 **Account deletion email notifications (Jun 8)** — `delete-account` now sends two new emails (best-effort, non-blocking): (1) client confirmation — fires for `solo` and `client` roles on successful deletion; (2) coach notification — fires only for `client` role when an active coach is found. Coach info (`email`, `full_name`) fetched from `coach_clients` + `profiles` before the bulk deletion loop, since those rows are destroyed mid-flow. Profile `email` and `full_name` fetched at function entry before auth delete. `escapeHtml` helper added.
 
@@ -161,6 +175,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 8 (session 2)** — Log screen redesign (mockup match, all functionality preserved). Login friendly-error UX (during regional Supabase outage; resolved via VPN region-switch on user side). Progress charts 14→30 days (Dashboard + ClientView). 6-bug email/billing sweep: deletion email for all roles incl coach, coach-notify on client leave, login button in coach-deletion email, trial-marking moved checkout→webhook, orphaned Stripe customer recovery, `trial_ledger.email_hash` unique index. SoloUpgrade eligibility-aware label + CoachPaywall in-app delete modal. `sendEmail()` helper with Resend response checking. Non-bugs ruled out: coach email was landing in spam; "trial still available" was a two-email mix-up. Deploy gotcha: Vercel project is `gardnr`, use `--project gardnr`.
 - **Jun 8** — Account deletion email notifications (client confirmation + coach notification). Auth error auto-signout. Metric color scheme fix (protein amber, carbs blue). Date navigation parseLocalDateString fix. UI polish (NavBar, footer links, favicon, document title). Resend DKIM/SPF confirmed via dig + dashboard — SPF on send subdomain, correct by design.
 - **Jun 7 (session 2)** — Full rebrand FitLog → Gardnr. Responsive landing page rewrite (DM Sans, lp- namespace, 3 breakpoints). gardnr.fit purchased + DNS (Namecheap). Resend domain swap (tryfitlog.com deleted, gardnr.fit verified). All 10 edge functions redeployed with new sender. Supabase Auth updated. tryfitlog.com 308-redirect set. Nav simplified (removed "vs. status quo" link). Solo entry point added to landing footer.
 - **Jun 7 (session 1)** — Parts 1–6 complete: coach offboarding overhaul, trial pause/resume, offboard marker on profiles, delete-account coach + solo branches, checkout ledger gate, trial warning on CoachPaywall, delete-account link on paywall. Coach + solo FK bugs fixed. GRANT issues resolved. Supabase upgraded to Pro. `config.toml` JWT bypass permanent.
