@@ -67,12 +67,14 @@ function NavBar({ profile }) {
         </>
       )}
 
-      <Link to="/terms" style={legalLinkStyle}>Terms</Link>
-      <Link to="/privacy" style={legalLinkStyle}>Privacy</Link>
-      <FeedbackButton
-        userEmail={profile?.email || ''}
-        userName={profile?.full_name || ''}
-      />
+      <span className="nav-secondary">
+        <Link to="/terms" style={legalLinkStyle}>Terms</Link>
+        <Link to="/privacy" style={legalLinkStyle}>Privacy</Link>
+        <FeedbackButton
+          userEmail={profile?.email || ''}
+          userName={profile?.full_name || ''}
+        />
+      </span>
 
       <Button onClick={handleSignOut} variant="muted" size="sm">
         Sign out
