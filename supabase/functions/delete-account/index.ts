@@ -21,6 +21,29 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, '&#39;')
 }
 
+// Sends via Resend and surfaces API errors. The previous fire-and-forget
+// `.catch()` only caught network failures — a Resend 4xx (e.g. unverified
+// recipient) was silently swallowed, so a "sent" email could never arrive.
+async function sendEmail(
+  resendKey: string,
+  to: string,
+  subject: string,
+  html: string,
+) {
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
+      body: JSON.stringify({ from: 'Gardnr <noreply@gardnr.fit>', to, subject, html }),
+    })
+    if (!res.ok) {
+      console.error(`Resend send to ${to} failed (${res.status}):`, await res.text())
+    }
+  } catch (e) {
+    console.error(`Resend send to ${to} threw:`, e)
+  }
+}
+
 async function resumeSoloSubscription(
   supabaseUrl: string,
   serviceKey: string,
@@ -246,16 +269,7 @@ Deno.serve(async (req) => {
   </div>
 </body>
 </html>`
-            await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                from: 'Gardnr <noreply@gardnr.fit>',
-                to,
-                subject: 'Your coaching plan has ended',
-                html,
-              }),
-            }).catch((e) => console.error('coach-deleted email failed:', e))
+            await sendEmail(resendKey, to, 'Your coaching plan has ended', html)
           }
         } catch (e) {
           // Best-effort: a failed resume is recoverable (client can re-subscribe). Don't block deletion.
@@ -419,16 +433,7 @@ Deno.serve(async (req) => {
 </body>
 </html>`
 
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({
-            from: 'Gardnr <noreply@gardnr.fit>',
-            to: callerEmail,
-            subject: 'Your Gardnr account has been deleted',
-            html: clientHtml,
-          }),
-        }).catch((e) => console.error('Account deletion confirmation email failed:', e))
+        await sendEmail(resendKey, callerEmail, 'Your Gardnr account has been deleted', clientHtml)
       }
 
       if (callerRole === 'client' && coachEmail) {
@@ -457,16 +462,7 @@ Deno.serve(async (req) => {
 </body>
 </html>`
 
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({
-            from: 'Gardnr <noreply@gardnr.fit>',
-            to: coachEmail,
-            subject: `${safeClientName} deleted their Gardnr account`,
-            html: coachHtml,
-          }),
-        }).catch((e) => console.error('Coach deletion notification email failed:', e))
+        await sendEmail(resendKey, coachEmail, `${safeClientName} deleted their Gardnr account`, coachHtml)
       }
     }
 
