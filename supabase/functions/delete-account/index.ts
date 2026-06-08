@@ -12,6 +12,15 @@ function stripeHeaders(stripeSecretKey: string) {
   }
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 async function resumeSoloSubscription(
   supabaseUrl: string,
   serviceKey: string,
@@ -158,11 +167,14 @@ Deno.serve(async (req) => {
 
     // --- Coach deletion: offboard all clients BEFORE removing the coach ---
     const profileRes = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?id=eq.${uid}&select=role`,
+      `${supabaseUrl}/rest/v1/profiles?id=eq.${uid}&select=role,email,full_name`,
       { headers },
     )
     const profileRows = await profileRes.json().catch(() => [])
-    const callerRole = Array.isArray(profileRows) ? profileRows[0]?.role : null
+    const callerProfile = Array.isArray(profileRows) ? profileRows[0] : null
+    const callerRole: string | null = callerProfile?.role ?? null
+    const callerEmail: string | null = callerProfile?.email ?? null
+    const callerName: string | null = callerProfile?.full_name ?? null
 
     if (callerRole === 'coach') {
       const ccRes = await fetch(
@@ -260,6 +272,32 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fetch coach info before coach_clients rows are deleted (client role only)
+    let coachEmail: string | null = null
+    let coachName: string | null = null
+    if (callerRole === 'client') {
+      try {
+        const ccRes = await fetch(
+          `${supabaseUrl}/rest/v1/coach_clients?client_id=eq.${uid}&status=eq.active&select=coach_id&limit=1`,
+          { headers },
+        )
+        const ccRows = await ccRes.json().catch(() => [])
+        const coachId = Array.isArray(ccRows) ? ccRows[0]?.coach_id : null
+        if (coachId) {
+          const coachProfRes = await fetch(
+            `${supabaseUrl}/rest/v1/profiles?id=eq.${coachId}&select=email,full_name`,
+            { headers },
+          )
+          const coachProfRows = await coachProfRes.json().catch(() => [])
+          const coachProf = Array.isArray(coachProfRows) ? coachProfRows[0] : null
+          coachEmail = coachProf?.email ?? null
+          coachName = coachProf?.full_name ?? null
+        }
+      } catch (e) {
+        console.error('Failed to fetch coach info for deletion notification:', e)
+      }
+    }
+
     // Delete all user data explicitly before deleting auth user
     const deletions = [
       `nutrition_log?user_id=eq.${uid}`,
@@ -325,6 +363,84 @@ Deno.serve(async (req) => {
     if (!deleteRes.ok) {
       const err = await deleteRes.text()
       throw new Error(`Failed to delete auth user: ${err}`)
+    }
+
+    // Send notification emails (best-effort — do not block the success response)
+    const resendKey = Deno.env.get('RESEND_API_KEY')
+    if (resendKey && (callerRole === 'solo' || callerRole === 'client')) {
+      const safeClientName = escapeHtml(callerName || callerEmail || 'there')
+
+      if (callerEmail) {
+        const clientHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
+  <div style="max-width:560px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">Gardnr</p>
+    <h2 style="font-size:18px;font-weight:600;color:#f4f4f4;margin:0 0 16px">Your account has been deleted</h2>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">
+      Hi ${safeClientName} &mdash; your Gardnr account and all associated data have been permanently deleted.
+    </p>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 32px">
+      If you ever want to start fresh, you can create a new account anytime.
+    </p>
+    <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
+      Gardnr &middot; <a href="https://www.gardnr.fit" style="color:#333">gardnr.fit</a>
+    </p>
+  </div>
+</body>
+</html>`
+
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
+          body: JSON.stringify({
+            from: 'Gardnr <noreply@gardnr.fit>',
+            to: callerEmail,
+            subject: 'Your Gardnr account has been deleted',
+            html: clientHtml,
+          }),
+        }).catch((e) => console.error('Client deletion confirmation email failed:', e))
+      }
+
+      if (callerRole === 'client' && coachEmail) {
+        const safeCoachName = escapeHtml(coachName || coachEmail)
+        const coachHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
+  <div style="max-width:560px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">Gardnr</p>
+    <h2 style="font-size:18px;font-weight:600;color:#f4f4f4;margin:0 0 16px">A client has left Gardnr</h2>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">
+      Hi ${safeCoachName} &mdash; <strong style="color:#f4f4f4">${safeClientName}</strong> has deleted their Gardnr account and has been removed from your client list.
+    </p>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 32px">
+      Your other clients and data are not affected.
+    </p>
+    <a href="https://www.gardnr.fit" style="display:inline-block;background:#22c55e;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+      Open Gardnr
+    </a>
+    <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
+      Gardnr &middot; <a href="https://www.gardnr.fit" style="color:#333">gardnr.fit</a>
+    </p>
+  </div>
+</body>
+</html>`
+
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
+          body: JSON.stringify({
+            from: 'Gardnr <noreply@gardnr.fit>',
+            to: coachEmail,
+            subject: `${safeClientName} deleted their Gardnr account`,
+            html: coachHtml,
+          }),
+        }).catch((e) => console.error('Coach deletion notification email failed:', e))
+      }
     }
 
     return new Response(JSON.stringify({ success: true }), {
