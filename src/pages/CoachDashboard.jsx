@@ -300,7 +300,7 @@ function CoachDashboard({ profile }) {
 
   const metricColors = {
     Calories: '#22c55e',
-    Protein: '#f59e0b',
+    Protein: '#f87171',
     Cardio: '#3b82f6',
     Steps: '#a855f7',
   }

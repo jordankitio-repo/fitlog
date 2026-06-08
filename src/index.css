@@ -17,8 +17,8 @@
 
   /* Metric data colors — one per tracked dimension */
   --color-calories: #22c55e;
-  --color-protein: #f59e0b;
-  --color-carbs: #60a5fa;
+  --color-protein: #f87171;
+  --color-carbs: #e2d5b0;
   --color-fat: #fb923c;
   --color-weight: #34d399;
   --color-cardio: #3b82f6;
