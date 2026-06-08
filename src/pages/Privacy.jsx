@@ -14,13 +14,13 @@ export default function Privacy() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 4, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 7, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
           This Privacy Policy for Digigarden LLC ("we," "us," or "our") describes how and why we collect, store,
           use, and share your personal information when you use our services ("Services") at{' '}
-          <a href="https://www.tryfitlog.com" style={link}>https://www.tryfitlog.com</a>.
+          <a href="https://www.gardnr.fit" style={link}>https://www.gardnr.fit</a>.
         </p>
         <p style={p}>
           If you do not agree with our policies and practices, please do not use our Services. Questions or
@@ -121,15 +121,20 @@ export default function Privacy() {
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>8. AI-Generated Content</h2>
         <p style={p}>
-          Gardnr uses Anthropic Claude to generate weekly coaching reports and coach call preparation briefs.
-          When these features are used, relevant health and fitness data (nutrition logs, weight trends, cardio
-          and steps compliance, and check-in responses) is sent to Anthropic's API for processing.
+          Gardnr uses Anthropic Claude for the following features:
         </p>
+        <ul style={ul}>
+          <li style={li}><strong style={{ color: 'var(--color-text)' }}>Weekly coaching reports</strong> — coaches generate a report for each client using 7 days of logged nutrition, weight, cardio, steps, and check-in responses. The coach reviews and edits before sending.</li>
+          <li style={li}><strong style={{ color: 'var(--color-text)' }}>Call prep briefs</strong> — a private AI-generated summary for the coach before a client call, using recent compliance and check-in data. Not visible to clients.</li>
+          <li style={li}><strong style={{ color: 'var(--color-text)' }}>AI nutrition advice</strong> — available to coaches and Solo Premium subscribers. Uses the current day's logged nutrition entries to generate feedback.</li>
+        </ul>
         <p style={p}>
-          This data is subject to{' '}
+          When these features are used, the relevant data described above is sent to Anthropic's API for
+          processing. This data is subject to{' '}
           <a href="https://www.anthropic.com/privacy" style={link} target="_blank" rel="noopener noreferrer">
             Anthropic's privacy policy
-          </a>. Gardnr does not use your health data to train AI models.
+          </a>. Gardnr does not use your health data to train AI models. AI features are only triggered by
+          explicit coach or user action — no data is sent to Anthropic automatically or on a schedule.
         </p>
       </section>
 

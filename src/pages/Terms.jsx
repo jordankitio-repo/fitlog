@@ -14,13 +14,13 @@ export default function Terms() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Terms of Service
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 4, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 7, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>Agreement to Our Legal Terms</h2>
         <p style={p}>
           We are Digigarden LLC ("Company," "we," "us," "our"), a company registered in Texas, United States.
-          We operate the website <a href="https://www.tryfitlog.com" style={link}>https://www.tryfitlog.com</a> (the "Site"),
+          We operate the website <a href="https://www.gardnr.fit" style={link}>https://www.gardnr.fit</a> (the "Site"),
           as well as any other related products and services that refer or link to these legal terms (collectively, the "Services").
         </p>
         <p style={p}>
@@ -114,13 +114,29 @@ export default function Terms() {
           is monthly.
         </p>
         <p style={p}>
-          <strong>Free Trial.</strong> We offer a 30-day free trial to new users who register with the Services.
-          The account will be charged according to the user's chosen subscription plan at the end of the free trial.
+          <strong>Free Trials.</strong> New coach accounts receive a 30-day free trial. New Solo Premium accounts
+          receive a 14-day free trial. At the end of the applicable trial period the account will be charged
+          according to the chosen subscription plan. Free trials are available once per email address and are
+          not transferable. If you have previously used a free trial on Gardnr, the trial period will not apply
+          to subsequent subscriptions started with the same email address.
         </p>
         <p style={p}>
-          <strong>Cancellation.</strong> All purchases are non-refundable. You can cancel your subscription at any
-          time by contacting us at <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>.
-          Your cancellation will take effect at the end of the current paid term.
+          <strong>Cancellation.</strong> All purchases are non-refundable. You may cancel your subscription at any
+          time via the Profile page within the Services, or by contacting us at{' '}
+          <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>. Your cancellation
+          will take effect at the end of the current paid term — access continues until that date.
+        </p>
+        <p style={p}>
+          <strong>Coach Cancellation and Client Impact.</strong> If a coach's subscription is canceled or lapses,
+          the coach's clients will be transitioned to individual accounts at the end of the coach's current billing
+          period. Clients will retain all of their logged data and may continue using the Services as solo users.
+          Clients will be notified via the in-app Dashboard when this transition occurs.
+        </p>
+        <p style={p}>
+          <strong>Solo Premium — Pause and Resume.</strong> If a Solo Premium subscriber joins a coaching plan,
+          their Solo Premium subscription will be paused for the duration of the coaching relationship. The
+          remaining days on the subscription at the time of pausing will be preserved and restored automatically
+          when the coaching relationship ends. No charges occur during a pause.
         </p>
         <p style={p}>
           <strong>Fee Changes.</strong> We may make changes to the subscription fee and will communicate any price
@@ -279,7 +295,14 @@ export default function Terms() {
         </p>
         <p style={p}>
           If a coach cancels their subscription, client data is retained and not deleted. Clients retain access
-          to their own logged data. Coach access to client data is suspended but not destroyed.
+          to their own logged data and may continue logging independently as solo users. Coach access to client
+          data is suspended but not destroyed.
+        </p>
+        <p style={p}>
+          <strong>Client Reconnection.</strong> After a coaching relationship ends — whether due to coach
+          cancellation, client departure, or coach account deletion — a client may only rejoin a coach (including
+          the same coach, if their account remains active) by accepting a new invitation. No automatic
+          reconnection occurs.
         </p>
       </section>
 
