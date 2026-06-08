@@ -11,7 +11,7 @@ const WEEK_SLOT_WIDTH = CELL + GAP
 
 function getColor(calories, target, hasLog) {
   if (!hasLog) return 'var(--color-border)'
-  if (!target) return '#4f8ef7'
+  if (!target) return '#22c55e'
 
   const pct = calories / target
   if (pct >= 0.9) return '#34d399'

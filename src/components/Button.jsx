@@ -82,12 +82,12 @@ function Button({
     },
     ai: {
       backgroundColor: '#1a1a1a',
-      color: '#a78bfa',
-      border: '1px solid #a78bfa',
+      color: 'var(--color-ai)',
+      border: '1px solid var(--color-ai)',
     },
   }
 
-  const spinnerColor = variant === 'primary' ? '#fff' : variant === 'ai' ? '#a78bfa' : 'var(--color-primary)'
+  const spinnerColor = variant === 'primary' ? '#fff' : variant === 'ai' ? 'var(--color-ai)' : 'var(--color-primary)'
   const hoverStyle = hovered && !disabled && !loading ? { filter: 'brightness(1.12)' } : {}
 
   return (

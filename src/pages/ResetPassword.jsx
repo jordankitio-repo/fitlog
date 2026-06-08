@@ -79,7 +79,7 @@ function ResetPassword() {
       {error && <p style={{ color: '#f87171' }}>{error}</p>}
 
       <button onClick={handleReset} disabled={loading} style={{
-        backgroundColor: '#4f8ef7',
+        backgroundColor: '#22c55e',
         color: '#fff',
         border: 'none',
         borderRadius: '8px',

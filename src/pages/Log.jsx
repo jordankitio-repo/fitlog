@@ -624,7 +624,7 @@ function startEditCardio(entry) {
                   gap: '12px',
                   padding: '10px 12px',
                   cursor: 'pointer',
-                  backgroundColor: selectedCopyIds.has(e.id) ? 'rgba(79,142,247,0.1)' : 'var(--color-bg)',
+                  backgroundColor: selectedCopyIds.has(e.id) ? 'var(--color-primary-dim)' : 'var(--color-bg)',
                   border: `1px solid ${selectedCopyIds.has(e.id) ? 'var(--color-primary)' : 'var(--color-border)'}`,
                   borderRadius: 'var(--radius)'
                 }}

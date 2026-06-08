@@ -299,10 +299,10 @@ function CoachDashboard({ profile }) {
   }).length
 
   const metricColors = {
-    Calories: '#fbbf24',
-    Protein: '#f87171',
-    Cardio: '#4f8ef7',
-    Steps: '#a78bfa',
+    Calories: '#22c55e',
+    Protein: '#f59e0b',
+    Cardio: '#3b82f6',
+    Steps: '#a855f7',
   }
 
   const sortedClients = [...clients].sort((a, b) => {

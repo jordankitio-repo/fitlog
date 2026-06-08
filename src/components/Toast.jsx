@@ -11,7 +11,7 @@ function Toast({ message, type = 'success', onClose }) {
   const colors = {
     success: { bg: '#064e3b', border: '#34d399', color: '#34d399' },
     error: { bg: '#450a0a', border: '#f87171', color: '#f87171' },
-    info: { bg: '#1e3a5f', border: '#4f8ef7', color: '#4f8ef7' },
+    info: { bg: '#052e16', border: '#22c55e', color: '#22c55e' },
   }
 
   const c = colors[type]

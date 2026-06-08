@@ -763,7 +763,7 @@ async function reactToMessage(messageId, emoji) {
 	          border: '1px solid var(--color-border)',
 	          borderLeft: '4px solid var(--color-primary)',
 	          borderRadius: 'var(--radius)',
-	          backgroundColor: 'rgba(79,142,247,0.08)',
+	          backgroundColor: 'var(--color-primary-dim)',
 	          display: 'flex',
 	          justifyContent: 'space-between',
 	          alignItems: 'flex-start',
@@ -789,14 +789,14 @@ async function reactToMessage(messageId, emoji) {
 
         {streak > 0 && (
           <div style={{
-            background: streak >= 7 ? 'linear-gradient(135deg, #065f46, #064e3b)' : 'linear-gradient(135deg, #1e3a5f, #1e3f6f)',
-            border: `1px solid ${streak >= 7 ? '#34d399' : 'var(--color-primary)'}`,
+            background: streak >= 7 ? 'linear-gradient(135deg, #065f46, #064e3b)' : 'linear-gradient(135deg, #052e16, #14532d)',
+            border: '1px solid var(--color-primary)',
             borderRadius: 'var(--radius)', padding: '16px 20px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
             <div>
-              <p style={{ fontSize: '0.75rem', color: streak >= 7 ? '#6ee7b7' : '#93c5fd', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Logging streak</p>
-              <p style={{ fontWeight: 800, fontSize: '2rem', color: streak >= 7 ? '#34d399' : 'var(--color-primary)', lineHeight: 1 }}>
+              <p style={{ fontSize: '0.75rem', color: '#86efac', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Logging streak</p>
+              <p style={{ fontWeight: 800, fontSize: '2rem', color: 'var(--color-primary)', lineHeight: 1 }}>
                 {streak} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{streak === 1 ? 'day' : 'days'}</span>
               </p>
               {streak >= 7 && loggedToday && <p style={{ fontSize: '0.75rem', color: '#6ee7b7', marginTop: '4px' }}>Keep it going — you're on a roll!</p>}
@@ -1081,14 +1081,14 @@ async function reactToMessage(messageId, emoji) {
       <div style={cardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            {!hideCalories && <StatCard label="Calories" value={totals.calories} color="#fbbf24" />}
-            <StatCard label="Protein" value={`${totals.protein}g`} color="#f87171" />
-            <StatCard label="Carbs" value={`${totals.carbs}g`} color="#e2d5b0" />
-            <StatCard label="Fat" value={`${totals.fat}g`} color="#fb923c" />
-            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="#34d399" />
-            <StatCard label="Cardio" value={cardioToday?.minutes > 0 ? `${cardioToday.minutes} min` : '—'} color="#4f8ef7" />
+            {!hideCalories && <StatCard label="Calories" value={totals.calories} color="var(--color-calories)" />}
+            <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
+            <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
+            <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
+            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
+            <StatCard label="Cardio" value={cardioToday?.minutes > 0 ? `${cardioToday.minutes} min` : '—'} color="var(--color-cardio)" />
             <div style={{ gridColumn: '1 / -1' }}>
-              <StatCard label="Steps" value={stepsToday ? stepsToday.steps.toLocaleString() : '—'} color="#a78bfa" />
+              <StatCard label="Steps" value={stepsToday ? stepsToday.steps.toLocaleString() : '—'} color="var(--color-steps)" />
             </div>
           </div>
         </SectionHeader>
@@ -1099,12 +1099,12 @@ async function reactToMessage(messageId, emoji) {
         <div style={cardStyle}>
           <SectionHeader title="Today vs target" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
               {[
-                ...(!hideCalories ? [{ label: 'Calories', actual: totals.calories, target: targets.calories, unit: 'cal' }] : []),
-                { label: 'Protein', actual: totals.protein, target: targets.protein, unit: 'g' },
-                { label: 'Carbs', actual: totals.carbs, target: targets.carbs, unit: 'g' },
-                { label: 'Fat', actual: totals.fat, target: targets.fat, unit: 'g' },
-                { label: 'Cardio', actual: cardioToday.minutes, target: targets.cardio_minutes, unit: ' min' },
-                { label: 'Steps', actual: stepsToday?.steps || 0, target: targets.steps, unit: '' },
+                ...(!hideCalories ? [{ label: 'Calories', actual: totals.calories, target: targets.calories, unit: 'cal', color: 'var(--color-calories)' }] : []),
+                { label: 'Protein', actual: totals.protein, target: targets.protein, unit: 'g', color: 'var(--color-protein)' },
+                { label: 'Carbs', actual: totals.carbs, target: targets.carbs, unit: 'g', color: 'var(--color-carbs)' },
+                { label: 'Fat', actual: totals.fat, target: targets.fat, unit: 'g', color: 'var(--color-fat)' },
+                { label: 'Cardio', actual: cardioToday.minutes, target: targets.cardio_minutes, unit: ' min', color: 'var(--color-cardio)' },
+                { label: 'Steps', actual: stepsToday?.steps || 0, target: targets.steps, unit: '', color: 'var(--color-steps)' },
               ].filter(m => m.target).map(m => {
                 const pct = Math.min(Math.round((m.actual / m.target) * 100), 100)
                 return (
@@ -1114,7 +1114,7 @@ async function reactToMessage(messageId, emoji) {
                       <span style={{ color: 'var(--color-muted)' }}>{m.actual} / {m.target}{m.unit} ({pct}%)</span>
                     </div>
                     <div style={{ height: '6px', backgroundColor: 'var(--color-border)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, backgroundColor: pct >= 100 ? '#34d399' : 'var(--color-primary)', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                      <div style={{ height: '100%', width: `${pct}%`, backgroundColor: m.color, borderRadius: '3px', transition: 'width 0.3s ease' }} />
                     </div>
                   </div>
                 )
@@ -1192,7 +1192,7 @@ async function reactToMessage(messageId, emoji) {
         <div style={cardStyle}>
           <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(79, 142, 247, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>

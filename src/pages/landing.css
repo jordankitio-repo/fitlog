@@ -51,9 +51,9 @@
 .lp-nav-link:hover { color: #bbb; }
 .lp-signin { font-size: 0.82rem; color: #888; text-decoration: none; font-weight: 500; }
 .lp-cta-sm {
-  background: #3b82f6; color: #fff; padding: 8px 18px; border-radius: 8px;
+  background: #22c55e; color: #fff; padding: 8px 18px; border-radius: 8px;
   font-size: 0.82rem; font-weight: 700; text-decoration: none; letter-spacing: -0.01em;
-  box-shadow: 0 0 0 1px rgba(59,130,246,0.5);
+  box-shadow: 0 0 0 1px rgba(34,197,94,0.5);
   white-space: nowrap;
 }
 
@@ -76,9 +76,9 @@
 .lp-subhead { font-size: 1.05rem; color: #666; line-height: 1.75; margin: 0 0 40px; max-width: 420px; letter-spacing: -0.01em; }
 .lp-cta-row { display: flex; gap: 12px; align-items: center; margin-bottom: 32px; flex-wrap: wrap; }
 .lp-cta {
-  background: #3b82f6; color: #fff; padding: 14px 30px; border-radius: 10px;
+  background: #22c55e; color: #fff; padding: 14px 30px; border-radius: 10px;
   font-size: 0.95rem; font-weight: 700; text-decoration: none; letter-spacing: -0.02em;
-  box-shadow: 0 0 0 1px rgba(59,130,246,0.4), 0 12px 32px rgba(59,130,246,0.2);
+  box-shadow: 0 0 0 1px rgba(34,197,94,0.4), 0 12px 32px rgba(34,197,94,0.2);
   white-space: nowrap;
 }
 .lp-link-arrow { color: #555; font-size: 0.88rem; text-decoration: none; font-weight: 500; letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: 4px; }

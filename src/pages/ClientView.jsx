@@ -933,7 +933,7 @@ async function sendMessage() {
           const mins = cardioHistory.find(d => d.date === date)?.minutes
           return mins ? Math.round((mins / cardioTarget) * 100) : null
         }),
-        backgroundColor: 'rgba(79, 142, 247, 0.7)', borderColor: '#4f8ef7',
+        backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6',
         borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
       })
     }
@@ -1646,7 +1646,7 @@ async function sendMessage() {
         <div style={sectionCardStyle}>
           <SectionHeader title="Cardio — last 14 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(79, 142, 247, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
