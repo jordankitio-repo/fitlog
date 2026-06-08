@@ -10,6 +10,15 @@ function stripeHeaders(stripeSecretKey: string) {
   }
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 async function resumeSoloSubscription(
   supabaseUrl: string,
   serviceKey: string,
@@ -160,6 +169,36 @@ Deno.serve(async (req) => {
 
     const now = new Date().toISOString()
 
+    // Capture coach + client details before the relationship is offboarded,
+    // so we can notify the coach that the client has left (best-effort).
+    let coachEmail: string | null = null
+    let coachName: string | null = null
+    let clientName: string | null = null
+    try {
+      const ccRes = await fetch(
+        `${supabaseUrl}/rest/v1/coach_clients?client_id=eq.${user.id}&status=eq.active&select=coach_id&limit=1`,
+        { headers },
+      )
+      const ccRows = await ccRes.json().catch(() => [])
+      const coachId = Array.isArray(ccRows) ? ccRows[0]?.coach_id : null
+      if (coachId) {
+        const profRes = await fetch(
+          `${supabaseUrl}/rest/v1/profiles?id=in.(${coachId},${user.id})&select=id,email,full_name`,
+          { headers },
+        )
+        const profRows = await profRes.json().catch(() => [])
+        if (Array.isArray(profRows)) {
+          const coach = profRows.find((p: { id: string }) => p.id === coachId)
+          const client = profRows.find((p: { id: string }) => p.id === user.id)
+          coachEmail = coach?.email ?? null
+          coachName = coach?.full_name ?? null
+          clientName = client?.full_name ?? client?.email ?? null
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch coach info for offboard notification:', e)
+    }
+
     const offboardRes = await fetch(
       `${supabaseUrl}/rest/v1/coach_clients?client_id=eq.${user.id}&status=eq.active`,
       {
@@ -189,6 +228,47 @@ Deno.serve(async (req) => {
     }
 
     await resumeSoloSubscription(supabaseUrl, serviceKey, user.id)
+
+    // Notify the coach that the client has left (best-effort, awaited so the
+    // Edge isolate isn't torn down before the Resend request completes).
+    const resendKey = Deno.env.get('RESEND_API_KEY')
+    if (resendKey && coachEmail) {
+      const safeCoachName = escapeHtml(coachName || coachEmail)
+      const safeClientName = escapeHtml(clientName || 'A client')
+      const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
+  <div style="max-width:560px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">Gardnr</p>
+    <h2 style="font-size:18px;font-weight:600;color:#f4f4f4;margin:0 0 16px">A client has left your coaching</h2>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">
+      Hi ${safeCoachName} &mdash; <strong style="color:#f4f4f4">${safeClientName}</strong> has ended their coaching connection with you and returned to a solo plan.
+    </p>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 32px">
+      They've been removed from your client list. Your other clients and data are not affected.
+    </p>
+    <a href="https://www.gardnr.fit" style="display:inline-block;background:#22c55e;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+      Open Gardnr
+    </a>
+    <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
+      Gardnr &middot; <a href="https://www.gardnr.fit" style="color:#333">gardnr.fit</a>
+    </p>
+  </div>
+</body>
+</html>`
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
+        body: JSON.stringify({
+          from: 'Gardnr <noreply@gardnr.fit>',
+          to: coachEmail,
+          subject: `${safeClientName} left your coaching`,
+          html,
+        }),
+      }).catch((e) => console.error('Coach offboard notification email failed:', e))
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

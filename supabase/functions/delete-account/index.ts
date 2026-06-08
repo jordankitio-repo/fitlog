@@ -186,16 +186,18 @@ Deno.serve(async (req) => {
         .map((r: { client_id: string }) => r.client_id)
         .filter(Boolean)
 
-      // Client emails for notification (best-effort).
+      // Client emails + names for notification (best-effort).
       let emailById: Record<string, string> = {}
+      let nameById: Record<string, string> = {}
       if (clientIds.length > 0) {
         const emRes = await fetch(
-          `${supabaseUrl}/rest/v1/profiles?id=in.(${clientIds.join(',')})&select=id,email`,
+          `${supabaseUrl}/rest/v1/profiles?id=in.(${clientIds.join(',')})&select=id,email,full_name`,
           { headers },
         )
         const emRows = await emRes.json().catch(() => [])
         if (Array.isArray(emRows)) {
           emailById = Object.fromEntries(emRows.map((p: { id: string; email: string }) => [p.id, p.email]))
+          nameById = Object.fromEntries(emRows.map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
         }
       }
 
@@ -217,9 +219,33 @@ Deno.serve(async (req) => {
             }),
           })
 
-          // c. Notify the client (best-effort; Part 6 will template this properly).
+          // c. Notify the client (best-effort).
           const to = emailById[clientId]
           if (resendKey && to) {
+            const safeName = escapeHtml(nameById[clientId] || to)
+            const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
+  <div style="max-width:560px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">Gardnr</p>
+    <h2 style="font-size:18px;font-weight:600;color:#f4f4f4;margin:0 0 16px">Your coaching plan has ended</h2>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">
+      Hi ${safeName} &mdash; your coach's Gardnr account was closed, so your coaching relationship has ended.
+    </p>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 32px">
+      <strong style="color:#f4f4f4">Your data is safe.</strong> You're now on a solo plan and can keep tracking on your own anytime.
+    </p>
+    <a href="https://www.gardnr.fit/login" style="display:inline-block;background:#22c55e;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+      Log in to Gardnr
+    </a>
+    <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
+      Gardnr &middot; <a href="https://www.gardnr.fit" style="color:#333">gardnr.fit</a>
+    </p>
+  </div>
+</body>
+</html>`
             await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -227,7 +253,7 @@ Deno.serve(async (req) => {
                 from: 'Gardnr <noreply@gardnr.fit>',
                 to,
                 subject: 'Your coaching plan has ended',
-                html: `<p>Your coach's Gardnr account was closed, so your coaching relationship has ended.</p><p>Your data is preserved — you're now on a solo plan and can keep tracking on your own.</p>`,
+                html,
               }),
             }).catch((e) => console.error('coach-deleted email failed:', e))
           }
@@ -365,9 +391,10 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to delete auth user: ${err}`)
     }
 
-    // Send notification emails (best-effort — do not block the success response)
+    // Send notification emails. Awaited so the Edge isolate isn't torn down
+    // before the Resend requests complete (fire-and-forget can drop the send).
     const resendKey = Deno.env.get('RESEND_API_KEY')
-    if (resendKey && (callerRole === 'solo' || callerRole === 'client')) {
+    if (resendKey) {
       const safeClientName = escapeHtml(callerName || callerEmail || 'there')
 
       if (callerEmail) {
@@ -392,7 +419,7 @@ Deno.serve(async (req) => {
 </body>
 </html>`
 
-        fetch('https://api.resend.com/emails', {
+        await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
           body: JSON.stringify({
@@ -401,7 +428,7 @@ Deno.serve(async (req) => {
             subject: 'Your Gardnr account has been deleted',
             html: clientHtml,
           }),
-        }).catch((e) => console.error('Client deletion confirmation email failed:', e))
+        }).catch((e) => console.error('Account deletion confirmation email failed:', e))
       }
 
       if (callerRole === 'client' && coachEmail) {
@@ -430,7 +457,7 @@ Deno.serve(async (req) => {
 </body>
 </html>`
 
-        fetch('https://api.resend.com/emails', {
+        await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
           body: JSON.stringify({

@@ -35,6 +35,22 @@ async function stripePost(
   return data
 }
 
+// Returns true only if the customer exists in Stripe and isn't deleted.
+// A stored customer ID can be orphaned if the customer was removed in Stripe;
+// reusing it would make checkout-session creation fail with "No such customer".
+async function customerIsUsable(
+  stripeCustomerId: string,
+  stripeSecretKey: string,
+) {
+  const res = await fetch(
+    `https://api.stripe.com/v1/customers/${stripeCustomerId}`,
+    { headers: { Authorization: `Basic ${btoa(stripeSecretKey + ':')}` } },
+  )
+  if (!res.ok) return false
+  const customer = await res.json().catch(() => null)
+  return Boolean(customer) && customer.deleted !== true
+}
+
 async function hashEmail(email: string): Promise<string> {
   const pepper = Deno.env.get('EMAIL_HASH_PEPPER') ?? ''
   const data = new TextEncoder().encode(`${pepper}:${email.toLowerCase().trim()}`)
@@ -53,23 +69,6 @@ async function getLedgerEntry(
   )
   const rows = await res.json().catch(() => [])
   return Array.isArray(rows) ? rows[0] ?? null : null
-}
-
-async function markTrialUsed(
-  supabaseUrl: string,
-  headers: Record<string, string>,
-  emailHash: string,
-  field: 'coach_trial_used' | 'solo_trial_used',
-) {
-  await fetch(`${supabaseUrl}/rest/v1/trial_ledger`, {
-    method: 'POST',
-    headers: { ...headers, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
-    body: JSON.stringify({
-      email_hash: emailHash,
-      [field]: true,
-      updated_at: new Date().toISOString(),
-    }),
-  })
 }
 
 Deno.serve(async (req) => {
@@ -138,6 +137,10 @@ Deno.serve(async (req) => {
       const existingSub = existingSubs?.[0]
       let stripeCustomerId = existingSub?.stripe_customer_id
 
+      if (stripeCustomerId && !(await customerIsUsable(stripeCustomerId, stripeSecretKey))) {
+        stripeCustomerId = null
+      }
+
       if (!stripeCustomerId) {
         const customer = await stripePost('customers', new URLSearchParams({
           email: profile.email || user.email || '',
@@ -167,9 +170,9 @@ Deno.serve(async (req) => {
 
       const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
 
-      if (coachTrialEligible) {
-        await markTrialUsed(supabaseUrl, restHeaders, emailHash, 'coach_trial_used')
-      }
+      // NOTE: trial usage is recorded by stripe-webhook when the subscription
+      // actually enters `trialing` — not here. Marking it at session creation
+      // burned the trial when a user opened then abandoned the Stripe page.
 
       const payload = {
         coach_id: user.id,
@@ -218,6 +221,10 @@ Deno.serve(async (req) => {
 
       let stripeCustomerId = existingSub?.stripe_customer_id
 
+      if (stripeCustomerId && !(await customerIsUsable(stripeCustomerId, stripeSecretKey))) {
+        stripeCustomerId = null
+      }
+
       if (!stripeCustomerId) {
         const customer = await stripePost('customers', new URLSearchParams({
           email: profile.email || user.email || '',
@@ -247,9 +254,8 @@ Deno.serve(async (req) => {
 
       const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
 
-      if (soloTrialEligible) {
-        await markTrialUsed(supabaseUrl, restHeaders, emailHash, 'solo_trial_used')
-      }
+      // NOTE: trial usage is recorded by stripe-webhook when the subscription
+      // actually enters `trialing` — not here. See coach flow above.
 
       const payload = {
         solo_id: user.id,

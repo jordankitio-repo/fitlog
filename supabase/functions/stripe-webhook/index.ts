@@ -197,6 +197,57 @@ function eq(value: string) {
   return encodeURIComponent(value)
 }
 
+// Must match the hashing in create-checkout-session / check-trial-eligibility
+// exactly, or the recorded hash won't match on eligibility lookups.
+async function hashEmail(email: string): Promise<string> {
+  const pepper = Deno.env.get('EMAIL_HASH_PEPPER') ?? ''
+  const data = new TextEncoder().encode(`${pepper}:${email.toLowerCase().trim()}`)
+  const buf = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Record that a free trial was actually consumed. Keyed by email hash so it
+// survives account deletion (blocks a second free trial on re-signup).
+// Upserts on the email_hash unique index — requires that index to exist.
+async function markTrialUsed(
+  supabaseUrl: string,
+  serviceKey: string,
+  ownerId: string,
+  planType: 'coach' | 'solo',
+) {
+  const headers = restHeaders(serviceKey)
+
+  const profRes = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?id=eq.${eq(ownerId)}&select=email&limit=1`,
+    { headers },
+  )
+  const rows = await profRes.json().catch(() => [])
+  const email = Array.isArray(rows) ? rows[0]?.email : null
+  if (!email) {
+    console.error('markTrialUsed: no email found for owner', ownerId)
+    return
+  }
+
+  const emailHash = await hashEmail(email)
+  const field = planType === 'coach' ? 'coach_trial_used' : 'solo_trial_used'
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/trial_ledger?on_conflict=email_hash`,
+    {
+      method: 'POST',
+      headers: { ...headers, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
+      body: JSON.stringify({
+        email_hash: emailHash,
+        [field]: true,
+        updated_at: new Date().toISOString(),
+      }),
+    },
+  )
+  if (!res.ok) {
+    console.error('markTrialUsed upsert failed:', await res.text())
+  }
+}
+
 async function fetchSubscriptionRow(
   supabaseUrl: string,
   serviceKey: string,
@@ -342,6 +393,17 @@ Deno.serve(async (req) => {
             current_period_end: currentPeriodEnd,
           },
         )
+
+        // Trial only counts as used once it actually starts. Recording it here
+        // (rather than at session creation) means abandoning the Stripe page
+        // never burns the trial.
+        if (status === 'trialing') {
+          const planType = sub?.metadata?.plan_type
+          const ownerId = sub?.metadata?.solo_id || sub?.metadata?.coach_id
+          if ((planType === 'solo' || planType === 'coach') && ownerId) {
+            await markTrialUsed(supabaseUrl, serviceKey, ownerId, planType)
+          }
+        }
         break
       }
 
