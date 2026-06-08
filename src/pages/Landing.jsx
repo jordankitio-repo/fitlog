@@ -142,7 +142,7 @@ export default function Landing() {
         </Link>
         <div className="lp-nav-right">
           <div className="lp-nav-links">
-            {[['#contrast', 'vs. status quo'], ['#how', 'Workflow'], ['#trial', 'The trial']].map(([href, label]) => (
+            {[['#how', 'Workflow'], ['#trial', 'The trial']].map(([href, label]) => (
               <a key={href} href={href} className="lp-nav-link">{label}</a>
             ))}
           </div>
