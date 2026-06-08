@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`0e5197d Update solo training link style in footer for better visibility`
+`ba98221 Add email notifications for account deletion and improve profile data fetching`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,16 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Account deletion email notifications (Jun 8)** — `delete-account` now sends two new emails (best-effort, non-blocking): (1) client confirmation — fires for `solo` and `client` roles on successful deletion; (2) coach notification — fires only for `client` role when an active coach is found. Coach info (`email`, `full_name`) fetched from `coach_clients` + `profiles` before the bulk deletion loop, since those rows are destroyed mid-flow. Profile `email` and `full_name` fetched at function entry before auth delete. `escapeHtml` helper added.
+
+**Auth error handling** — `App.jsx` now calls `supabase.auth.signOut()` automatically when an auth error is detected, recovering users from broken session states instead of leaving them stuck.
+
+**Metric color scheme fix** — Protein token corrected to amber `#f59e0b`, carbs to blue `#60a5fa` in both `index.css` and `CoachDashboard`. Prior values were swapped.
+
+**Date navigation fix** — Dashboard and Log date navigation refactored to use `parseLocalDateString` utility. `new Date('YYYY-MM-DD')` parses as UTC midnight, shifting dates one day back in negative-offset timezones (all US timezones). Fix constructs dates from year/month/day components directly.
+
+**UI polish** — NavBar legal link styles removed, layout adjusted for feedback button. Footer links added (Terms, Privacy, Feedback). Privacy and Terms pages updated with new URLs. Solo training signup link added to landing footer. Favicon updated to Gardnr design. Document title updated to "Gardnr".
 
 **Solo entry point on landing page (Jun 7)** — "Training solo? Start free →" link added to footer in green (`#34d399`, weight 600) routing to `/login?mode=signup&role=solo`. Quiet enough not to dilute the coach pitch, visible enough to capture solo interest.
 
@@ -50,7 +60,16 @@
 
 ---
 
-## Verified This Session (June 7, 2026)
+## Verified This Session (June 8, 2026)
+
+**Resend DNS confirmed via dig + dashboard:**
+- DKIM `resend._domainkey.gardnr.fit` — Verified ✓
+- SPF MX + TXT on `send.gardnr.fit` — Verified ✓
+- Root domain has no SPF record by design (Resend's standard subdomain layout)
+
+---
+
+## Verified (June 7, 2026)
 
 **Parts 5 + 6 verified:**
 - Solo account with active premium trial → delete account → auth user gone, subscriptions row deleted, Stripe subscription cancelled, redirected to sign-in. ✓
@@ -142,6 +161,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 8** — Account deletion email notifications (client confirmation + coach notification). Auth error auto-signout. Metric color scheme fix (protein amber, carbs blue). Date navigation parseLocalDateString fix. UI polish (NavBar, footer links, favicon, document title). Resend DKIM/SPF confirmed via dig + dashboard — SPF on send subdomain, correct by design.
 - **Jun 7 (session 2)** — Full rebrand FitLog → Gardnr. Responsive landing page rewrite (DM Sans, lp- namespace, 3 breakpoints). gardnr.fit purchased + DNS (Namecheap). Resend domain swap (tryfitlog.com deleted, gardnr.fit verified). All 10 edge functions redeployed with new sender. Supabase Auth updated. tryfitlog.com 308-redirect set. Nav simplified (removed "vs. status quo" link). Solo entry point added to landing footer.
 - **Jun 7 (session 1)** — Parts 1–6 complete: coach offboarding overhaul, trial pause/resume, offboard marker on profiles, delete-account coach + solo branches, checkout ledger gate, trial warning on CoachPaywall, delete-account link on paywall. Coach + solo FK bugs fixed. GRANT issues resolved. Supabase upgraded to Pro. `config.toml` JWT bypass permanent.
 - **Jun 6** — Live workflow verification (all flows passing). Trigger confirmed. AI-context refactor: split into `architecture.md` + `decisions.md` + slim `current-state.md`.

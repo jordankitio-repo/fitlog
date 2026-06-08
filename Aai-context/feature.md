@@ -81,6 +81,10 @@ nudge-client
 Email to client from coach nudge
 Weekly coach digest
 Monday 8am UTC. Per-coach email summarizing all clients' 7-day compliance + check-in status
+Account deletion confirmation
+Email to client/solo user on successful account deletion (best-effort)
+Client deletion coach notification
+Email to coach when a client deletes their account (best-effort; fires only if active coach relationship exists)
 Edge Functions
 Function
 Purpose
@@ -193,9 +197,9 @@ Infrastructure
 Feature
 Notes
 Domain
-tryfitlog.com — Namecheap → Vercel. SSL provisioned
+gardnr.fit — Namecheap → Vercel. SSL provisioned. tryfitlog.com 308-redirects to www.gardnr.fit until expiry.
 Resend
-DKIM + SPF + DMARC verified. Sender: noreply@tryfitlog.com
+DKIM + SPF + DMARC verified on gardnr.fit. Sender: noreply@gardnr.fit. SPF on send.gardnr.fit subdomain (Resend standard layout).
 pg_cron
 Weekly digest scheduled. 0 13 * * 1
 CI/CD
@@ -206,8 +210,7 @@ Roadmap ⬜
 🔴 Critical — Fix Before First Billing Cycle
 Feature
 Notes
-Fix trialing status in webhook
-Supabase writes active instead of trialing. Webhook handler maps Stripe status incorrectly. Fix before any coach hits day 30
+~~Fix trialing status in webhook~~ ✅ RESOLVED — webhook now fetches real Stripe subscription object; trialing status confirmed writing correctly (verified live Jun 6)
 
 
 🟡 Tier 1 — High impact, low effort, data already exists
@@ -279,21 +282,16 @@ Rest day calorie adjustment
 Needs new UX pattern
 
 
-💳 Billing & Access — Pending
+💳 Billing & Access
 Feature
 Notes
-Fix trialing webhook status
-See critical above
-Auto-offboard clients on coach cancel
-Webhook handler. Data preserved, client access suspended
+~~Fix trialing webhook status~~ ✅ RESOLVED
+~~Auto-offboard clients on coach cancel~~ ✅ SHIPPED — stripe-webhook handles customer.subscription.deleted; offboards all active coach clients, flips roles to solo, sends emails
+~~Grace period flow~~ ✅ SHIPPED — offboarded clients resume solo plan; paused solo subs restored
+~~Self-serve cancellation in Profile~~ ✅ SHIPPED — cancel-subscription edge fn, SubscriptionManager.jsx, cancel_at_period_end, confirmation email
+~~Paid solo Stripe product~~ ✅ SHIPPED — $7.99/mo, 14-day trial
 Solo tier feature gating
 Gate Tier 1 analytics behind Solo Premium. Requires role + subscription check
-Grace period flow
-Client → solo transition when coach cancels
-Self-serve cancellation in Profile
-Currently cancellation is by email only
-Paid solo Stripe product
-New price ID. $7–9/month
 Gate AI nutrition advice
 Currently ungated. Should require Solo Premium or Coach
 

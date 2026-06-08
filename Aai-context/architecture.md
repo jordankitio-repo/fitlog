@@ -58,7 +58,7 @@ Role is set on first login via RolePicker. New users (including OAuth) see RoleP
 - **Supabase project ID:** `mlqaurxefttbqsrllbyj` (East US)
 - **Edge Function base URL:** `https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/`
 - **Domain/CDN:** Namecheap → Vercel, SSL provisioned. Primary: `gardnr.fit`. `tryfitlog.com` 308-redirects to `www.gardnr.fit` until expiry.
-- **Resend:** DKIM + SPF + DMARC verified on `gardnr.fit`; sender `noreply@gardnr.fit`
+- **Resend:** DKIM + SPF + DMARC verified on `gardnr.fit`; sender `noreply@gardnr.fit`. DKIM on `resend._domainkey.gardnr.fit`; SPF (MX + TXT) on `send.gardnr.fit` — Resend's standard subdomain layout. Root domain carries no SPF record by design.
 - **pg_cron + pg_net:** enabled, weekly digest scheduled `0 13 * * 1`
 - **CI/CD:** Vercel auto-deploy on push to `main`
 
@@ -214,7 +214,7 @@ All tables have RLS enabled. Policies are user-scoped (`user_id = auth.uid()`) o
 - `Join.jsx` only sets `profiles.role = client` + creates `coach_clients` row — never deletes the subscription row, so resume works automatically once pause clears.
 
 ### Account deletion
-- `delete-account`: role-aware. **Coach**: processes all clients first (resume paused subs, flip roles, write offboard markers, send emails), then bulk-deletes data rows, then cancels Stripe sub + **explicitly deletes `subscriptions?coach_id=eq.uid`** (FK: NO ACTION), then deletes auth user. **Solo/client**: cancels Stripe sub + **explicitly deletes `subscriptions?solo_id=eq.uid`** (FK: NO ACTION), then bulk-deletes data rows, then auth delete.
+- `delete-account`: role-aware. **Coach**: processes all clients first (resume paused subs, flip roles, write offboard markers, send emails), then bulk-deletes data rows, then cancels Stripe sub + **explicitly deletes `subscriptions?coach_id=eq.uid`** (FK: NO ACTION), then deletes auth user. **Solo/client**: cancels Stripe sub + **explicitly deletes `subscriptions?solo_id=eq.uid`** (FK: NO ACTION), fetches coach info if `client` role (before bulk deletions destroy `coach_clients`), then bulk-deletes data rows, then auth delete, then sends emails best-effort: client confirmation always; coach notification if active coach was found.
 - **Rule:** Both `subscriptions.coach_id → profiles.id` and `subscriptions.solo_id → profiles.id` are NO ACTION FKs. The subscriptions row must be explicitly deleted before auth delete or Postgres rejects the cascade. Response checking is mandatory — silent failures show as FK violations downstream. Any future billing role must follow the same pattern.
 - Offboard marker written to `profiles.offboarded_at` + `profiles.offboard_reason` — survives coach row deletion. Reason values: `coach_offboarded` (offboard-client), `coach_deleted` (delete-account coach branch). Self-leave writes no marker.
 
@@ -272,6 +272,8 @@ All email via Resend (`noreply@gardnr.fit`). Email sends are wrapped in non-thro
 | `nudge-client` | Coach nudges inactive client (48hr cooldown) | Client |
 | `milestone-reached` | Client hits a streak milestone | Coach |
 | `weekly-digest` | Monday 8am UTC via pg_cron (`0 13 * * 1`) | Each coach (all-client compliance summary) |
+| `delete-account` (inline) | Client or solo user deletes account | Client (confirmation) |
+| `delete-account` (inline) | Client with active coach deletes account | Coach (notification) |
 
 In-app: nudge banner (client Dashboard, dismissible per nudge timestamp); milestone celebration banner.
 
@@ -327,7 +329,7 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 
 | Function | Auth | Purpose |
 |---|---|---|
-| `delete-account` | user | Role-aware deletion. Coach: offboard clients → delete data → cancel Stripe + delete subscriptions row → auth delete. Solo/client: cancel Stripe + delete subscriptions row → delete data → auth delete |
+| `delete-account` | user | Role-aware deletion. Coach: offboard clients → delete data → cancel Stripe + delete subscriptions row → auth delete. Solo/client: cancel Stripe + delete subscriptions row → fetch coach info → delete data → auth delete → send emails (client confirmation; coach notification if applicable) |
 | `check-trial-eligibility` | user | Returns { coach_trial_used, solo_trial_used } from trial_ledger. Called by CoachPaywall on mount. |
 | `nutrition-coach` | user + role + solo gate | AI nutrition advice |
 | `weekly-report` | user | AI weekly coaching report |
