@@ -200,6 +200,7 @@
 .lp-footer-tag { font-size: 0.78rem; color: #222; margin-left: 8px; letter-spacing: -0.01em; }
 .lp-footer-nav { display: flex; gap: 24px; flex-wrap: wrap; }
 .lp-footer-link { font-size: 0.78rem; color: #333; text-decoration: none; letter-spacing: -0.01em; }
+.lp-footer-solo { font-size: 0.78rem; color: #34d399; text-decoration: none; letter-spacing: -0.01em; font-weight: 600; }
 
 /* ============================================================
    RESPONSIVE

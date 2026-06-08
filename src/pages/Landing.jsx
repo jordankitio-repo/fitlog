@@ -291,7 +291,7 @@ export default function Landing() {
           {[['Sign in', '/login'], ['Terms', '/terms'], ['Privacy', '/privacy']].map(([label, path]) => (
             <Link key={path} to={path} className="lp-footer-link">{label}</Link>
           ))}
-          <Link to="/login?mode=signup&role=solo" className="lp-footer-link">Training solo? Start free →</Link>
+          <Link to="/login?mode=signup&role=solo" className="lp-footer-solo">Training solo? Start free →</Link>
         </nav>
       </footer>
 
