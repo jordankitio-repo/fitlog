@@ -8,6 +8,7 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
   const [error, setError] = useState(null)
   const [trialUsed, setTrialUsed] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const isCanceled = subscription?.status === 'canceled'
@@ -38,8 +39,8 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
     checkEligibility()
   }, [])
 
-  async function handleDeleteAccount() {
-    if (!window.confirm('Permanently delete your account? This cannot be undone.')) return
+  async function confirmDelete() {
+    setShowDeleteConfirm(false)
     setDeleting(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -152,7 +153,7 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
         </button>
         <br />
         <button
-          onClick={handleDeleteAccount}
+          onClick={() => setShowDeleteConfirm(true)}
           disabled={deleting}
           style={{ background: 'none', border: 'none', color: '#f87171', fontSize: 'var(--text-xs)', cursor: 'pointer', marginTop: 8 }}
         >
@@ -186,6 +187,29 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <Button variant="ghost" onClick={() => setShowConfirm(false)}>Cancel</Button>
               <Button variant="primary" onClick={proceedToCheckout}>Continue — $19/month</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24,
+        }}>
+          <div style={{
+            background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius)', padding: '32px 28px', maxWidth: 400, width: '100%', textAlign: 'center',
+          }}>
+            <h2 style={{ fontSize: 'var(--text-base)', marginBottom: 12 }}>Delete account</h2>
+            <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6, marginBottom: 24 }}>
+              Permanently delete your account and all associated data? <strong style={{ color: 'var(--color-text)' }}>This cannot be undone.</strong>
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+              <Button variant="danger-solid" onClick={confirmDelete} loading={deleting}>
+                {deleting ? 'Deleting…' : 'Delete everything'}
+              </Button>
             </div>
           </div>
         </div>
