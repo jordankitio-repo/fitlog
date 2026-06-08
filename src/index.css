@@ -152,16 +152,6 @@ button, a, input, select, textarea {
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.12);
 }
 
-/* Nav secondary items (legal links, feedback) — hide on small screens */
-.nav-secondary {
-  display: contents;
-}
-@media (max-width: 640px) {
-  .nav-secondary {
-    display: none;
-  }
-}
-
 /* Dark scrollbar for message threads */
 .message-thread::-webkit-scrollbar {
   width: 4px;

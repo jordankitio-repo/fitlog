@@ -22,12 +22,6 @@ function NavBar({ profile }) {
     }
   }
 
-  const legalLinkStyle = {
-    color: 'var(--color-muted)',
-    textDecoration: 'none',
-    fontSize: 'var(--text-xs)',
-    whiteSpace: 'nowrap',
-  }
 
   return (
     <nav style={{
@@ -67,14 +61,10 @@ function NavBar({ profile }) {
         </>
       )}
 
-      <span className="nav-secondary">
-        <Link to="/terms" style={legalLinkStyle}>Terms</Link>
-        <Link to="/privacy" style={legalLinkStyle}>Privacy</Link>
-        <FeedbackButton
-          userEmail={profile?.email || ''}
-          userName={profile?.full_name || ''}
-        />
-      </span>
+      <FeedbackButton
+        userEmail={profile?.email || ''}
+        userName={profile?.full_name || ''}
+      />
 
       <Button onClick={handleSignOut} variant="muted" size="sm">
         Sign out
