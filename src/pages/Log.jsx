@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
-import EmptyState from '../components/EmptyState'
-import SectionHeader from '../components/SectionHeader'
 import SoloUpgrade from '../components/SoloUpgrade'
 import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
@@ -58,8 +56,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [editingCardio, setEditingCardio] = useState(null)
   const [hideCalories, setHideCalories] = useState(false)
   const [weightExpanded, setWeightExpanded] = useState(false)
-  const [nutritionExpanded, setNutritionExpanded] = useState(true)
-  const [cardioExpanded, setCardioExpanded] = useState(true)
+  const [nutritionExpanded, setNutritionExpanded] = useState(false)
+  const [cardioExpanded, setCardioExpanded] = useState(false)
   const [stepsExpanded, setStepsExpanded] = useState(false)
 
   // Weight state
@@ -111,14 +109,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
   useEffect(() => {
     if (!baseNutrients) return
     if (baseServingSize != null) {
-      // Mode A: serving-based — multiplier is number of servings
       const multiplier = parseFloat(servingSize) || 1
       setCalories(Math.round(baseNutrients.calories * multiplier).toString())
       setProtein(Math.round(baseNutrients.protein * multiplier).toString())
       setCarbs(Math.round(baseNutrients.carbs * multiplier).toString())
       setFat(Math.round(baseNutrients.fat * multiplier).toString())
     } else {
-      // Mode B: 100g-based — same as before
       const grams = (parseInt(servingSize) || 100) * (unitConversions[servingUnit] || 1)
       const multiplier = grams / 100
       setCalories(Math.round(baseNutrients.calories * multiplier).toString())
@@ -206,7 +202,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit
       }).eq('id', editingEntry.id)
       if (error) console.error('Error updating:', error)
-      else { setEditingEntry(null); clearNutritionForm(); fetchEntries() }
+      else { setEditingEntry(null); clearNutritionForm(); setNutritionExpanded(false); fetchEntries() }
     } else {
       const { error } = await supabase.from('nutrition_log').insert([{
         food, calories: parseInt(calories), protein: parseInt(protein) || 0,
@@ -215,7 +211,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         logged_date: selectedDate, user_id: currentSession.user.id
       }])
       if (error) console.error('Error saving:', error)
-      else { clearNutritionForm(); fetchEntries() }
+      else { clearNutritionForm(); setNutritionExpanded(false); fetchEntries() }
     }
   }
 
@@ -239,7 +235,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setBaseNutrients(null)
     setBaseServingSize(null)
     setBaseServingLabel('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setNutritionExpanded(true)
   }
 
   async function deleteEntry(id) {
@@ -356,42 +352,43 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   async function logCardio() {
-  if (!duration) return
-  const { data: { session: currentSession } } = await supabase.auth.getSession()
+    if (!duration) return
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
 
-  if (editingCardio) {
-    const { error } = await supabase.from('cardio_log').update({
-      exercise_type: exerciseType,
-      duration: parseInt(duration),
-      calories_burned: parseInt(caloriesBurned) || null,
-      avg_heart_rate: parseInt(avgHeartRate) || null
-    }).eq('id', editingCardio.id)
-    if (error) console.error(error)
-    else { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
-  } else {
-    const { error } = await supabase.from('cardio_log').insert([{
-      exercise_type: exerciseType, duration: parseInt(duration),
-      calories_burned: parseInt(caloriesBurned) || null,
-      avg_heart_rate: parseInt(avgHeartRate) || null,
-      logged_date: selectedDate, user_id: currentSession.user.id
-    }])
-    if (error) console.error(error)
-    else { setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
+    if (editingCardio) {
+      const { error } = await supabase.from('cardio_log').update({
+        exercise_type: exerciseType,
+        duration: parseInt(duration),
+        calories_burned: parseInt(caloriesBurned) || null,
+        avg_heart_rate: parseInt(avgHeartRate) || null
+      }).eq('id', editingCardio.id)
+      if (error) console.error(error)
+      else { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
+    } else {
+      const { error } = await supabase.from('cardio_log').insert([{
+        exercise_type: exerciseType, duration: parseInt(duration),
+        calories_burned: parseInt(caloriesBurned) || null,
+        avg_heart_rate: parseInt(avgHeartRate) || null,
+        logged_date: selectedDate, user_id: currentSession.user.id
+      }])
+      if (error) console.error(error)
+      else { setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
+    }
   }
-}
 
   async function deleteCardio(id) {
     const { error } = await supabase.from('cardio_log').delete().eq('id', id)
     if (error) console.error(error); else fetchCardioEntries()
   }
-function startEditCardio(entry) {
-  setEditingCardio(entry)
-  setExerciseType(entry.exercise_type)
-  setDuration(entry.duration.toString())
-  setCaloriesBurned(entry.calories_burned?.toString() || '')
-  setAvgHeartRate(entry.avg_heart_rate?.toString() || '')
-  setCardioExpanded(true)
-}
+
+  function startEditCardio(entry) {
+    setEditingCardio(entry)
+    setExerciseType(entry.exercise_type)
+    setDuration(entry.duration.toString())
+    setCaloriesBurned(entry.calories_burned?.toString() || '')
+    setAvgHeartRate(entry.avg_heart_rate?.toString() || '')
+    setCardioExpanded(true)
+  }
 
   // Steps functions
   async function fetchSteps() {
@@ -435,6 +432,13 @@ function startEditCardio(entry) {
   function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
   const isToday = selectedDate === toLocalDateString(new Date())
 
+  const displayDate = parseLocalDateString(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+
+  const totalCalories = entries.reduce((s, e) => s + (e.calories || 0), 0)
+  const totalProtein = entries.reduce((s, e) => s + (e.protein || 0), 0)
+  const totalCarbs = entries.reduce((s, e) => s + (e.carbs || 0), 0)
+  const totalFat = entries.reduce((s, e) => s + (e.fat || 0), 0)
+
   const inputStyle = {
     backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius)', padding: '10px 14px',
@@ -446,69 +450,137 @@ function startEditCardio(entry) {
     display: 'flex', flexDirection: 'column', gap: 'var(--space-md)'
   }
 
-  return (
-    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+  const iconBtnStyle = {
+    background: 'none', border: 'none', cursor: 'pointer',
+    padding: '4px 6px', fontSize: '0.875rem', color: 'var(--color-muted)'
+  }
 
-      {/* Date nav */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <h1>Log</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
-          <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '6px 12px', color: 'var(--color-text)', fontSize: '1rem', colorScheme: 'dark' }} />
-          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
-          {isToday && (
-            <span style={{
-              backgroundColor: 'var(--color-primary)',
-              color: '#fff',
-              fontSize: '0.7rem',
-              fontWeight: 700,
-              padding: '3px 8px',
-              borderRadius: '999px',
-              letterSpacing: '0.05em'
-            }}>
-              TODAY
-            </span>
-          )}
-          
-          {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
+  return (
+    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+        <h1>Daily Log</h1>
+        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
+          <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: '1rem', lineHeight: 1 }}>←</button>
+          <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.875rem', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
+            <input
+              type="date"
+              value={selectedDate}
+              max={toLocalDateString(new Date())}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+            />
+          </label>
+          <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: '1rem', lineHeight: 1 }}>→</button>
         </div>
       </div>
 
       {/* Weight */}
       <div style={sectionStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>Weight</h2>
-          {savedWeight && !weightExpanded ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--color-text)' }}>
-                {savedWeight.weight} {savedWeight.unit}
-                {savedWeight.weighed_at && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', fontWeight: 400 }}> · {formatTime(savedWeight.weighed_at)}</span>}
-              </span>
-              <button onClick={() => setWeightExpanded(true)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
-            </div>
-          ) : (
-            <button onClick={() => setWeightExpanded(!weightExpanded)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '2px 6px', lineHeight: 1 }}>
-              {weightExpanded ? '−' : '+'}
-            </button>
+          <h2 style={{ borderLeft: '3px solid var(--color-weight)', paddingLeft: '10px' }}>Weight</h2>
+          {savedWeight && !weightExpanded && (
+            <button onClick={() => setWeightExpanded(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', padding: '4px 8px' }}>Edit</button>
           )}
         </div>
-        {weightExpanded && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-            <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
-              <option value="lbs">lbs</option>
-              <option value="kg">kg</option>
-            </select>
-            <Button onClick={saveWeight} variant="primary">
-              {savedWeight ? 'Update' : 'Log'}
-            </Button>
+
+        {savedWeight && !weightExpanded ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div>
+              <span style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-text)' }}>{savedWeight.weight}</span>
+              <span style={{ fontSize: '1rem', color: 'var(--color-muted)', marginLeft: '6px' }}>{savedWeight.unit}</span>
+            </div>
+            {savedWeight.weighed_at && <p style={{ fontSize: 'var(--text-sm)' }}>{formatTime(savedWeight.weighed_at)}</p>}
+            <Button onClick={() => setWeightExpanded(true)} variant="outline" size="sm" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>+ Log Weight</Button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+              <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
+                <option value="lbs">lbs</option>
+                <option value="kg">kg</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              {savedWeight && <Button onClick={() => setWeightExpanded(false)} variant="ghost" size="sm">Cancel</Button>}
+              <Button onClick={() => { saveWeight(); setWeightExpanded(false) }} variant="primary" size="sm">{savedWeight ? 'Update' : 'Log Weight'}</Button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Nutrition */}
       <div style={sectionStyle}>
-        <SectionHeader title="Nutrition" collapsed={!nutritionExpanded} onToggle={() => setNutritionExpanded(!nutritionExpanded)}>
+        <h2 style={{ borderLeft: '3px solid var(--color-calories)', paddingLeft: '10px' }}>Nutrition</h2>
+
+        {/* Macro totals */}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${hideCalories ? 3 : 4}, 1fr)`, gap: '8px' }}>
+          {!hideCalories && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-calories)' }}>{totalCalories}</div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Calories</div>
+            </div>
+          )}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-protein)' }}>{totalProtein}g</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Protein</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-carbs)' }}>{totalCarbs}g</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Carbs</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-fat)' }}>{totalFat}g</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Fat</div>
+          </div>
+        </div>
+
+        {/* Food entries */}
+        {entries.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--color-border)', paddingTop: '4px' }}>
+            {entries.map(entry => (
+              <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ flex: 1, minWidth: 0, marginRight: '8px' }}>
+                  <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9rem' }}>{entry.food}</p>
+                  <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
+                    {entry.serving_size}{entry.serving_unit}
+                    {!hideCalories && ` · ${entry.calories} kcal`}
+                    {entry.protein > 0 && ` · ${entry.protein}g protein`}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                  <button
+                    onClick={() => {
+                      setFood(entry.food)
+                      setCalories(entry.calories.toString())
+                      setProtein(entry.protein.toString())
+                      setCarbs(entry.carbs.toString())
+                      setFat(entry.fat.toString())
+                      setServingSize(entry.serving_size.toString())
+                      setServingUnit(entry.serving_unit || 'g')
+                      setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
+                      setBaseServingSize(null)
+                      setBaseServingLabel('')
+                      setEditingEntry(null)
+                      setNutritionExpanded(true)
+                    }}
+                    style={{ ...iconBtnStyle, fontSize: '1rem' }}
+                    title="Re-log"
+                  >↻</button>
+                  <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
+                  <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add Food Form */}
+        {nutritionExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: entries.length > 0 ? '4px' : '0' }}>
             <input
               type="text"
               placeholder="Food name"
@@ -516,31 +588,21 @@ function startEditCardio(entry) {
               onChange={(e) => { setFood(e.target.value); setNutritionErrors(p => ({ ...p, food: '' })) }}
               style={{ ...inputStyle, borderColor: nutritionErrors.food ? '#f87171' : 'var(--color-border)' }}
             />
-            {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-4px' }}>{nutritionErrors.food}</p>}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', marginBottom: '4px' }}>
-              <Button onClick={() => setShowScanner(true)} variant="ghost" size="sm">Scan barcode</Button>
-              <Button onClick={() => setShowBarcodeInput(!showBarcodeInput)} variant="ghost" size="sm"># Enter barcode</Button>
-            </div>
+            {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-6px' }}>{nutritionErrors.food}</p>}
             {showScanner && <BarcodeScanner onDetected={(barcode) => { setShowScanner(false); lookupBarcode(barcode) }} onClose={() => setShowScanner(false)} />}
             {showBarcodeInput && (
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" placeholder="Enter barcode number" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                <Button onClick={() => lookupBarcode(barcodeInput)} variant="primary">Lookup</Button>
+                <Button onClick={() => lookupBarcode(barcodeInput)} variant="primary" size="sm">Lookup</Button>
               </div>
             )}
             {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-md)' }}>
-          <input
-            type="number"
-            placeholder="Calories"
-            value={calories}
-            onChange={(e) => { setCalories(e.target.value); setNutritionErrors(p => ({ ...p, calories: '' })) }}
-            style={{ ...inputStyle, borderColor: nutritionErrors.calories ? '#f87171' : 'var(--color-border)', minWidth: 0 }}
-          />
-          <input type="number" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
-          <input type="number" placeholder="Carbs (g)" value={carbs} onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
-          <input type="number" placeholder="Fat (g)" value={fat} onChange={(e) => setFat(e.target.value)} style={inputStyle} />
-          <div style={{ display: 'flex', gap: '8px', gridColumn: '1 / -1', flexDirection: 'column' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+              <input type="number" placeholder="Calories" value={calories} onChange={(e) => { setCalories(e.target.value); setNutritionErrors(p => ({ ...p, calories: '' })) }} style={{ ...inputStyle, borderColor: nutritionErrors.calories ? '#f87171' : 'var(--color-border)', minWidth: 0 }} />
+              <input type="number" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
+              <input type="number" placeholder="Carbs (g)" value={carbs} onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
+              <input type="number" placeholder="Fat (g)" value={fat} onChange={(e) => setFat(e.target.value)} style={inputStyle} />
+            </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="number"
@@ -550,11 +612,7 @@ function startEditCardio(entry) {
                 style={{ ...inputStyle, flex: 1 }}
               />
               {baseServingSize == null && (
-                <select
-                  value={servingUnit}
-                  onChange={(e) => setServingUnit(e.target.value)}
-                  style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}
-                >
+                <select value={servingUnit} onChange={(e) => setServingUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
                   <option value="g">g</option>
                   <option value="oz">oz</option>
                   <option value="ml">ml</option>
@@ -564,22 +622,16 @@ function startEditCardio(entry) {
                 </select>
               )}
             </div>
-            {baseServingLabel && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: 0 }}>
-                1 serving = {baseServingLabel}
-              </p>
-            )}
+            {baseServingLabel && <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>1 serving = {baseServingLabel}</p>}
+            {nutritionErrors.calories && <p style={{ color: '#f87171', fontSize: '0.75rem' }}>{nutritionErrors.calories}</p>}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <Button onClick={() => { setNutritionExpanded(false); setEditingEntry(null); clearNutritionForm() }} variant="ghost" size="sm">Cancel</Button>
+              <Button onClick={handleSubmit} variant="primary" size="sm">{editingEntry ? 'Update entry' : 'Add entry'}</Button>
+            </div>
           </div>
-        </div>
-        {nutritionErrors.calories && <p style={{ color: '#f87171', fontSize: '0.75rem' }}>{nutritionErrors.calories}</p>}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-          <Button onClick={() => { setShowCopyPanel(!showCopyPanel); setCopyEntries([]); setSelectedCopyIds(new Set()) }} variant="ghost" size="sm">
-            {showCopyPanel ? 'Cancel' : '↩ Copy from another day'}
-          </Button>
-          <Button onClick={handleSubmit} variant="primary" size="sm">
-            {editingEntry ? 'Update entry' : 'Add entry'}
-          </Button>
-        </div>
+        )}
+
+        {/* Copy panel */}
         {showCopyPanel && (
           <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -619,25 +671,16 @@ function startEditCardio(entry) {
                   setSelectedCopyIds(next)
                 }}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '10px 12px',
-                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', cursor: 'pointer',
                   backgroundColor: selectedCopyIds.has(e.id) ? 'var(--color-primary-dim)' : 'var(--color-bg)',
                   border: `1px solid ${selectedCopyIds.has(e.id) ? 'var(--color-primary)' : 'var(--color-border)'}`,
                   borderRadius: 'var(--radius)'
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={selectedCopyIds.has(e.id)}
-                  onChange={() => {}}
-                  style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px', flexShrink: 0 }}
-                />
+                <input type="checkbox" checked={selectedCopyIds.has(e.id)} onChange={() => {}} style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem' }}>{e.food}</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text)' }}>{e.food}</p>
+                  <p style={{ fontSize: '0.75rem' }}>
                     {!hideCalories && <>{e.calories} cal · </>}P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g
                   </p>
                 </div>
@@ -651,20 +694,66 @@ function startEditCardio(entry) {
             )}
           </div>
         )}
-        {editingEntry && (
-          <Button onClick={() => { setEditingEntry(null); clearNutritionForm() }} variant="ghost">
-            Cancel
-          </Button>
+
+        {/* Action buttons */}
+        {!nutritionExpanded && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <Button
+              onClick={() => { setNutritionExpanded(true); setShowCopyPanel(false) }}
+              variant="primary"
+              size="sm"
+            >+ Add Food</Button>
+            <Button onClick={() => { setShowScanner(true); setNutritionExpanded(true) }} variant="muted" size="sm">Scan Barcode</Button>
+            <Button
+              onClick={() => { setShowCopyPanel(!showCopyPanel); setCopyEntries([]); setSelectedCopyIds(new Set()) }}
+              variant="muted"
+              size="sm"
+            >{showCopyPanel ? 'Cancel' : 'Copy Day'}</Button>
+          </div>
         )}
-        </SectionHeader>
+
+        {/* AI feedback */}
+        {entries.length > 0 && profile?.role !== 'client' && (
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
+            {hasSoloPremium ? (
+              <Button onClick={getAIFeedback} variant="ai" loading={loading} size="sm">
+                {loading ? 'Analyzing...' : 'Get AI feedback'}
+              </Button>
+            ) : (
+              <SoloUpgrade feature="AI nutrition feedback" compact />
+            )}
+          </div>
+        )}
+
+        {feedback && profile?.role !== 'client' && (
+          <div style={{ ...cardStyle, lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p style={{ color: 'var(--color-text)' }}>{feedback}</p>
+            <Button onClick={() => setFeedback('')} variant="ghost" size="sm">Clear</Button>
+          </div>
+        )}
       </div>
 
-      {/* Cardio + Steps */}
+      {/* Cardio */}
       <div style={sectionStyle}>
+        <h2 style={{ borderLeft: '3px solid var(--color-cardio)', paddingLeft: '10px' }}>Cardio</h2>
 
-        {/* Cardio */}
-        <SectionHeader title="Cardio" collapsed={!cardioExpanded} onToggle={() => setCardioExpanded(!cardioExpanded)}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {cardioEntries.map(e => (
+          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
+            <div>
+              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>{e.exercise_type}</p>
+              <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
+                {e.duration} min{e.calories_burned ? ` · ${e.calories_burned} kcal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm avg` : ''}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <button onClick={() => startEditCardio(e)} style={iconBtnStyle}>✎</button>
+              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
+            </div>
+          </div>
+        ))}
+
+        {cardioExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
               {EXERCISE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -673,119 +762,67 @@ function startEditCardio(entry) {
               <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
               <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <Button onClick={() => { logCardio(); if (!editingCardio) setCardioExpanded(false) }} variant="primary" size="sm">
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <Button
+                onClick={() => { setCardioExpanded(false); if (editingCardio) { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate('') } }}
+                variant="ghost"
+                size="sm"
+              >Cancel</Button>
+              <Button onClick={() => { logCardio(); setCardioExpanded(false) }} variant="primary" size="sm">
                 {editingCardio ? 'Update session' : 'Log session'}
               </Button>
-              {editingCardio && (
-                <Button onClick={() => { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); setCardioExpanded(false) }} variant="ghost" size="sm">
-                  Cancel
-                </Button>
-              )}
             </div>
           </div>
-        </SectionHeader>
-        {cardioEntries.map(e => (
-          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--color-border)' }}>
+        )}
+
+        {!cardioExpanded && (
+          <Button
+            onClick={() => setCardioExpanded(true)}
+            variant="outline"
+            size="sm"
+            style={{ alignSelf: 'flex-start', borderColor: 'var(--color-cardio)', color: 'var(--color-cardio)' }}
+          >+ Log Cardio</Button>
+        )}
+      </div>
+
+      {/* Steps */}
+      <div style={sectionStyle}>
+        <h2 style={{ borderLeft: '3px solid var(--color-steps)', paddingLeft: '10px' }}>Steps</h2>
+
+        {savedSteps && !stepsExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div>
-              <p style={{ fontWeight: 600 }}>{e.exercise_type}</p>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>{e.duration} min{e.calories_burned ? ` · ${e.calories_burned} cal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm` : ''}</p>
-            </div>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button onClick={() => startEditCardio(e)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
-              <button onClick={() => deleteCardio(e.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✕</button>
+              <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--color-text)' }}>{savedSteps.steps.toLocaleString()}</span>
+              <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginLeft: '8px' }}>
+                steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}
+              </span>
             </div>
           </div>
-        ))}
+        )}
 
-        {/* Divider */}
-        <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
-
-        {/* Steps */}
-        <SectionHeader title="Steps" collapsed={!stepsExpanded} onToggle={() => setStepsExpanded(!stepsExpanded)}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
-            <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-            <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary">
-              {savedSteps ? 'Update' : 'Log'}
-            </Button>
+        {stepsExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
+              <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              {savedSteps && <Button onClick={() => setStepsExpanded(false)} variant="ghost" size="sm">Cancel</Button>}
+              <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary" size="sm">{savedSteps ? 'Update' : 'Log Steps'}</Button>
+            </div>
           </div>
-        </SectionHeader>
-        {savedSteps && (
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-            {savedSteps.steps.toLocaleString()} steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}
-          </p>
+        )}
+
+        {!stepsExpanded && (
+          <Button
+            onClick={() => setStepsExpanded(true)}
+            variant="outline"
+            size="sm"
+            style={{ alignSelf: 'flex-start', borderColor: 'var(--color-steps)', color: 'var(--color-steps)' }}
+          >+ Log Steps</Button>
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {entries.length === 0 && (
-          <EmptyState
-            icon={null}
-            title="Nothing logged yet"
-            description="Add your first meal above to start tracking today's nutrition."
-          />
-        )}
-        {entries.map((entry) => (
-          <div key={entry.id} style={{ ...cardStyle, padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, flex: 1, marginRight: '8px', fontSize: '0.875rem' }}>{entry.food}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                {!hideCalories && (
-                  <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.875rem' }}>{entry.calories} cal</span>
-                )}
-                <button
-                  onClick={() => {
-                    setFood(entry.food)
-                    setCalories(entry.calories.toString())
-                    setProtein(entry.protein.toString())
-                    setCarbs(entry.carbs.toString())
-                    setFat(entry.fat.toString())
-                    setServingSize(entry.serving_size.toString())
-                    setServingUnit(entry.serving_unit || 'g')
-                    setBaseNutrients({
-                      calories: entry.calories,
-                      protein: entry.protein,
-                      carbs: entry.carbs,
-                      fat: entry.fat,
-                    })
-                    setBaseServingSize(null)
-                    setBaseServingLabel('')
-                    setEditingEntry(null)
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }}
-                  style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}
-                  title="Repeat this entry"
-                >
-                  ↻
-                </button>
-                <button onClick={() => startEdit(entry)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✎</button>
-                <button onClick={() => deleteEntry(entry.id)} style={{ backgroundColor: 'transparent', color: '#f87171', border: 'none', cursor: 'pointer', fontSize: '0.875rem', padding: '2px 6px' }}>✕</button>
-              </div>
-            </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
-              P: {entry.protein}g · C: {entry.carbs}g · F: {entry.fat}g · {entry.serving_size}{entry.serving_unit}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {entries.length > 0 && profile?.role !== 'client' && (
-        hasSoloPremium ? (
-          <Button onClick={getAIFeedback} variant="ai" loading={loading}>
-            {loading ? 'Analyzing...' : 'Get AI feedback'}
-          </Button>
-        ) : (
-          <SoloUpgrade feature="AI nutrition feedback" compact />
-        )
-      )}
-
-      {feedback && profile?.role !== 'client' && (
-        <div style={{ ...cardStyle, lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <p style={{ color: 'var(--color-text)' }}>{feedback}</p>
-          <Button onClick={() => setFeedback('')} variant="ghost" size="sm">Clear</Button>
-        </div>
-      )}
     </div>
   )
 }
