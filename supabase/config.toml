@@ -101,3 +101,12 @@ verify_jwt = false
 
 [functions.milestone-reached]
 verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = false
+
+[functions.offboard-client]
+verify_jwt = false
+
+[functions.offboard-self]
+verify_jwt = false
