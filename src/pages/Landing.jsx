@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import Logo from '../components/Logo'
 import './landing.css'
 
 const signupPath = '/login?mode=signup&role=coach'
@@ -137,7 +138,7 @@ export default function Landing() {
       {/* NAV */}
       <nav className="lp-nav">
         <Link to="/" className="lp-brand">
-          <span className="lp-brand-mark">G</span>
+          <Logo size={30} />
           <span className="lp-brand-name">gardnr</span>
         </Link>
         <div className="lp-nav-right">
@@ -283,7 +284,7 @@ export default function Landing() {
       {/* FOOTER */}
       <footer className="lp-footer">
         <div className="lp-footer-brand">
-          <span className="lp-footer-mark">G</span>
+          <Logo size={24} />
           <span className="lp-footer-name">gardnr</span>
           <span className="lp-footer-tag">Create conditions for growth.</span>
         </div>

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
+import Logo from '../components/Logo'
 
 function RolePicker({ session, onComplete, onCancel }) {
   const userId = session.user.id
@@ -40,7 +41,8 @@ function RolePicker({ session, onComplete, onCancel }) {
   return (
     <div style={{ maxWidth: '400px', margin: '80px auto', display: 'flex', flexDirection: 'column', gap: '24px', padding: '0 16px' }}>
       <div>
-        <h1>Welcome to Gardnr</h1>
+        <Logo size={40} />
+        <h1 style={{ marginTop: '16px' }}>Welcome to Gardnr</h1>
         <p style={{ color: 'var(--color-muted)', marginTop: '8px' }}>Tell us a bit about yourself to get started.</p>
       </div>
 

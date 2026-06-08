@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
+import Logo from '../components/Logo'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Join() {
@@ -261,6 +262,7 @@ function Join() {
       flexDirection: 'column',
       gap: '16px',
     }}>
+      <Logo size={40} />
       <h1>Accept invitation</h1>
       <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
         You've been invited to join Gardnr as a coached client.

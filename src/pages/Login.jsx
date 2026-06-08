@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
+import Logo from '../components/Logo'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Login() {
@@ -119,6 +120,7 @@ function Login() {
       flexDirection: 'column',
       gap: '16px'
     }}>
+      <Link to="/" aria-label="Gardnr home"><Logo size={40} /></Link>
       <h1>{isSignUp ? 'Create account' : 'Sign in'}</h1>
 
       {isSignUp && (
