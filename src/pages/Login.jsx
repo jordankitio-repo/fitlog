@@ -20,6 +20,13 @@ function Login() {
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotStatus, setForgotStatus] = useState('')
 
+  function friendlyError(message) {
+    if (!message || message === 'Failed to fetch' || message.toLowerCase().includes('networkerror') || message.toLowerCase().includes('failed to fetch')) {
+      return 'Unable to connect to our servers. Please try again in a few minutes.'
+    }
+    return message
+  }
+
   async function handleSubmit() {
     setError('')
     const newErrors = {}
@@ -39,53 +46,60 @@ function Login() {
     }
     setErrors({})
 
-    if (isSignUp) {
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('email', email.trim().toLowerCase())
-        .maybeSingle()
+    try {
+      if (isSignUp) {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id, role')
+          .eq('email', email.trim().toLowerCase())
+          .maybeSingle()
 
-      if (existing) {
-        setError('An account with this email already exists. Sign in instead.')
-        return
-      }
-
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
-      if (signUpError) {
-        setError(signUpError.message)
-        return
-      }
-      if (data.user) {
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: data.user.id,
-          email: email.trim().toLowerCase(),
-          role,
-          full_name: fullName,
-        })
-        if (profileError) {
-          setError(profileError.message)
+        if (existing) {
+          setError('An account with this email already exists. Sign in instead.')
           return
         }
-        await supabase.auth.refreshSession()
+
+        const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+        if (signUpError) {
+          setError(friendlyError(signUpError.message))
+          return
+        }
+        if (data.user) {
+          const { error: profileError } = await supabase.from('profiles').upsert({
+            id: data.user.id,
+            email: email.trim().toLowerCase(),
+            role,
+            full_name: fullName,
+          })
+          if (profileError) {
+            setError(friendlyError(profileError.message))
+            return
+          }
+          await supabase.auth.refreshSession()
+        }
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (signInError) setError(friendlyError(signInError.message))
       }
-    } else {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-      if (signInError) setError(signInError.message)
+    } catch {
+      setError('Unable to connect to our servers. Please try again in a few minutes.')
     }
   }
 
   async function handleForgotPassword() {
-  if (!forgotEmail) return
-  setForgotStatus('')
+    if (!forgotEmail) return
+    setForgotStatus('')
 
-  const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-    redirectTo: `${window.location.origin}/reset-password`
-  })
-
-  if (error) setForgotStatus(error.message)
-  else setForgotStatus('Check your email for a reset link.')
-}
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`
+      })
+      if (error) setForgotStatus(friendlyError(error.message))
+      else setForgotStatus('Check your email for a reset link.')
+    } catch {
+      setForgotStatus('Unable to connect. Please try again in a few minutes.')
+    }
+  }
 
   const inputStyle = {
     backgroundColor: 'var(--color-surface)',
