@@ -1,4 +1,4 @@
-# FitLog — System Architecture
+# Gardnr — System Architecture
 
 > **Purpose:** Durable description of how the system is built — stack, data model, flows, and how each subsystem works. This is the stable layer. It changes only when the structure changes (new table, new edge function, new integration, new flow), NOT every session.
 >
@@ -8,9 +8,9 @@
 
 ## Product Overview
 
-FitLog is a web-based fitness coaching SaaS built specifically for the coach–client relationship — not a general fitness tracker. Coaches manage clients, set targets, view compliance data, send reports, and message clients. Clients log daily nutrition, weight, cardio, and steps and see their own progress.
+Gardnr is a web-based fitness coaching SaaS built specifically for the coach–client relationship — not a general fitness tracker. Coaches manage clients, set targets, view compliance data, send reports, and message clients. Clients log daily nutrition, weight, cardio, and steps and see their own progress.
 
-**The pitch:** FitLog is the nutrition and body composition layer coaches use alongside whatever workout tool they already have.
+**The pitch:** Gardnr is the nutrition and body composition layer coaches use alongside whatever workout tool they already have. Tagline: "Coaches don't build physiques. They create conditions for growth."
 
 **Differentiators (vs. Trainerize, TrueCoach, Hevy):**
 1. Native nutrition tracking (not outsourced to MyFitnessPal)
@@ -57,8 +57,8 @@ Role is set on first login via RolePicker. New users (including OAuth) see RoleP
 - **GitHub:** https://github.com/jordankitio-repo/fitlog
 - **Supabase project ID:** `mlqaurxefttbqsrllbyj` (East US)
 - **Edge Function base URL:** `https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/`
-- **Domain/CDN:** Namecheap → Vercel, SSL provisioned
-- **Resend:** DKIM + SPF + DMARC verified; sender `noreply@tryfitlog.com`
+- **Domain/CDN:** Namecheap → Vercel, SSL provisioned. Primary: `gardnr.fit`. `tryfitlog.com` 308-redirects to `www.gardnr.fit` until expiry.
+- **Resend:** DKIM + SPF + DMARC verified on `gardnr.fit`; sender `noreply@gardnr.fit`
 - **pg_cron + pg_net:** enabled, weekly digest scheduled `0 13 * * 1`
 - **CI/CD:** Vercel auto-deploy on push to `main`
 
@@ -80,7 +80,7 @@ src/
     RolePicker.jsx    — first-login role selection
     Join.jsx          — client invite acceptance flow
     ResetPassword.jsx — password reset handler
-    Landing.jsx       — public landing page
+    Landing.jsx       — public landing page (Gardnr responsive rewrite; lp- namespace; DM Sans; landing.css co-located)
     Terms.jsx         — Terms of Service (public)
     Privacy.jsx       — Privacy Policy (public)
     BillingSuccess.jsx — Stripe checkout success page (/billing/success)
@@ -263,7 +263,7 @@ All AI features run as Supabase Edge Functions calling the model provider, retur
 
 ## Notifications & Email
 
-All email via Resend (`noreply@tryfitlog.com`). Email sends are wrapped in non-throwing try/catch (see `decisions.md`).
+All email via Resend (`noreply@gardnr.fit`). Email sends are wrapped in non-throwing try/catch (see `decisions.md`).
 
 | Function | Trigger | Recipient |
 |---|---|---|

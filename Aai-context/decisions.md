@@ -1,5 +1,5 @@
 
-# FitLog — Decisions Log
+# Gardnr — Decisions Log
 
 > **Purpose:** The reasoning behind every major product and technical choice. When a future decision contradicts one here, add the new decision rather than editing the old one — the history of *why* matters.
 >
@@ -12,7 +12,7 @@
 ## Product Strategy
 
 ### Nutrition is the core product, not an add-on
-**Reason:** Every competing platform (Trainerize, TrueCoach, Hevy) treats nutrition as an afterthought or a paid add-on and outsources it to MyFitnessPal. FitLog makes nutrition tracking, macro compliance, and body composition the core product.
+**Reason:** Every competing platform (Trainerize, TrueCoach, Hevy) treats nutrition as an afterthought or a paid add-on and outsources it to MyFitnessPal. Gardnr makes nutrition tracking, macro compliance, and body composition the core product.
 **Consequences:** Product positioning is "the nutrition layer alongside whatever workout tool you already have," not a workout platform. Workout programming is explicitly deferred until nutrition coaching is validated. Native nutrition logging is built in, never outsourced.
 
 ### Coach–client layer is hard-walled from solo users

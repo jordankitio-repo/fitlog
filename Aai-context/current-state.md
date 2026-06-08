@@ -1,4 +1,4 @@
-# FitLog — Current State
+# Gardnr — Current State
 
 > **Purpose:** The live, fast-changing snapshot. Update this at the end of every session. Everything durable lives elsewhere:
 > - **How it's built** → `architecture.md`
@@ -10,10 +10,10 @@
 ---
 
 ## Current Commit
-`1692441 Handle coach offboarding subscription pauses`
+`4803fd5 Switch sender domain from tryfitlog.com to gardnr.fit`
 
 ## Production
-- **Live URL:** https://www.tryfitlog.com
+- **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
 - **Build:** Passing (`npm run build`)
 - **Lint:** Failing on pre-existing issues only (4 errors / 9 warnings) — no new errors
 - **Deploy:** Auto on push to `main` via Vercel
@@ -23,6 +23,8 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Gardnr rebrand + domain migration (Jun 7)** — Full FitLog → Gardnr rebrand across all source files, Supabase edge functions, and email copy. New responsive landing page (`Landing.jsx` rewritten with `lp-` namespace CSS, DM Sans font, three breakpoints). Orphaned `.landing-*` CSS removed from `index.css`. Domain: `gardnr.fit` purchased, connected to Vercel (Namecheap A + CNAME), verified in Resend (DKIM + SPF). Sender switched to `noreply@gardnr.fit`. All 10 edge functions redeployed. Supabase Auth Site URL updated to `www.gardnr.fit`, redirect allowlist extended. Stripe product renamed to "Gardnr Coach". `tryfitlog.com` 308-redirects to `www.gardnr.fit`.
 
 **Part 6 — Checkout ledger gate + trial warning** — `create-checkout-session` now checks `trial_ledger` before attaching a trial period; marks trial used at checkout start. New `check-trial-eligibility` edge function (service-role ledger read, hashed email). `CoachPaywall` calls it on mount: shows "Subscribe to FitLog / will charge $19 immediately" + confirm modal when `coach_trial_used: true`. "Delete account" link added to paywall for users who want a clean exit without subscribing. Coach subscriptions row FK fix: same `subscriptions.coach_id → profiles.id` NO ACTION bug as solo — added explicit DELETE before auth delete. `GRANT SELECT, INSERT, UPDATE ON trial_ledger TO service_role` required (same pattern as subscriptions).
 
@@ -110,12 +112,10 @@ Parts 2–4 coach offboarding — tested end-to-end after full function redeploy
 
 ## Current Priorities (in order)
 
-1. **Buy `gardnr.fit` domain** — $2.98/yr, 2 min, unblocks rebrand. (See rebrand plan below.)
-2. **Apply Phase 1 rebrand to `main`** — text-only FitLog → Gardnr (file-by-file changes documented in rebrand plan).
-3. **Swap landing page** — replace `Landing.jsx` with the Gardnr version from the June 6 session.
-4. **Phase 2 domain migration** — connect gardnr.fit to Vercel + verify in Resend + swap `tryfitlog.com` → `gardnr.fit`.
-5. **Beta coach outreach** — 3–5 founding coaches at $19/mo locked.
-6. **Google OAuth production verification** — currently testing mode only.
+1. **Beta coach outreach** — 3–5 founding coaches at $19/mo locked.
+2. **Google OAuth production verification** — currently testing mode only.
+3. **Legal doc updates** — self-serve cancellation, Solo Premium $7.99 terms, pause/resume behavior, trial-aging disclosure, client-reconnection clause, coach-cancel-timing clause.
+4. **Redirect URL cleanup** — once confident no old tryfitlog.com email links are still in circulation, remove tryfitlog.com entries from Supabase Auth allowlist.
 
 ---
 
@@ -138,30 +138,10 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ---
 
-## Rebrand Plan: FitLog → Gardnr (ready, not applied to main)
-
-**New name:** Gardnr — **Tagline:** "Coaches don't build physiques. They create conditions for growth."
-**Domain:** `gardnr.fit` ($2.98/yr first year, ~$33.98 renew) — recommended, not yet purchased.
-
-**Phase 1 (text-only, safe to apply now):**
-- All UI text in `src/` and `supabase/`: FitLog → Gardnr
-- Email display names: `'FitLog <noreply@tryfitlog.com>'` → `'Gardnr <noreply@tryfitlog.com>'`
-- Email body brand text, legal docs (Terms/Privacy), `index.html` title, export filename (`fitlog-export-*` → `gardnr-export-*`)
-- **Do NOT change in Phase 1:** `noreply@tryfitlog.com` sender, `tryfitlog.com` URLs, `.supabase.co` refs, `Digigarden LLC`, `digigardenllc@gmail.com`, `package.json` name (`fitlog` internal id)
-
-**Phase 2 (after gardnr.fit purchased + DNS):**
-1. Connect gardnr.fit to Vercel (A + CNAME)
-2. Verify gardnr.fit in Resend (DKIM + SPF + DMARC)
-3. Switch sender to `noreply@gardnr.fit`
-4. One pass: swap all `tryfitlog.com` → `gardnr.fit`
-
-*Note: Phase 1 work was previously stashed/dropped from a deleted branch — must be re-applied cleanly.*
-
----
-
 ## Session Log (brief — newest first)
 
-- **Jun 7** — Parts 1–6 complete: coach offboarding overhaul, trial pause/resume, offboard marker on profiles, delete-account coach + solo branches, checkout ledger gate, trial warning on CoachPaywall, delete-account link on paywall. Coach + solo FK bugs fixed. GRANT issues resolved. Supabase upgraded to Pro. `config.toml` JWT bypass permanent.
+- **Jun 7 (session 2)** — Full rebrand FitLog → Gardnr. Responsive landing page rewrite (DM Sans, lp- namespace, 3 breakpoints). gardnr.fit purchased + DNS (Namecheap). Resend domain swap (tryfitlog.com deleted, gardnr.fit verified). All 10 edge functions redeployed with new sender. Supabase Auth updated. tryfitlog.com 308-redirect set. Nav simplified (removed "vs. status quo" link).
+- **Jun 7 (session 1)** — Parts 1–6 complete: coach offboarding overhaul, trial pause/resume, offboard marker on profiles, delete-account coach + solo branches, checkout ledger gate, trial warning on CoachPaywall, delete-account link on paywall. Coach + solo FK bugs fixed. GRANT issues resolved. Supabase upgraded to Pro. `config.toml` JWT bypass permanent.
 - **Jun 6** — Live workflow verification (all flows passing). Trigger confirmed. AI-context refactor: split into `architecture.md` + `decisions.md` + slim `current-state.md`.
 - **Jun 5/6 (prior session)** — Rebrand decision (Gardnr), new landing page built (not merged), DB + Stripe cleared for clean slate.
 - **Jun 5** — Tier 1 feature sweep (6 features), 6 bug fixes, steps unique-constraint fix.
