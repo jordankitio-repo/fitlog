@@ -154,8 +154,8 @@ Deno.serve(async (req) => {
       const sessionParams = new URLSearchParams({
         customer: stripeCustomerId,
         mode: 'subscription',
-        success_url: 'https://www.tryfitlog.com/billing/success',
-        cancel_url: 'https://www.tryfitlog.com/profile',
+        success_url: 'https://www.gardnr.fit/billing/success',
+        cancel_url: 'https://www.gardnr.fit/profile',
         'line_items[0][price]': stripePriceId,
         'line_items[0][quantity]': '1',
         'metadata[coach_id]': user.id,
@@ -234,8 +234,8 @@ Deno.serve(async (req) => {
       const sessionParams = new URLSearchParams({
         customer: stripeCustomerId,
         mode: 'subscription',
-        success_url: 'https://www.tryfitlog.com/billing/success',
-        cancel_url: 'https://www.tryfitlog.com/profile',
+        success_url: 'https://www.gardnr.fit/billing/success',
+        cancel_url: 'https://www.gardnr.fit/profile',
         'line_items[0][price]': stripePriceId,
         'line_items[0][quantity]': '1',
         'metadata[solo_id]': user.id,

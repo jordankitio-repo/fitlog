@@ -269,11 +269,11 @@ Deno.serve(async (req) => {
     <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 32px">
       If you'd like to connect with a new coach in the future, they can send you an invite and you'll be back up and running.
     </p>
-    <a href="https://www.tryfitlog.com" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+    <a href="https://www.gardnr.fit" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
       Open Gardnr
     </a>
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
-      Gardnr &middot; <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
+      Gardnr &middot; <a href="https://www.gardnr.fit" style="color:#333">gardnr.fit</a>
     </p>
   </div>
 </body>
@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
               Authorization: `Bearer ${resendKey}`,
             },
             body: JSON.stringify({
-              from: 'Gardnr <noreply@tryfitlog.com>',
+              from: 'Gardnr <noreply@gardnr.fit>',
               to: client.email,
               subject: 'Your coaching connection has ended - your data is safe',
               html,

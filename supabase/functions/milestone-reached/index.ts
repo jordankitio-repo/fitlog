@@ -138,13 +138,13 @@ Deno.serve(async (req) => {
     </p>
 
     <div style="margin-top:24px">
-      <a href="https://www.tryfitlog.com" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+      <a href="https://www.gardnr.fit" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
         View client data &rarr;
       </a>
     </div>
 
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
-      Gardnr &middot; <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
+      Gardnr &middot; <a href="https://www.gardnr.fit" style="color:#333">gardnr.fit</a>
     </p>
   </div>
 </body>
@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: 'Gardnr <noreply@tryfitlog.com>',
+        from: 'Gardnr <noreply@gardnr.fit>',
         to: [coach.email],
         subject: `🔥 ${clientDisplayName} just hit a ${streakCount}-day streak`,
         html,

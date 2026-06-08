@@ -244,14 +244,14 @@ async function sendDigestEmail(
     </table>
 
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid #242424">
-      <a href="https://www.tryfitlog.com" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+      <a href="https://www.gardnr.fit" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
         Open Gardnr
       </a>
     </div>
 
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
       You're receiving this because you have active clients on Gardnr.<br>
-      <a href="https://www.tryfitlog.com" style="color:#333">tryfitlog.com</a>
+      <a href="https://www.gardnr.fit" style="color:#333">gardnr.fit</a>
     </p>
   </div>
 </body>
@@ -265,7 +265,7 @@ async function sendDigestEmail(
       Authorization: `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: 'Gardnr <noreply@tryfitlog.com>',
+      from: 'Gardnr <noreply@gardnr.fit>',
       to: coachEmail,
       subject: `Your weekly client digest - ${weekLabel}`,
       html,
