@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`f5c1900 feat(dashboard): 90-day compliance summary beside the heatmap`
+`5fa44e6 feat(profile): editable display name + coach client count`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,8 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Editable display name + coach client count on Profile (Jun 9, session 3)** — Closed the most basic Profile gap: users couldn't edit their own `full_name` even though it's collected at signup and shown to coaches/clients. Added an editable Name field (account card, all roles) saved to `profiles` — the `profiles_update_self` RLS policy already permits own-row update, so no schema/policy/edge-fn change. Threaded `onProfileUpdate` (App → AppRoutes → Profile) so a save refreshes the global profile immediately. Fleshed out the bare coach Profile with a read-only "Active clients" count (head count on `coach_clients`). Clients see a "name your coach sees" hint. Save button is muted/disabled until the name is edited, then solid green. Name sync uses the adjust-state-during-render pattern to avoid adding `set-state-in-effect` lint debt. **Decision:** deferred body stats (height/sex/DOB/activity — needs schema, belongs with the roadmapped onboarding-assessment so it pre-populates targets) and notification prefs (touches mail edge fns). Verified all 3 roles via throwaway-account screenshots. Shipped to `main` (`5fa44e6`).
 
 **90-day compliance summary beside the heatmap (Jun 9, session 3)** — Filled the empty space next to the 90-day `ComplianceHeatmap` with a new `ComplianceSummary` (quantified totals), present in both the solo Dashboard "Logging consistency" card and the coach `ClientView` "Calorie Compliance" section. Reflowed each so the heatmap sits left and the stat tiles fill the right on desktop (stacks on mobile).
 - **Two differentiated lenses** (keeps the coach/solo wall): coach gets the *assessment* breakdown — days logged + on-target / partial / under buckets + avg of target; solo gets the *mirror* — days logged + on-track days, no prescriptive copy (passes the descriptive-only test in `decisions.md`).
@@ -207,6 +209,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 9 (session 3, cont.)** — Profile gaps: added editable display name (all roles, saved to `profiles`, own-row UPDATE RLS already in place) + threaded `onProfileUpdate` from App for instant refresh; fleshed out the bare coach Profile with a read-only "Active clients" count. Save button muted-until-dirty. Deliberately deferred body stats (schema; pair with onboarding-assessment) and notification prefs (mail edge fns). Verified 3 roles via screenshots. `5fa44e6`.
 - **Jun 9 (session 3)** — Filled the empty space beside the 90-day heatmap with a new `ComplianceSummary` (quantified totals), in both the solo Dashboard and coach `ClientView`. Reflowed to heatmap-left / tiles-right on desktop, stacking on mobile. Two lenses: coach = compliance breakdown (on-target/partial/under/avg), solo = mirror (days logged + on-track), preserving the descriptive-only wall. All derived from in-scope `heatmapData`; denominator ramps from first log and caps at 90 (new accounts read e.g. 12/12, not 12/90). New `summarizeCompliance()` util + 5 tests (53 total). Built a seeded visual-QA harness (`scripts/shoot-consistency.mjs`) — the existing ones don't seed nutrition data — and screenshot-verified both views at both widths. Shipped to `main` (`f5c1900`).
 - **Jun 9 (session 2)** — Shipped the Tier-1 self-analytics onto the solo Dashboard (they previously existed coach-side only): one Premium-gated "Logging consistency" card (weekday/weekend split + best week + 90-day heatmap, consolidated behind a single SoloUpgrade CTA, one nutrition query). Extended milestone celebrations to solo (relaxed the client-only guard; edge fn no-ops the email when there's no coach). All descriptive-only by design to protect the coaching layer (see `decisions.md`). Verified both gated and Premium-populated paths + the solo milestone banner via the Playwright harness (seeded 90 days of data with `SOLO_BILLING_ENABLED` flipped locally, then reverted). Pushed to `main` (`3e418ff`). Reconciled `features.md` — most of Tier 1 was already built and still listed as roadmap.
 - **Jun 9** — Nav redesign (responsive hamburger + pill tabs + logo mark), sticky-nav root-cause fix (`overflow-x: clip`, not `hidden`), solid bar (was frosted), password show/hide on all fields, restored manual barcode entry, ClientView header cleanup. Built a Playwright visual-QA harness (`scripts/shoot.mjs` / `shoot-all.mjs`) after repeatedly shipping UI blind — now screenshot-verify every change incl. coach/client screens via throwaway accounts. All key screens reviewed and clean. Harness finding (not a bug): `service_role` lacks INSERT grant on `coach_clients` — fine, the app inserts that row as the authenticated client (Join flow); use the client token in tooling. **OAuth is on hold — do not work on Google OAuth verification until the user explicitly asks.**
