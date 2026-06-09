@@ -48,6 +48,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [baseNutrients, setBaseNutrients] = useState(null)
   const [baseServingSize, setBaseServingSize] = useState(null)
   const [baseServingLabel, setBaseServingLabel] = useState('')
+  const [frequentFoods, setFrequentFoods] = useState([])
+  const [quickAddKey, setQuickAddKey] = useState(null)
   const [showCopyPanel, setShowCopyPanel] = useState(false)
   const [copyFromDate, setCopyFromDate] = useState('')
   const [copyEntries, setCopyEntries] = useState([])
@@ -79,6 +81,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   useEffect(() => {
     fetchEntries()
+    fetchFrequentFoods()
     fetchWeight()
     fetchCardioEntries()
     fetchSteps()
@@ -139,6 +142,52 @@ function Log({ session, profile, hasSoloPremium = true }) {
       .eq('logged_date', selectedDate).order('created_at', { ascending: true })
     if (error) console.error('Error fetching:', error)
     else setEntries(data)
+  }
+
+  // Most-frequently-logged distinct foods, each carrying the macros from its
+  // most recent entry — powers the one-tap "Quick add" row. Derived purely from
+  // the user's own nutrition_log, so no new schema.
+  async function fetchFrequentFoods() {
+    if (!session?.user?.id) return
+    const { data, error } = await supabase
+      .from('nutrition_log')
+      .select('food, calories, protein, carbs, fat, serving_size, serving_unit')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(300)
+    if (error) { console.error('Error fetching frequent foods:', error); return }
+
+    const byFood = new Map()
+    for (const e of data || []) {
+      const key = (e.food || '').trim().toLowerCase()
+      if (!key) continue
+      // First sighting wins (rows are newest-first), so we keep the latest macros.
+      if (!byFood.has(key)) byFood.set(key, { ...e, count: 1 })
+      else byFood.get(key).count += 1
+    }
+    const ranked = [...byFood.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+    setFrequentFoods(ranked)
+  }
+
+  async function quickAddFood(item, key) {
+    setQuickAddKey(key)
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const { error } = await supabase.from('nutrition_log').insert([{
+      food: item.food,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      serving_size: item.serving_size,
+      serving_unit: item.serving_unit,
+      logged_date: selectedDate,
+      user_id: currentSession.user.id,
+    }])
+    if (error) console.error('Error quick-adding food:', error)
+    else { fetchEntries(); fetchFrequentFoods() }
+    setQuickAddKey(null)
   }
 
   async function fetchCopyEntries(date) {
@@ -708,6 +757,46 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 Add {selectedCopyIds.size} {selectedCopyIds.size === 1 ? 'item' : 'items'} to {selectedDate === toLocalDateString(new Date()) ? 'today' : selectedDate}
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Quick add — one-tap re-log of frequently logged foods */}
+        {!nutritionExpanded && !showCopyPanel && frequentFoods.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Quick add</p>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', WebkitOverflowScrolling: 'touch' }}>
+              {frequentFoods.map(item => {
+                const key = item.food.trim().toLowerCase()
+                const pending = quickAddKey === key
+                return (
+                  <button
+                    key={key}
+                    onClick={() => quickAddFood(item, key)}
+                    disabled={pending}
+                    title={`Add ${item.food}`}
+                    style={{
+                      flexShrink: 0,
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      backgroundColor: 'var(--color-bg)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '999px',
+                      padding: '7px 14px',
+                      cursor: pending ? 'default' : 'pointer',
+                      opacity: pending ? 0.5 : 1,
+                      color: 'var(--color-text)',
+                      fontSize: '0.8rem',
+                      fontFamily: 'inherit',
+                      whiteSpace: 'nowrap',
+                      maxWidth: '220px',
+                    }}
+                  >
+                    <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>+</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.food}</span>
+                    {!hideCalories && <span style={{ color: 'var(--color-muted)', flexShrink: 0 }}>· {item.calories}</span>}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 
