@@ -1,5 +1,5 @@
 FitLog — Master Feature & Implementation List
-Last updated: June 8, 2026
+Last updated: June 9, 2026
 
 Note on feature numbers (#2, #5, #7, etc.): These reference the original tiered backlog from an earlier planning session. They are preserved as stable labels for cross-reference. The source list with full definitions of #1–#30 is not in current context — numbers are carried forward as-is, not independently re-verified.
 
@@ -218,34 +218,36 @@ Notes
 🟡 Tier 1 — High impact, low effort, data already exists
 "Where built" = the screen the feature lives on. Whether a given user sees it is determined by the Tier Access Matrix below, not here.
 
+Status reconciliation (June 9, 2026): The board had fallen behind the code — most of Tier 1 is already shipped. Verified against src on June 9. Remaining gap is porting the coach-side self-analytics (heatmap, weekend split) onto the solo Dashboard behind the Premium gate; Best week is now done there.
+
 #
 Feature
 Where built
-Notes
+Status
 11
 Compliance heatmap
-ClientView (coach views client) + Dashboard (self-view)
-30/90 day calendar grid. Extend existing 7-day pill logic
+ClientView (ComplianceHeatmap component)
+✅ Coach-side shipped. ⬜ Not yet on solo Dashboard (would be Premium-gated)
 7
 Rolling 7-day weight average
-Dashboard + ClientView weight chart
-Extra dataset on existing weight chart
+Dashboard weight chart
+✅ SHIPPED — Premium-gated dataset on weight chart (SoloUpgrade CTA for free); also computed coach-side in ClientView
 10
 Weekend vs weekday compliance split
-Dashboard + ClientView
-Pure calculation on existing data
+ClientView
+✅ Coach-side shipped. ⬜ Not yet on solo Dashboard (would be Premium-gated)
 21
 Best week analysis
 Dashboard + ClientView
-Query existing data, surface highest compliance week
+✅ SHIPPED — coach-side in ClientView; now on solo Dashboard as a Premium-gated card (free sees SoloUpgrade). Descriptive-only (most logged days in any Sun–Sat window, last 90 days)
 18
 Milestone celebrations
-Dashboard (in-app, all roles) + coach notification (client role only)
-Solo: in-app celebration only (no coach to notify). Client: in-app + Resend notification to coach
+Dashboard (in-app banner) + milestone-reached edge fn
+✅ SHIPPED — currently fires for client role only (fireMilestone guards role==='client'). Matrix intends solo in-app too; extending to solo is a one-line guard change
 17
 Client comparison/ranking dashboard
 CoachDashboard
-Coach-only by nature. Sort clients by compliance, streak, steps. Pure frontend
+✅ SHIPPED — sortBy compliance / recent / checkin. Adding a steps/streak sort key is trivial (sort scaffold exists)
 
 
 🟠 Tier 2 — High impact, moderate effort
@@ -293,7 +295,7 @@ Notes
 ~~Self-serve cancellation in Profile~~ ✅ SHIPPED — cancel-subscription edge fn, SubscriptionManager.jsx, cancel_at_period_end, confirmation email
 ~~Paid solo Stripe product~~ ✅ SHIPPED — $7.99/mo, 14-day trial
 Solo tier feature gating
-Gate Tier 1 analytics behind Solo Premium. Requires role + subscription check
+IN PROGRESS — gate pattern is live: hasSoloPremium prop + SoloUpgrade.jsx (Stripe checkout CTA). Gated so far on solo Dashboard: rolling 7-day weight avg, Best week. Remaining to gate when ported to Dashboard: compliance heatmap, weekend split, TDEE.
 Gate AI nutrition advice
 Currently ungated. Should require Solo Premium or Coach
 

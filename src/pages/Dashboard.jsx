@@ -53,6 +53,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [checkInSaved, setCheckInSaved] = useState(false)
   const [existingCheckIn, setExistingCheckIn] = useState(null)
   const [streak, setStreak] = useState(0)
+  const [bestWeek, setBestWeek] = useState(null)
   const [milestone, setMilestone] = useState(null)
   const [loggedToday, setLoggedToday] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -118,6 +119,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         fetchCardioHistory(),
         fetchStepsHistory(),
         fetchStreak(),
+        fetchBestWeek(),
       ])
       if (profile?.role === 'client') {
         await Promise.all([fetchCheckIn(), fetchMessages(), fetchLockState(), fetchNudgeNotice()])
@@ -251,6 +253,42 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         date: date.slice(5), calories
       })).sort((a, b) => a.date.localeCompare(b.date)))
     }
+  }
+
+  // Best week — most days with a nutrition log in any Sun–Sat window over the last 90 days.
+  // Purely descriptive self-analytics: it reports your own consistency, never prescribes.
+  async function fetchBestWeek() {
+    const start = new Date()
+    start.setDate(start.getDate() - 97)
+    const { data, error } = await supabase
+      .from('nutrition_log').select('logged_date')
+      .gte('logged_date', toLocalDateString(start))
+    if (error) { console.error(error); return }
+
+    const loggedDates = new Set(data.map(e => e.logged_date))
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const currentWeekStart = new Date(today)
+    currentWeekStart.setDate(today.getDate() - today.getDay())
+
+    let best = null
+    let bestCount = -1
+    for (let w = 0; w < 13; w++) {
+      const weekStart = new Date(currentWeekStart)
+      weekStart.setDate(currentWeekStart.getDate() - w * 7)
+      const count = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart); d.setDate(weekStart.getDate() + i)
+        return toLocalDateString(d)
+      }).filter(d => loggedDates.has(d)).length
+      if (count > bestCount) {
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekStart.getDate() + 6)
+        bestCount = count
+        best = { count, startDate: weekStart, endDate: weekEnd }
+      }
+    }
+    setBestWeek(best)
   }
 
   async function fetchTargets() {
@@ -1170,6 +1208,56 @@ async function reactToMessage(messageId, emoji) {
               </>
             )}
           </SectionHeader>
+        </div>
+      )}
+
+      {/* Best week — Solo Premium self-analytics. Descriptive only: reports your own
+          consistency, never prescribes or adjusts a plan. */}
+      {profile?.role !== 'client' && (
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 4px' }}>Best week</h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: '0 0 14px' }}>
+            Your most consistent week of logging in the last 90 days.
+          </p>
+          {hasSoloPremium ? (
+            bestWeek && bestWeek.count > 0 ? (
+              <div style={{
+                backgroundColor: 'var(--color-bg)',
+                borderRadius: 'var(--radius)',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>
+                  {bestWeek.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {' – '}
+                  {bestWeek.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{
+                    fontWeight: 700,
+                    fontSize: '1.5rem',
+                    color: bestWeek.count === 7 ? '#34d399' : bestWeek.count >= 5 ? '#fbbf24' : 'var(--color-muted)',
+                    margin: 0,
+                    lineHeight: 1,
+                  }}>
+                    {bestWeek.count}
+                    <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+                  </p>
+                  <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                    days logged
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', margin: 0 }}>
+                Log a few more days and your best week will show up here.
+              </p>
+            )
+          ) : (
+            <SoloUpgrade feature="Best week" />
+          )}
         </div>
       )}
 
