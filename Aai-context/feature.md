@@ -226,24 +226,24 @@ Where built
 Status
 11
 Compliance heatmap
-ClientView (ComplianceHeatmap component)
-✅ Coach-side shipped. ⬜ Not yet on solo Dashboard (would be Premium-gated)
+ClientView + Dashboard (ComplianceHeatmap component)
+✅ SHIPPED both sides — solo Dashboard hosts it inside the Premium-gated "Logging consistency" card (free sees SoloUpgrade)
 7
 Rolling 7-day weight average
 Dashboard weight chart
 ✅ SHIPPED — Premium-gated dataset on weight chart (SoloUpgrade CTA for free); also computed coach-side in ClientView
 10
 Weekend vs weekday compliance split
-ClientView
-✅ Coach-side shipped. ⬜ Not yet on solo Dashboard (would be Premium-gated)
+ClientView + Dashboard
+✅ SHIPPED both sides — solo Dashboard shows weekday/weekend split inside the Premium-gated "Logging consistency" card
 21
 Best week analysis
 Dashboard + ClientView
-✅ SHIPPED — coach-side in ClientView; now on solo Dashboard as a Premium-gated card (free sees SoloUpgrade). Descriptive-only (most logged days in any Sun–Sat window, last 90 days)
+✅ SHIPPED — coach-side in ClientView; on solo Dashboard inside the Premium-gated "Logging consistency" card. Descriptive-only (most logged days in any Sun–Sat window, last 90 days)
 18
 Milestone celebrations
 Dashboard (in-app banner) + milestone-reached edge fn
-✅ SHIPPED — currently fires for client role only (fireMilestone guards role==='client'). Matrix intends solo in-app too; extending to solo is a one-line guard change
+✅ SHIPPED — fires for client AND solo roles. Edge fn records the streak and only emails a coach when an active relationship exists, so solo users get the banner with no email
 17
 Client comparison/ranking dashboard
 CoachDashboard
@@ -295,7 +295,7 @@ Notes
 ~~Self-serve cancellation in Profile~~ ✅ SHIPPED — cancel-subscription edge fn, SubscriptionManager.jsx, cancel_at_period_end, confirmation email
 ~~Paid solo Stripe product~~ ✅ SHIPPED — $7.99/mo, 14-day trial
 Solo tier feature gating
-IN PROGRESS — gate pattern is live: hasSoloPremium prop + SoloUpgrade.jsx (Stripe checkout CTA). Gated so far on solo Dashboard: rolling 7-day weight avg, Best week. Remaining to gate when ported to Dashboard: compliance heatmap, weekend split, TDEE.
+IN PROGRESS — gate pattern is live: hasSoloPremium prop + SoloUpgrade.jsx (Stripe checkout CTA). Gated on solo Dashboard: rolling 7-day weight avg, plus the "Logging consistency" card (best week + weekday/weekend split + 90-day heatmap). Remaining to gate when built on Dashboard: TDEE.
 Gate AI nutrition advice
 Currently ungated. Should require Solo Premium or Coach
 

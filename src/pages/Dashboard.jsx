@@ -5,6 +5,7 @@ import Button from '../components/Button'
 import Skeleton from '../components/Skeleton'
 import SectionHeader from '../components/SectionHeader'
 import SoloUpgrade from '../components/SoloUpgrade'
+import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle as baseCardStyle } from '../utils/styles'
@@ -54,6 +55,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [existingCheckIn, setExistingCheckIn] = useState(null)
   const [streak, setStreak] = useState(0)
   const [bestWeek, setBestWeek] = useState(null)
+  const [consistency, setConsistency] = useState(null)
+  const [heatmapData, setHeatmapData] = useState({})
   const [milestone, setMilestone] = useState(null)
   const [loggedToday, setLoggedToday] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -119,7 +122,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         fetchCardioHistory(),
         fetchStepsHistory(),
         fetchStreak(),
-        fetchBestWeek(),
+        fetchNutritionAnalytics(),
       ])
       if (profile?.role === 'client') {
         await Promise.all([fetchCheckIn(), fetchMessages(), fetchLockState(), fetchNudgeNotice()])
@@ -134,7 +137,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
   useEffect(() => {
     const MILESTONES = [7, 14, 30, 60, 90]
-    if (profile?.role !== 'client' || !streak || !MILESTONES.includes(streak)) return
+    // Clients and solo users both get the in-app celebration. The edge function
+    // records the streak and only emails a coach when an active relationship
+    // exists, so solo users (no coach) get the banner with no email side effect.
+    if ((profile?.role !== 'client' && profile?.role !== 'solo') || !streak || !MILESTONES.includes(streak)) return
 
     async function fireMilestone() {
       const { data: { session: currentSession } } = await supabase.auth.getSession()
@@ -255,23 +261,33 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     }
   }
 
-  // Best week — most days with a nutrition log in any Sun–Sat window over the last 90 days.
-  // Purely descriptive self-analytics: it reports your own consistency, never prescribes.
-  async function fetchBestWeek() {
+  // Logging-consistency self-analytics, all from one 90-day nutrition pull:
+  // best week, weekday/weekend split, and the heatmap grid. Purely descriptive —
+  // reports the user's own consistency, never prescribes or adjusts a plan.
+  async function fetchNutritionAnalytics() {
     const start = new Date()
     start.setDate(start.getDate() - 97)
     const { data, error } = await supabase
-      .from('nutrition_log').select('logged_date')
+      .from('nutrition_log').select('logged_date, calories')
       .gte('logged_date', toLocalDateString(start))
     if (error) { console.error(error); return }
 
-    const loggedDates = new Set(data.map(e => e.logged_date))
+    // Heatmap: total calories per logged date.
+    const byDate = {}
+    data.forEach(e => {
+      if (!byDate[e.logged_date]) byDate[e.logged_date] = { calories: 0 }
+      byDate[e.logged_date].calories += e.calories || 0
+    })
+    setHeatmapData(byDate)
+
+    const loggedDates = new Set(Object.keys(byDate))
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+
+    // Best week: most logged days in any Sun–Sat window over the last 13 weeks.
     const currentWeekStart = new Date(today)
     currentWeekStart.setDate(today.getDate() - today.getDay())
-
     let best = null
     let bestCount = -1
     for (let w = 0; w < 13; w++) {
@@ -289,6 +305,20 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       }
     }
     setBestWeek(best)
+
+    // Weekday vs weekend logging over the last 30 days.
+    const last30 = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(today); d.setDate(today.getDate() - i)
+      return { dateStr: toLocalDateString(d), dow: d.getDay() }
+    })
+    const weekday = last30.filter(o => o.dow >= 1 && o.dow <= 5)
+    const weekend = last30.filter(o => o.dow === 0 || o.dow === 6)
+    setConsistency({
+      weekdayLogged: weekday.filter(o => loggedDates.has(o.dateStr)).length,
+      weekdayTotal: weekday.length,
+      weekendLogged: weekend.filter(o => loggedDates.has(o.dateStr)).length,
+      weekendTotal: weekend.length,
+    })
   }
 
   async function fetchTargets() {
@@ -1211,52 +1241,91 @@ async function reactToMessage(messageId, emoji) {
         </div>
       )}
 
-      {/* Best week — Solo Premium self-analytics. Descriptive only: reports your own
-          consistency, never prescribes or adjusts a plan. */}
+      {/* Logging consistency — Solo Premium self-analytics. Descriptive only:
+          best week, weekday/weekend split, and a 90-day heatmap. Reports the
+          user's own consistency, never prescribes or adjusts a plan. */}
       {profile?.role !== 'client' && (
         <div style={cardStyle}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 4px' }}>Best week</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 4px' }}>Logging consistency</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: '0 0 14px' }}>
-            Your most consistent week of logging in the last 90 days.
+            How steadily you've logged over the last 90 days.
           </p>
           {hasSoloPremium ? (
-            bestWeek && bestWeek.count > 0 ? (
-              <div style={{
-                backgroundColor: 'var(--color-bg)',
-                borderRadius: 'var(--radius)',
-                padding: '14px 18px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}>
-                <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>
-                  {bestWeek.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  {' – '}
-                  {bestWeek.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </p>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{
-                    fontWeight: 700,
-                    fontSize: '1.5rem',
-                    color: bestWeek.count === 7 ? '#34d399' : bestWeek.count >= 5 ? '#fbbf24' : 'var(--color-muted)',
-                    margin: 0,
-                    lineHeight: 1,
-                  }}>
-                    {bestWeek.count}
-                    <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
-                  </p>
-                  <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
-                    days logged
-                  </p>
+            <>
+              {/* Weekday vs weekend split (last 30 days) */}
+              {consistency && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon–Fri)</p>
+                    <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? '#34d399' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
+                      {consistency.weekdayLogged}
+                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
+                    </p>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                      {consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}%
+                    </p>
+                  </div>
+                  <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat–Sun)</p>
+                    <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? '#34d399' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
+                      {consistency.weekendLogged}
+                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
+                    </p>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                      {consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}%
+                    </p>
+                  </div>
                 </div>
+              )}
+
+              {/* Best week (last 90 days) */}
+              {bestWeek && bestWeek.count > 0 && (
+                <div style={{
+                  backgroundColor: 'var(--color-bg)',
+                  borderRadius: 'var(--radius)',
+                  padding: '14px 18px',
+                  marginTop: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                  <div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Best week (last 90 days)</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>
+                      {bestWeek.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {' – '}
+                      {bestWeek.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{
+                      fontWeight: 700,
+                      fontSize: '1.5rem',
+                      color: bestWeek.count === 7 ? '#34d399' : bestWeek.count >= 5 ? '#fbbf24' : 'var(--color-muted)',
+                      margin: 0,
+                      lineHeight: 1,
+                    }}>
+                      {bestWeek.count}
+                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+                    </p>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>days logged</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 90-day heatmap */}
+              <div style={{ marginTop: '16px' }}>
+                <ComplianceHeatmap logsByDate={heatmapData} calorieTarget={targets?.calories} />
               </div>
-            ) : (
-              <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', margin: 0 }}>
-                Log a few more days and your best week will show up here.
-              </p>
-            )
+
+              {!bestWeek?.count && Object.keys(heatmapData).length === 0 && (
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', margin: '12px 0 0' }}>
+                  Log a few more days and your consistency trends will show up here.
+                </p>
+              )}
+            </>
           ) : (
-            <SoloUpgrade feature="Best week" />
+            <SoloUpgrade feature="Logging consistency" />
           )}
         </div>
       )}
