@@ -12,7 +12,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [syncedName, setSyncedName] = useState(profile?.full_name || '')
   const [nameSaved, setNameSaved] = useState(false)
   const [nameSaving, setNameSaving] = useState(false)
-  const [clientCount, setClientCount] = useState(null)
   const [targets, setTargets] = useState({
     calories: '',
     protein: '',
@@ -67,20 +66,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
   // Whether the name has actually been edited (drives the Save button state).
   const nameDirty = name.trim() !== '' && name.trim() !== profileName
-
-  // Active client count for the coach account card.
-  useEffect(() => {
-    if (profile?.role !== 'coach') return
-    async function loadClientCount() {
-      const { count, error } = await supabase
-        .from('coach_clients')
-        .select('client_id', { count: 'exact', head: true })
-        .eq('coach_id', session.user.id)
-        .eq('status', 'active')
-      if (!error) setClientCount(count ?? 0)
-    }
-    loadClientCount()
-  }, [profile?.role, session.user.id])
 
   async function saveName() {
     const trimmed = name.trim()
@@ -265,14 +250,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Account type</p>
             <p style={{ color: 'var(--color-text)', fontSize: '1rem', textTransform: 'capitalize' }}>
               {profile.role}
-            </p>
-          </div>
-        )}
-        {profile?.role === 'coach' && clientCount !== null && (
-          <div>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Active clients</p>
-            <p style={{ color: 'var(--color-text)', fontSize: '1rem' }}>
-              {clientCount} {clientCount === 1 ? 'client' : 'clients'}
             </p>
           </div>
         )}
