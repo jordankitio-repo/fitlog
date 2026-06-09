@@ -302,8 +302,8 @@ Sunday→Saturday (7 days). In ClientView: `start = addDays(currentWeekStart, -7
 ### 7-day compliance pills (CoachDashboard)
 Per client per metric (calories, protein, cardio, steps): count days in last 7 where logged ≥ 90% of target. Color: green ≥5, yellow 3–4, red <3. Pills suppress when `logged === 0`. Opacity encodes compliance level; low compliance gets a subtle colored fill.
 
-### Compliance heatmap (ComplianceHeatmap.jsx — ClientView)
-13-week (91-day) Sunday-first calendar grid. `fetchHeatmapData()` aggregates calories per date over a 97-day window. Color: green ≥90% calorie target, yellow 60–89%, red <60%, gray no log. Uses `toLocalDateString` throughout. Cell 18px, gap 2px, `overflowX:auto`.
+### Compliance heatmap (ComplianceHeatmap.jsx — ClientView + Dashboard)
+13-week (91-day) Sunday-first calendar grid. Coach-side: `fetchHeatmapData()` aggregates calories per date over a 97-day window. Solo Dashboard: same `logsByDate` shape built inside `fetchNutritionAnalytics` (see "Solo Dashboard self-analytics" below). Color: green ≥90% calorie target, yellow 60–89%, red <60%, gray no log. Uses `toLocalDateString` throughout. Cell 18px, gap 2px, `overflowX:auto`.
 
 ### Rolling 7-day weight average
 `computeRollingAverage(data, window=7)` in Dashboard.jsx + ClientView.jsx. Second dataset on weight chart: dashed green line, no points.
@@ -314,11 +314,14 @@ Per client per metric (calories, protein, cardio, steps): count days in last 7 w
 ### Best week analysis
 Computed inside `fetchConsistency` (no new fetch). Scans all 13 Sun–Sat windows in last 90 days; highest logged-day count, ties broken by recency. State: `bestWeekCount/bestWeekStart/bestWeekEnd`.
 
+### Solo Dashboard self-analytics (Premium-gated)
+Weekday/weekend split, best week, and the heatmap also render on the solo's own Dashboard (they previously existed coach-side only). One `fetchNutritionAnalytics()` does a single 97-day `nutrition_log` pull and derives all three (heatmap `logsByDate`, best week, 30-day weekday/weekend counts) instead of three queries. All three sit inside one "Logging consistency" card gated on `hasSoloPremium`: Premium sees the data, free sees a single `SoloUpgrade` CTA. Scoped to `role !== 'client'` (mirrors the rolling-weight-average gate). Descriptive-only — see decisions.md "Solo self-analytics stay descriptive."
+
 ### Client comparison/ranking (CoachDashboard)
 `scoreClient(s)` sums `value` across all `hasData` compliance items. `sortBy` modes: Compliance (score desc, recency tiebreak), Last logged (daysSinceLog asc), Check-in (submitted first). No-stats clients score -1, sink to bottom. Sort controls render only when `clients.length > 1`.
 
 ### Milestone celebrations
-Milestones: 7, 14, 30, 60, 90 days. `milestone-reached` edge fn guard: fires only if `streakCount in MILESTONES AND last_milestone_streak < streakCount`, then updates `last_milestone_streak` (fires once per level, never duplicates). Dashboard `useEffect` watches `streak`, calls fn on milestone. Banner shows only when backend returns `{ ok: true, milestone }`. Solo users: in-app banner only; clients with a coach: banner + coach email.
+Milestones: 7, 14, 30, 60, 90 days. `milestone-reached` edge fn guard: fires only if `streakCount in MILESTONES AND last_milestone_streak < streakCount`, then updates `last_milestone_streak` (fires once per level, never duplicates). Dashboard `useEffect` watches `streak` and calls the fn for both `client` and `solo` roles (coaches don't log, so they never trigger it). Banner shows only when backend returns `{ ok: true, milestone }`. The fn emails a coach only when an active relationship exists, so solo users (no coach) get the in-app banner with no email; clients with a coach get banner + coach email.
 
 ---
 

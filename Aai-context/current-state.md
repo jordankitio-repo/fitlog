@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`df0f1c3 Clean up ClientView header; add full-screen visual-QA harness`
+`3e418ff feat(dashboard): Logging consistency card + solo milestones`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,13 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Solo self-analytics on the Dashboard + solo milestones (Jun 9, session 2)** — Closed the gap where the Tier-1 self-analytics existed only coach-side (in `ClientView`) and never on the solo's own Dashboard.
+- **"Logging consistency" card** (`Dashboard.jsx`, Premium-gated): one card consolidating weekday/weekend split (last 30d), best week (last 90d), and the 90-day `ComplianceHeatmap` — behind a single `SoloUpgrade` CTA (free users see one upgrade prompt, not three). Folded three would-be queries into one 90-day `nutrition_log` pull (`fetchNutritionAnalytics`). Scoped to `role !== 'client'`, mirroring the rolling-weight-average gate.
+- **Milestone celebrations extended to solo:** relaxed the `role === 'client'` guard in `fireMilestone`. Safe because `milestone-reached` already records the streak and only emails a coach when an active relationship exists — coachless solo users get the in-app banner with no email.
+- **Product guardrail:** all additions are descriptive-only (they report the user's own past consistency, never prescribe or adjust a plan) so they don't cannibalize the coaching layer — see `decisions.md`.
+- **Verified with the harness:** free-tier gate (single CTA) screenshotted; Premium path seeded with 90 days of data (temporarily flipping `SOLO_BILLING_ENABLED` locally, reverted) → weekday/weekend 86% vs 50%, best week 6/7, full heatmap; solo 7-day milestone banner confirmed firing. Throwaway accounts deleted.
+- Shipped straight to `main` (`3e418ff`, preceded by `ce03afa` Best week). Also reconciled `features.md` — most of Tier 1 was already shipped and the board still listed it as roadmap.
 
 **Nav redesign + UI polish + visual-QA harness (Jun 9)** — A round of UX fixes, all verified with real screenshots (see harness below).
 - **Responsive NavBar rewrite** (`NavBar.jsx`): desktop = solid bar with the logo-icon mark + green-dim "pill" active tabs; mobile (≤600px via a `useMediaQuery` hook) = brand + hamburger that opens an animated dropdown (per-item icons, active item uses the green left-accent motif, dimmed/blurred tap-away backdrop). Replaced an earlier wrapping bar that looked unintentional.
@@ -195,6 +202,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 9 (session 2)** — Shipped the Tier-1 self-analytics onto the solo Dashboard (they previously existed coach-side only): one Premium-gated "Logging consistency" card (weekday/weekend split + best week + 90-day heatmap, consolidated behind a single SoloUpgrade CTA, one nutrition query). Extended milestone celebrations to solo (relaxed the client-only guard; edge fn no-ops the email when there's no coach). All descriptive-only by design to protect the coaching layer (see `decisions.md`). Verified both gated and Premium-populated paths + the solo milestone banner via the Playwright harness (seeded 90 days of data with `SOLO_BILLING_ENABLED` flipped locally, then reverted). Pushed to `main` (`3e418ff`). Reconciled `features.md` — most of Tier 1 was already built and still listed as roadmap.
 - **Jun 9** — Nav redesign (responsive hamburger + pill tabs + logo mark), sticky-nav root-cause fix (`overflow-x: clip`, not `hidden`), solid bar (was frosted), password show/hide on all fields, restored manual barcode entry, ClientView header cleanup. Built a Playwright visual-QA harness (`scripts/shoot.mjs` / `shoot-all.mjs`) after repeatedly shipping UI blind — now screenshot-verify every change incl. coach/client screens via throwaway accounts. All key screens reviewed and clean. Harness finding (not a bug): `service_role` lacks INSERT grant on `coach_clients` — fine, the app inserts that row as the authenticated client (Join flow); use the client token in tooling. **OAuth is on hold — do not work on Google OAuth verification until the user explicitly asks.**
 - **Jun 8 (session 3)** — Pre-launch security/feature audit + hardening, all deployed & pushed to `main` (`5253639`). Found `profiles` RLS disabled (any authed user could read all profiles) → enabled + scoped policy. Secured 4 open edge functions (call-prep/weekly-report/notify-report/notify-checkin) + weekly-digest cron (anon→service_role). Applied the never-pushed `trial_ledger` email_hash unique index. Webhook replay window + constant-time compare. Polish: 404 route, reset-password validator, lint 13→6. Verified via live throwaway-account RLS probes (own-row isolation + coach↔client reads). Gotchas this session: RLS-disabled-but-policies-defined is invisible in the policy list (check `relrowsecurity`); local `.vercel` link was stale → pointed at `fitlog` project, prod is `gardnr`; `supabase secrets set` errors on an access-token format quirk (used a role-claim gate instead of CRON_SECRET); `supabase db push --linked` works without Docker (db dump needs Docker).
 - **Jun 8 (session 2)** — Log screen redesign (mockup match, all functionality preserved). Login friendly-error UX (during regional Supabase outage; resolved via VPN region-switch on user side). Progress charts 14→30 days (Dashboard + ClientView). 6-bug email/billing sweep: deletion email for all roles incl coach, coach-notify on client leave, login button in coach-deletion email, trial-marking moved checkout→webhook, orphaned Stripe customer recovery, `trial_ledger.email_hash` unique index. SoloUpgrade eligibility-aware label + CoachPaywall in-app delete modal. `sendEmail()` helper with Resend response checking. Non-bugs ruled out: coach email was landing in spam; "trial still available" was a two-email mix-up. Deploy gotcha: Vercel project is `gardnr`, use `--project gardnr`.

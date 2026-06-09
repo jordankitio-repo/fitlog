@@ -19,6 +19,14 @@
 **Reason:** Protect the coach product's positioning and price. A solo user who wants accountability should need a coach, not a cheaper self-serve tier that replicates coaching.
 **Consequences:** Solo Premium gets *better self-analytics only*. The interaction layer (targets-from-coach, reports, check-ins, nudges, call prep, private notes) is never available to solo regardless of tier.
 
+### Solo self-analytics stay descriptive, never prescriptive
+**Reason:** A sharper line under the hard-wall above. The dividing test for any solo-facing analytic: does it *describe the user's own past behavior* (allowed), or does it *prescribe what to change / hold them accountable / adjust a plan* (coach-only)? A descriptive stat is a mirror — and a mirror that surfaces the user's own gaps (e.g. "weekends 50% vs weekdays 86%") actually *deepens* the pull toward coaching rather than substituting for it.
+**Consequences:** The Premium "Logging consistency" card (weekday/weekend split, best week, 90-day heatmap) and the milestone banner are pure reporting — no advice copy, no "do X next," no implied observer. Prescription, plan adjustment, and accountability remain coach-only. Apply this test to every future solo analytic (TDEE, rate-of-change, etc.) before shipping it un-gated to solo.
+
+### Milestone celebrations are in-app for all loggers; the coach email is conditional
+**Reason:** A streak celebration is self-motivation, not coaching — it belongs to anyone who logs (Solo Free included, per the tier matrix). Only the *coach notification* is part of the coaching layer.
+**Consequences:** `fireMilestone` runs for client and solo roles; the `milestone-reached` edge fn records the streak and emails a coach **only when an active relationship exists**, so coachless solo users get the banner with zero email side effect. Coaches (who don't log) never trigger it.
+
 ### Clients are always free
 **Reason:** Clients are invited by a coach, not self-serve payers. The coach pays for the platform and brings the client.
 **Consequences:** No client-side billing. Clients receive the coaching layer but not solo self-analytics (those are either a coach-side view of client data or a Solo Premium upsell). Offboarded clients fall back to a solo tier.
