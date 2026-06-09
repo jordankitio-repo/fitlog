@@ -167,7 +167,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     }
     const ranked = [...byFood.values()]
       .sort((a, b) => b.count - a.count)
-      .slice(0, 8)
+      .slice(0, 6)
     setFrequentFoods(ranked)
   }
 
@@ -762,12 +762,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
         {/* Quick add — one-tap re-log of frequently logged foods */}
         {!nutritionExpanded && !showCopyPanel && frequentFoods.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Quick add</p>
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', WebkitOverflowScrolling: 'touch' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
               {frequentFoods.map(item => {
                 const key = item.food.trim().toLowerCase()
                 const pending = quickAddKey === key
+                const macroLine = [
+                  !hideCalories && `${item.calories} cal`,
+                  item.protein > 0 && `${item.protein}g P`,
+                ].filter(Boolean).join(' · ')
                 return (
                   <button
                     key={key}
@@ -775,24 +779,31 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     disabled={pending}
                     title={`Add ${item.food}`}
                     style={{
-                      flexShrink: 0,
-                      display: 'flex', alignItems: 'center', gap: '6px',
+                      display: 'flex', alignItems: 'center', gap: '8px',
                       backgroundColor: 'var(--color-bg)',
                       border: '1px solid var(--color-border)',
-                      borderRadius: '999px',
-                      padding: '7px 14px',
+                      borderRadius: 'var(--radius)',
+                      padding: '10px 12px',
                       cursor: pending ? 'default' : 'pointer',
                       opacity: pending ? 0.5 : 1,
-                      color: 'var(--color-text)',
-                      fontSize: '0.8rem',
                       fontFamily: 'inherit',
-                      whiteSpace: 'nowrap',
-                      maxWidth: '220px',
+                      textAlign: 'left',
+                      minWidth: 0,
                     }}
                   >
-                    <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>+</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.food}</span>
-                    {!hideCalories && <span style={{ color: 'var(--color-muted)', flexShrink: 0 }}>· {item.calories}</span>}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.food}</p>
+                      {macroLine && <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', margin: '2px 0 0' }}>{macroLine}</p>}
+                    </div>
+                    <span style={{
+                      flexShrink: 0,
+                      width: '22px', height: '22px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--color-primary-dim)',
+                      color: 'var(--color-primary)',
+                      fontSize: '1rem', fontWeight: 700, lineHeight: 1,
+                    }}>+</span>
                   </button>
                 )
               })}
