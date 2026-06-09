@@ -155,7 +155,11 @@ supabase/
 - `on_auth_user_created` (on `auth.users`) → `handle_new_user()` — inserts `id` + `email` into profiles. No default role. (Verified present in live DB, June 6 2026.)
 
 ### RLS
-All tables have RLS enabled. Policies are user-scoped (`user_id = auth.uid()`) or coach/client-relationship-scoped.
+All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsecurity`, Jun 8 2026). Policies are user-scoped (`user_id = auth.uid()`) or coach/client-relationship-scoped.
+
+> **History / gotcha (Jun 8 2026):** `profiles` had RLS *disabled* (`relrowsecurity = false`) — its SELECT/INSERT/UPDATE policies existed but were silently ignored, so any authenticated user could read/enumerate every profile (email, name, role). RLS being defined-but-not-enabled produces no error and looks correct in the policy list; the only reliable check is `relrowsecurity` itself (or a live cross-account read). Fixed in migration `20260608134000` (`alter table profiles enable row level security`). Lesson: enabling a policy ≠ enabling RLS on the table.
+
+`profiles` SELECT policy (`profiles_select_self_or_related`): own row OR an **active** coach↔client counterpart, via the `is_profile_related(target uuid)` SECURITY DEFINER helper (the SECURITY DEFINER bypass avoids profiles↔coach_clients policy recursion). INSERT/UPDATE are own-row only (`id = auth.uid()`); deletes go through the service-role `delete-account` function. Migrations: `20260608130000`/`131000` (policies), `134000` (enable RLS).
 
 ---
 
@@ -168,7 +172,7 @@ All tables have RLS enabled. Policies are user-scoped (`user_id = auth.uid()`) o
   - Allowlist includes localhost:5173 variants + production URL + `/reset-password`
   - **Currently in testing mode** — only manually-added test users can sign in via Google. Needs Google verification before public launch.
 - New users with `role = null` → RolePicker before main app
-- Password policy: min 8 chars, lower + upper + digit + symbol, enforced client-side (Login.jsx signup, Profile.jsx change) and in Supabase. Profile.jsx requires current password to change.
+- Password policy: min 8 chars, lower + upper + digit + symbol, via `getPasswordValidationError` — enforced client-side on signup (Login.jsx), change (Profile.jsx), and reset (ResetPassword.jsx, aligned Jun 8 2026; previously a weaker 6-char rule) and in Supabase. Profile.jsx requires current password to change.
 
 ---
 
@@ -195,6 +199,7 @@ All tables have RLS enabled. Policies are user-scoped (`user_id = auth.uid()`) o
 
 ### Webhook architecture
 - `stripe-webhook` verifies Stripe signature (HMAC-SHA256), deployed `--no-verify-jwt` (Stripe sends no JWT). `verify_jwt = false` is set permanently in `supabase/config.toml` — this persists through every redeploy. Same applies to `pause-solo-subscription`, `cancel-subscription`, `milestone-reached`, `check-trial-eligibility`. **Rule: any function that receives requests without a Supabase JWT must have `verify_jwt = false` in config.toml, not just the deploy flag.**
+- Signature hardening (Jun 8 2026): rejects signatures whose `t=` timestamp is outside a 300s window (replay protection) and compares the HMAC in length-constant time.
 - On `customer.subscription.deleted`: guard added — if `paused_for_coaching = true`, skip the update entirely (coaching-pause cancel, not real churn). Otherwise offboards coach's clients.
 - Handles: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
 - On `checkout.session.completed`: fetches the real subscription object from Stripe API to read true `status`, `trial_end`, `current_period_end`, `price_id` (this is the fix for the trialing-vs-active mapping)
@@ -332,19 +337,21 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 | `delete-account` | user | Role-aware deletion. Coach: offboard clients → delete data → cancel Stripe + delete subscriptions row → auth delete. Solo/client: cancel Stripe + delete subscriptions row → fetch coach info → delete data → auth delete → send emails (client confirmation; coach notification if applicable) |
 | `check-trial-eligibility` | user | Returns { coach_trial_used, solo_trial_used } from trial_ledger. Called by CoachPaywall on mount. |
 | `nutrition-coach` | user + role + solo gate | AI nutrition advice |
-| `weekly-report` | user | AI weekly coaching report |
-| `notify-report` | user | Email client when report sent |
-| `notify-checkin` | user | Email coach on check-in |
-| `call-prep` | user | AI call briefing (coach) |
+| `weekly-report` | coach + owns `clientId` | AI weekly coaching report. Client passes `clientId`; fn verifies active coach↔client. |
+| `notify-report` | coach + owns `clientId` | Email client when report sent. Recipient email derived server-side from `clientId` (not client-supplied). |
+| `notify-checkin` | client (caller) | Email coach on check-in. Coach + recipient derived server-side from caller's active relationship. |
+| `call-prep` | coach + owns `clientId` | AI call briefing (coach). Client passes `clientId`; fn verifies active coach↔client. |
 | `nudge-client` | coach | Nudge inactive client, 48hr cooldown |
 | `create-checkout-session` | user | Stripe checkout, 30-day trial, coach+solo branching |
-| `stripe-webhook` | `--no-verify-jwt` (Stripe signature) | Handle Stripe events, update subscriptions, offboard on cancel |
+| `stripe-webhook` | `--no-verify-jwt` (Stripe signature + 300s replay window) | Handle Stripe events, update subscriptions, offboard on cancel |
 | `pause-solo-subscription` | `--no-verify-jwt`, internal | Pause solo sub on joining coach |
 | `cancel-subscription` | `--no-verify-jwt`, internal | Cancel/resume at period end + email |
 | `offboard-client` | coach | Remove client, resume solo sub, email |
 | `offboard-self` | client | Client leaves coach, resume solo sub |
 | `milestone-reached` | `--no-verify-jwt`, internal | Streak milestone detection + coach email |
-| `weekly-digest` | anon (cron) | Monday coach digest |
+| `weekly-digest` | `verify_jwt = true` + role=`service_role` | Monday coach digest. pg_cron job sends the service role key (was anon — i.e. effectively open — until Jun 8 2026). |
+
+> **Security fix (Jun 8 2026):** `weekly-report`, `notify-report`, `notify-checkin`, `call-prep` previously did **no caller verification** (`verify_jwt=false` + no in-function check) — open Anthropic proxies / email relays. `weekly-digest` was triggered by pg_cron with the **public anon key**, so it was effectively open. All now verify the caller (and, where a coach acts on a client, the active relationship), derive email recipients server-side, and `weekly-digest` requires a `service_role` JWT. See decisions.md.
 
 ---
 
@@ -352,15 +359,17 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 
 - Local: Mac (arm64), Node v22, dev server `localhost:5173`
 - LAN access: `server: { host: true }` in `vite.config.js` → `192.168.1.x:5173`
-- Deploy: `git push` to `main` → Vercel auto-deploys
+- Deploy: `git push` to `main` → Vercel auto-deploys. **Frontend prod is the `gardnr` Vercel project** (not `fitlog`); the local `.vercel` link can go stale — re-link with `supabase`/`vercel link --project gardnr` if a deploy aliases to a `fitlog-*` URL instead of `www.gardnr.fit`.
 - Edge functions: `supabase functions deploy <name>` (Docker not required)
-- SQL migrations: run directly in Supabase SQL Editor
+- SQL migrations: `supabase db push --linked` (works without Docker; `db dump` needs Docker) — or run directly in the Supabase SQL Editor. `supabase secrets set` currently errors locally on an access-token format quirk (set function secrets via the dashboard if needed).
 
 ```bash
 npm run dev          # local dev server
 npm run build        # production build check
-git add . && git commit -m "..." && git push   # deploy
+npx vitest run       # unit tests (48)
+git add . && git commit -m "..." && git push   # deploy frontend (gardnr project)
 supabase functions deploy <name>               # deploy edge function
+supabase db push --linked                      # apply migrations to remote
 ```
 
 ---

@@ -10,12 +10,12 @@
 ---
 
 ## Current Commit
-`204ffbe Refactor email sending logic in account deletion process to use a dedicated sendEmail function`
+`5253639 Secure weekly-digest cron function`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
-- **Build:** Passing (`npm run build`)
-- **Lint:** Failing on pre-existing issues only (4 errors / 9 warnings) — no new errors
+- **Build:** Passing (`npm run build`), 48/48 tests passing
+- **Lint:** 6 errors / 8 warnings — all 6 errors are the `react-hooks/set-state-in-effect` rule in load-bearing billing/log effects (App.jsx, Log.jsx); deferred as a manually-tested refactor. All genuinely-safe errors fixed Jun 8.
 - **Deploy:** Auto on push to `main` via Vercel
 - **Billing:** Live mode active (`BILLING_ENABLED = true`)
 - **Supabase:** Upgraded to Pro (no longer free tier — auto-pause risk eliminated)
@@ -23,6 +23,15 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Pre-launch security hardening (Jun 8, session 3)** — Full feature/security pass before public launch, verified against the live DB with throwaway-account probes.
+- **`profiles` RLS was DISABLED** (root cause): policies existed but `relrowsecurity=false`, so any authenticated user could read/enumerate all profiles (email, name, role). Enabled RLS + single scoped SELECT policy (`is_profile_related`: own row or active coach↔client) + own-row INSERT/UPDATE. Migrations `20260608130000`–`134000`. Verified: cross-account read now blocked; self / coach→client / client→coach reads + own-writes intact.
+- **4 open edge functions secured:** `call-prep`, `weekly-report`, `notify-report`, `notify-checkin` had `verify_jwt=false` and no caller check (open Anthropic proxies / email relays). Now verify the caller + active coach↔client relationship; recipients derived server-side. Client call sites pass `clientId` (ClientView.jsx, Dashboard.jsx).
+- **`weekly-digest` cron secured:** was triggered by pg_cron with the public anon key. Now `verify_jwt=true` + requires `role=service_role`; cron rewritten to send the service role key.
+- **`trial_ledger` email_hash unique index** (`20260608120000`) finally applied to prod — it had never been pushed; the webhook trial-dedup upsert depends on it.
+- **stripe-webhook** signature: 300s replay window + constant-time HMAC compare.
+- **Polish:** `*` 404 route (App.jsx), ResetPassword uses the shared password validator (was weaker 6-char), lint 13→6 errors.
+- Confirmed: email-confirmation is OFF (signup flow assumption holds); all non-`profiles` tables already had RLS enabled.
 
 **Log screen redesign (Jun 8, session 2)** — `Log.jsx` rebuilt to match the mockup: "Daily Log" header with pill date-nav (tap date to open picker), per-section colored left-border accents (weight/nutrition/cardio/steps metric tokens), nutrition macro-totals row, inline food entries, prominent saved-value displays for weight/steps. All prior functionality preserved (barcode, copy-from-day, edit/delete/re-log, AI feedback, hide-calories).
 
@@ -137,7 +146,7 @@ Parts 2–4 coach offboarding — tested end-to-end after full function redeploy
 | Issue | Status |
 |---|---|
 | Chart.js Filler plugin warning | Cosmetic, deferred (Filler now registered — verify gone) |
-| `npm run lint` 4 errors / 9 warnings | Pre-existing, deferred |
+| `npm run lint` 6 errors / 8 warnings | All 6 are `react-hooks/set-state-in-effect` in App.jsx + Log.jsx billing/log effects; deferred as a manually-tested refactor (functional, not a bug) |
 | Large Vite JS chunk warning | Deferred |
 
 **Resolved:** ~~`subscriptions.status` writes `active` instead of `trialing`~~ — fixed (webhook fetches real Stripe sub object); verified `trialing` live June 6.
@@ -175,6 +184,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 8 (session 3)** — Pre-launch security/feature audit + hardening, all deployed & pushed to `main` (`5253639`). Found `profiles` RLS disabled (any authed user could read all profiles) → enabled + scoped policy. Secured 4 open edge functions (call-prep/weekly-report/notify-report/notify-checkin) + weekly-digest cron (anon→service_role). Applied the never-pushed `trial_ledger` email_hash unique index. Webhook replay window + constant-time compare. Polish: 404 route, reset-password validator, lint 13→6. Verified via live throwaway-account RLS probes (own-row isolation + coach↔client reads). Gotchas this session: RLS-disabled-but-policies-defined is invisible in the policy list (check `relrowsecurity`); local `.vercel` link was stale → pointed at `fitlog` project, prod is `gardnr`; `supabase secrets set` errors on an access-token format quirk (used a role-claim gate instead of CRON_SECRET); `supabase db push --linked` works without Docker (db dump needs Docker).
 - **Jun 8 (session 2)** — Log screen redesign (mockup match, all functionality preserved). Login friendly-error UX (during regional Supabase outage; resolved via VPN region-switch on user side). Progress charts 14→30 days (Dashboard + ClientView). 6-bug email/billing sweep: deletion email for all roles incl coach, coach-notify on client leave, login button in coach-deletion email, trial-marking moved checkout→webhook, orphaned Stripe customer recovery, `trial_ledger.email_hash` unique index. SoloUpgrade eligibility-aware label + CoachPaywall in-app delete modal. `sendEmail()` helper with Resend response checking. Non-bugs ruled out: coach email was landing in spam; "trial still available" was a two-email mix-up. Deploy gotcha: Vercel project is `gardnr`, use `--project gardnr`.
 - **Jun 8** — Account deletion email notifications (client confirmation + coach notification). Auth error auto-signout. Metric color scheme fix (protein amber, carbs blue). Date navigation parseLocalDateString fix. UI polish (NavBar, footer links, favicon, document title). Resend DKIM/SPF confirmed via dig + dashboard — SPF on send subdomain, correct by design.
 - **Jun 7 (session 2)** — Full rebrand FitLog → Gardnr. Responsive landing page rewrite (DM Sans, lp- namespace, 3 breakpoints). gardnr.fit purchased + DNS (Namecheap). Resend domain swap (tryfitlog.com deleted, gardnr.fit verified). All 10 edge functions redeployed with new sender. Supabase Auth updated. tryfitlog.com 308-redirect set. Nav simplified (removed "vs. status quo" link). Solo entry point added to landing footer.
