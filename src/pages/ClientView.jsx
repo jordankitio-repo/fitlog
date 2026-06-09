@@ -1012,9 +1012,9 @@ async function sendMessage() {
   return (
     <>
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
         <Button onClick={() => navigate('/')} variant="ghost" size="sm">← Back</Button>
-        <div>
+        <div style={{ flex: 1, minWidth: '180px' }}>
           <h1>{clientProfile?.full_name || 'Client'}</h1>
           <p style={{ fontSize: '0.875rem', marginTop: '2px' }}>{clientProfile?.email}</p>
           {lockInfo.locked && (
@@ -1032,19 +1032,17 @@ async function sendMessage() {
               <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
-            {(daysSinceLog === null || daysSinceLog >= 2) && (
-              <Button
-                onClick={nudgeClient}
-                variant="ghost"
-                size="sm"
-                loading={nudging}
-              >
-                Nudge
-              </Button>
-            )}
-          </div>
         </div>
+        {(daysSinceLog === null || daysSinceLog >= 2) && (
+          <Button
+            onClick={nudgeClient}
+            variant="ghost"
+            size="sm"
+            loading={nudging}
+          >
+            Nudge
+          </Button>
+        )}
       </div>
 
       {/* AI Tools */}
