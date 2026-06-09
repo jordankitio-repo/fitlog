@@ -6,11 +6,28 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-// TODO(launch-hardening): gate this cron-only function with a shared secret so
-// it isn't publicly triggerable. Blocked on: (1) setting CRON_SECRET in Supabase
-// project secrets, and (2) updating the digest cron trigger to send a matching
-// `x-cron-secret` header. Low risk: only sends real digests to real coaches.
-Deno.serve(async () => {
+// Cron-only. config.toml sets verify_jwt=true, so the gateway has already
+// validated the JWT signature by the time we run — we can trust the decoded
+// role claim. The weekly-coach-digest pg_cron job calls this with the service
+// role key; the public anon key has role=anon and is rejected.
+function jwtRole(token: string): string | null {
+  try {
+    const [, payload] = token.split('.')
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))).role ?? null
+  } catch {
+    return null
+  }
+}
+
+Deno.serve(async (req) => {
+  const token = (req.headers.get('Authorization') ?? '').replace('Bearer ', '')
+  if (jwtRole(token) !== 'service_role') {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   try {
     await runDigest()
     return new Response(JSON.stringify({ ok: true }), {

@@ -78,7 +78,9 @@ entrypoint = "./functions/delete-account/index.ts"
 
 [functions.weekly-digest]
 enabled = true
-verify_jwt = false
+# Gateway verifies the JWT signature; the function then requires role=service_role
+# (the pg_cron weekly-coach-digest job sends the service role key).
+verify_jwt = true
 import_map = "./functions/weekly-digest/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
