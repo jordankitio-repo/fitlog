@@ -237,6 +237,14 @@
 **Reason:** The subscription prop is fetched once in App.jsx and goes stale after a cancel/resume; a reload is the simplest correct refresh.
 **Consequences:** Inelegant but correct. A refetch-callback refactor (lifting the fetch out of App.jsx) is deferred technical debt.
 
+### App nav is a solid sticky bar; page roots use `overflow-x: clip`, not `hidden` (Jun 9 2026)
+**Reason:** A frosted (`backdrop-filter`) nav both bled scrolled content through the translucent bar and trapped the mobile menu's `position: fixed` backdrop against the 56px nav (the menu never dimmed the page). Separately, `overflow-x: hidden` on `html/body/#root` turns them into scroll containers, which **breaks `position: sticky`** — the nav scrolled away on mobile (the real cause of the "header overlaps the status bar" report).
+**Consequences:** Nav background is solid `--color-surface` + a soft shadow (`.gnav`). Page roots use `overflow-x: clip` (clips horizontal overflow without creating a scroll container, so sticky keeps working). NavBar is responsive: desktop pill-tab bar; mobile (≤600px) hamburger → dropdown. **Rule: don't put `backdrop-filter` on a bar that contains a `fixed` overlay, and never use `overflow-x: hidden` on a sticky element's scroll ancestor — use `clip`.**
+
+### Verify UI changes with the Playwright harness — don't ship blind (Jun 9 2026)
+**Reason:** Several UI regressions (a wrapping nav that looked unintentional, and the sticky-nav bug) shipped because changes were reasoned about but never actually viewed. The sticky bug only appeared on a *scrolled* page.
+**Consequences:** `scripts/shoot.mjs` / `shoot-all.mjs` (Playwright, devDeps) screenshot real pages via throwaway accounts (incl. coach/client via an injected subscription + client-token link). **Run `node scripts/shoot.mjs` and read `/tmp/shots/*.png` after any UI change before claiming it's done.** See architecture.md → Visual QA.
+
 ---
 
 ## Open Product Decisions (not yet resolved)

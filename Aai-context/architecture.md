@@ -85,7 +85,9 @@ src/
     Privacy.jsx       — Privacy Policy (public)
     BillingSuccess.jsx — Stripe checkout success page (/billing/success)
   components/
-    NavBar.jsx, Button.jsx, StatCard.jsx, Skeleton.jsx, Toast.jsx, EmptyState.jsx,
+    NavBar.jsx — responsive: solid sticky bar with the logo-icon mark + green-dim "pill" active tabs (desktop); brand + hamburger → animated dropdown with per-item icons + green left-accent active item (mobile, ≤600px via a `useMediaQuery` hook). Solid (not frosted) on purpose — see decisions.md.
+    Button.jsx, StatCard.jsx, Skeleton.jsx, Toast.jsx, EmptyState.jsx,
+    PasswordInput.jsx — password field with an eye show/hide toggle; used by all password fields.
     BarcodeScanner.jsx, SectionHeader.jsx, FeedbackButton.jsx,
     CoachPaywall.jsx — gate for coaches without active subscription. Checks trial_ledger on mount via check-trial-eligibility; shows billing warning + confirm modal if trial used. Always exposes both "Sign out" and "Delete account" — users who abandon at the paywall can self-serve exit without contacting support.
     ComplianceHeatmap.jsx, SoloUpgrade.jsx, SubscriptionManager.jsx
@@ -93,7 +95,10 @@ src/
     passwordValidation.js, styles.js (cardStyle), lockState.js (resolveLockState),
     dateHelpers.js, inviteValidation.js (getInviteBlockReason)
   supabase.js         — Supabase client init
-  index.css           — CSS variables, global styles, dark scrollbar
+  index.css           — CSS variables, global styles, dark scrollbar.
+                        NOTE: `html, body, #root` use `overflow-x: clip` (NOT `hidden`) —
+                        `hidden` establishes a scroll container and breaks `position: sticky`
+                        on the nav (it scrolls away instead of pinning).
 supabase/
   functions/          — see Edge Functions table below
 ```
@@ -384,3 +389,6 @@ supabase db push --linked                      # apply migrations to remote
 | `passwordValidation.test.js` | 7 |
 | `dateHelpers.test.js` | 19 |
 | `inviteValidation.test.js` | 7 |
+
+### Visual QA (Playwright)
+`scripts/shoot.mjs` and `scripts/shoot-all.mjs` (Playwright + Chromium, devDeps) screenshot real pages at phone + desktop widths using throwaway accounts, then delete them. `shoot-all.mjs` also covers gated screens: a throwaway coach gets a `trialing` `subscriptions` row injected (service-role key from `supabase projects api-keys`) to clear the paywall, and a throwaway client is linked via a **client-token** `coach_clients` insert (service_role has no INSERT grant there — the real path is the client inserting their own row in the Join flow). Run `node scripts/shoot.mjs [baseUrl]` (defaults to local dev; pass `https://www.gardnr.fit` for prod) and read `/tmp/shots/*.png`. **Run after any UI change** — these were built after a sticky-nav bug shipped that only surfaced when actually viewing a scrolled page. For richer (non-empty) screenshots, seed a test account with `test-data.sql` (30 days of solo logs).

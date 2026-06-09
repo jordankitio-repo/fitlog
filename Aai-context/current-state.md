@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`5253639 Secure weekly-digest cron function`
+`df0f1c3 Clean up ClientView header; add full-screen visual-QA harness`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,17 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Nav redesign + UI polish + visual-QA harness (Jun 9)** — A round of UX fixes, all verified with real screenshots (see harness below).
+- **Responsive NavBar rewrite** (`NavBar.jsx`): desktop = solid bar with the logo-icon mark + green-dim "pill" active tabs; mobile (≤600px via a `useMediaQuery` hook) = brand + hamburger that opens an animated dropdown (per-item icons, active item uses the green left-accent motif, dimmed/blurred tap-away backdrop). Replaced an earlier wrapping bar that looked unintentional.
+- **Sticky-nav bug fix (root cause):** `overflow-x: hidden` on `html, body, #root` made them scroll containers, which **broke `position: sticky`** — the nav scrolled away on mobile (this was the real cause of the "header overlaps the status bar" report, not the translucency). Switched to `overflow-x: clip`.
+- **Nav is solid, not frosted:** a `backdrop-filter` bar bled scrolled content through and trapped the mobile menu's `position: fixed` backdrop against the 56px nav (menu never dimmed). Solid bar + soft shadow fixed both.
+- **Password show/hide** (`PasswordInput.jsx`): eye-toggle on all 8 password fields (Login, Join ×2, ResetPassword ×2, Profile ×3).
+- **Restored manual barcode entry:** the Log redesign had orphaned it (no control set `showBarcodeInput`); added Scan + "Enter barcode #" inside the Add Food form (numeric keypad, Enter-to-lookup).
+- **ClientView header cleanup:** Back/name/Nudge were floating awkwardly; restructured to a top-aligned row (Back left · name/email · Nudge right).
+- **Other polish (Jun 8):** `*` 404 route, ResetPassword uses the shared password validator, stripe-webhook 300s replay window + constant-time HMAC, lint 13→6 errors.
+
+**Visual-QA harness (Jun 9)** — `scripts/shoot.mjs` + `scripts/shoot-all.mjs` (Playwright, installed as devDeps). Sign up throwaway accounts, screenshot real pages at phone + desktop widths (scrolled, menu open; coach/client screens via an injected trialing `subscriptions` row + client-token `coach_clients` link), then delete the accounts. Output `/tmp/shots`. **Run after any UI change** instead of shipping blind: `node scripts/shoot.mjs [baseUrl]`. Reviewed all key screens Jun 9 — auth, solo profile, coach paywall/dashboard, client view — all clean.
 
 **Pre-launch security hardening (Jun 8, session 3)** — Full feature/security pass before public launch, verified against the live DB with throwaway-account probes.
 - **`profiles` RLS was DISABLED** (root cause): policies existed but `relrowsecurity=false`, so any authenticated user could read/enumerate all profiles (email, name, role). Enabled RLS + single scoped SELECT policy (`is_profile_related`: own row or active coach↔client) + own-row INSERT/UPDATE. Migrations `20260608130000`–`134000`. Verified: cross-account read now blocked; self / coach→client / client→coach reads + own-writes intact.
@@ -184,6 +195,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 9** — Nav redesign (responsive hamburger + pill tabs + logo mark), sticky-nav root-cause fix (`overflow-x: clip`, not `hidden`), solid bar (was frosted), password show/hide on all fields, restored manual barcode entry, ClientView header cleanup. Built a Playwright visual-QA harness (`scripts/shoot.mjs` / `shoot-all.mjs`) after repeatedly shipping UI blind — now screenshot-verify every change incl. coach/client screens via throwaway accounts. All key screens reviewed and clean. Harness finding (not a bug): `service_role` lacks INSERT grant on `coach_clients` — fine, the app inserts that row as the authenticated client (Join flow); use the client token in tooling. **OAuth is on hold — do not work on Google OAuth verification until the user explicitly asks.**
 - **Jun 8 (session 3)** — Pre-launch security/feature audit + hardening, all deployed & pushed to `main` (`5253639`). Found `profiles` RLS disabled (any authed user could read all profiles) → enabled + scoped policy. Secured 4 open edge functions (call-prep/weekly-report/notify-report/notify-checkin) + weekly-digest cron (anon→service_role). Applied the never-pushed `trial_ledger` email_hash unique index. Webhook replay window + constant-time compare. Polish: 404 route, reset-password validator, lint 13→6. Verified via live throwaway-account RLS probes (own-row isolation + coach↔client reads). Gotchas this session: RLS-disabled-but-policies-defined is invisible in the policy list (check `relrowsecurity`); local `.vercel` link was stale → pointed at `fitlog` project, prod is `gardnr`; `supabase secrets set` errors on an access-token format quirk (used a role-claim gate instead of CRON_SECRET); `supabase db push --linked` works without Docker (db dump needs Docker).
 - **Jun 8 (session 2)** — Log screen redesign (mockup match, all functionality preserved). Login friendly-error UX (during regional Supabase outage; resolved via VPN region-switch on user side). Progress charts 14→30 days (Dashboard + ClientView). 6-bug email/billing sweep: deletion email for all roles incl coach, coach-notify on client leave, login button in coach-deletion email, trial-marking moved checkout→webhook, orphaned Stripe customer recovery, `trial_ledger.email_hash` unique index. SoloUpgrade eligibility-aware label + CoachPaywall in-app delete modal. `sendEmail()` helper with Resend response checking. Non-bugs ruled out: coach email was landing in spam; "trial still available" was a two-email mix-up. Deploy gotcha: Vercel project is `gardnr`, use `--project gardnr`.
 - **Jun 8** — Account deletion email notifications (client confirmation + coach notification). Auth error auto-signout. Metric color scheme fix (protein amber, carbs blue). Date navigation parseLocalDateString fix. UI polish (NavBar, footer links, favicon, document title). Resend DKIM/SPF confirmed via dig + dashboard — SPF on send subdomain, correct by design.
