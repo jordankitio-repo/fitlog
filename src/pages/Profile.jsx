@@ -6,7 +6,7 @@ import SubscriptionManager from '../components/SubscriptionManager'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 
-function Profile({ session, profile, subscription, soloSubscription, hasSoloPremium = true }) {
+function Profile({ session, profile, subscription, soloSubscription }) {
   const [targets, setTargets] = useState({
     calories: '',
     protein: '',
@@ -27,30 +27,29 @@ function Profile({ session, profile, subscription, soloSubscription, hasSoloPrem
   const [exportLoading, setExportLoading] = useState(false)
 
   useEffect(() => {
-    fetchTargets()
-  }, [])
+    async function loadTargets() {
+      const { data, error } = await supabase
+        .from('targets')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
 
-  async function fetchTargets() {
-    const { data, error } = await supabase
-      .from('targets')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .maybeSingle()
-
-    if (error) console.error('Error fetching targets:', error)
-    else if (data) {
-      setTargets({
-        calories: data.calories?.toString() || '',
-        protein: data.protein?.toString() || '',
-        carbs: data.carbs?.toString() || '',
-        fat: data.fat?.toString() || '',
-        cardio_minutes: data.cardio_minutes?.toString() || '',
-        steps: data.steps?.toString() || '',
-        weight_goal: data.weight_goal?.toString() || '',
-        weight_goal_unit: data.weight_goal_unit || 'lbs'
-      })
+      if (error) console.error('Error fetching targets:', error)
+      else if (data) {
+        setTargets({
+          calories: data.calories?.toString() || '',
+          protein: data.protein?.toString() || '',
+          carbs: data.carbs?.toString() || '',
+          fat: data.fat?.toString() || '',
+          cardio_minutes: data.cardio_minutes?.toString() || '',
+          steps: data.steps?.toString() || '',
+          weight_goal: data.weight_goal?.toString() || '',
+          weight_goal_unit: data.weight_goal_unit || 'lbs'
+        })
+      }
     }
-  }
+    loadTargets()
+  }, [session.user.id])
 
   async function saveTargets() {
     const payload = {

@@ -48,6 +48,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
           <Route path="/billing/success" element={<BillingSuccess />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </>
@@ -61,7 +62,7 @@ function App() {
   const [subscription, setSubscription] = useState(null)
   const [subLoading, setSubLoading] = useState(false)
   const [soloSubscription, setSoloSubscription] = useState(null)
-  const [soloSubLoading, setSoloSubLoading] = useState(false)
+  const [, setSoloSubLoading] = useState(false)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase

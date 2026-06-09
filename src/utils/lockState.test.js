@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { resolveLockState } from './lockState'
 
 // Helper: returns a YYYY-MM-DD string offset by N days from today
@@ -11,9 +11,6 @@ function daysAgo(n) {
   return `${year}-${month}-${day}`
 }
 
-function daysFromNow(n) {
-  return daysAgo(-n)
-}
 
 describe('resolveLockState', () => {
 

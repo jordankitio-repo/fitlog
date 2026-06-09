@@ -10,6 +10,20 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   })
 }
 
+// Reject signatures whose timestamp is outside this window, to block replay of
+// captured webhook requests. Matches Stripe's default tolerance.
+const SIGNATURE_TOLERANCE_SECONDS = 300
+
+// Length-constant comparison of two equal-length hex strings.
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let mismatch = 0
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return mismatch === 0
+}
+
 async function verifyStripeSignature(
   payload: string,
   header: string,
@@ -20,6 +34,12 @@ async function verifyStripeSignature(
   const signature = parts.find((p) => p.startsWith('v1='))?.split('=')[1]
 
   if (!timestamp || !signature) return false
+
+  // Replay protection: the signed timestamp must be recent.
+  const ts = Number(timestamp)
+  if (!Number.isFinite(ts)) return false
+  const ageSeconds = Math.abs(Date.now() / 1000 - ts)
+  if (ageSeconds > SIGNATURE_TOLERANCE_SECONDS) return false
 
   const signedPayload = `${timestamp}.${payload}`
   const key = await crypto.subtle.importKey(
@@ -38,7 +58,7 @@ async function verifyStripeSignature(
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 
-  return expected === signature
+  return timingSafeEqual(expected, signature)
 }
 
 function fromUnixSeconds(value: number | null | undefined) {
