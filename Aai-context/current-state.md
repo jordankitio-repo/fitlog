@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`5fa44e6 feat(profile): editable display name + coach client count`
+`0926a0f fix(profile): drop redundant coach "active clients" count`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -24,7 +24,7 @@
 
 ## Recently Shipped (most recent first)
 
-**Editable display name + coach client count on Profile (Jun 9, session 3)** — Closed the most basic Profile gap: users couldn't edit their own `full_name` even though it's collected at signup and shown to coaches/clients. Added an editable Name field (account card, all roles) saved to `profiles` — the `profiles_update_self` RLS policy already permits own-row update, so no schema/policy/edge-fn change. Threaded `onProfileUpdate` (App → AppRoutes → Profile) so a save refreshes the global profile immediately. Fleshed out the bare coach Profile with a read-only "Active clients" count (head count on `coach_clients`). Clients see a "name your coach sees" hint. Save button is muted/disabled until the name is edited, then solid green. Name sync uses the adjust-state-during-render pattern to avoid adding `set-state-in-effect` lint debt. **Decision:** deferred body stats (height/sex/DOB/activity — needs schema, belongs with the roadmapped onboarding-assessment so it pre-populates targets) and notification prefs (touches mail edge fns). Verified all 3 roles via throwaway-account screenshots. Shipped to `main` (`5fa44e6`).
+**Editable display name + coach client count on Profile (Jun 9, session 3)** — Closed the most basic Profile gap: users couldn't edit their own `full_name` even though it's collected at signup and shown to coaches/clients. Added an editable Name field (account card, all roles) saved to `profiles` — the `profiles_update_self` RLS policy already permits own-row update, so no schema/policy/edge-fn change. Threaded `onProfileUpdate` (App → AppRoutes → Profile) so a save refreshes the global profile immediately. Clients see a "name your coach sees" hint. (A coach "Active clients" count was added then **removed** in `0926a0f` — redundant with the prominent 2rem count already on CoachDashboard; the account card stays identity-only.) Save button is muted/disabled until the name is edited, then solid green. Name sync uses the adjust-state-during-render pattern to avoid adding `set-state-in-effect` lint debt. **Decision:** deferred body stats (height/sex/DOB/activity — needs schema, belongs with the roadmapped onboarding-assessment so it pre-populates targets) and notification prefs (touches mail edge fns). Verified all 3 roles via throwaway-account screenshots. Shipped to `main` (`5fa44e6`).
 
 **90-day compliance summary beside the heatmap (Jun 9, session 3)** — Filled the empty space next to the 90-day `ComplianceHeatmap` with a new `ComplianceSummary` (quantified totals), present in both the solo Dashboard "Logging consistency" card and the coach `ClientView` "Calorie Compliance" section. Reflowed each so the heatmap sits left and the stat tiles fill the right on desktop (stacks on mobile).
 - **Two differentiated lenses** (keeps the coach/solo wall): coach gets the *assessment* breakdown — days logged + on-target / partial / under buckets + avg of target; solo gets the *mirror* — days logged + on-track days, no prescriptive copy (passes the descriptive-only test in `decisions.md`).
