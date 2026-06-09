@@ -7,7 +7,12 @@ import SubscriptionManager from '../components/SubscriptionManager'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 
-function Profile({ session, profile, subscription, soloSubscription }) {
+function Profile({ session, profile, subscription, soloSubscription, onProfileUpdate }) {
+  const [name, setName] = useState(profile?.full_name || '')
+  const [syncedName, setSyncedName] = useState(profile?.full_name || '')
+  const [nameSaved, setNameSaved] = useState(false)
+  const [nameSaving, setNameSaving] = useState(false)
+  const [clientCount, setClientCount] = useState(null)
   const [targets, setTargets] = useState({
     calories: '',
     protein: '',
@@ -51,6 +56,46 @@ function Profile({ session, profile, subscription, soloSubscription }) {
     }
     loadTargets()
   }, [session.user.id])
+
+  // Sync the editable name when the profile (re)loads — React's "adjust state
+  // during render" pattern, so we avoid a setState-in-effect.
+  const profileName = profile?.full_name || ''
+  if (profileName !== syncedName) {
+    setSyncedName(profileName)
+    setName(profileName)
+  }
+
+  // Whether the name has actually been edited (drives the Save button state).
+  const nameDirty = name.trim() !== '' && name.trim() !== profileName
+
+  // Active client count for the coach account card.
+  useEffect(() => {
+    if (profile?.role !== 'coach') return
+    async function loadClientCount() {
+      const { count, error } = await supabase
+        .from('coach_clients')
+        .select('client_id', { count: 'exact', head: true })
+        .eq('coach_id', session.user.id)
+        .eq('status', 'active')
+      if (!error) setClientCount(count ?? 0)
+    }
+    loadClientCount()
+  }, [profile?.role, session.user.id])
+
+  async function saveName() {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setNameSaving(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: trimmed })
+      .eq('id', session.user.id)
+    setNameSaving(false)
+    if (error) { console.error('Error saving name:', error); return }
+    setNameSaved(true)
+    setTimeout(() => setNameSaved(false), 2000)
+    onProfileUpdate?.()
+  }
 
   async function saveTargets() {
     const payload = {
@@ -179,6 +224,31 @@ function Profile({ session, profile, subscription, soloSubscription }) {
         gap: '16px'
       }}>
         <div>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '6px' }}>Name</p>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <Button
+              onClick={saveName}
+              variant={nameDirty || nameSaved ? 'primary' : 'muted'}
+              loading={nameSaving}
+              disabled={!nameDirty}
+            >
+              {nameSaved ? 'Saved ✓' : 'Save'}
+            </Button>
+          </div>
+          {profile?.role === 'client' && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: '6px 0 0' }}>
+              This is the name your coach sees.
+            </p>
+          )}
+        </div>
+        <div>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Email</p>
           <p style={{ color: 'var(--color-text)', fontSize: '1rem' }}>{session.user.email}</p>
         </div>
@@ -195,6 +265,14 @@ function Profile({ session, profile, subscription, soloSubscription }) {
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Account type</p>
             <p style={{ color: 'var(--color-text)', fontSize: '1rem', textTransform: 'capitalize' }}>
               {profile.role}
+            </p>
+          </div>
+        )}
+        {profile?.role === 'coach' && clientCount !== null && (
+          <div>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Active clients</p>
+            <p style={{ color: 'var(--color-text)', fontSize: '1rem' }}>
+              {clientCount} {clientCount === 1 ? 'client' : 'clients'}
             </p>
           </div>
         )}
