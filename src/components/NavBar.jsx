@@ -79,7 +79,7 @@ function NavBar({ profile }) {
   )
 
   const navBase = {
-    backgroundColor: 'rgba(18, 18, 18, 0.72)',
+    backgroundColor: 'var(--color-surface)',
     borderBottom: '1px solid var(--color-border)',
     padding: '0 16px',
     display: 'flex',

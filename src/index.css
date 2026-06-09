@@ -72,7 +72,10 @@ p  { color: var(--color-muted); }
 }
 
 html, body, #root {
-  overflow-x: hidden;
+  /* `clip` prevents horizontal scroll WITHOUT establishing a scroll container,
+     so it doesn't break `position: sticky` on the nav (which `overflow-x:
+     hidden` here did — the nav scrolled away instead of pinning). */
+  overflow-x: clip;
   max-width: 100vw;
 }
 
@@ -112,9 +115,11 @@ nav a:hover {
 }
 
 /* ---------- App navigation ---------- */
+/* Solid (not translucent): a frosted backdrop-filter here both bled scrolled
+   content through the bar and trapped the mobile menu's fixed backdrop against
+   the 56px nav box. A solid bar + soft shadow gives depth without either bug. */
 .gnav {
-  backdrop-filter: saturate(140%) blur(14px);
-  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.22);
 }
 
 /* Desktop pill links */
