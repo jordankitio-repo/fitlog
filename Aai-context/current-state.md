@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`0926a0f fix(profile): drop redundant coach "active clients" count`
+`fc64a3e feat(log): one-tap "Quick add" for frequently logged foods`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,8 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**"Quick add" frequent-foods one-tap re-log (Jun 9, session 3)** — Closed the biggest logging-friction gap (re-logging a food meant retyping every macro). Added a horizontally-scrollable Quick add chip row in the Log Nutrition section (collapsed state): the user's top 8 most-frequently-logged foods, each carrying the macros from its most recent entry; one tap inserts today's entry via the existing insert path. Derived entirely from `nutrition_log` (one `limit(300)` query, deduped + frequency-ranked in JS) — **no new schema**. All roles incl. free, wall-safe (pure logging convenience), respects `hideCalories`. Inspired by Cronometer's Foods tab; deliberately skipped Apple-style rings (user prefers existing "Today vs target" bars). Verified via seeded throwaway account. Shipped to `main` (`fc64a3e`). **Next: coach-facing reasoning + feature (the coach analogue of these logging tools — likely the deferred meal-programming territory, TBD).**
 
 **Editable display name + coach client count on Profile (Jun 9, session 3)** — Closed the most basic Profile gap: users couldn't edit their own `full_name` even though it's collected at signup and shown to coaches/clients. Added an editable Name field (account card, all roles) saved to `profiles` — the `profiles_update_self` RLS policy already permits own-row update, so no schema/policy/edge-fn change. Threaded `onProfileUpdate` (App → AppRoutes → Profile) so a save refreshes the global profile immediately. Clients see a "name your coach sees" hint. (A coach "Active clients" count was added then **removed** in `0926a0f` — redundant with the prominent 2rem count already on CoachDashboard; the account card stays identity-only.) Save button is muted/disabled until the name is edited, then solid green. Name sync uses the adjust-state-during-render pattern to avoid adding `set-state-in-effect` lint debt. **Decision:** deferred body stats (height/sex/DOB/activity — needs schema, belongs with the roadmapped onboarding-assessment so it pre-populates targets) and notification prefs (touches mail edge fns). Verified all 3 roles via throwaway-account screenshots. Shipped to `main` (`5fa44e6`).
 
@@ -209,6 +211,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 9 (session 3, cont.)** — "Quick add" frequent-foods row on the Log Nutrition section: top 8 most-logged foods as one-tap chips (macros from most recent entry, reuses existing insert), derived from `nutrition_log` with no new schema. All roles, wall-safe. Inspired by Cronometer; skipped Apple rings per user. `fc64a3e`. Next up: coach-facing reasoning/feature.
 - **Jun 9 (session 3, cont.)** — Profile gaps: added editable display name (all roles, saved to `profiles`, own-row UPDATE RLS already in place) + threaded `onProfileUpdate` from App for instant refresh; fleshed out the bare coach Profile with a read-only "Active clients" count. Save button muted-until-dirty. Deliberately deferred body stats (schema; pair with onboarding-assessment) and notification prefs (mail edge fns). Verified 3 roles via screenshots. `5fa44e6`.
 - **Jun 9 (session 3)** — Filled the empty space beside the 90-day heatmap with a new `ComplianceSummary` (quantified totals), in both the solo Dashboard and coach `ClientView`. Reflowed to heatmap-left / tiles-right on desktop, stacking on mobile. Two lenses: coach = compliance breakdown (on-target/partial/under/avg), solo = mirror (days logged + on-track), preserving the descriptive-only wall. All derived from in-scope `heatmapData`; denominator ramps from first log and caps at 90 (new accounts read e.g. 12/12, not 12/90). New `summarizeCompliance()` util + 5 tests (53 total). Built a seeded visual-QA harness (`scripts/shoot-consistency.mjs`) — the existing ones don't seed nutrition data — and screenshot-verified both views at both widths. Shipped to `main` (`f5c1900`).
 - **Jun 9 (session 2)** — Shipped the Tier-1 self-analytics onto the solo Dashboard (they previously existed coach-side only): one Premium-gated "Logging consistency" card (weekday/weekend split + best week + 90-day heatmap, consolidated behind a single SoloUpgrade CTA, one nutrition query). Extended milestone celebrations to solo (relaxed the client-only guard; edge fn no-ops the email when there's no coach). All descriptive-only by design to protect the coaching layer (see `decisions.md`). Verified both gated and Premium-populated paths + the solo milestone banner via the Playwright harness (seeded 90 days of data with `SOLO_BILLING_ENABLED` flipped locally, then reverted). Pushed to `main` (`3e418ff`). Reconciled `features.md` — most of Tier 1 was already built and still listed as roadmap.
