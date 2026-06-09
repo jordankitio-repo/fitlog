@@ -428,16 +428,16 @@ async function reactToMessage(messageId, emoji) {
       .eq('status', 'active')
       .maybeSingle()
 
+    // Used only to decide whether there's a coach to notify; the notify-checkin
+    // function derives the recipient + names server-side from the caller.
     let coachEmail = null
-    let coachName = null
     if (coachRelation) {
       const { data: coachProfile } = await supabase
         .from('profiles')
-        .select('email, full_name')
+        .select('email')
         .eq('id', coachRelation.coach_id)
         .single()
       coachEmail = coachProfile?.email
-      coachName = coachProfile?.full_name
     }
 
     const { error } = await supabase.from('check_ins').upsert({
@@ -457,9 +457,6 @@ async function reactToMessage(messageId, emoji) {
             'Authorization': `Bearer ${currentSession.access_token}`,
           },
           body: JSON.stringify({
-            coachEmail,
-            coachName: coachName || 'Coach',
-            clientName: profile?.full_name || 'Your client',
             adherence: checkIn.adherence_rating,
             energy: checkIn.energy_level,
             obstacles: checkIn.obstacles,

@@ -688,6 +688,7 @@ async function addNoteEntry() {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
+          clientId,
           clientName: clientProfile?.full_name || 'Client',
           weekRange: {
             startDate: weekRange.startDate,
@@ -749,9 +750,7 @@ async function addNoteEntry() {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          clientEmail: clientProfile.email,
-          clientName: clientProfile.full_name || 'there',
-          coachName: profile?.full_name || 'Your coach',
+          clientId,
           weekOf: weekRange.label
         }),
       })
@@ -812,6 +811,7 @@ async function addNoteEntry() {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
+          clientId,
           clientName: clientProfile?.full_name || 'Client',
           weekData,
           checkIn: checkInData ? {

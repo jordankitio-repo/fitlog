@@ -6,6 +6,10 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+// TODO(launch-hardening): gate this cron-only function with a shared secret so
+// it isn't publicly triggerable. Blocked on: (1) setting CRON_SECRET in Supabase
+// project secrets, and (2) updating the digest cron trigger to send a matching
+// `x-cron-secret` header. Low risk: only sends real digests to real coaches.
 Deno.serve(async () => {
   try {
     await runDigest()

@@ -3,13 +3,55 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Verifies the caller is the active coach of `clientId`. Without this, the
+// function was an open Anthropic proxy: anyone with the URL could burn credits.
+async function verifyCoachOwnsClient(req: Request, clientId: unknown) {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader) return { error: jsonResponse({ error: 'Missing authorization header' }, 401) }
+  if (typeof clientId !== 'string' || !UUID_RE.test(clientId)) {
+    return { error: jsonResponse({ error: 'Valid clientId is required' }, 400) }
+  }
+
+  const token = authHeader.replace('Bearer ', '')
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+
+  const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: anonKey },
+  })
+  const user = await userRes.json()
+  if (!user.id) return { error: jsonResponse({ error: 'Unauthorized' }, 401) }
+
+  const relRes = await fetch(
+    `${supabaseUrl}/rest/v1/coach_clients?select=id&coach_id=eq.${user.id}&client_id=eq.${clientId}&status=eq.active`,
+    { headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey } },
+  )
+  const rels = await relRes.json().catch(() => [])
+  if (!relRes.ok || !rels?.[0]) return { error: jsonResponse({ error: 'Not your client' }, 403) }
+
+  return { userId: user.id }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { clientName, weekData, checkIn, weekRange } = await req.json()
+    const { clientId, clientName, weekData, checkIn, weekRange } = await req.json()
+
+    const auth = await verifyCoachOwnsClient(req, clientId)
+    if (auth.error) return auth.error
     const rangeLabel = weekRange?.label || (
       weekData?.length
         ? `${weekData[0].date} - ${weekData[weekData.length - 1].date}`

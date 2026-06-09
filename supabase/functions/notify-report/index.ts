@@ -3,15 +3,75 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { clientEmail, clientName, coachName, weekOf } = await req.json()
+    const { clientId, weekOf } = await req.json()
+
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) return jsonResponse({ error: 'Missing authorization header' }, 401)
+    if (typeof clientId !== 'string' || !UUID_RE.test(clientId)) {
+      return jsonResponse({ error: 'Valid clientId is required' }, 400)
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const restHeaders = { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey }
+
+    // Verify the caller is this client's active coach.
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: anonKey },
+    })
+    const user = await userRes.json()
+    if (!user.id) return jsonResponse({ error: 'Unauthorized' }, 401)
+
+    const relRes = await fetch(
+      `${supabaseUrl}/rest/v1/coach_clients?select=id&coach_id=eq.${user.id}&client_id=eq.${clientId}&status=eq.active`,
+      { headers: restHeaders },
+    )
+    const rels = await relRes.json().catch(() => [])
+    if (!relRes.ok || !rels?.[0]) return jsonResponse({ error: 'Not your client' }, 403)
+
+    // Derive recipient + names server-side. The previous version trusted a
+    // client-supplied `clientEmail`, making this an open email relay.
+    const [clientRows, coachRows] = await Promise.all([
+      fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${clientId}&select=email,full_name`, { headers: restHeaders })
+        .then((r) => r.json()).catch(() => []),
+      fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=full_name`, { headers: restHeaders })
+        .then((r) => r.json()).catch(() => []),
+    ])
+    const clientEmail = clientRows?.[0]?.email
+    if (!clientEmail) return jsonResponse({ error: 'Client email not found' }, 404)
+
+    const clientName = escapeHtml(clientRows?.[0]?.full_name || 'there')
+    const coachName = escapeHtml(coachRows?.[0]?.full_name || 'Your coach')
+    const safeWeekOf = escapeHtml(weekOf || 'this week')
 
     const apiKey = Deno.env.get('RESEND_API_KEY')
+    if (!apiKey) return jsonResponse({ error: 'RESEND_API_KEY is not configured' }, 500)
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -27,7 +87,7 @@ Deno.serve(async (req) => {
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
             <h2 style="color: #4f8ef7;">You have a new report 📋</h2>
             <p>Hi ${clientName},</p>
-            <p>Your coach <strong>${coachName}</strong> has sent you a weekly coaching report for the week of <strong>${weekOf}</strong>.</p>
+            <p>Your coach <strong>${coachName}</strong> has sent you a weekly coaching report for the week of <strong>${safeWeekOf}</strong>.</p>
             <p>Log in to Gardnr to read your report and see your progress.</p>
             <a href="https://www.gardnr.fit/login" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #4f8ef7; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
               View report
@@ -40,14 +100,10 @@ Deno.serve(async (req) => {
 
     const data = await response.json()
 
-    return new Response(JSON.stringify({ success: true, data }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse({ success: response.ok, data }, response.ok ? 200 : response.status)
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    const message = error instanceof Error ? error.message : 'Unexpected error'
+    return jsonResponse({ error: message }, 500)
   }
 })
