@@ -589,11 +589,27 @@ function Log({ session, profile, hasSoloPremium = true }) {
               style={{ ...inputStyle, borderColor: nutritionErrors.food ? '#f87171' : 'var(--color-border)' }}
             />
             {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-6px' }}>{nutritionErrors.food}</p>}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <Button onClick={() => setShowScanner(true)} variant="muted" size="sm">Scan barcode</Button>
+              <Button onClick={() => setShowBarcodeInput((v) => !v)} variant="ghost" size="sm">
+                {showBarcodeInput ? 'Hide barcode entry' : 'Enter barcode #'}
+              </Button>
+            </div>
             {showScanner && <BarcodeScanner onDetected={(barcode) => { setShowScanner(false); lookupBarcode(barcode) }} onClose={() => setShowScanner(false)} />}
             {showBarcodeInput && (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="text" placeholder="Enter barcode number" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                <Button onClick={() => lookupBarcode(barcodeInput)} variant="primary" size="sm">Lookup</Button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoFocus
+                  placeholder="Enter barcode number"
+                  value={barcodeInput}
+                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && barcodeInput) lookupBarcode(barcodeInput) }}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <Button onClick={() => lookupBarcode(barcodeInput)} variant="primary" size="sm" disabled={!barcodeInput}>Lookup</Button>
               </div>
             )}
             {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
