@@ -27,11 +27,12 @@ function NavBar({ profile }) {
     <nav style={{
       backgroundColor: 'var(--color-surface)',
       borderBottom: '1px solid var(--color-border)',
-      padding: '0 20px',
+      padding: '8px 16px',
       display: 'flex',
-      gap: '24px',
+      flexWrap: 'wrap',
+      gap: '8px 16px',
       alignItems: 'center',
-      height: '56px',
+      minHeight: '56px',
       position: 'sticky',
       top: 0,
       zIndex: 100,
@@ -40,7 +41,6 @@ function NavBar({ profile }) {
         fontWeight: 700,
         fontSize: '1rem',
         color: 'var(--color-primary)',
-        marginRight: 'auto',
         letterSpacing: '-0.02em',
         whiteSpace: 'nowrap',
         textDecoration: 'none',
@@ -48,27 +48,37 @@ function NavBar({ profile }) {
         Gardnr
       </Link>
 
-      {profile?.role === 'coach' ? (
-        <>
-          <Link to="/" style={linkStyle('/')}>Clients</Link>
-          <Link to="/profile" style={linkStyle('/profile')}>Profile</Link>
-        </>
-      ) : (
-        <>
-          <Link to="/" style={linkStyle('/')}>Dashboard</Link>
-          <Link to="/log" style={linkStyle('/log')}>Log</Link>
-          <Link to="/profile" style={linkStyle('/profile')}>Profile</Link>
-        </>
-      )}
+      {/* Right cluster: stays right-aligned on desktop, wraps to its own line(s)
+          on narrow screens so Sign out is never pushed off-screen. */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: '8px 16px',
+        marginLeft: 'auto',
+      }}>
+        {profile?.role === 'coach' ? (
+          <>
+            <Link to="/" style={linkStyle('/')}>Clients</Link>
+            <Link to="/profile" style={linkStyle('/profile')}>Profile</Link>
+          </>
+        ) : (
+          <>
+            <Link to="/" style={linkStyle('/')}>Dashboard</Link>
+            <Link to="/log" style={linkStyle('/log')}>Log</Link>
+            <Link to="/profile" style={linkStyle('/profile')}>Profile</Link>
+          </>
+        )}
 
-      <FeedbackButton
-        userEmail={profile?.email || ''}
-        userName={profile?.full_name || ''}
-      />
+        <FeedbackButton
+          userEmail={profile?.email || ''}
+          userName={profile?.full_name || ''}
+        />
 
-      <Button onClick={handleSignOut} variant="muted" size="sm">
-        Sign out
-      </Button>
+        <Button onClick={handleSignOut} variant="muted" size="sm">
+          Sign out
+        </Button>
+      </div>
     </nav>
   )
 }

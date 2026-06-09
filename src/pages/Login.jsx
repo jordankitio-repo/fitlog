@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
+import PasswordInput from '../components/PasswordInput'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Login() {
@@ -144,8 +145,7 @@ function Login() {
         style={{ ...inputStyle, borderColor: errors.email ? '#f87171' : 'var(--color-border)' }}
       />
       {errors.email && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.email}</p>}
-      <input
-        type="password"
+      <PasswordInput
         placeholder="Password"
         value={password}
         onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}

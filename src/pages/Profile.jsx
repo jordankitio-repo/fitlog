@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
+import PasswordInput from '../components/PasswordInput'
 import SoloUpgrade from '../components/SoloUpgrade'
 import SubscriptionManager from '../components/SubscriptionManager'
 import { getPasswordValidationError } from '../utils/passwordValidation'
@@ -377,22 +378,19 @@ function Profile({ session, profile, subscription, soloSubscription }) {
         gap: '16px'
       }}>
         <h2>Security</h2>
-        <input
-          type="password"
+        <PasswordInput
           placeholder="Current password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           style={inputStyle}
         />
-        <input
-          type="password"
+        <PasswordInput
           placeholder="New password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           style={inputStyle}
         />
-        <input
-          type="password"
+        <PasswordInput
           placeholder="Confirm new password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}

@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
+import PasswordInput from '../components/PasswordInput'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Join() {
@@ -291,8 +292,7 @@ function Join() {
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
             You already have a Gardnr account with this email. Log in to accept your coach's invite.
           </p>
-          <input
-            type="password"
+          <PasswordInput
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -312,8 +312,7 @@ function Join() {
             onChange={(e) => setFullName(e.target.value)}
             style={inputStyle}
           />
-          <input
-            type="password"
+          <PasswordInput
             placeholder="Create a password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

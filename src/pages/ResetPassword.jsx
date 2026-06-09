@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
+import PasswordInput from '../components/PasswordInput'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function ResetPassword() {
@@ -63,15 +64,13 @@ function ResetPassword() {
         Enter your new password below.
       </p>
 
-      <input
-        type="password"
+      <PasswordInput
         placeholder="New password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         style={inputStyle}
       />
-      <input
-        type="password"
+      <PasswordInput
         placeholder="Confirm new password"
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}
