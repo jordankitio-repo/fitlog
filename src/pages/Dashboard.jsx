@@ -6,6 +6,7 @@ import Skeleton from '../components/Skeleton'
 import SectionHeader from '../components/SectionHeader'
 import SoloUpgrade from '../components/SoloUpgrade'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
+import ComplianceSummary from '../components/ComplianceSummary'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle as baseCardStyle } from '../utils/styles'
@@ -1313,9 +1314,14 @@ async function reactToMessage(messageId, emoji) {
                 </div>
               )}
 
-              {/* 90-day heatmap */}
-              <div style={{ marginTop: '16px' }}>
-                <ComplianceHeatmap logsByDate={heatmapData} calorieTarget={targets?.calories} />
+              {/* 90-day heatmap (left) + summary totals (fills the space at right) */}
+              <div style={{ marginTop: '16px', display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'stretch' }}>
+                <div style={{ flex: '0 0 auto' }}>
+                  <ComplianceHeatmap logsByDate={heatmapData} calorieTarget={targets?.calories} />
+                </div>
+                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                  <ComplianceSummary logsByDate={heatmapData} calorieTarget={targets?.calories} variant="solo" />
+                </div>
               </div>
 
               {!bestWeek?.count && Object.keys(heatmapData).length === 0 && (

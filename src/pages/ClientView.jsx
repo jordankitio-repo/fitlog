@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState'
 import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
+import ComplianceSummary from '../components/ComplianceSummary'
 import { resolveLockState } from '../utils/lockState'
 import {
   addDays,
@@ -1228,10 +1229,21 @@ async function sendMessage() {
             }}>
               Calorie Compliance - Last 90 Days
             </p>
-            <ComplianceHeatmap
-              logsByDate={heatmapData}
-              calorieTarget={clientTargets.calories}
-            />
+            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'stretch' }}>
+              <div style={{ flex: '0 0 auto' }}>
+                <ComplianceHeatmap
+                  logsByDate={heatmapData}
+                  calorieTarget={clientTargets.calories}
+                />
+              </div>
+              <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+                <ComplianceSummary
+                  logsByDate={heatmapData}
+                  calorieTarget={clientTargets.calories}
+                  variant="coach"
+                />
+              </div>
+            </div>
           </div>
         </SectionHeader>
       </div>
