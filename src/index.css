@@ -111,6 +111,87 @@ nav a:hover {
   transition: color 0.15s ease;
 }
 
+/* ---------- App navigation ---------- */
+.gnav {
+  backdrop-filter: saturate(140%) blur(14px);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+}
+
+/* Desktop pill links */
+.gnav-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 13px;
+  border-radius: 999px;
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.gnav-link:hover {
+  color: var(--color-text) !important;
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.gnav-link.active {
+  color: var(--color-primary) !important;
+  background-color: var(--color-primary-dim);
+  font-weight: 600;
+}
+
+/* Hamburger */
+.gnav-burger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: background-color 0.15s ease;
+}
+.gnav-burger:hover { background-color: rgba(255, 255, 255, 0.06); }
+
+/* Mobile dropdown + backdrop */
+@keyframes gnavMenuIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes gnavFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.gnav-panel { animation: gnavMenuIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards; transform-origin: top; }
+.gnav-backdrop { animation: gnavFadeIn 0.18s ease forwards; }
+
+.gnav-mitem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: var(--text-md);
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+.gnav-mitem:hover {
+  color: var(--color-text) !important;
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.03);
+}
+.gnav-mitem.active {
+  color: var(--color-text) !important;
+  background-color: var(--color-primary-dim);
+  border-left-color: var(--color-primary);
+  font-weight: 600;
+}
+.gnav-mitem .gnav-mitem-icon { color: var(--color-muted); flex: 0 0 auto; transition: color 0.15s ease; }
+.gnav-mitem.active .gnav-mitem-icon { color: var(--color-primary); }
+
 /* Smooth transitions on all interactive elements */
 button, a, input, select, textarea {
   transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
