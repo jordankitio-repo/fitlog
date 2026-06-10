@@ -242,7 +242,7 @@ All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsec
 1. Coach enters client email in CoachDashboard → sends invite (creates `invitations` row, Resend email)
 2. Client clicks link → `/join?token=xxx`
 3. Client signs up or logs in → `Join.jsx` sets `profiles.role = client`, creates `coach_clients` row
-4. Existing users see contextual "you're already a FitLog user" messaging; existing data preserved
+4. Existing users see contextual "you're already a Gardnr user" messaging; existing data preserved
 
 ### Relationship
 - Coach sets targets, sends messages, generates reports, writes private notes, reads check-ins, nudges inactive clients

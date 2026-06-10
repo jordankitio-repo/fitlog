@@ -1,4 +1,4 @@
-FitLog — Master Feature & Implementation List
+Gardnr — Master Feature & Implementation List
 Last updated: June 9, 2026
 
 Note on feature numbers (#2, #5, #7, etc.): These reference the original tiered backlog from an earlier planning session. They are preserved as stable labels for cross-reference. The source list with full definitions of #1–#30 is not in current context — numbers are carried forward as-is, not independently re-verified.
@@ -165,7 +165,7 @@ Components
 Component
 Notes
 NavBar.jsx
-Active link state, FitLog logo as Link, Terms/Privacy links, Feedback button
+Active link state, Gardnr logo as Link, Terms/Privacy links, Feedback button
 Button.jsx
 Variants: primary/ghost/danger/danger-solid/outline/muted/ai
 StatCard.jsx
@@ -546,15 +546,15 @@ Coach Standard
 $29/month
 Future coaches
 After founding closes
-   # FitLog Coach Metrics Roadmap
+   # Gardnr Coach Metrics Roadmap
 
 Last updated: June 5, 2026
 
 ## Purpose
 
-This document ranks additional metrics FitLog could track or derive for coaches. The priority is market value with the least client friction and highest product ROI.
+This document ranks additional metrics Gardnr could track or derive for coaches. The priority is market value with the least client friction and highest product ROI.
 
-FitLog should not become a general health tracker. The best metrics are the ones that help a coach answer:
+Gardnr should not become a general health tracker. The best metrics are the ones that help a coach answer:
 
 - Is this client logging enough data to trust the check-in?
 - Are they actually following the plan?
@@ -562,9 +562,9 @@ FitLog should not become a general health tracker. The best metrics are the ones
 - Who needs coach attention first?
 - What should the coach adjust next?
 
-## Current FitLog Data Advantage
+## Current Gardnr Data Advantage
 
-FitLog already captures enough data to create stronger coaching intelligence without asking clients for much more:
+Gardnr already captures enough data to create stronger coaching intelligence without asking clients for much more:
 
 - Nutrition entries: calories, protein, carbs, fat, date.
 - Weight entries: weight, unit, logged date, weigh-in time.
@@ -610,7 +610,7 @@ Priority: Very high
 Friction: None 
 Data source: nutrition logs, cardio logs, steps logs, targets
 
-FitLog currently tracks compliance by days at or above 90% of target. Add magnitude.
+Gardnr currently tracks compliance by days at or above 90% of target. Add magnitude.
 
 Useful outputs:
 
@@ -801,7 +801,7 @@ Priority: Medium
 Friction: Low to none 
 Data source: existing message reactions, optional future simple sentiment classification
 
-FitLog already stores message reactions and uses negative reactions in coach call prep. Build this into coach-facing risk context.
+Gardnr already stores message reactions and uses negative reactions in coach call prep. Build this into coach-facing risk context.
 
 Useful outputs:
 
@@ -857,7 +857,7 @@ Format: Rest / Trained
 
 Why coaches care:
 
-FitLog is not a workout platform, but knowing whether the client trained gives useful context for hunger, weight, steps, cardio, and fatigue.
+Gardnr is not a workout platform, but knowing whether the client trained gives useful context for hunger, weight, steps, cardio, and fatigue.
 
 Implementation note:
 
@@ -902,7 +902,7 @@ Do not prioritize these yet:
 - Wearable integrations before the core coach workflow is stronger.
 - Complex habit tracking that competes with the nutrition coaching focus.
 
-These add surface area and friction without clearly strengthening FitLog's core positioning.
+These add surface area and friction without clearly strengthening Gardnr's core positioning.
 
 ## Recommended Product Package
 
@@ -940,7 +940,7 @@ Why this is the best next move:
 - High coach value.
 - Low client friction.
 - Strong marketing story.
-- Uses FitLog's existing data model.
+- Uses Gardnr's existing data model.
 - Differentiates from generic nutrition trackers.
 
 ## Market Positioning Angle
@@ -970,17 +970,17 @@ The research direction supports focusing on self-monitoring and adherence intell
 - Electronic dietary self-monitoring research: adherence to self-monitoring is consistently treated as a meaningful predictor and engagement signal in weight loss contexts.
  https://pmc.ncbi.nlm.nih.gov/articles/PMC6647027/
 
-These sources do not mean FitLog should claim guaranteed outcomes. They support the product strategy of tracking logging consistency, adherence, and coach-visible context.
+These sources do not mean Gardnr should claim guaranteed outcomes. They support the product strategy of tracking logging consistency, adherence, and coach-visible context.
 
 ## Self-Check: What Was Added After Review
 
-Initial recommendations focused heavily on nutrition, weight, steps, cardio, hunger, energy, and sleep. After checking the actual FitLog codebase and current-state document, four additional low-friction areas were added:
+Initial recommendations focused heavily on nutrition, weight, steps, cardio, hunger, energy, and sleep. After checking the actual Gardnr codebase and current-state document, four additional low-friction areas were added:
 
 - Check-in timeliness.
 - Report read status.
 - Nudge responsiveness.
 - Message reaction/sentiment signal.
 
-These were added because FitLog already has messages, reports, check-ins, reactions, and nudge metadata. They are valuable to coaches and do not require new client logging behavior.
+These were added because Gardnr already has messages, reports, check-ins, reactions, and nudge metadata. They are valuable to coaches and do not require new client logging behavior.
 
 
