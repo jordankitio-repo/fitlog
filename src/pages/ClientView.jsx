@@ -8,6 +8,7 @@ import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
+import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import { resolveLockState } from '../utils/lockState'
 import {
   addDays,
@@ -1241,6 +1242,10 @@ async function sendMessage() {
                   logsByDate={heatmapData}
                   calorieTarget={clientTargets.calories}
                   variant="coach"
+                />
+                <ComplianceBreakdown
+                  logsByDate={heatmapData}
+                  calorieTarget={clientTargets.calories}
                 />
               </div>
             </div>
