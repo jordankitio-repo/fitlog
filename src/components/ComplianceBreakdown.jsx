@@ -1,13 +1,16 @@
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 
-// Coach-facing "why is this one slipping" panel: weekday vs weekend ADHERENCE.
-// Honest by construction (see utils/complianceBreakdown.js) — counts + magnitude,
-// descriptive language, and it stays quiet until there's enough data to compare.
+// Coach-facing "why is this one slipping" panel: on which days does the client
+// stick to their calorie target. Honest by construction (see
+// utils/complianceBreakdown.js) — counts + magnitude, descriptive language, and
+// it stays quiet until there's enough data to compare.
 
 const GOOD = '#34d399'
 const WEAK = '#fbbf24'
 const MUTED = 'var(--color-muted)'
 
+// Lead each row with its dominant bucket so it's self-explanatory:
+// "30 of 30 days near target" / "12 of 12 days over target (avg +900 cal)".
 function SegmentRow({ label, seg, isWeaker }) {
   if (seg.logged === 0) {
     return (
@@ -18,29 +21,24 @@ function SegmentRow({ label, seg, isWeaker }) {
     )
   }
 
-  // Describe the deviation, not "on target" — that phrase means something looser
-  // in the summary above (>=90% with no upper bound) and would read as a contradiction.
-  const onPlan = seg.over === 0 && seg.under === 0
-  let detail
-  if (onPlan) {
-    detail = 'on plan'
-  } else {
-    const parts = []
-    if (seg.over > 0) parts.push(`${seg.over} over${seg.avgOverDelta ? ` (avg +${seg.avgOverDelta} cal)` : ''}`)
-    if (seg.under > 0) parts.push(`${seg.under} under`)
-    detail = parts.join(' · ')
-  }
-  const detailColor = isWeaker ? WEAK : onPlan ? GOOD : MUTED
+  const buckets = [
+    { n: seg.onTarget, text: 'near target', kind: 'near' },
+    { n: seg.over, text: 'over target', kind: 'over' },
+    { n: seg.under, text: 'under target', kind: 'under' },
+  ]
+  const top = buckets.reduce((a, b) => (b.n > a.n ? b : a))
+
+  let detail = `${top.n} of ${seg.logged} ${seg.logged === 1 ? 'day' : 'days'} ${top.text}`
+  if (top.kind === 'over' && seg.avgOverDelta) detail += ` (avg +${seg.avgOverDelta} cal)`
+
+  const color = isWeaker ? WEAK : top.kind === 'near' ? GOOD : MUTED
 
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
       <span style={{ fontSize: '0.875rem', fontWeight: isWeaker ? 700 : 500, color: isWeaker ? WEAK : 'var(--color-text)' }}>
         {label}
       </span>
-      <span style={{ fontSize: '0.8rem', color: MUTED }}>
-        <span style={{ color: MUTED }}>{seg.logged} {seg.logged === 1 ? 'day' : 'days'} · </span>
-        <strong style={{ color: detailColor, fontWeight: 600 }}>{detail}</strong>
-      </span>
+      <span style={{ fontSize: '0.8rem', fontWeight: 600, color, textAlign: 'right' }}>{detail}</span>
     </div>
   )
 }
@@ -49,8 +47,10 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
   const b = complianceBreakdown(logsByDate, calorieTarget)
   if (!b.hasTarget) return null
 
-  // Carry the magnitude when the weaker segment is over-driven, so the line is a
-  // finding ("runs ~900 cal/day over") rather than just restating the rows.
+  const target = Number(calorieTarget).toLocaleString()
+
+  // Carry the magnitude when the weaker segment is over-driven, so the takeaway
+  // is a finding rather than a restatement of the rows.
   function headlineFor(which) {
     const seg = which === 'weekend' ? b.weekend : b.weekday
     const where = which === 'weekend' ? 'Weekends' : 'Weekdays'
@@ -65,12 +65,17 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
       marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border)',
       display: 'flex', flexDirection: 'column', gap: 10,
     }}>
-      <p style={{
-        fontSize: '0.7rem', color: MUTED, fontWeight: 600,
-        textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0,
-      }}>
-        Weekday vs weekend
-      </p>
+      <div>
+        <p style={{
+          fontSize: '0.7rem', color: MUTED, fontWeight: 600,
+          textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0,
+        }}>
+          Weekday vs weekend
+        </p>
+        <p style={{ fontSize: '0.75rem', color: MUTED, margin: '3px 0 0' }}>
+          Daily calories vs the {target} cal target, last 90 days
+        </p>
+      </div>
 
       {b.insufficient ? (
         <p style={{ fontSize: '0.8rem', color: MUTED, margin: 0 }}>
