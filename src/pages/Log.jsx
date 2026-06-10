@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
@@ -50,6 +50,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [baseServingLabel, setBaseServingLabel] = useState('')
   const [frequentFoods, setFrequentFoods] = useState([])
   const [quickAddKey, setQuickAddKey] = useState(null)
+  const [foodResults, setFoodResults] = useState([])
+  const [foodSearching, setFoodSearching] = useState(false)
+  const [showFoodResults, setShowFoodResults] = useState(false)
+  const searchTimer = useRef(null)
+  const searchSeq = useRef(0)
   const [showCopyPanel, setShowCopyPanel] = useState(false)
   const [copyFromDate, setCopyFromDate] = useState('')
   const [copyEntries, setCopyEntries] = useState([])
@@ -190,6 +195,55 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setQuickAddKey(null)
   }
 
+  // Food name search (USDA FDC via the food-search edge fn), debounced. Selecting
+  // a result prefills the form through the same per-100g path barcode uses.
+  function handleFoodInput(value) {
+    setFood(value)
+    setNutritionErrors(p => ({ ...p, food: '' }))
+    // Typing a name = manual entry; drop any prefill-scaling base.
+    setBaseNutrients(null); setBaseServingSize(null); setBaseServingLabel('')
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    const q = value.trim()
+    if (q.length < 2) { setFoodResults([]); setShowFoodResults(false); setFoodSearching(false); return }
+    setShowFoodResults(true); setFoodSearching(true)
+    searchTimer.current = setTimeout(() => searchFoods(q), 350)
+  }
+
+  async function searchFoods(q) {
+    const seq = ++searchSeq.current
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/food-search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentSession.access_token}` },
+        body: JSON.stringify({ q }),
+      })
+      const data = await res.json()
+      if (seq !== searchSeq.current) return // a newer keystroke superseded this
+      setFoodResults(Array.isArray(data.foods) ? data.foods : [])
+    } catch {
+      if (seq === searchSeq.current) setFoodResults([])
+    } finally {
+      if (seq === searchSeq.current) setFoodSearching(false)
+    }
+  }
+
+  function selectFoodResult(r) {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    setBaseNutrients({ calories: r.calories, protein: r.protein, carbs: r.carbs, fat: r.fat })
+    setBaseServingSize(null)
+    setBaseServingLabel('')
+    setServingSize('100')
+    setServingUnit('g')
+    setFood(r.name)
+    setCalories(r.calories.toString())
+    setProtein(r.protein.toString())
+    setCarbs(r.carbs.toString())
+    setFat(r.fat.toString())
+    setShowFoodResults(false)
+    setFoodResults([])
+  }
+
   async function fetchCopyEntries(date) {
     if (!date) return
     const { data, error } = await supabase
@@ -270,6 +324,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setServingUnit('g'); setBaseNutrients(null)
     setBaseServingSize(null); setBaseServingLabel('')
     setNutritionErrors({})
+    setShowFoodResults(false); setFoodResults([])
   }
 
   function startEdit(entry) {
@@ -632,12 +687,49 @@ function Log({ session, profile, hasSoloPremium = true }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: entries.length > 0 ? '4px' : '0' }}>
             <input
               type="text"
-              placeholder="Food name"
+              placeholder="Search or enter a food"
               value={food}
-              onChange={(e) => { setFood(e.target.value); setNutritionErrors(p => ({ ...p, food: '' })) }}
+              onChange={(e) => handleFoodInput(e.target.value)}
               style={{ ...inputStyle, borderColor: nutritionErrors.food ? '#f87171' : 'var(--color-border)' }}
             />
             {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-6px' }}>{nutritionErrors.food}</p>}
+
+            {/* Food search results (USDA FDC) */}
+            {showFoodResults && (
+              <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', backgroundColor: 'var(--color-bg)', maxHeight: '244px', overflowY: 'auto', marginTop: '-4px' }}>
+                {foodSearching && foodResults.length === 0 && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>Searching…</p>
+                )}
+                {!foodSearching && foodResults.length === 0 && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>No matches — enter it manually below.</p>
+                )}
+                {foodResults.map((r, i) => {
+                  const macros = [
+                    !hideCalories && `${r.calories} cal`,
+                    r.protein > 0 && `${r.protein}g P`,
+                    `${r.carbs}g C`,
+                    `${r.fat}g F`,
+                  ].filter(Boolean).join(' · ')
+                  return (
+                    <button
+                      key={r.fdcId ?? i}
+                      onClick={() => selectFoodResult(r)}
+                      style={{
+                        display: 'block', width: '100%', textAlign: 'left',
+                        background: 'transparent', border: 'none',
+                        borderBottom: i < foodResults.length - 1 ? '1px solid var(--color-border)' : 'none',
+                        padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>{r.name}</p>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', margin: '2px 0 0' }}>
+                        {macros} <span style={{ opacity: 0.7 }}>/ 100g</span>
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <Button onClick={() => setShowScanner(true)} variant="muted" size="sm">Scan barcode</Button>
               <Button onClick={() => setShowBarcodeInput((v) => !v)} variant="ghost" size="sm">

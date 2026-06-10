@@ -112,3 +112,6 @@ verify_jwt = false
 
 [functions.offboard-self]
 verify_jwt = false
+
+[functions.food-search]
+enabled = true
