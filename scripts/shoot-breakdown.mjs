@@ -71,6 +71,10 @@ try {
   // Also the whole compliance section for context.
   const section = pC.getByText('Calorie Compliance - Last 90 Days', { exact: true }).locator('xpath=..')
   await section.screenshot({ path: `${OUT}/breakdown-section.png` }); console.log('shot breakdown-section')
+  // The Progress overview chart (calorie % bars + target line) — the chart canvas.
+  const prog = pC.locator('canvas').first()
+  await prog.scrollIntoViewIfNeeded(); await pC.waitForTimeout(500)
+  await prog.screenshot({ path: `${OUT}/progress-chart.png` }); console.log('shot progress-chart')
 } finally {
   for (const u of accounts.reverse()) await del(u)
   await browser.close()

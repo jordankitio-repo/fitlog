@@ -917,13 +917,22 @@ async function sendMessage() {
     }
 
     if (calorieHistory.length > 0 && calTarget) {
+      const pct = allDates.map(date => {
+        const cal = calorieHistory.find(d => d.date === date)?.calories
+        return cal ? Math.round((cal / calTarget) * 100) : null
+      })
+      // Color each bar by the same buckets as the heatmap/summary: green on
+      // target (90-110%), orange over (>110%), amber/red under.
+      const barColor = (v, a) => v == null ? 'transparent'
+        : v > 110 ? `rgba(251, 146, 60, ${a})`
+          : v >= 90 ? `rgba(52, 211, 153, ${a})`
+            : v >= 60 ? `rgba(251, 191, 36, ${a})`
+              : `rgba(248, 113, 113, ${a})`
       datasets.push({
         type: 'bar', label: 'Calories %',
-        data: allDates.map(date => {
-          const cal = calorieHistory.find(d => d.date === date)?.calories
-          return cal ? Math.round((cal / calTarget) * 100) : null
-        }),
-        backgroundColor: 'rgba(251, 191, 36, 0.7)', borderColor: '#fbbf24',
+        data: pct,
+        backgroundColor: pct.map(v => barColor(v, 0.7)),
+        borderColor: pct.map(v => barColor(v, 1)),
         borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
       })
     }
@@ -937,6 +946,16 @@ async function sendMessage() {
         }),
         backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6',
         borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
+      })
+    }
+
+    // 100%-of-target reference line, so over/under reads at a glance against the
+    // % bars (drawn on the same right axis).
+    if ((calorieHistory.length > 0 && calTarget) || (cardioHistory.length > 0 && cardioTarget)) {
+      datasets.push({
+        type: 'line', label: 'Target', data: allDates.map(() => 100),
+        yAxisID: 'yPct', borderColor: 'rgba(255, 255, 255, 0.3)', borderDash: [4, 4],
+        borderWidth: 1, pointRadius: 0, fill: false, tension: 0,
       })
     }
 
