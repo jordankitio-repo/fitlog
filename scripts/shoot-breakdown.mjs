@@ -75,6 +75,12 @@ try {
   const prog = pC.locator('canvas').first()
   await prog.scrollIntoViewIfNeeded(); await pC.waitForTimeout(500)
   await prog.screenshot({ path: `${OUT}/progress-chart.png` }); console.log('shot progress-chart')
+  // Expand "Calories — last 30 days" and shoot its (raw calorie) chart.
+  await pC.getByText('Calories — last 30 days', { exact: true }).click()
+  await pC.waitForTimeout(600)
+  const calChart = pC.locator('canvas').nth(1)
+  await calChart.scrollIntoViewIfNeeded(); await pC.waitForTimeout(400)
+  await calChart.screenshot({ path: `${OUT}/calorie-chart.png` }); console.log('shot calorie-chart')
 } finally {
   for (const u of accounts.reverse()) await del(u)
   await browser.close()

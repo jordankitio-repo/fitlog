@@ -962,6 +962,36 @@ async function sendMessage() {
     return { labels: allDates, datasets }
   }
 
+  // Raw "Calories — last 30 days" bar chart: same bucket colors as the heatmap/
+  // summary (green on-target, orange over, amber/red under) plus a target line.
+  function calorieChartData() {
+    const calTarget = parseInt(clientTargets.calories) || null
+    const barColor = (cal, a) => {
+      if (!calTarget) return `rgba(251, 191, 36, ${a})`
+      const v = (cal / calTarget) * 100
+      return v > 110 ? `rgba(251, 146, 60, ${a})`
+        : v >= 90 ? `rgba(52, 211, 153, ${a})`
+          : v >= 60 ? `rgba(251, 191, 36, ${a})`
+            : `rgba(248, 113, 113, ${a})`
+    }
+    const datasets = [{
+      label: 'Calories',
+      data: calorieHistory.map(d => d.calories),
+      backgroundColor: calorieHistory.map(d => barColor(d.calories, 0.7)),
+      borderColor: calorieHistory.map(d => barColor(d.calories, 1)),
+      borderWidth: 1, borderRadius: 4,
+    }]
+    if (calTarget) {
+      datasets.push({
+        type: 'line', label: 'Target',
+        data: calorieHistory.map(() => calTarget),
+        borderColor: 'rgba(255, 255, 255, 0.3)', borderDash: [4, 4],
+        borderWidth: 1, pointRadius: 0, fill: false, tension: 0,
+      })
+    }
+    return { labels: calorieHistory.map(d => d.date), datasets }
+  }
+
   const correlatedChartOptions = {
     responsive: true,
     animation: false,
@@ -1669,7 +1699,7 @@ async function sendMessage() {
         <div style={sectionCardStyle}>
           <SectionHeader title="Calories — last 30 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
-              <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: 'rgba(251, 191, 36, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={calorieChartData()} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
