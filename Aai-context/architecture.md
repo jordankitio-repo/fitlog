@@ -333,6 +333,12 @@ Milestones: 7, 14, 30, 60, 90 days. `milestone-reached` edge fn guard: fires onl
 ### Copy food from another day (Log.jsx)
 Date picker → selectable food entry list with checkboxes → "Add X items to today". Covers repeat single food, repeat whole day, copy any subset. **Nutrition only** — weight/steps/cardio excluded (see `decisions.md`).
 
+### Food search (Log.jsx + `food-search`)
+The "Food name" field is a 350ms-debounced search (stale-response guard via a seq ref) → results dropdown → selecting prefills the form through the **same per-100g path barcode uses** (`baseNutrients` + serving-scaling effect). Backed by USDA FDC. FDC energy lives under nutrient number `208` (SR Legacy/FNDDS) or `957`/`958` Atwater (Foundation) — resolved in priority order, KCAL-only, values clamped ≥0, results without resolvable calories dropped. Logged results flow into Quick add + Copy Day.
+
+### Quick add — frequent foods (Log.jsx)
+Collapsed Nutrition section shows a 2-col card grid of the user's top-6 most-logged foods, derived from `nutrition_log` (last 300 rows, deduped + frequency-ranked in JS — **no schema**), each carrying macros from its most recent entry; one tap re-logs today via the existing insert. All roles; respects `hideCalories`.
+
 ### Private notes (coach)
 Single text field per coach-client pair, timestamped prepend on each save. Read-only by default; "Edit history" enables editing.
 
@@ -345,6 +351,7 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 | `delete-account` | user | Role-aware deletion. Coach: offboard clients → delete data → cancel Stripe + delete subscriptions row → auth delete. Solo/client: cancel Stripe + delete subscriptions row → fetch coach info → delete data → auth delete → send emails (client confirmation; coach notification if applicable) |
 | `check-trial-eligibility` | user | Returns { coach_trial_used, solo_trial_used } from trial_ledger. Called by CoachPaywall on mount. |
 | `nutrition-coach` | user + role + solo gate | AI nutrition advice |
+| `food-search` | user (`verify_jwt`) | Food name search proxying USDA FoodData Central (key server-side). Generic foods only (Foundation/SR Legacy/FNDDS); normalizes to per-100g macros. Uses FDC's **POST** endpoint (GET 400s on URL-encoded commas in `dataType`). Barcode lookups stay on OpenFoodFacts. |
 | `weekly-report` | coach + owns `clientId` | AI weekly coaching report. Client passes `clientId`; fn verifies active coach↔client. |
 | `notify-report` | coach + owns `clientId` | Email client when report sent. Recipient email derived server-side from `clientId` (not client-supplied). |
 | `notify-checkin` | client (caller) | Email coach on check-in. Coach + recipient derived server-side from caller's active relationship. |

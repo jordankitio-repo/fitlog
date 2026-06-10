@@ -15,6 +15,10 @@
 **Reason:** Every competing platform (Trainerize, TrueCoach, Hevy) treats nutrition as an afterthought or a paid add-on and outsources it to MyFitnessPal. Gardnr makes nutrition tracking, macro compliance, and body composition the core product.
 **Consequences:** Product positioning is "the nutrition layer alongside whatever workout tool you already have," not a workout platform. Workout programming is explicitly deferred until nutrition coaching is validated. Native nutrition logging is built in, never outsourced.
 
+### Food search uses USDA FDC; barcode stays on OpenFoodFacts
+**Reason:** Two different jobs. Barcode = identify a *specific packaged product* by UPC → OpenFoodFacts is a barcode DB, its strength. Typed search = find a *generic food* by name → USDA FoodData Central's curated Foundation/SR Legacy/FNDDS data is built for that. Splitting by entry point uses each DB for what it's best at; merging both into one search would add dedup/ranking/double-call overhead for a noisier result.
+**Consequences:** `food-search` queries FDC only (generic dataTypes, no Branded noise); barcode lookup stays on OFF. The FDC key lives server-side in the edge fn (auth-gated). Both sources normalize to the form's per-100g `baseNutrients` model, so the prefill UI is source-agnostic. Food search + Quick add are logging *convenience* → wall-safe, available to all roles incl. free (convenience isn't prescription).
+
 ### Coach–client layer is hard-walled from solo users
 **Reason:** Protect the coach product's positioning and price. A solo user who wants accountability should need a coach, not a cheaper self-serve tier that replicates coaching.
 **Consequences:** Solo Premium gets *better self-analytics only*. The interaction layer (targets-from-coach, reports, check-ins, nudges, call prep, private notes) is never available to solo regardless of tier.
