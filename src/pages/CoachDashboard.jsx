@@ -7,7 +7,10 @@ import Toast from '../components/Toast'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
 import { getInviteBlockReason } from '../utils/inviteValidation'
+import { attentionLevel, compareByAttention } from '../utils/attentionLevel'
 import { cardStyle } from '../utils/styles'
+
+const attentionColors = { red: '#f87171', yellow: '#fbbf24', green: '#34d399' }
 
 function scoreClient(s) {
   if (!s) return -1
@@ -27,7 +30,7 @@ function CoachDashboard({ profile }) {
   const [loading, setLoading] = useState(true)
   const [nudgeLoadingIds, setNudgeLoadingIds] = useState({})
   const [toast, setToast] = useState({ message: '', type: 'success' })
-  const [sortBy, setSortBy] = useState('compliance')
+  const [sortBy, setSortBy] = useState('attention')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -161,13 +164,6 @@ function CoachDashboard({ profile }) {
     setClientStats(stats)
   }
 
-  function logColor(days) {
-    if (days === null) return '#f87171'
-    if (days <= 1) return '#34d399'
-    if (days <= 3) return '#fbbf24'
-    return '#f87171'
-  }
-
   function logLabel(days) {
     if (days === null) return 'Never logged'
     if (days === 0) return 'Logged today'
@@ -292,11 +288,9 @@ function CoachDashboard({ profile }) {
     }
   }
 
-  const needsAttention = clients.filter(c => {
-    const s = clientStats[c.client_id]
-    if (!s) return false
-    return (s.daysSinceLog === null || s.daysSinceLog >= 4) || s.concerningReactions.length > 0
-  }).length
+  const needsAttention = clients.filter(c =>
+    attentionLevel(clientStats[c.client_id]).level === 'red'
+  ).length
 
   const metricColors = {
     Calories: '#22c55e',
@@ -308,6 +302,12 @@ function CoachDashboard({ profile }) {
   const sortedClients = [...clients].sort((a, b) => {
     const sa = clientStats[a.client_id]
     const sb = clientStats[b.client_id]
+
+    if (sortBy === 'attention') {
+      const diff = compareByAttention(sa, sb)
+      if (diff !== 0) return diff
+      return (sa?.daysSinceLog ?? 999) - (sb?.daysSinceLog ?? 999)
+    }
 
     if (sortBy === 'compliance') {
       const diff = scoreClient(sb) - scoreClient(sa)
@@ -378,6 +378,7 @@ function CoachDashboard({ profile }) {
                   Sort:
                 </p>
                 {[
+                  { key: 'attention', label: 'Attention' },
                   { key: 'compliance', label: 'Compliance' },
                   { key: 'recent', label: 'Last logged' },
                   { key: 'checkin', label: 'Check-in' },
@@ -403,7 +404,8 @@ function CoachDashboard({ profile }) {
             )}
             {sortedClients.map((c) => {
               const s = clientStats[c.client_id]
-              const hasAlert = s && (s.daysSinceLog === null || s.daysSinceLog >= 4 || s.concerningReactions.length > 0)
+              const triage = attentionLevel(s)
+              const hasAlert = triage.level === 'red'
               const canNudge = s && (s.daysSinceLog === null || s.daysSinceLog >= 2)
               return (
                 <div key={c.id} style={{
@@ -446,18 +448,24 @@ function CoachDashboard({ profile }) {
                 {/* Stats row */}
                 {s && (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {/* Last log */}
-                    <span style={{
-                      fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px',
-                      borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                      border: `1px solid ${logColor(s.daysSinceLog)}`,
-                      color: logColor(s.daysSinceLog)
-                    }}>
-                      {logLabel(s.daysSinceLog)}
+                    {/* Attention triage — owns overall status; the pills below are supporting evidence */}
+                    <span
+                      title={triage.reasons.length ? triage.reasons.join(' · ') : logLabel(s.daysSinceLog)}
+                      style={{
+                        fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
+                        borderRadius: '999px',
+                        backgroundColor: triage.level === 'green' ? 'var(--color-bg)' : `${attentionColors[triage.level]}26`,
+                        border: `1px solid ${attentionColors[triage.level]}`,
+                        color: attentionColors[triage.level],
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      }}
+                    >
+                      <span style={{ width: 7, height: 7, borderRadius: '999px', backgroundColor: attentionColors[triage.level] }} />
+                      {triage.level === 'green' ? logLabel(s.daysSinceLog) : triage.reasons[0]}
                     </span>
 
-                    {/* Check-in */}
-                    {s.checkIn ? (
+                    {/* Check-in (positive only — a missing check-in surfaces via the triage badge) */}
+                    {s.checkIn && (
                       <span
                         title={`Check-in: ${s.checkIn.adherence_rating}/10 adherence · ${s.checkIn.energy_level}/10 energy`}
                         style={{
@@ -467,14 +475,6 @@ function CoachDashboard({ profile }) {
                         }}
                       >
                         {s.checkIn.adherence_rating}/10 adherence · {s.checkIn.energy_level}/10 energy
-                      </span>
-                    ) : (
-                      <span style={{
-                        fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px',
-                        borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                        border: '1px solid var(--color-border)', color: 'var(--color-muted)'
-                      }}>
-                        No check-in this week
                       </span>
                     )}
 
