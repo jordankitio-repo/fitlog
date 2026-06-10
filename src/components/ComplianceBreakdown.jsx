@@ -4,15 +4,29 @@ import { complianceBreakdown } from '../utils/complianceBreakdown'
 // stick to their calorie target. Honest by construction (see
 // utils/complianceBreakdown.js) — counts + magnitude, descriptive language, and
 // it stays quiet until there's enough data to compare.
+//
+// Each segment is judged on its OWN merit (near target vs over vs under), not
+// relative to the other — so a client who under-eats on weekdays AND over-eats
+// on weekends gets both flagged, instead of the panel cancelling them out.
 
 const GOOD = '#34d399'
 const WEAK = '#fbbf24'
 const MUTED = 'var(--color-muted)'
 
-// Lead each row with its dominant bucket so it's self-explanatory:
-// "30 of 30 days near target" / "12 of 12 days over target (avg +900 cal)".
-function SegmentRow({ label, seg, isWeaker }) {
-  if (seg.logged === 0) {
+// The dominant bucket for a segment: where most of its logged days landed.
+function segState(seg) {
+  if (!seg || seg.logged === 0) return { kind: 'none' }
+  const buckets = [
+    { n: seg.onTarget, kind: 'near', text: 'near target' },
+    { n: seg.over, kind: 'over', text: 'over target' },
+    { n: seg.under, kind: 'under', text: 'under target' },
+  ]
+  const top = buckets.reduce((a, b) => (b.n > a.n ? b : a))
+  return { ...top, logged: seg.logged, avgOverDelta: seg.avgOverDelta }
+}
+
+function SegmentRow({ label, state }) {
+  if (state.kind === 'none') {
     return (
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
         <span style={{ fontSize: '0.875rem', color: MUTED }}>{label}</span>
@@ -21,44 +35,55 @@ function SegmentRow({ label, seg, isWeaker }) {
     )
   }
 
-  const buckets = [
-    { n: seg.onTarget, text: 'near target', kind: 'near' },
-    { n: seg.over, text: 'over target', kind: 'over' },
-    { n: seg.under, text: 'under target', kind: 'under' },
-  ]
-  const top = buckets.reduce((a, b) => (b.n > a.n ? b : a))
-
-  let detail = `${top.n} of ${seg.logged} ${seg.logged === 1 ? 'day' : 'days'} ${top.text}`
-  if (top.kind === 'over' && seg.avgOverDelta) detail += ` (avg +${seg.avgOverDelta} cal)`
-
-  const color = isWeaker ? WEAK : top.kind === 'near' ? GOOD : MUTED
+  const off = state.kind !== 'near'
+  let detail = `${state.n} of ${state.logged} ${state.logged === 1 ? 'day' : 'days'} ${state.text}`
+  if (state.kind === 'over' && state.avgOverDelta) detail += ` (avg +${state.avgOverDelta} cal)`
 
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-      <span style={{ fontSize: '0.875rem', fontWeight: isWeaker ? 700 : 500, color: isWeaker ? WEAK : 'var(--color-text)' }}>
+      <span style={{ fontSize: '0.875rem', fontWeight: off ? 700 : 500, color: off ? WEAK : 'var(--color-text)' }}>
         {label}
       </span>
-      <span style={{ fontSize: '0.8rem', fontWeight: 600, color, textAlign: 'right' }}>{detail}</span>
+      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: off ? WEAK : GOOD, textAlign: 'right' }}>
+        {detail}
+      </span>
     </div>
   )
 }
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1) }
 
 export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
   const b = complianceBreakdown(logsByDate, calorieTarget)
   if (!b.hasTarget) return null
 
   const target = Number(calorieTarget).toLocaleString()
+  const wd = segState(b.weekday)
+  const we = segState(b.weekend)
 
-  // Carry the magnitude when the weaker segment is over-driven, so the takeaway
-  // is a finding rather than a restatement of the rows.
-  function headlineFor(which) {
-    const seg = which === 'weekend' ? b.weekend : b.weekday
-    const where = which === 'weekend' ? 'Weekends' : 'Weekdays'
-    if (seg.over > seg.under && seg.avgOverDelta) return `${where} run ~${seg.avgOverDelta} cal/day over target.`
-    if (seg.under > seg.over) return `${where} fall short of target most days.`
-    return `Adherence dips on ${which === 'weekend' ? 'weekends' : 'weekdays'}.`
+  // Build the takeaway from each segment's own state.
+  const offs = [
+    { s: wd, where: 'Weekdays', wl: 'weekdays' },
+    { s: we, where: 'Weekends', wl: 'weekends' },
+  ].filter(o => o.s.kind === 'over' || o.s.kind === 'under')
+
+  const clause = (o) => o.s.kind === 'over'
+    ? `over on ${o.wl}${o.s.avgOverDelta ? ` (~+${o.s.avgOverDelta} cal/day)` : ''}`
+    : `under on ${o.wl}`
+
+  let headline = null
+  if (!b.insufficient) {
+    if (offs.length === 0 && wd.kind !== 'none' && we.kind !== 'none') {
+      headline = 'On target across the week.'
+    } else if (offs.length === 1) {
+      const o = offs[0]
+      headline = o.s.kind === 'over'
+        ? `${o.where} run ~${o.s.avgOverDelta} cal/day over target.`
+        : `${o.where} fall under target most days.`
+    } else if (offs.length === 2) {
+      headline = `${cap(clause(offs[0]))}, ${clause(offs[1])}.`
+    }
   }
-  const headline = b.weaker ? headlineFor(b.weaker) : null
 
   return (
     <div style={{
@@ -83,8 +108,8 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
         </p>
       ) : (
         <>
-          <SegmentRow label="Weekdays" seg={b.weekday} isWeaker={b.weaker === 'weekday'} />
-          <SegmentRow label="Weekends" seg={b.weekend} isWeaker={b.weaker === 'weekend'} />
+          <SegmentRow label="Weekdays" state={wd} />
+          <SegmentRow label="Weekends" state={we} />
           {headline && (
             <p style={{ fontSize: '0.8rem', color: 'var(--color-text)', margin: '2px 0 0' }}>{headline}</p>
           )}
