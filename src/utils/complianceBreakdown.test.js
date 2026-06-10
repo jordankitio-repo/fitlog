@@ -68,6 +68,15 @@ describe('complianceBreakdown', () => {
     ]), 2000)
     expect(r.weekend.over).toBe(2)
     expect(r.weekend.avgOverDelta).toBe(900)
+    // Signed avg across all 3 logged days: (+800 +1000 +0) / 3 = 600.
+    expect(r.weekend.avgDelta).toBe(600)
+  })
+
+  it('reports a negative avgDelta when a segment runs under target', () => {
+    const wkday = offsetsFor('weekday', 3)
+    const r = complianceBreakdown(logs(wkday.map(d => [d, 1500])), 2000)
+    expect(r.weekday.under).toBe(3)
+    expect(r.weekday.avgDelta).toBe(-500)
   })
 
   it('names weekends as weaker when weekend on-target rate is lower', () => {

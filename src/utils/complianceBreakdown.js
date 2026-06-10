@@ -23,7 +23,7 @@ const ON_TARGET_BAND = 0.1
 const MIN_DAYS_PER_SEGMENT = 3
 
 function blankSegment() {
-  return { logged: 0, onTarget: 0, over: 0, under: 0, _overSum: 0 }
+  return { logged: 0, onTarget: 0, over: 0, under: 0, _overSum: 0, _sum: 0 }
 }
 
 export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) {
@@ -50,6 +50,7 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
 
     const cal = log.calories || 0
     const ratio = cal / target
+    seg._sum += cal - target
     if (ratio > 1 + ON_TARGET_BAND) {
       seg.over++
       seg._overSum += cal - target
@@ -67,6 +68,9 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
     under: seg.under,
     // Average calories over target, across the days that ran over. Null when none.
     avgOverDelta: seg.over > 0 ? Math.round(seg._overSum / seg.over) : null,
+    // Signed average deviation from target across ALL logged days (drives the
+    // diverging bar: negative = under, positive = over).
+    avgDelta: seg.logged > 0 ? Math.round(seg._sum / seg.logged) : null,
   })
 
   const wkday = finish(weekday)

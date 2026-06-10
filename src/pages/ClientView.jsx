@@ -1241,12 +1241,13 @@ async function sendMessage() {
                   calorieTarget={clientTargets.calories}
                   variant="coach"
                 />
-                <ComplianceBreakdown
-                  logsByDate={heatmapData}
-                  calorieTarget={clientTargets.calories}
-                />
               </div>
             </div>
+            {/* Full-width strip under the heatmap+summary row */}
+            <ComplianceBreakdown
+              logsByDate={heatmapData}
+              calorieTarget={clientTargets.calories}
+            />
           </div>
         </SectionHeader>
       </div>
