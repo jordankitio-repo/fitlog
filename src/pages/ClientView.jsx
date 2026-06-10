@@ -1216,8 +1216,6 @@ async function sendMessage() {
             borderTop: '1px solid var(--color-border)',
             paddingTop: 18,
             marginTop: 18,
-            overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch',
           }}>
             <p style={{
               fontSize: 'var(--text-xs)',
@@ -1230,7 +1228,7 @@ async function sendMessage() {
             }}>
               Calorie Compliance - Last 90 Days
             </p>
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <div style={{ flex: '0 0 auto' }}>
                 <ComplianceHeatmap
                   logsByDate={heatmapData}
