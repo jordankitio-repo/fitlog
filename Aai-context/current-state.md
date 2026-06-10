@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`fc64a3e feat(log): one-tap "Quick add" for frequently logged foods`
+`c4be33f feat(log): food name search via USDA FoodData Central`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,13 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Food name search via USDA FoodData Central (Jun 10) — `food-search` edge fn** — Added search-as-you-type to the Log Add-Food form (the "Food name" field is now a 350ms-debounced search with a stale-response guard) → results dropdown → select prefills the form via the *same per-100g path barcode uses* (macros + serving + live scaling). All roles, wall-safe. Logged results feed Quick add + Copy Day. **Architecture (deliberate): OFF stays for barcode (packaged products), FDC handles typed search (generic foods) — each DB does what it's best at, no merging.** `food-search` proxies FDC server-side (key never client-side), auth-gated (`verify_jwt`), `dataType=Foundation,SR Legacy,Survey (FNDDS)` (no Branded noise). Verified end-to-end via throwaway account.
+- **Gotchas (non-obvious, worth remembering):**
+  - **The `USDA_FDC_API_KEY` in `.env` was malformed** — a stray 41st char + a space before `=`. Real key is the first 40 alphanumeric chars. Normalized `.env` locally; FDC keys are 40 alnum.
+  - **FDC's GET search 400s on URL-encoded commas** (`URLSearchParams` emits `%2C` in `dataType`). Fix: use FDC's **POST** endpoint with `dataType` as a JSON array. The `502 "Food database unavailable"` symptom was this, *not* the secret.
+  - **FDC energy lives under different nutrient numbers by dataset:** `208` kcal (SR Legacy/FNDDS) vs `957`/`958` Atwater (Foundation). Resolve in priority order, KCAL-only; drop results with no resolvable calories; clamp values ≥0.
+  - **Prod secret couldn't be set via CLI** — `supabase secrets set` demands an `sbp_` PAT but the machine is browser-login (OAuth) authed (`functions deploy` tolerates it, `secrets set` doesn't). **Set `USDA_FDC_API_KEY` via the dashboard** (Project Settings → Edge Function Secrets). Same root as the older "access-token format quirk" note.
 
 **"Quick add" frequent-foods one-tap re-log (Jun 9, session 3)** — Closed the biggest logging-friction gap (re-logging a food meant retyping every macro). Added a Quick add panel in the Log Nutrition section (collapsed state) — a 2-column grid of food cards (top 6 most-frequently-logged foods, each with name + macro line + green "+" badge), each carrying the macros from its most recent entry; one tap inserts today's entry via the existing insert path. (First built as a horizontal scroll-strip of pills, redesigned to the card grid in `279cfa2`.) Derived entirely from `nutrition_log` (one `limit(300)` query, deduped + frequency-ranked in JS) — **no new schema**. All roles incl. free, wall-safe (pure logging convenience), respects `hideCalories`. Inspired by Cronometer's Foods tab; deliberately skipped Apple-style rings (user prefers existing "Today vs target" bars). Verified via seeded throwaway account. Shipped to `main` (`fc64a3e`). **Next: coach-facing reasoning + feature (the coach analogue of these logging tools — likely the deferred meal-programming territory, TBD).**
 
@@ -210,6 +217,8 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 ---
 
 ## Session Log (brief — newest first)
+
+- **Jun 10** — Food name search (USDA FDC) shipped: new `food-search` edge fn (FDC POST proxy, generic foods, auth-gated, key server-side) + search-as-you-type in the Log Add-Food form reusing the barcode prefill path. OFF stays for barcode, FDC for search (no merge). Verified end-to-end. Gotchas recorded above: `.env` key had a stray char (real key = first 40 alnum); FDC GET 400s on `%2C`-encoded commas → use POST + dataType array; energy under 208 or 957/958 (Foundation) → priority resolve, KCAL-only, clamp ≥0; `secrets set` needs an `sbp_` PAT (browser-OAuth login won't do it) → set the secret in the dashboard. `c4be33f`.
 
 - **Jun 9 (session 3, cont.)** — "Quick add" frequent-foods row on the Log Nutrition section: top 8 most-logged foods as one-tap chips (macros from most recent entry, reuses existing insert), derived from `nutrition_log` with no new schema. All roles, wall-safe. Inspired by Cronometer; skipped Apple rings per user. `fc64a3e`. Next up: coach-facing reasoning/feature.
 - **Jun 9 (session 3, cont.)** — Profile gaps: added editable display name (all roles, saved to `profiles`, own-row UPDATE RLS already in place) + threaded `onProfileUpdate` from App for instant refresh; fleshed out the bare coach Profile with a read-only "Active clients" count. Save button muted-until-dirty. Deliberately deferred body stats (schema; pair with onboarding-assessment) and notification prefs (mail edge fns). Verified 3 roles via screenshots. `5fa44e6`.
