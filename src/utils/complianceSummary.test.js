@@ -46,9 +46,22 @@ describe('summarizeCompliance', () => {
     )
     // 100% -> on-target, 90% -> on-target, 75% -> partial, 50% -> under
     expect(s.onTarget).toBe(2)
+    expect(s.over).toBe(0)
     expect(s.partial).toBe(1)
     expect(s.under).toBe(1)
     expect(s.avgOfTarget).toBe(79) // mean of 1.0, 0.9, 0.75, 0.5
+  })
+
+  it('counts days above 110% of target as over, not on-target', () => {
+    const s = summarizeCompliance(
+      logs([[0, 2000], [1, 2200], [2, 2300], [3, 3000]]),
+      2000,
+    )
+    // 100% -> on-target, 110% -> on-target (band is inclusive), 115% & 150% -> over
+    expect(s.onTarget).toBe(2)
+    expect(s.over).toBe(2)
+    expect(s.partial).toBe(0)
+    expect(s.under).toBe(0)
   })
 
   it('treats every logged day as on-target when no target is set', () => {

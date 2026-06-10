@@ -3,8 +3,9 @@ import { summarizeCompliance } from '../utils/complianceSummary'
 // Quantified totals that pair with the 90-day ComplianceHeatmap: the grid shows
 // the shape, these show the magnitude. Descriptive only.
 //
-// variant === 'coach' → compliance/assessment lens (on-target / partial / under
-//   / avg of target) — the adherence read a coach evaluates.
+// variant === 'coach' → compliance/assessment lens (on-target / over / under /
+//   avg of target) — the adherence read a coach evaluates. On-target is a band
+//   (90-110%); over-eating is its own bucket, never counted as on-target.
 // variant === 'solo'  → consistency/mirror lens (days logged + on-track days) —
 //   self-motivation, never a performance verdict. Keeps the coach/solo wall.
 const tileStyle = {
@@ -31,8 +32,8 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
         { num: `${s.logged}/${s.elapsed}`, label: 'Days logged', color: 'var(--color-text)', wide: true },
         ...(s.hasTarget ? [
           { num: s.onTarget, label: 'On-target', color: '#34d399' },
-          { num: s.partial, label: 'Partial', color: '#fbbf24' },
-          { num: s.under, label: 'Under', color: '#f87171' },
+          { num: s.over, label: 'Over', color: '#fb923c' },
+          { num: s.partial + s.under, label: 'Under', color: '#f87171' },
           { num: `${s.avgOfTarget}%`, label: 'Avg of target', color: 'var(--color-text)' },
         ] : []),
       ]

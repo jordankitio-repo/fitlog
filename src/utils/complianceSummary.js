@@ -22,6 +22,7 @@ export function summarizeCompliance(logsByDate, calorieTarget, windowDays = 90) 
 
   let logged = 0
   let onTarget = 0
+  let over = 0
   let partial = 0
   let under = 0
   let pctSum = 0
@@ -37,7 +38,11 @@ export function summarizeCompliance(logsByDate, calorieTarget, windowDays = 90) 
 
     const pct = (log.calories || 0) / target
     pctSum += pct
-    if (pct >= 0.9) onTarget++
+    // On-target is a BAND (90-110%), not a floor — eating well over target is
+    // its own bucket, not "on-target". Keeps the heatmap/summary honest and in
+    // step with the weekday/weekend bars (see ComplianceBreakdown).
+    if (pct > 1.1) over++
+    else if (pct >= 0.9) onTarget++
     else if (pct >= 0.6) partial++
     else under++
   }
@@ -64,6 +69,7 @@ export function summarizeCompliance(logsByDate, calorieTarget, windowDays = 90) 
     elapsed,
     coverage,
     onTarget,
+    over,
     partial,
     under,
     avgOfTarget,

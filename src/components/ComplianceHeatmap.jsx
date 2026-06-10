@@ -14,9 +14,12 @@ function getColor(calories, target, hasLog) {
   if (!target) return '#22c55e'
 
   const pct = calories / target
-  if (pct >= 0.9) return '#34d399'
-  if (pct >= 0.6) return '#fbbf24'
-  return '#f87171'
+  // On-target is a band (90-110%); over target gets its own color so a day of
+  // overeating never reads as green. Matches summarizeCompliance buckets.
+  if (pct > 1.1) return '#fb923c'   // over
+  if (pct >= 0.9) return '#34d399'  // on target
+  if (pct >= 0.6) return '#fbbf24'  // under
+  return '#f87171'                  // well under
 }
 
 function formatMonth(date) {
@@ -165,7 +168,8 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
 
       <div style={{ display: 'flex', gap: 12, marginTop: 12, marginLeft: 28, alignItems: 'center', flexWrap: 'wrap' }}>
         {[
-          { color: '#34d399', label: '>=90% target' },
+          { color: '#34d399', label: '90-110%' },
+          { color: '#fb923c', label: '>110%' },
           { color: '#fbbf24', label: '60-89%' },
           { color: '#f87171', label: '<60%' },
           { color: 'var(--color-border)', label: 'No log' },
