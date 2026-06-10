@@ -15,13 +15,19 @@ const MAX_BAR = 46 // each side of the center line spans up to this % of the tra
 
 // A day is "near target" within +/- this fraction (matches the day-level band).
 const BAND = 0.1
+// The bar reaches its end at this deviation, as a fraction of the target — an
+// ABSOLUTE, interpretable scale ("half the target over/under"), comparable
+// across clients. Beyond it the bar clamps and shows a › / ‹ overflow marker.
+const FULL_SCALE = 0.5
 
-function Row({ label, seg, target, scaleMax }) {
+function Row({ label, seg, target }) {
   const hasData = seg.logged > 0 && seg.avgDelta !== null
   const delta = hasData ? seg.avgDelta : 0
   const near = !hasData || Math.abs(delta) <= target * BAND
   const color = near ? GOOD : WEAK
-  const widthPct = scaleMax > 0 ? Math.min(1, Math.abs(delta) / scaleMax) * MAX_BAR : 0
+  const fullScale = target * FULL_SCALE
+  const widthPct = fullScale > 0 ? Math.min(1, Math.abs(delta) / fullScale) * MAX_BAR : 0
+  const clamped = hasData && !near && Math.abs(delta) > fullScale
 
   const value = !hasData
     ? 'no data'
@@ -47,6 +53,15 @@ function Row({ label, seg, target, scaleMax }) {
               : { right: '50%', width: `${widthPct}%` }),
           }} />
         )}
+        {clamped && (
+          <span style={{
+            position: 'absolute', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem',
+            fontWeight: 700, color: WEAK, lineHeight: 1,
+            ...(delta > 0 ? { left: `${50 + MAX_BAR}%`, marginLeft: 2 } : { right: `${50 + MAX_BAR}%`, marginRight: 2 }),
+          }}>
+            {delta > 0 ? '›' : '‹'}
+          </span>
+        )}
         {hasData && near && (
           <div style={{ position: 'absolute', left: '50%', top: 3, width: 12, height: 12, marginLeft: -6, borderRadius: '50%', background: GOOD }} />
         )}
@@ -65,10 +80,6 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
   const targetLabel = target.toLocaleString()
   const wd = b.weekday
   const we = b.weekend
-
-  // Scale bars to the larger deviation, with a floor so a small miss doesn't
-  // look dramatic.
-  const scaleMax = Math.max(Math.abs(wd.avgDelta || 0), Math.abs(we.avgDelta || 0), target * BAND)
 
   // One-line takeaway, composed from each segment's own state.
   const off = (seg) => seg.logged > 0 && seg.avgDelta !== null && Math.abs(seg.avgDelta) > target * BAND
@@ -123,8 +134,8 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <Row label="Weekdays" seg={wd} target={target} scaleMax={scaleMax} />
-            <Row label="Weekends" seg={we} target={target} scaleMax={scaleMax} />
+            <Row label="Weekdays" seg={wd} target={target} />
+            <Row label="Weekends" seg={we} target={target} />
           </div>
 
           {headline && (

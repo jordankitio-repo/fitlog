@@ -58,7 +58,7 @@ try {
   for (let i = 0; i <= 41; i++) {
     const d = new Date(); d.setDate(d.getDate() - i)
     const weekend = d.getDay() === 0 || d.getDay() === 6
-    const cal = weekend ? 2900 : 2000
+    const cal = weekend ? (Number(process.env.WK) || 2900) : 2000
     rows.push({ user_id: D.id, logged_date: ymd(d), food: 'Test day total', calories: cal, protein: 150, carbs: Math.round(cal * 0.45 / 4), fat: Math.round(cal * 0.3 / 9), serving_size: 1, serving_unit: 'day' })
   }
   await fetch(`${SUPA}/rest/v1/nutrition_log`, { method: 'POST', headers: asClient, body: JSON.stringify(rows) }).then(r => console.log('nutrition', r.status, rows.length, 'rows'))
