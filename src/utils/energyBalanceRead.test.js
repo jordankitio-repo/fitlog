@@ -89,6 +89,21 @@ describe('energyBalanceRead', () => {
     expect(typeof r.trajectory.prevMaintenance).toBe('number')
   })
 
+  it('tones the rate "toward" when losing toward a lower goal', () => {
+    const r = energyBalanceRead({ calorieSeries: cals(21, 2000), weightSeries: weights(21, 183, 181), calorieTarget: 2000, weightGoal: 175 })
+    expect(r.rateTone).toBe('toward')
+  })
+
+  it('tones the rate "away" when losing but the goal is above current', () => {
+    const r = energyBalanceRead({ calorieSeries: cals(21, 1800), weightSeries: weights(21, 178, 176), calorieTarget: 2000, weightGoal: 185 })
+    expect(r.rateTone).toBe('away')
+  })
+
+  it('tones the rate "neutral" with no goal set', () => {
+    const r = energyBalanceRead({ calorieSeries: cals(21, 2000), weightSeries: weights(21, 183, 181), calorieTarget: 2000 })
+    expect(r.rateTone).toBe('neutral')
+  })
+
   it('reports loggedVsTarget', () => {
     const r = energyBalanceRead({ calorieSeries: cals(21, 2080), weightSeries: weights(21, 183, 181), calorieTarget: 2000 })
     expect(r.loggedVsTarget).toBe(80)

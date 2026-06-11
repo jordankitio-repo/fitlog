@@ -1679,6 +1679,8 @@ async function sendMessage() {
                   calorieSeries={energySeries.calories}
                   weightSeries={energySeries.weights}
                   calorieTarget={clientTargets.calories}
+                  weightGoal={clientTargets.weight_goal}
+                  weightGoalUnit={clientTargets.weight_goal_unit}
                 />
               </div>
             )}

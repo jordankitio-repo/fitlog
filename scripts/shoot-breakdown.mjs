@@ -53,12 +53,12 @@ try {
   await fetch(`${SUPA}/rest/v1/coach_clients`, { method: 'POST', headers: asClient, body: JSON.stringify({ coach_id: C.id, client_id: D.id, status: 'active' }) }).then(r => console.log('link', r.status))
 
   // target + 6 weeks of nutrition (weekday 2000 = on target, weekend 2900 = +900)
-  await fetch(`${SUPA}/rest/v1/targets?on_conflict=user_id`, { method: 'POST', headers: { ...asClient, Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ user_id: D.id, calories: 2000 }) }).then(r => console.log('target', r.status))
+  await fetch(`${SUPA}/rest/v1/targets?on_conflict=user_id`, { method: 'POST', headers: { ...asClient, Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ user_id: D.id, calories: 2000, weight_goal: 175, weight_goal_unit: 'lbs' }) }).then(r => console.log('target', r.status))
   const rows = []
   for (let i = 0; i <= 44; i++) {
     const d = new Date(); d.setDate(d.getDate() - i)
     const weekend = d.getDay() === 0 || d.getDay() === 6
-    const cal = weekend ? (Number(process.env.WK) || 2900) : 2000
+    const cal = weekend ? (Number(process.env.WK) || 2900) : (Number(process.env.BASE) || 2000)
     rows.push({ user_id: D.id, logged_date: ymd(d), food: 'Test day total', calories: cal, protein: 150, carbs: Math.round(cal * 0.45 / 4), fat: Math.round(cal * 0.3 / 9), serving_size: 1, serving_unit: 'day' })
   }
   await fetch(`${SUPA}/rest/v1/nutrition_log`, { method: 'POST', headers: asClient, body: JSON.stringify(rows) }).then(r => console.log('nutrition', r.status, rows.length, 'rows'))

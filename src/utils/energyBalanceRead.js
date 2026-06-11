@@ -101,7 +101,7 @@ function readWindow({ calorieSeries, dailyWeights, today, startAgo, endAgo }) {
 
 const round25 = (n) => Math.round(n / 25) * 25
 
-export function energyBalanceRead({ calorieSeries = [], weightSeries = [], calorieTarget, windowDays = WINDOW_DAYS }) {
+export function energyBalanceRead({ calorieSeries = [], weightSeries = [], calorieTarget, weightGoal, weightGoalUnit = 'lbs', windowDays = WINDOW_DAYS }) {
   const target = Number(calorieTarget) || 0
   if (!target) return { hasTarget: false, hasData: false }
 
@@ -127,6 +127,17 @@ export function energyBalanceRead({ calorieSeries = [], weightSeries = [], calor
     ? { prevMaintenance: round25(prev.maintMid), prevRateLbPerWk: prev.rateLbPerWk }
     : null
 
+  // Goal-aware tone for the weight trend: 'toward' the coach's weight_goal,
+  // 'away', or 'neutral' (flat, at goal, or no goal set). NOT a value judgment —
+  // it's relative to the prescribed goal, like everything else here.
+  const goalLb = Number(weightGoal) ? (weightGoalUnit === 'kg' ? Number(weightGoal) * KG_TO_LB : Number(weightGoal)) : 0
+  let rateTone = 'neutral'
+  if (goalLb > 0 && Math.abs(cur.rateLbPerWk) >= 0.1 && Math.abs(cur.recentLb - goalLb) > 2) {
+    const shouldLose = cur.recentLb > goalLb
+    const losing = cur.rateLbPerWk < 0
+    rateTone = shouldLose === losing ? 'toward' : 'away'
+  }
+
   return {
     hasTarget: true,
     hasData: true,
@@ -135,6 +146,7 @@ export function energyBalanceRead({ calorieSeries = [], weightSeries = [], calor
     avgIntake: cur.avgIntake,
     loggedVsTarget: cur.avgIntake - target,
     rateLbPerWk: cur.rateLbPerWk,
+    rateTone,
     maintenance,
     settling,
     plausibility,
