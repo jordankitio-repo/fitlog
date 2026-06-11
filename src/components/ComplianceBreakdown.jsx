@@ -98,7 +98,8 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
         ? `${o.where} run ~${Math.abs(o.seg.avgDelta)} cal/day over target.`
         : `${o.where} run ~${Math.abs(o.seg.avgDelta)} cal/day under target.`
     } else {
-      const part = (o) => `${dir(o.seg)} on ${o.wl} (~${o.seg.avgDelta > 0 ? '+' : '−'}${Math.abs(o.seg.avgDelta)})`
+      // No +/- sign — the "over"/"under" word already carries direction.
+      const part = (o) => `${dir(o.seg)} on ${o.wl} (~${Math.abs(o.seg.avgDelta)})`
       const first = part(offs[0])
       headline = `${first.charAt(0).toUpperCase()}${first.slice(1)}, ${part(offs[1])} cal/day.`
     }
