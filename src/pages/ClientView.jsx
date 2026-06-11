@@ -11,6 +11,7 @@ import ComplianceSummary from '../components/ComplianceSummary'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
+import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import {
   addDays,
@@ -91,6 +92,17 @@ function ClientView({ profile }) {
   })
   const [heatmapData, setHeatmapData] = useState({})
   const [energySeries, setEnergySeries] = useState({ calories: [], weights: [] })
+  const [cardOrder, setCardOrder] = useState(profile?.layout?.clientView || [])
+  const canReorder = profile?.role === 'coach'
+
+  async function saveCardOrder(next) {
+    setCardOrder(next)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ layout: { ...(profile?.layout || {}), clientView: next } })
+      .eq('id', profile.id)
+    if (error) console.error(error)
+  }
   const [sentReports, setSentReports] = useState([])
   const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
   const [messages, setMessages] = useState([])
@@ -1194,7 +1206,9 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div style={sectionCardStyle}>
+      <Reorderable order={cardOrder} onReorder={saveCardOrder} enabled={canReorder}>
+
+      <div key="consistency" style={sectionCardStyle}>
         <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
@@ -1317,7 +1331,7 @@ async function sendMessage(text) {
       </div>
 
       {sentReports.length > 0 && (
-        <div style={sectionCardStyle}>
+        <div key="sentReports" style={sectionCardStyle}>
           <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')}>
             {groupByWeek(sentReports).map(([week, weekReports]) => {
               const isCollapsed = collapsedSentWeeks[week] !== false
@@ -1370,7 +1384,7 @@ async function sendMessage(text) {
         </div>
       )}
 
-      <div style={{ ...sectionCardStyle, gap: '16px' }}>
+      <div key="targets" style={{ ...sectionCardStyle, gap: '16px' }}>
         <SectionHeader title="Client targets" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '8px' }}>
             Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
@@ -1451,7 +1465,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div style={sectionCardStyle}>
+      <div key="nutritionLog" style={sectionCardStyle}>
         <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')}>
           {entries.length === 0 ? (
             <EmptyState
@@ -1486,7 +1500,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div style={sectionCardStyle}>
+      <div key="checkIn" style={sectionCardStyle}>
         <SectionHeader title="This week's check-in" collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
           {!clientCheckIn ? (
             <div style={{ paddingTop: '8px' }}>
@@ -1521,7 +1535,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div style={sectionCardStyle}>
+      <div key="privateNotes" style={sectionCardStyle}>
         <SectionHeader title="Private notes" collapsed={sectionsCollapsed.privateNotes} onToggle={() => toggleSection('privateNotes')}>
             <textarea
               value={coachNotes}
@@ -1586,7 +1600,7 @@ async function sendMessage(text) {
       </div>
 
       {(weightHistory.length > 0 || calorieHistory.length > 0) && (
-        <div style={sectionCardStyle}>
+        <div key="correlatedChart" style={sectionCardStyle}>
           <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
             {!sectionsCollapsed.correlatedChart && (
               <div style={{ paddingTop: '8px' }}>
@@ -1605,7 +1619,7 @@ async function sendMessage(text) {
       )}
 
       {weightHistory.length > 1 && (
-        <div style={sectionCardStyle}>
+        <div key="weightChart" style={sectionCardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
               <Line
@@ -1641,7 +1655,7 @@ async function sendMessage(text) {
       )}
 
       {calorieHistory.length > 0 && (
-        <div style={sectionCardStyle}>
+        <div key="calorieChart" style={sectionCardStyle}>
           <SectionHeader title="Calories — last 30 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
               <Bar data={calorieChartData()} options={chartOptions} />
@@ -1651,7 +1665,7 @@ async function sendMessage(text) {
       )}
 
       {cardioHistory.length > 0 && (
-        <div style={sectionCardStyle}>
+        <div key="cardioChart" style={sectionCardStyle}>
           <SectionHeader title="Cardio — last 30 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
               <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
@@ -1661,7 +1675,7 @@ async function sendMessage(text) {
       )}
 
       {stepsHistory.length > 0 && (
-        <div style={sectionCardStyle}>
+        <div key="stepsChart" style={sectionCardStyle}>
           <SectionHeader title="Steps — last 30 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
               <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
@@ -1669,6 +1683,8 @@ async function sendMessage(text) {
           </SectionHeader>
         </div>
       )}
+
+      </Reorderable>
 
       <div style={{ ...sectionCardStyle }}>
         <h2>Coaching</h2>

@@ -106,6 +106,23 @@ try {
   await pC.locator('.chat-panel').screenshot({ path: `${OUT}/chat-open.png` }); console.log('shot chat-open')
   await pC.setViewportSize({ width: 390, height: 780 }); await pC.waitForTimeout(400)
   await pC.screenshot({ path: `${OUT}/chat-mobile.png` }); console.log('shot chat-mobile')
+
+  // Drag-to-reorder: grip handle render + a drag that should persist to profiles.layout.
+  await pC.setViewportSize({ width: 1366, height: 1000 })
+  await pC.goto(`${BASE}/client/${D.id}`, { waitUntil: 'networkidle' }); await pC.waitForTimeout(1500)
+  const grip = pC.locator('[aria-label="Drag to reorder"]').first()
+  await grip.scrollIntoViewIfNeeded(); await pC.waitForTimeout(300)
+  await grip.locator('xpath=..').screenshot({ path: `${OUT}/reorder-grip.png` }); console.log('shot reorder-grip')
+  const before = await fetch(`${SUPA}/rest/v1/profiles?id=eq.${C.id}&select=layout`, { headers: sh }).then(r => r.json())
+  console.log('layout before drag:', JSON.stringify(before[0]?.layout))
+  const box = await grip.boundingBox()
+  await pC.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await pC.mouse.down()
+  await pC.mouse.move(box.x, box.y + 120, { steps: 8 })
+  await pC.mouse.move(box.x, box.y + 360, { steps: 12 })
+  await pC.mouse.up(); await pC.waitForTimeout(1200)
+  const after = await fetch(`${SUPA}/rest/v1/profiles?id=eq.${C.id}&select=layout`, { headers: sh }).then(r => r.json())
+  console.log('layout after drag:', JSON.stringify(after[0]?.layout))
   // Energy Balance Read panel (under the Progress overview chart).
   const ebr = pC.getByText('Energy balance read', { exact: true }).locator('xpath=../..')
   await ebr.scrollIntoViewIfNeeded(); await pC.waitForTimeout(400)
