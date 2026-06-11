@@ -55,13 +55,24 @@ try {
   // target + 6 weeks of nutrition (weekday 2000 = on target, weekend 2900 = +900)
   await fetch(`${SUPA}/rest/v1/targets?on_conflict=user_id`, { method: 'POST', headers: { ...asClient, Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ user_id: D.id, calories: 2000 }) }).then(r => console.log('target', r.status))
   const rows = []
-  for (let i = 0; i <= 41; i++) {
+  for (let i = 0; i <= 44; i++) {
     const d = new Date(); d.setDate(d.getDate() - i)
     const weekend = d.getDay() === 0 || d.getDay() === 6
     const cal = weekend ? (Number(process.env.WK) || 2900) : 2000
     rows.push({ user_id: D.id, logged_date: ymd(d), food: 'Test day total', calories: cal, protein: 150, carbs: Math.round(cal * 0.45 / 4), fat: Math.round(cal * 0.3 / 9), serving_size: 1, serving_unit: 'day' })
   }
   await fetch(`${SUPA}/rest/v1/nutrition_log`, { method: 'POST', headers: asClient, body: JSON.stringify(rows) }).then(r => console.log('nutrition', r.status, rows.length, 'rows'))
+
+  // 45 days of weight, declining 186 → 182 lb with mild wobble (so the band has
+  // realistic, non-zero width for the Energy Balance Read).
+  const wrows = []
+  for (let i = 0; i <= 44; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    const base = 182 + (i / 44) * 4
+    const wobble = (((i * 3) % 5) - 2) * 0.3
+    wrows.push({ user_id: D.id, logged_date: ymd(d), weight: Math.round((base + wobble) * 10) / 10, unit: 'lbs', weighed_at: '08:00:00' })
+  }
+  await fetch(`${SUPA}/rest/v1/weight_log`, { method: 'POST', headers: asClient, body: JSON.stringify(wrows) }).then(r => console.log('weight', r.status, wrows.length, 'rows'))
 
   await pC.goto(`${BASE}/client/${D.id}`, { waitUntil: 'networkidle' }); await pC.waitForTimeout(1800)
   // Tight shot of just the breakdown panel (root = grandparent of the heading <p>).
@@ -81,6 +92,10 @@ try {
   const calChart = pC.locator('canvas').nth(1)
   await calChart.scrollIntoViewIfNeeded(); await pC.waitForTimeout(400)
   await calChart.screenshot({ path: `${OUT}/calorie-chart.png` }); console.log('shot calorie-chart')
+  // Energy Balance Read panel (under the Progress overview chart).
+  const ebr = pC.getByText('Energy balance read', { exact: true }).locator('xpath=../..')
+  await ebr.scrollIntoViewIfNeeded(); await pC.waitForTimeout(400)
+  await ebr.screenshot({ path: `${OUT}/energy-balance.png` }); console.log('shot energy-balance')
 } finally {
   for (const u of accounts.reverse()) await del(u)
   await browser.close()

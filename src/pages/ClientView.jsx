@@ -9,6 +9,7 @@ import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
+import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import { resolveLockState } from '../utils/lockState'
 import {
   addDays,
@@ -88,6 +89,7 @@ function ClientView({ profile }) {
     bestWeekEnd: null,
   })
   const [heatmapData, setHeatmapData] = useState({})
+  const [energySeries, setEnergySeries] = useState({ calories: [], weights: [] })
   const [sentReports, setSentReports] = useState([])
   const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
   const [messages, setMessages] = useState([])
@@ -178,6 +180,7 @@ function ClientView({ profile }) {
   fetchCoachNotes()
   fetchConsistency()
   fetchHeatmapData()
+  fetchEnergyBalance()
   fetchSentReports()
   fetchMessages()
 }, [clientId])
@@ -556,6 +559,25 @@ async function fetchHeatmapData() {
   })
 
   setHeatmapData(byDate)
+}
+
+// Dedicated 45-day pull for the Energy Balance Read — full dates + weight unit,
+// recent window (the chart fetches are year-stripped, 30-day, and earliest-30).
+async function fetchEnergyBalance() {
+  const start = new Date(); start.setDate(start.getDate() - 44)
+  const startStr = toLocalDateString(start)
+  const [nut, wt] = await Promise.all([
+    supabase.from('nutrition_log').select('logged_date, calories').eq('user_id', clientId).gte('logged_date', startStr),
+    supabase.from('weight_log').select('logged_date, weight, unit').eq('user_id', clientId).gte('logged_date', startStr),
+  ])
+  if (nut.error) console.error(nut.error)
+  if (wt.error) console.error(wt.error)
+  const grouped = {}
+  ;(nut.data || []).forEach(e => { grouped[e.logged_date] = (grouped[e.logged_date] || 0) + (e.calories || 0) })
+  setEnergySeries({
+    calories: Object.entries(grouped).map(([date, calories]) => ({ date, calories })),
+    weights: (wt.data || []).map(w => ({ date: w.logged_date, weight: w.weight, unit: w.unit })),
+  })
 }
 
 async function saveCoachNotes() {
@@ -1653,6 +1675,11 @@ async function sendMessage() {
             {!sectionsCollapsed.correlatedChart && (
               <div style={{ paddingTop: '8px' }}>
                 <Chart type="bar" data={getCorrelatedChartData()} options={correlatedChartOptions} />
+                <EnergyBalanceRead
+                  calorieSeries={energySeries.calories}
+                  weightSeries={energySeries.weights}
+                  calorieTarget={clientTargets.calories}
+                />
               </div>
             )}
           </SectionHeader>
