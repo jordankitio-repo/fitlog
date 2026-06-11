@@ -283,3 +283,5 @@ button, a, input, select, textarea {
   border-color: var(--color-muted);
   background-color: var(--color-surface);
 }
+.gw-arrow { transition: transform 0.15s ease; }
+.gw-tile:hover:not(:disabled) .gw-arrow { transform: translateX(3px); }

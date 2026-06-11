@@ -1140,23 +1140,37 @@ async function sendMessage(text) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
               <button className="gw-tile" onClick={generateCallPrep} disabled={briefingLoading}
-                style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start', textAlign: 'left', padding: '16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #a78bfa', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Call prep</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '999px', padding: '1px 7px', letterSpacing: '0.04em' }}>PRIVATE</span>
+                style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', padding: '16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #a78bfa', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: 'rgba(167, 139, 250, 0.12)', flexShrink: 0 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: '1rem' }}>Call prep</span>
+                  </div>
+                  <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '999px', padding: '2px 8px', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>PRIVATE</span>
                 </div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: 0, lineHeight: 1.4 }}>{briefingLoading ? 'Preparing your briefing…' : 'A private briefing before your next call.'}</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: 0, lineHeight: 1.4 }}>{briefingLoading ? 'Preparing briefing…' : 'Private briefing before your next call.'}</p>
+                  <span className="gw-arrow" style={{ color: '#a78bfa', fontSize: '1.1rem', flexShrink: 0 }} aria-hidden="true">→</span>
+                </div>
               </button>
 
               <button className="gw-tile" onClick={generateWeeklyReport} disabled={reportLoading}
-                style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start', textAlign: 'left', padding: '16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #34d399', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Weekly report</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#34d399', border: '1px solid #34d399', borderRadius: '999px', padding: '1px 7px', letterSpacing: '0.04em' }}>GOES TO CLIENT</span>
+                style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', padding: '16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #34d399', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: 'rgba(52, 211, 153, 0.12)', flexShrink: 0 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: '1rem' }}>Weekly report</span>
+                  </div>
+                  <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#34d399', border: '1px solid #34d399', borderRadius: '999px', padding: '2px 8px', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>GOES TO CLIENT</span>
                 </div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: 0, lineHeight: 1.4 }}>{reportLoading ? 'Drafting the recap…' : 'An AI-drafted recap to review and send.'}</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: 0, lineHeight: 1.4 }}>{reportLoading ? 'Drafting recap…' : 'AI-drafted recap to review and send.'}</p>
+                  <span className="gw-arrow" style={{ color: '#34d399', fontSize: '1.1rem', flexShrink: 0 }} aria-hidden="true">→</span>
+                </div>
               </button>
             </div>
 
