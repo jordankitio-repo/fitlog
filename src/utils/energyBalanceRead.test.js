@@ -77,10 +77,11 @@ describe('energyBalanceRead', () => {
     expect(r.maintenance.mid).toBeLessThanOrEqual(2400)
   })
 
-  it('flags an implausibly low maintenance (likely under-logging)', () => {
-    // 200 lb client, logging 1,500, weight flat → maintenance ~1,500 « 11×bw
-    const r = energyBalanceRead({ calorieSeries: cals(21, 1500), weightSeries: weights(21, 200, 200), calorieTarget: 2000 })
-    expect(r.plausibility.flag).toBe('low')
+  it('exposes logging coverage (logged days / window)', () => {
+    // 16 of 21 days logged → ~0.76 coverage (passes the 70% floor)
+    const r = energyBalanceRead({ calorieSeries: cals(16, 2000), weightSeries: weights(21, 183, 181), calorieTarget: 2000 })
+    expect(r.hasData).toBe(true)
+    expect(r.coverage).toBeCloseTo(16 / 21, 2)
   })
 
   it('computes trajectory when a prior window also qualifies', () => {

@@ -115,13 +115,6 @@ export function energyBalanceRead({ calorieSeries = [], weightSeries = [], calor
   const maintenance = { low: round25(cur.maintMid - err), mid: round25(cur.maintMid), high: round25(cur.maintMid + err) }
   const settling = err > WIDE_BAND_CAL
 
-  // Plausibility off the trend-fitted recent weight (not a single noisy point).
-  const wLb = cur.recentLb
-  let flag = null
-  if (cur.maintMid < wLb * 11) flag = 'low'
-  else if (cur.maintMid > wLb * 19) flag = 'high'
-  const plausibility = { flag, typicalLow: round25(wLb * 13), typicalHigh: round25(wLb * 16) }
-
   const prev = readWindow({ calorieSeries, dailyWeights, today, startAgo: windowDays, endAgo: windowDays * 2 })
   const trajectory = prev.ok
     ? { prevMaintenance: round25(prev.maintMid), prevRateLbPerWk: prev.rateLbPerWk }
@@ -145,11 +138,11 @@ export function energyBalanceRead({ calorieSeries = [], weightSeries = [], calor
     target,
     avgIntake: cur.avgIntake,
     loggedVsTarget: cur.avgIntake - target,
+    coverage: cur.coverage,
     rateLbPerWk: cur.rateLbPerWk,
     rateTone,
     maintenance,
     settling,
-    plausibility,
     trajectory,
   }
 }

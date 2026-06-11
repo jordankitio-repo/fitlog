@@ -1,13 +1,18 @@
 import { energyBalanceRead } from '../utils/energyBalanceRead'
 
-// Coach-only instrument. Facts + their uncertainty, read visually: a glyph for
-// trend direction (colored relative to the coach's goal — toward = green, away
-// = amber, neutral otherwise), and amber reserved for caveats only. No verdicts.
+// Coach-only instrument. We state only what we measured — maintenance (derived
+// transparently from the two rows below it), the weight trend, and compliance
+// with the prescribed target — and let the coach interpret. We deliberately do
+// NOT assert physiological plausibility (e.g. "this is under-logged"): that
+// needs a "true maintenance" reference the COACH has and we don't. Amber marks a
+// caveat (data quality) or a deviation from the plan; green marks moving toward
+// the goal / hitting the plan. Never a verdict on the outcome itself.
 
 const GOOD = '#34d399'
 const WEAK = '#fbbf24'
 const MUTED = 'var(--color-muted)'
 const TEXT = 'var(--color-text)'
+const BAND = 0.1 // within ±10% of target = on plan (matches ComplianceBreakdown)
 
 const toneColor = (tone) => (tone === 'toward' ? GOOD : tone === 'away' ? WEAK : TEXT)
 
@@ -29,22 +34,17 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
 
   const num = (n) => n.toLocaleString()
 
-  // Maintenance caveat: the only amber is the flag word; the reference range is muted.
+  // Maintenance caveat: honest data-quality only — wide band, or sparse logging.
   let maintNote
-  if (r.hasData && (r.plausibility.flag === 'low' || r.plausibility.flag === 'high')) {
-    maintNote = (
-      <>
-        <span style={{ color: WEAK }}>{r.plausibility.flag === 'low' ? 'below typical' : 'above typical'}</span>
-        <span style={{ color: MUTED }}> ({num(r.plausibility.typicalLow)}–{num(r.plausibility.typicalHigh)})</span>
-      </>
-    )
-  } else if (r.hasData && r.settling) {
+  if (r.hasData && r.settling) {
     maintNote = <span style={{ color: WEAK }}>still settling</span>
+  } else if (r.hasData && r.coverage < 0.9) {
+    maintNote = <span style={{ color: MUTED }}>estimate · {Math.round(r.coverage * 100)}% logged</span>
   } else {
-    maintNote = <span style={{ color: MUTED }}>estimate · assumes logging accurate</span>
+    maintNote = <span style={{ color: MUTED }}>estimate</span>
   }
 
-  // Weight trend: colored glyph (relative to goal) + neutral magnitude.
+  // Weight trend: glyph colored relative to the coach's goal (toward/away).
   const rate = r.hasData ? r.rateLbPerWk : 0
   const flat = Math.abs(rate) < 0.05
   const weightValue = flat
@@ -55,6 +55,14 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
         {' '}{Math.abs(rate).toFixed(1)} lb/wk
       </>
     )
+
+  // Logged vs target gap: colored by compliance with the prescribed target —
+  // green on plan (±10%), amber off plan in either direction.
+  const gap = r.hasData ? r.loggedVsTarget : 0
+  const onPlan = Math.abs(gap) <= r.target * BAND
+  const gapNote = r.hasData
+    ? <span style={{ color: onPlan ? GOOD : WEAK }}>{gap >= 0 ? '+' : '−'}{Math.abs(gap)}</span>
+    : null
 
   return (
     <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -73,19 +81,10 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Row label="Est. maintenance" value={`~${num(r.maintenance.low)}–${num(r.maintenance.high)} cal`} note={maintNote} />
           <Row label="Weight trend" value={weightValue} />
-          <Row
-            label="Logged vs target"
-            value={`${num(r.avgIntake)} / ${num(r.target)}`}
-            note={<span style={{ color: MUTED }}>{r.loggedVsTarget >= 0 ? '+' : '−'}{Math.abs(r.loggedVsTarget)}</span>}
-          />
+          <Row label="Logged vs target" value={`${num(r.avgIntake)} / ${num(r.target)}`} note={gapNote} />
           {r.trajectory && (
             <p style={{ fontSize: '0.78rem', color: TEXT, margin: '2px 0 0' }}>
               Vs the prior window: maintenance ~{num(r.trajectory.prevMaintenance)} → ~{num(r.maintenance.mid)}, rate {fmtRateWord(r.trajectory.prevRateLbPerWk)} → {fmtRateWord(r.rateLbPerWk)}.
-            </p>
-          )}
-          {r.plausibility.flag === 'low' && (
-            <p style={{ fontSize: '0.78rem', color: MUTED, margin: '2px 0 0' }}>
-              A maintenance this low usually means intake is under-logged — though it can be a genuinely low activity level. The read can&apos;t tell which.
             </p>
           )}
         </div>
@@ -94,8 +93,6 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
   )
 }
 
-// Plain words for the trajectory sentence (a glyph there would collide with the
-// trend row's arrow).
 function fmtRateWord(r) {
   if (r > -0.05 && r < 0.05) return 'flat'
   return `${r < 0 ? 'down' : 'up'} ${Math.abs(r).toFixed(1)} lb/wk`
