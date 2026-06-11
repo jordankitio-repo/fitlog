@@ -109,7 +109,7 @@ export function energyBalanceRead({ calorieSeries = [], weightSeries = [], calor
   const dailyWeights = dailyWeightsLb(weightSeries)
 
   const cur = readWindow({ calorieSeries, dailyWeights, today, startAgo: 0, endAgo: windowDays })
-  if (!cur.ok) return { hasTarget: true, hasData: false }
+  if (!cur.ok) return { hasTarget: true, hasData: false, windowDays }
 
   const err = Math.max(cur.maintErr, MIN_BAND_CAL)
   const maintenance = { low: round25(cur.maintMid - err), mid: round25(cur.maintMid), high: round25(cur.maintMid + err) }

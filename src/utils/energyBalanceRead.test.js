@@ -39,6 +39,7 @@ describe('energyBalanceRead', () => {
     const r = energyBalanceRead({ calorieSeries: cals(21, 2000), weightSeries: weights(6, 183, 182), calorieTarget: 2000 })
     expect(r.hasTarget).toBe(true)
     expect(r.hasData).toBe(false)
+    expect(r.windowDays).toBe(21) // insufficient state still carries the window for the header
   })
 
   it('is insufficient when logging coverage is below 70%', () => {
