@@ -74,6 +74,12 @@ try {
   }
   await fetch(`${SUPA}/rest/v1/weight_log`, { method: 'POST', headers: asClient, body: JSON.stringify(wrows) }).then(r => console.log('weight', r.status, wrows.length, 'rows'))
 
+  // messages from the client → coach (unread for the coach, drives the badge)
+  await fetch(`${SUPA}/rest/v1/messages`, { method: 'POST', headers: asClient, body: JSON.stringify([
+    { coach_id: C.id, client_id: D.id, sender_id: D.id, content: 'Hey coach — hit all my steps today!' },
+    { coach_id: C.id, client_id: D.id, sender_id: D.id, content: 'Quick q: can I swap rice for potatoes this week?' },
+  ]) }).then(r => console.log('messages', r.status))
+
   await pC.goto(`${BASE}/client/${D.id}`, { waitUntil: 'networkidle' }); await pC.waitForTimeout(1800)
   // Tight shot of just the breakdown panel (root = grandparent of the heading <p>).
   const panel = pC.getByText('Weekday vs weekend', { exact: true }).locator('xpath=../..')
@@ -92,6 +98,14 @@ try {
   const calChart = pC.locator('canvas').nth(1)
   await calChart.scrollIntoViewIfNeeded(); await pC.waitForTimeout(400)
   await calChart.screenshot({ path: `${OUT}/calorie-chart.png` }); console.log('shot calorie-chart')
+
+  // Chat bubble: launcher (with unread badge), open panel (desktop), open (mobile).
+  await pC.goto(`${BASE}/client/${D.id}`, { waitUntil: 'networkidle' }); await pC.waitForTimeout(1500)
+  await pC.locator('.chat-launcher').screenshot({ path: `${OUT}/chat-launcher.png` }); console.log('shot chat-launcher')
+  await pC.locator('.chat-launcher').click(); await pC.waitForTimeout(700)
+  await pC.locator('.chat-panel').screenshot({ path: `${OUT}/chat-open.png` }); console.log('shot chat-open')
+  await pC.setViewportSize({ width: 390, height: 780 }); await pC.waitForTimeout(400)
+  await pC.screenshot({ path: `${OUT}/chat-mobile.png` }); console.log('shot chat-mobile')
   // Energy Balance Read panel (under the Progress overview chart).
   const ebr = pC.getByText('Energy balance read', { exact: true }).locator('xpath=../..')
   await ebr.scrollIntoViewIfNeeded(); await pC.waitForTimeout(400)

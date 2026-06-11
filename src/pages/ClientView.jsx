@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
@@ -10,6 +10,7 @@ import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
+import ChatBubble from '../components/ChatBubble'
 import { resolveLockState } from '../utils/lockState'
 import {
   addDays,
@@ -93,10 +94,6 @@ function ClientView({ profile }) {
   const [sentReports, setSentReports] = useState([])
   const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
   const [messages, setMessages] = useState([])
-  const messagesEndRef = useRef(null)
-  const [newMessage, setNewMessage] = useState('')
-  const [messageSending, setMessageSending] = useState(false)
-  const [openReactId, setOpenReactId] = useState(null)
   const [callBriefing, setCallBriefing] = useState('')
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
@@ -107,7 +104,6 @@ function ClientView({ profile }) {
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
     stats: false,
     consistency: false,
-    messages: false,
     sentReports: false,
     targets: false,
     nutritionLog: false,
@@ -145,10 +141,6 @@ function ClientView({ profile }) {
     })
     return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]))
   }
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
 
   useEffect(() => {
     const subscription = supabase
@@ -855,7 +847,9 @@ async function addNoteEntry() {
     setBriefingLoading(false)
   }
 
-  async function fetchMessages() {
+  // Fetch only — do NOT mark read here, so the bubble's unread badge survives
+// until the coach actually opens it (markMessagesRead runs on open).
+async function fetchMessages() {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
   const { data, error } = await supabase
     .from('messages')
@@ -864,13 +858,15 @@ async function addNoteEntry() {
     .eq('client_id', clientId)
     .order('created_at', { ascending: true })
   if (error) console.error(error)
-  else {
-    setMessages(data)
-    const unreadIds = data.filter(m => !m.read_at && m.sender_id !== currentSession.user.id).map(m => m.id)
-    if (unreadIds.length > 0) {
-      await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
-    }
-  }
+  else setMessages(data)
+}
+
+async function markMessagesRead() {
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
+  const unreadIds = messages.filter(m => !m.read_at && m.sender_id !== currentSession.user.id).map(m => m.id)
+  if (unreadIds.length === 0) return
+  await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
+  await fetchMessages()
 }
 
 async function reactToMessage(messageId, emoji) {
@@ -879,19 +875,16 @@ async function reactToMessage(messageId, emoji) {
   else fetchMessages()
 }
 
-async function sendMessage() {
-  if (!newMessage.trim()) return
-  setMessageSending(true)
+async function sendMessage(text) {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
   const { error } = await supabase.from('messages').insert([{
     coach_id: currentSession.user.id,
     client_id: clientId,
     sender_id: currentSession.user.id,
-    content: newMessage.trim()
+    content: text
   }])
-  if (error) console.error(error)
-  else { setNewMessage(''); fetchMessages() }
-  setMessageSending(false)
+  if (error) { console.error(error); throw error }
+  await fetchMessages()
 }
 
   async function fetchSentReports() {
@@ -1323,83 +1316,6 @@ async function sendMessage() {
         </SectionHeader>
       </div>
 
-      <div style={sectionCardStyle}>
-        <SectionHeader
-          title="Messages"
-          collapsed={sectionsCollapsed.messages}
-          onToggle={() => toggleSection('messages')}
-          badge={messages.filter(m => !m.read_at && m.sender_id !== profile?.id).length > 0 ? `${messages.filter(m => !m.read_at && m.sender_id !== profile?.id).length} new` : null}
-        >
-          {messages.length === 0 && (
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', paddingTop: '8px' }}>No messages yet. Send one below.</p>
-          )}
-          {messages.length > 0 && (
-            <div className="message-thread" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
-              {messages.map(m => {
-                const isMe = m.sender_id === profile?.id
-                return (
-                  <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: '4px' }}>
-                    <div style={{
-                      maxWidth: '80%',
-                      backgroundColor: isMe ? 'var(--color-primary)' : 'var(--color-bg)',
-                      border: isMe ? 'none' : '1px solid var(--color-border)',
-                      borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                      padding: '10px 14px',
-                    }}>
-                      <p style={{ fontSize: '0.875rem', lineHeight: '1.5', color: isMe ? '#fff' : 'var(--color-text)' }}>{m.content}</p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>
-                        {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                      {m.reaction && <span style={{ fontSize: '0.875rem' }}>{m.reaction}</span>}
-                      {!isMe && (
-                        <button
-                          onClick={() => setOpenReactId(openReactId === m.id ? null : m.id)}
-                          style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '1px 6px', cursor: 'pointer', fontSize: '0.65rem', color: 'var(--color-muted)' }}
-                        >
-                          {m.reaction ? '✎' : 'React +'}
-                        </button>
-                      )}
-                    </div>
-                    {openReactId === m.id && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                        {['👍', '💪', '🔥', '🎯', '👎', '😔', '😰', '🤕', '😴'].map(emoji => (
-                          <button key={emoji} onClick={() => { reactToMessage(m.id, m.reaction === emoji ? null : emoji); setOpenReactId(null) }}
-                            style={{ backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.875rem' }}>
-                            {emoji}
-                          </button>
-                        ))}
-                        {m.reaction && (
-                          <button onClick={() => { reactToMessage(m.id, null); setOpenReactId(null) }}
-                            style={{ backgroundColor: 'transparent', border: '1px solid #f87171', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.65rem', color: '#f87171', fontWeight: 600 }}>
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: '8px', borderTop: messages.length > 0 ? '1px solid var(--color-border)' : 'none', paddingTop: messages.length > 0 ? '12px' : '0' }}>
-            <input
-              type="text"
-              placeholder={`Message ${clientProfile?.full_name || 'client'}...`}
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
-            />
-            <Button onClick={sendMessage} disabled={messageSending} variant="primary" loading={messageSending}>
-              Send
-            </Button>
-          </div>
-        </SectionHeader>
-      </div>
-
       {sentReports.length > 0 && (
         <div style={sectionCardStyle}>
           <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')}>
@@ -1804,6 +1720,15 @@ async function sendMessage() {
         )}
       </div>
     </div>
+    <ChatBubble
+      key={clientId}
+      messages={messages}
+      currentUserId={profile?.id}
+      recipientName={clientProfile?.full_name || 'client'}
+      onSend={sendMessage}
+      onReact={reactToMessage}
+      onMarkRead={markMessagesRead}
+    />
     <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
     </>
   )

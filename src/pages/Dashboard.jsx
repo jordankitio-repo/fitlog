@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
@@ -7,6 +7,7 @@ import SectionHeader from '../components/SectionHeader'
 import SoloUpgrade from '../components/SoloUpgrade'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
+import ChatBubble from '../components/ChatBubble'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle as baseCardStyle } from '../utils/styles'
@@ -62,11 +63,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [loggedToday, setLoggedToday] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [messages, setMessages] = useState([])
-  const messagesEndRef = useRef(null)
-  const [newMessage, setNewMessage] = useState('')
-  const [messageSending, setMessageSending] = useState(false)
-  const [messageSent, setMessageSent] = useState(false)
-  const [openReactId, setOpenReactId] = useState(null)
   const [pageLoading, setPageLoading] = useState(true)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [hideCalories, setHideCalories] = useState(false)
@@ -103,10 +99,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
   }
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
 
   useEffect(() => {
     async function loadPage() {
@@ -403,6 +395,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     setStreak(count)
   }
 
+  // Fetch only — mark-read happens when the bubble opens (markMessagesRead),
+  // so the unread badge survives until the client actually opens it.
   async function fetchMessages() {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
   const { data, error } = await supabase
@@ -411,45 +405,35 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     .eq('client_id', currentSession.user.id)
     .order('created_at', { ascending: true })
   if (error) console.error(error)
-  else {
-    setMessages(data)
-    const unreadIds = data.filter(m => !m.read_at && m.sender_id !== currentSession.user.id).map(m => m.id)
-    if (unreadIds.length > 0) {
-      await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
-    }
-  }
+  else setMessages(data)
 }
 
-async function sendMessage() {
-  if (!newMessage.trim()) return
-  setMessageSending(true)
-
+async function markMessagesRead() {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
+  const unreadIds = messages.filter(m => !m.read_at && m.sender_id !== currentSession.user.id).map(m => m.id)
+  if (unreadIds.length === 0) return
+  await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
+  await fetchMessages()
+}
 
+async function sendMessage(text) {
+  const { data: { session: currentSession } } = await supabase.auth.getSession()
   const { data: coachRelation } = await supabase
     .from('coach_clients')
     .select('coach_id')
     .eq('client_id', currentSession.user.id)
     .eq('status', 'active')
     .maybeSingle()
-
-  if (!coachRelation) { setMessageSending(false); return }
+  if (!coachRelation) throw new Error('No active coach')
 
   const { error } = await supabase.from('messages').insert([{
     coach_id: coachRelation.coach_id,
     client_id: currentSession.user.id,
     sender_id: currentSession.user.id,
-    content: newMessage.trim()
+    content: text
   }])
-
-  if (error) console.error(error)
-  else {
-    setNewMessage('')
-    setMessageSent(true)
-    setTimeout(() => setMessageSent(false), 3000)
-    fetchMessages()
-  }
-  setMessageSending(false)
+  if (error) { console.error(error); throw error }
+  await fetchMessages()
 }
 
 async function reactToMessage(messageId, emoji) {
@@ -908,82 +892,14 @@ async function reactToMessage(messageId, emoji) {
 	      )}
 
 	      {profile?.role === 'client' && (
-        <div style={cardStyle}>
-          <h2>Messages</h2>
-          {messages.length === 0 && (
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>No messages yet. Send a note to your coach below.</p>
-          )}
-          {messages.length > 0 && (
-            <div className="message-thread" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
-              {messages.map(m => {
-                const isMe = m.sender_id === profile?.id
-                return (
-                  <div key={m.id} style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: isMe ? 'flex-end' : 'flex-start',
-                    gap: '4px'
-                  }}>
-                    <div style={{
-                      maxWidth: '80%',
-                      backgroundColor: isMe ? 'var(--color-primary)' : 'var(--color-bg)',
-                      border: isMe ? 'none' : '1px solid var(--color-border)',
-                      borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                      padding: '10px 14px',
-                    }}>
-                      <p style={{ fontSize: '0.875rem', lineHeight: '1.5', color: isMe ? '#fff' : 'var(--color-text)' }}>{m.content}</p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>
-                        {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                      {m.reaction && <span style={{ fontSize: '0.875rem' }}>{m.reaction}</span>}
-                      {!isMe && (
-                        <button
-                          onClick={() => setOpenReactId(openReactId === m.id ? null : m.id)}
-                          style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '1px 6px', cursor: 'pointer', fontSize: '0.65rem', color: 'var(--color-muted)' }}
-                        >
-                          {m.reaction ? '✎' : 'React +'}
-                        </button>
-                      )}
-                    </div>
-                    {openReactId === m.id && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                        {['👍', '💪', '🔥', '🎯', '👎', '😔', '😰', '🤕', '😴'].map(emoji => (
-                          <button key={emoji} onClick={() => { reactToMessage(m.id, m.reaction === emoji ? null : emoji); setOpenReactId(null) }}
-                            style={{ backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.875rem' }}>
-                            {emoji}
-                          </button>
-                        ))}
-                        {m.reaction && (
-                          <button onClick={() => { reactToMessage(m.id, null); setOpenReactId(null) }}
-                            style={{ backgroundColor: 'transparent', border: '1px solid #f87171', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.65rem', color: '#f87171', fontWeight: 600 }}>
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: '8px', borderTop: messages.length > 0 ? '1px solid var(--color-border)' : 'none', paddingTop: messages.length > 0 ? '12px' : '0' }}>
-            <input
-              type="text"
-              placeholder="Message your coach..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }}
-            />
-            <Button onClick={sendMessage} disabled={messageSending || !newMessage.trim()} variant="primary" loading={messageSending}>
-              Send
-            </Button>
-          </div>
-          {messageSent && <p style={{ color: '#34d399', fontSize: '0.875rem' }}>✓ Sent.</p>}
-        </div>
+        <ChatBubble
+          messages={messages}
+          currentUserId={profile?.id}
+          recipientName="your coach"
+          onSend={sendMessage}
+          onReact={reactToMessage}
+          onMarkRead={markMessagesRead}
+        />
       )}
 
       {/* Coach reports */}

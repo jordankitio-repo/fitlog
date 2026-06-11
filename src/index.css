@@ -249,3 +249,30 @@ button, a, input, select, textarea {
   background: var(--color-border);
   border-radius: 2px;
 }
+
+/* Chat bubble (bottom-right per-thread widget) */
+.chat-launcher {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1200;
+}
+.chat-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 380px;
+  height: 70vh;
+  max-height: 560px;
+  z-index: 1200;
+}
+@media (max-width: 600px) {
+  .chat-panel {
+    inset: 0;
+    width: auto;
+    height: auto;
+    max-height: none;
+    border-radius: 0;
+  }
+  .chat-launcher { bottom: 16px; right: 16px; }
+}
