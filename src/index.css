@@ -276,3 +276,10 @@ button, a, input, select, textarea {
   }
   .chat-launcher { bottom: 16px; right: 16px; }
 }
+
+/* Groundwork action tiles */
+.gw-tile { transition: border-color 0.15s ease, background-color 0.15s ease; }
+.gw-tile:hover:not(:disabled) {
+  border-color: var(--color-muted);
+  background-color: var(--color-surface);
+}

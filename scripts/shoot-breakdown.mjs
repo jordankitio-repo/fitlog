@@ -110,6 +110,9 @@ try {
   // Drag-to-reorder: grip handle render + a drag that should persist to profiles.layout.
   await pC.setViewportSize({ width: 1366, height: 1000 })
   await pC.goto(`${BASE}/client/${D.id}`, { waitUntil: 'networkidle' }); await pC.waitForTimeout(1500)
+  const gw = pC.getByText('Groundwork', { exact: true }).locator('xpath=ancestor::div[3]')
+  await gw.scrollIntoViewIfNeeded(); await pC.waitForTimeout(300)
+  await gw.screenshot({ path: `${OUT}/groundwork.png` }); console.log('shot groundwork')
   const grip = pC.locator('[aria-label="Drag to reorder"]').first()
   await grip.scrollIntoViewIfNeeded(); await pC.waitForTimeout(300)
   await grip.locator('xpath=..').screenshot({ path: `${OUT}/reorder-grip.png` }); console.log('shot reorder-grip')
