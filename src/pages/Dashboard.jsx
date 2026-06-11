@@ -8,6 +8,7 @@ import SoloUpgrade from '../components/SoloUpgrade'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ChatBubble from '../components/ChatBubble'
+import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle as baseCardStyle } from '../utils/styles'
@@ -63,6 +64,16 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [loggedToday, setLoggedToday] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [messages, setMessages] = useState([])
+  const [cardOrder, setCardOrder] = useState(profile?.layout?.dashboard || [])
+
+  async function saveCardOrder(next) {
+    setCardOrder(next)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ layout: { ...(profile?.layout || {}), dashboard: next } })
+      .eq('id', profile.id)
+    if (error) console.error(error)
+  }
   const [pageLoading, setPageLoading] = useState(true)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [hideCalories, setHideCalories] = useState(false)
@@ -1077,8 +1088,10 @@ async function reactToMessage(messageId, emoji) {
       </div>
 
       {/* Today vs target — hidden when client is locked */}
+      <Reorderable order={cardOrder} onReorder={saveCardOrder} enabled={profile?.role === 'solo' && hasSoloPremium}>
+
       {!(profile?.role === 'client' && lockInfo.locked) && targets && (
-        <div style={cardStyle}>
+        <div key="targets" style={cardStyle}>
           <SectionHeader title="Today vs target" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
               {[
                 ...(!hideCalories ? [{ label: 'Calories', actual: totals.calories, target: targets.calories, unit: 'cal', color: 'var(--color-calories)' }] : []),
@@ -1115,7 +1128,7 @@ async function reactToMessage(messageId, emoji) {
 
       {/* Weight trend */}
       {!(profile?.role === 'client' && lockInfo.locked) && weightHistory.length > 1 && (
-        <div style={cardStyle}>
+        <div key="weightChart" style={cardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
               <>
@@ -1162,7 +1175,7 @@ async function reactToMessage(messageId, emoji) {
           best week, weekday/weekend split, and a 90-day heatmap. Reports the
           user's own consistency, never prescribes or adjusts a plan. */}
       {profile?.role !== 'client' && (
-        <div style={cardStyle}>
+        <div key="consistency" style={cardStyle}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 4px' }}>Logging consistency</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: '0 0 14px' }}>
             How steadily you've logged over the last 90 days.
@@ -1254,7 +1267,7 @@ async function reactToMessage(messageId, emoji) {
 
       {/* Calories chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && !hideCalories && calorieHistory.length > 0 && (
-        <div style={cardStyle}>
+        <div key="calorieChart" style={cardStyle}>
           <SectionHeader title="Calories — last 30 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
               <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: 'rgba(251, 191, 36, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
@@ -1265,7 +1278,7 @@ async function reactToMessage(messageId, emoji) {
 
       {/* Cardio chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && cardioHistory.length > 0 && (
-        <div style={cardStyle}>
+        <div key="cardioChart" style={cardStyle}>
           <SectionHeader title="Cardio — last 30 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
               <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
@@ -1276,7 +1289,7 @@ async function reactToMessage(messageId, emoji) {
 
       {/* Steps chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && stepsHistory.length > 0 && (
-        <div style={cardStyle}>
+        <div key="stepsChart" style={cardStyle}>
           <SectionHeader title="Steps — last 30 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
               <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
@@ -1284,6 +1297,8 @@ async function reactToMessage(messageId, emoji) {
           </SectionHeader>
         </div>
       )}
+
+      </Reorderable>
 
       {profile?.role === 'client' && (
         <div style={cardStyle}>
