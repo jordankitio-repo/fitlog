@@ -235,7 +235,7 @@ function Login() {
         {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
       </p>
       <p style={{ textAlign: 'center', marginTop: 16, fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.6 }}>
-        By signing up, you agree to our{' '}
+        By signing up, you confirm you're 18+ and agree to our{' '}
         <Link to="/terms" style={{ color: 'var(--color-primary)' }}>Terms of Service</Link>
         {' '}and{' '}
         <Link to="/privacy" style={{ color: 'var(--color-primary)' }}>Privacy Policy</Link>.
