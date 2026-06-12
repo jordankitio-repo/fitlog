@@ -7,7 +7,6 @@ import SectionHeader from '../components/SectionHeader'
 import SoloUpgrade from '../components/SoloUpgrade'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
-import ChatBubble from '../components/ChatBubble'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
@@ -63,7 +62,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [milestone, setMilestone] = useState(null)
   const [loggedToday, setLoggedToday] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
-  const [messages, setMessages] = useState([])
   const [cardOrder, setCardOrder] = useState(profile?.layout?.dashboard || [])
 
   async function saveCardOrder(next) {
@@ -129,7 +127,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         fetchNutritionAnalytics(),
       ])
       if (profile?.role === 'client') {
-        await Promise.all([fetchCheckIn(), fetchMessages(), fetchLockState(), fetchNudgeNotice()])
+        await Promise.all([fetchCheckIn(), fetchLockState(), fetchNudgeNotice()])
       }
       if (profile?.role === 'solo') {
         await fetchOffboardNotice()
@@ -406,52 +404,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     setStreak(count)
   }
 
-  // Fetch only — mark-read happens when the bubble opens (markMessagesRead),
-  // so the unread badge survives until the client actually opens it.
-  async function fetchMessages() {
-  const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('client_id', currentSession.user.id)
-    .order('created_at', { ascending: true })
-  if (error) console.error(error)
-  else setMessages(data)
-}
-
-async function markMessagesRead() {
-  const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const unreadIds = messages.filter(m => !m.read_at && m.sender_id !== currentSession.user.id).map(m => m.id)
-  if (unreadIds.length === 0) return
-  await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
-  await fetchMessages()
-}
-
-async function sendMessage(text) {
-  const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const { data: coachRelation } = await supabase
-    .from('coach_clients')
-    .select('coach_id')
-    .eq('client_id', currentSession.user.id)
-    .eq('status', 'active')
-    .maybeSingle()
-  if (!coachRelation) throw new Error('No active coach')
-
-  const { error } = await supabase.from('messages').insert([{
-    coach_id: coachRelation.coach_id,
-    client_id: currentSession.user.id,
-    sender_id: currentSession.user.id,
-    content: text
-  }])
-  if (error) { console.error(error); throw error }
-  await fetchMessages()
-}
-
-async function reactToMessage(messageId, emoji) {
-  const { error } = await supabase.from('messages').update({ reaction: emoji }).eq('id', messageId)
-  if (error) console.error(error)
-  else fetchMessages()
-}
+  // Client messaging moved to <ClientChat>, mounted globally in App so the
+  // bubble is available on every page (not just the dashboard).
 
   async function fetchCheckIn() {
     const weekOf = getCurrentWeekSunday()
@@ -902,16 +856,6 @@ async function reactToMessage(messageId, emoji) {
 	        </div>
 	      )}
 
-	      {profile?.role === 'client' && (
-        <ChatBubble
-          messages={messages}
-          currentUserId={profile?.id}
-          recipientName="your coach"
-          onSend={sendMessage}
-          onReact={reactToMessage}
-          onMarkRead={markMessagesRead}
-        />
-      )}
 
       {/* Coach reports */}
       {reports.length > 0 && (

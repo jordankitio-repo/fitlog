@@ -7,6 +7,8 @@ import Profile from './pages/Profile'
 import Login from './pages/Login'
 import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
+import ClientChat from './components/ClientChat'
+import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CoachPaywall from './components/CoachPaywall'
 import CoachDashboard from './pages/CoachDashboard'
 import Join from './pages/Join'
@@ -63,6 +65,11 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      {/* Client chat bubble — mounted at the layout level so it's available on
+          every authenticated page, not just the dashboard. */}
+      {session && profile?.role === 'client' && <ClientChat profile={profile} />}
+      {/* In-app "new version available" prompt for PWA users. */}
+      <PWAUpdatePrompt />
     </>
   )
 }

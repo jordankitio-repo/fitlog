@@ -9,7 +9,12 @@ export default defineConfig({
     // opens straight into the (already-logged-in) app, fast and offline-tolerant.
     // autoUpdate ships new builds to installed users on their next visit.
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' so we can show an in-app "new version available" button
+      // (PWAUpdatePrompt) instead of silently reloading mid-use. The React
+      // hook (virtual:pwa-register/react) owns registration, so disable the
+      // auto-injected register script to avoid double registration.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: [
         'favicon.ico', 'favicon.svg', 'favicon-32.png',
         'apple-touch-icon.png', 'icon-192.png', 'icon-512.png',
