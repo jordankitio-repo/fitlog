@@ -100,6 +100,17 @@ textarea:focus {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* iOS Safari auto-zooms (and stays zoomed) when a focused form field has a
+   font-size under 16px — common after login. Force 16px on mobile so it never
+   zooms. !important beats the per-page inline inputStyle font sizes. */
+@media (max-width: 600px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Button press */
 button:not(:disabled):active {
   filter: brightness(0.95);
