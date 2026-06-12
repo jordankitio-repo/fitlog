@@ -18,7 +18,11 @@ import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 
 export const BILLING_ENABLED = true
-export const SOLO_BILLING_ENABLED = true
+// Solo is free: the paid Solo tier is retired so all self-serve analytics are
+// free (Solo is the funnel, coaches are the business). Flipping this back to
+// true re-enables solo billing and the upgrade prompts. `hasSoloPremium`
+// becomes always-true while this is false (see below).
+export const SOLO_BILLING_ENABLED = false
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
 
 function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium, onProfileUpdate }) {

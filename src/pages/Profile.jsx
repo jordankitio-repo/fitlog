@@ -6,8 +6,13 @@ import SoloUpgrade from '../components/SoloUpgrade'
 import SubscriptionManager from '../components/SubscriptionManager'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
+import { SOLO_BILLING_ENABLED } from '../App'
 
 function Profile({ session, profile, subscription, soloSubscription, onProfileUpdate }) {
+  const soloSubActive =
+    !!soloSubscription &&
+    ['trialing', 'active', 'past_due'].includes(soloSubscription.status) &&
+    !soloSubscription.paused_for_coaching
   const [name, setName] = useState(profile?.full_name || '')
   const [syncedName, setSyncedName] = useState(profile?.full_name || '')
   const [nameSaved, setNameSaved] = useState(false)
@@ -395,10 +400,13 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </div>
       )}
 
-      {profile?.role === 'solo' && (
+      {/* Solo billing is retired (Solo is free). Only show this card if the user
+          still has a legacy active sub to manage, OR billing is re-enabled.
+          When billing is off and there's nothing to manage, no dead paywall. */}
+      {profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) && (
         <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2>Solo Premium</h2>
-          {soloSubscription && ['trialing', 'active', 'past_due'].includes(soloSubscription.status) && !soloSubscription.paused_for_coaching ? (
+          {soloSubActive ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
               <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
