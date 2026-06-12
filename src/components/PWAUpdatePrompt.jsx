@@ -13,10 +13,15 @@ export default function PWAUpdatePrompt() {
     onRegisteredSW(swUrl, registration) {
       if (!registration) return
       const check = () => { registration.update().catch(() => {}) }
-      setInterval(check, 60 * 60 * 1000) // hourly
+      check()                            // immediately on load
+      setInterval(check, 30 * 60 * 1000) // every 30 min
+      // iOS often resumes a backgrounded PWA without reloading, so re-check
+      // whenever the app regains focus or the network comes back.
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') check()
       })
+      window.addEventListener('focus', check)
+      window.addEventListener('online', check)
     },
   })
 
