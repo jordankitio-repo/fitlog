@@ -13,6 +13,8 @@ import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
+import { energyBalanceRead } from '../utils/energyBalanceRead'
+import { complianceBreakdown } from '../utils/complianceBreakdown'
 import {
   addDays,
   getCurrentWeekSunday,
@@ -830,6 +832,26 @@ async function addNoteEntry() {
       }
     })
 
+    // Recent intelligence (same reads the panels show) → a candid signals block,
+    // so the brief is a real readiness read, not just a re-summary of the logs.
+    const eb = energyBalanceRead({
+      calorieSeries: energySeries.calories,
+      weightSeries: energySeries.weights,
+      calorieTarget: clientTargets.calories,
+      weightGoal: clientTargets.weight_goal,
+      weightGoalUnit: clientTargets.weight_goal_unit,
+    })
+    const cb = complianceBreakdown(heatmapData, clientTargets.calories)
+    const sig = []
+    if (eb.hasData) {
+      const r = eb.rateLbPerWk
+      const trend = Math.abs(r) < 0.05 ? 'weight flat' : `weight ${r < 0 ? 'down' : 'up'} ${Math.abs(r).toFixed(1)} lb/wk`
+      sig.push(`Energy: est. maintenance ~${eb.maintenance.low}–${eb.maintenance.high} cal, ${trend}, logged avg ${eb.avgIntake} vs ${eb.target} target.`)
+    }
+    if (!cb.insufficient && cb.weaker) sig.push(`Adherence dips on ${cb.weaker}s.`)
+    if (daysSinceLog !== null && daysSinceLog >= 3) sig.push(`Logging gap: last logged ${daysSinceLog} days ago.`)
+    const signals = sig.join(' ') || null
+
     const response = await fetch(
       'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/call-prep',
       {
@@ -849,7 +871,8 @@ async function addNoteEntry() {
             notes: checkInData.notes
           } : null,
           privateNotes: coachNotes,
-          recentMessages: messagesData || []
+          recentMessages: messagesData || [],
+          signals
         }),
       }
     )
@@ -1144,7 +1167,7 @@ async function sendMessage(text) {
                   </span>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
                 </button>
-                <span className="gw-tip" role="tooltip">Get up to speed before you meet this client — recent progress, gaps, and what to raise. Just for you.</span>
+                <span className="gw-tip" role="tooltip">AI brief to get you up to speed before you meet — recent progress, gaps, and what to raise. Just for you.</span>
               </div>
 
               <div className="gw-tilewrap">
@@ -1155,14 +1178,14 @@ async function sendMessage(text) {
                   </span>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
                 </button>
-                <span className="gw-tip" role="tooltip">Draft this week's summary to send the client — their numbers, the trend, and your note.</span>
+                <span className="gw-tip" role="tooltip">AI-drafted week summary to review and send the client — their numbers, the trend, and your note.</span>
               </div>
             </div>
 
             {callBriefing && (
               <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid #a78bfa', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <p style={{ fontWeight: 600 }}>Call briefing — {clientProfile?.full_name}</p>
+                  <p style={{ fontWeight: 600 }}>Meeting brief — {clientProfile?.full_name}</p>
                   <Button onClick={() => setCallBriefing('')} variant="ghost" size="sm">Dismiss</Button>
                 </div>
                 <p style={{ fontSize: '0.65rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Not visible to client</p>

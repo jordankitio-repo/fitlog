@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { clientId, clientName, weekData, checkIn, privateNotes, recentMessages } = await req.json()
+    const { clientId, clientName, weekData, checkIn, privateNotes, recentMessages, signals } = await req.json()
 
     const auth = await verifyCoachOwnsClient(req, clientId)
     if (auth.error) return auth.error
@@ -74,35 +74,38 @@ Deno.serve(async (req) => {
       ? recentMessages.map((m: any) => `- "${m.content}"${m.reaction ? ` [client reacted: ${m.reaction}]` : ' [no reaction]'}`).join('\n')
       : 'No recent messages.'
 
-    const prompt = `You are a fitness coach's assistant. Generate a concise pre-call briefing for a coaching session with ${clientName}.
+    const prompt = `You are a fitness coach's assistant. Write a concise PRE-MEETING briefing to get the coach ready before they next talk to ${clientName} — whether that's a call, an in-person session, or a message. This is PRIVATE to the coach, so be candid: surface risks and things to probe, not a polished client-facing summary.
 
 PRIVATE COACH NOTES:
 ${privateNotes || 'None.'}
 
-LAST 7 DAYS DATA:
+RECENT SIGNALS (energy balance, adherence pattern, logging):
+${signals || 'Not enough recent data for an energy/adherence read.'}
+
+RECENT DATA:
 ${nutritionSummary}
 
-THIS WEEK'S CHECK-IN:
+LATEST CHECK-IN:
 ${checkInText}
 
 RECENT COACH MESSAGES & CLIENT REACTIONS:
 ${messagesText}
 
-Generate a structured pre-call briefing with these sections:
+Write the briefing with exactly these sections:
 
-**Quick wins to acknowledge**
-(positive things from the data worth calling out)
+**Since last contact**
+(what has changed or stands out recently — movement worth noting)
 
-**Areas of concern**
-(missed logs, low adherence, negative reactions, stated obstacles)
+**Wins to acknowledge**
+(genuine positives from the data)
 
-**Suggested talking points**
-(specific, actionable topics based on the data)
+**Watch-outs**
+(missed logs / quiet logging, falling adherence, under-fueling, negative reactions, stated obstacles, any churn risk — candid, coach's eyes only)
 
-**Questions to ask**
-(open-ended questions to understand the client better)
+**Bring up / ask**
+(specific talking points + open-ended questions for the conversation)
 
-Be concise and direct. Use bullet points. Focus on what's actionable in the call.`
+Be concise and direct; use bullet points. This is the coach's conversation cheat-sheet — do NOT write recommendations or a plan for the client (that is the weekly report's job, a separate tool).`
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
