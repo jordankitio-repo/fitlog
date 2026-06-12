@@ -8,6 +8,7 @@ import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
 import { getInviteBlockReason } from '../utils/inviteValidation'
 import { attentionLevel, compareByAttention } from '../utils/attentionLevel'
+import { nudgeReason } from '../utils/nudgeReason'
 import { cardStyle } from '../utils/styles'
 
 const attentionColors = { red: '#f87171', yellow: '#fbbf24', green: '#34d399' }
@@ -175,7 +176,7 @@ function CoachDashboard({ profile }) {
     setToast({ message, type })
   }
 
-  async function nudgeClient(client) {
+  async function nudgeClient(client, nudge) {
     setNudgeLoadingIds(prev => ({ ...prev, [client.client_id]: true }))
 
     const { data: { session } } = await supabase.auth.getSession()
@@ -187,7 +188,7 @@ function CoachDashboard({ profile }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ clientId: client.client_id }),
+        body: JSON.stringify({ clientId: client.client_id, reason: nudge?.key, days: nudge?.days ?? null }),
       }
     )
     const data = await response.json()
@@ -406,7 +407,7 @@ function CoachDashboard({ profile }) {
               const s = clientStats[c.client_id]
               const triage = attentionLevel(s)
               const hasAlert = triage.level === 'red'
-              const canNudge = s && (s.daysSinceLog === null || s.daysSinceLog >= 2)
+              const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn })
               return (
                 <div key={c.id} style={{
                   ...cardStyle,
@@ -423,12 +424,13 @@ function CoachDashboard({ profile }) {
                     <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px', letterSpacing: '0.01em' }}>{c.client?.email}</p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {canNudge && (
+                    {nudge && (
                       <Button
-                        onClick={() => nudgeClient(c)}
+                        onClick={() => nudgeClient(c, nudge)}
                         variant="ghost"
                         size="sm"
                         loading={Boolean(nudgeLoadingIds[c.client_id])}
+                        title={nudge.key === 'checkin' ? 'Nudge them to do this week’s check-in' : 'Nudge them to log — they’ve gone quiet'}
                         style={{ border: '1px solid rgba(255, 255, 255, 0.08)', padding: '5px 10px' }}
                       >
                         Nudge

@@ -15,6 +15,7 @@ import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
+import { nudgeReason } from '../utils/nudgeReason'
 import {
   addDays,
   getCurrentWeekSunday,
@@ -313,7 +314,7 @@ function ClientView({ profile }) {
     }
   }
 
-  async function nudgeClient() {
+  async function nudgeClient(nudge) {
     setNudging(true)
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const response = await fetch(
@@ -324,7 +325,7 @@ function ClientView({ profile }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${currentSession.access_token}`,
         },
-        body: JSON.stringify({ clientId }),
+        body: JSON.stringify({ clientId, reason: nudge?.key, days: nudge?.days ?? null }),
       }
     )
     const data = await response.json()
@@ -1134,16 +1135,20 @@ async function sendMessage(text) {
             </div>
           )}
         </div>
-        {(daysSinceLog === null || daysSinceLog >= 2) && (
-          <Button
-            onClick={nudgeClient}
-            variant="ghost"
-            size="sm"
-            loading={nudging}
-          >
-            Nudge
-          </Button>
-        )}
+        {(() => {
+          const nudge = nudgeReason({ daysSinceLog, hasCheckIn: !!clientCheckIn })
+          return nudge ? (
+            <Button
+              onClick={() => nudgeClient(nudge)}
+              variant="ghost"
+              size="sm"
+              loading={nudging}
+              title={nudge.key === 'checkin' ? 'Nudge them to do this week’s check-in' : 'Nudge them to log — they’ve gone quiet'}
+            >
+              Nudge
+            </Button>
+          ) : null
+        })()}
       </div>
 
       {/* AI Tools */}

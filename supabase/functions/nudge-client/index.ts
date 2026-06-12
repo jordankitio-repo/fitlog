@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { clientId } = await req.json()
+    const { clientId, reason, days } = await req.json()
     const authHeader = req.headers.get('Authorization')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -94,6 +94,26 @@ Deno.serve(async (req) => {
     const safeCoachName = escapeHtml(coachName)
     const safeClientName = escapeHtml(clientName)
 
+    // Tailor the nudge to WHY it's being sent (the coach's app picks the reason).
+    const GREEN = '#22c55e'
+    const dayCount = typeof days === 'number' ? days : null
+    let subject, heading, body, ctaLabel, ctaHref
+    if (reason === 'checkin') {
+      subject = 'Time for your weekly check-in'
+      heading = 'Your weekly check-in is waiting'
+      body = `${safeCoachName} is waiting on this week's check-in. It takes two minutes and helps them tune your plan.`
+      ctaLabel = 'Check in'
+      ctaHref = 'https://www.gardnr.fit/'
+    } else {
+      // 'log' (default): re-engage a client who's gone quiet.
+      subject = 'Time to log your day'
+      heading = "Let's get back to it"
+      const gap = dayCount === null ? "haven't logged yet" : dayCount >= 2 ? `haven't logged in ${dayCount} days` : "haven't logged today"
+      body = `${safeCoachName} noticed you ${gap}. A quick log today keeps your momentum going.`
+      ctaLabel = 'Log now'
+      ctaHref = 'https://www.gardnr.fit/log'
+    }
+
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -103,16 +123,16 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: 'Gardnr <noreply@gardnr.fit>',
         to: [clientProfile.email],
-        subject: 'Your coach is thinking of you',
+        subject,
         html: `
           <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
-            <h2 style="color: #4f8ef7;">Your coach checked in on you</h2>
+            <h2 style="color: ${GREEN};">${heading}</h2>
             <p>Hi ${safeClientName},</p>
-            <p>${safeCoachName} checked in on you. Log your nutrition today to keep your progress on track.</p>
-            <a href="https://www.gardnr.fit/log" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #4f8ef7; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
-              Log now &rarr;
+            <p>${body}</p>
+            <a href="${ctaHref}" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: ${GREEN}; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
+              ${ctaLabel} &rarr;
             </a>
-            <p style="margin-top: 24px; color: #888; font-size: 0.875rem;">Gardnr - your fitness coaching platform</p>
+            <p style="margin-top: 24px; color: #888; font-size: 0.875rem;">Gardnr — your nutrition coaching platform</p>
           </div>
         `,
       }),
