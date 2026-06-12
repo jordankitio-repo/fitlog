@@ -1017,7 +1017,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Stat cards */}
       <div style={cardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
             {!hideCalories && <StatCard label="Calories" value={totals.calories} color="var(--color-calories)" />}
             <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
             <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
