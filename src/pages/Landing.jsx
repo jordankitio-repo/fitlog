@@ -56,7 +56,7 @@ const pains = [
 const contrast = [
   { before: 'Screenshots and text threads', after: 'Daily nutrition, weight, cardio, and steps — all tied to the client' },
   { before: 'Manual weekly averages',       after: '7-day compliance across calories, protein, cardio, and steps' },
-  { before: 'Generic check-in questions',   after: "Reports and call prep grounded in the client's actual data" },
+  { before: 'Generic check-in questions',   after: "Reports and meeting prep grounded in the client's actual data" },
   { before: 'Guessing who needs attention', after: 'Dashboard sorted by compliance and last log' },
 ]
 
@@ -71,6 +71,15 @@ const trialSteps = [
   'Have them log a normal week from the web app',
   'Review their compliance before the check-in',
   'Generate, edit, and send the weekly report',
+]
+
+const capabilities = [
+  { title: 'Attention triage',     copy: 'Your dashboard ranks who needs you first — by compliance and last log. Ready, watch, or nudge.' },
+  { title: 'Compliance breakdown', copy: 'Weekday vs weekend, on-target vs over vs under. You see why a client is slipping, not just that they are.' },
+  { title: 'Energy balance read',  copy: 'Empirical maintenance and weight trajectory, read from their real intake and weigh-ins — not a formula.' },
+  { title: 'Meeting prep',         copy: 'A private brief of what changed since you last talked, so you walk into every check-in already up to speed.' },
+  { title: 'Smart nudges',         copy: 'One tap sends a contextual email — a log reminder or a check-in — tailored to why they went quiet.' },
+  { title: 'Weekly reports',       copy: "Drafted from the week's data in your voice. Review, edit, and send in a minute." },
 ]
 
 const badgeLabels = { ready: 'Ready', watch: 'Watch', nudge: 'Nudge' }
@@ -256,6 +265,23 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* INSTRUMENTS */}
+      <section id="instruments" className="lp-section">
+        <div className="lp-section-inner">
+          <p className="lp-eyebrow-text lp-eyebrow-green">The layer between tracking and coaching</p>
+          <h2 className="lp-h2">Instruments that turn logging into coaching.</h2>
+          <div className="lp-cap-grid">
+            {capabilities.map((cap) => (
+              <div key={cap.title} className="lp-cap-card">
+                <span className="lp-cap-dot" />
+                <h3 className="lp-cap-title">{cap.title}</h3>
+                <p className="lp-cap-copy">{cap.copy}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* WORKFLOW */}
       <section id="how" className="lp-section lp-band">
         <div className="lp-section-narrow">
@@ -286,7 +312,7 @@ export default function Landing() {
                 clients — everything in one place from day one.
               </p>
               <Link to={signupPath} className="lp-trial-cta">Start your 30-day trial</Link>
-              <p className="lp-trial-note">$19/month after the trial. Cancel anytime before you're charged.</p>
+              <p className="lp-trial-note">$19/month after the trial. Cancel anytime.</p>
             </div>
             <div className="lp-trial-checklist">
               {trialSteps.map((step, i) => (

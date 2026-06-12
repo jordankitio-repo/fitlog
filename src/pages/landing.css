@@ -146,6 +146,14 @@
 .lp-pain-icon { font-size: 1.5rem; display: block; margin-bottom: 12px; }
 .lp-pain-text { margin: 0; font-size: 0.88rem; color: #777; line-height: 1.65; letter-spacing: -0.01em; }
 
+/* ---------- INSTRUMENTS ---------- */
+.lp-cap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.lp-cap-card { background: #0d0d0d; border: 1px solid #161616; border-radius: 12px; padding: 22px 24px; transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease; }
+.lp-cap-card:hover { border-color: rgba(52,211,153,0.3); background: #0f0f0f; transform: translateY(-2px); }
+.lp-cap-dot { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 4px rgba(34,197,94,0.12); margin-bottom: 16px; }
+.lp-cap-title { margin: 0 0 8px; font-size: 0.95rem; font-weight: 700; color: #eee; letter-spacing: -0.01em; }
+.lp-cap-copy { margin: 0; font-size: 0.84rem; color: #777; line-height: 1.6; letter-spacing: -0.01em; }
+
 /* ---------- CONTRAST ---------- */
 .lp-contrast-table { border-radius: 14px; overflow: hidden; border: 1px solid #161616; }
 .lp-contrast-head, .lp-contrast-row { display: grid; grid-template-columns: 1fr 1fr; }
@@ -221,6 +229,7 @@
   .lp-h2 { margin-bottom: 32px; }
   .lp-pain-grid { grid-template-columns: 1fr; }
   .lp-step-grid { grid-template-columns: 1fr; }
+  .lp-cap-grid { grid-template-columns: repeat(2, 1fr); }
   .lp-contrast-head, .lp-contrast-row { grid-template-columns: 1fr; }
   .lp-contrast-head-after, .lp-contrast-after { border-left: none; }
   .lp-trial-card { padding: 32px 22px; }
@@ -229,6 +238,7 @@
 }
 
 @media (max-width: 480px) {
+  .lp-cap-grid { grid-template-columns: 1fr; }
   .lp-pp-grid { grid-template-columns: 1fr; }
   .lp-pp-left { border-right: none; border-bottom: 1px solid #161616; }
   .lp-cta, .lp-trial-cta { width: 100%; text-align: center; }
