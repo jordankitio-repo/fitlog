@@ -180,30 +180,38 @@
 .lp-step-title { margin: 0 0 8px; font-size: 1rem; font-weight: 700; color: #ececec; letter-spacing: -0.02em; }
 .lp-step-copy { margin: 0; font-size: 0.875rem; color: #555; line-height: 1.65; letter-spacing: -0.01em; }
 
-/* Per-step ambient mini-animations */
+/* Per-step mini-animations. Resting state = empty; they build in and settle
+   when the section scrolls into view (.is-playing), then stop. Scrolling
+   away and back replays them. Colors borrow the dashboard metric palette. */
 .lp-viz { margin-top: 20px; padding-top: 18px; border-top: 1px solid #161616; }
-/* 01 — setting target values */
+
+/* 01 — setting target values (calories / protein / cardio) */
 .lp-viz-targets { display: flex; flex-direction: column; gap: 9px; }
-.lp-viz-track { height: 6px; background: rgba(52,211,153,0.07); border-radius: 999px; overflow: hidden; }
-.lp-viz-fill { display: block; height: 100%; width: 0; background: linear-gradient(90deg, rgba(52,211,153,0.5), #34d399); border-radius: 999px; animation: vizFill 3.6s ease-in-out infinite; animation-delay: calc(var(--i) * 0.28s); }
-.lp-viz-track:nth-child(1) .lp-viz-fill { --w: 72%; }
-.lp-viz-track:nth-child(2) .lp-viz-fill { --w: 48%; }
-.lp-viz-track:nth-child(3) .lp-viz-fill { --w: 86%; }
-@keyframes vizFill { 0% { width: 0; } 24%, 76% { width: var(--w); } 100% { width: 0; } }
+.lp-viz-track { height: 6px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden; }
+.lp-viz-fill { display: block; height: 100%; width: 0; border-radius: 999px; }
+.lp-viz-track:nth-child(1) .lp-viz-fill { --w: 72%; background: var(--color-calories); }
+.lp-viz-track:nth-child(2) .lp-viz-fill { --w: 48%; background: var(--color-protein); }
+.lp-viz-track:nth-child(3) .lp-viz-fill { --w: 86%; background: var(--color-cardio); }
+.lp-step-grid.is-playing .lp-viz-fill { animation: vizFillIn 0.8s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: calc(var(--i) * 0.2s); }
+@keyframes vizFillIn { from { width: 0; } to { width: var(--w); } }
+
 /* 02 — a week of logs filling in */
 .lp-viz-log { display: flex; gap: 5px; }
-.lp-viz-cell { flex: 1; height: 30px; border-radius: 5px; background: rgba(52,211,153,0.08); animation: vizCell 3.8s ease-in-out infinite; animation-delay: calc(var(--i) * 0.2s); }
-@keyframes vizCell {
-  0%, 6% { background: rgba(52,211,153,0.08); transform: scaleY(0.82); }
-  20% { background: #34d399; transform: scaleY(1); }
-  80% { background: #34d399; transform: scaleY(1); }
-  100% { background: rgba(52,211,153,0.08); transform: scaleY(0.82); }
-}
-/* 03 — evidence forming into a trend */
+.lp-viz-cell { flex: 1; height: 30px; border-radius: 5px; background: rgba(255,255,255,0.05); transform: scaleY(0.82); }
+.lp-step-grid.is-playing .lp-viz-cell { animation: vizCellIn 0.5s ease forwards; animation-delay: calc(var(--i) * 0.18s); }
+@keyframes vizCellIn { from { background: rgba(255,255,255,0.05); transform: scaleY(0.82); } to { background: var(--color-weight); transform: scaleY(1); } }
+
+/* 03 — evidence forming into a multi-metric trend */
 .lp-viz-chart { display: flex; align-items: flex-end; gap: 4px; height: 38px; }
-.lp-viz-bar { flex: 1; height: 0; border-radius: 3px 3px 0 0; background: rgba(52,211,153,0.18); animation: vizBar 3.9s cubic-bezier(0.16,1,0.3,1) infinite; animation-delay: calc(var(--i) * 0.12s); }
-.lp-viz-bar:last-child { background: linear-gradient(to top, #34d399, rgba(52,211,153,0.45)); }
-@keyframes vizBar { 0% { height: 0; } 30%, 80% { height: var(--h); } 100% { height: 0; } }
+.lp-viz-bar { flex: 1; height: 0; border-radius: 3px 3px 0 0; }
+.lp-viz-chart .lp-viz-bar:nth-child(1) { background: var(--color-calories); }
+.lp-viz-chart .lp-viz-bar:nth-child(2) { background: var(--color-protein); }
+.lp-viz-chart .lp-viz-bar:nth-child(3) { background: var(--color-carbs); }
+.lp-viz-chart .lp-viz-bar:nth-child(4) { background: var(--color-fat); }
+.lp-viz-chart .lp-viz-bar:nth-child(5) { background: var(--color-cardio); }
+.lp-viz-chart .lp-viz-bar:nth-child(6) { background: var(--color-steps); }
+.lp-step-grid.is-playing .lp-viz-bar { animation: vizBarIn 0.8s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: calc(var(--i) * 0.1s); }
+@keyframes vizBarIn { from { height: 0; } to { height: var(--h); } }
 
 /* ---------- TRIAL ---------- */
 .lp-trial-card {
@@ -238,7 +246,7 @@
   .lp-trial-checklist .lp-trial-item { opacity: 1 !important; transform: none !important; animation: none !important; }
   .lp-trial-checklist .lp-trial-num { animation: none !important; }
   .lp-viz-fill { width: var(--w) !important; animation: none !important; }
-  .lp-viz-cell { background: #34d399 !important; transform: none !important; animation: none !important; }
+  .lp-viz-cell { background: var(--color-weight) !important; transform: none !important; animation: none !important; }
   .lp-viz-bar { height: var(--h) !important; animation: none !important; }
   .lp-pp-bar { transition: none !important; }
 }

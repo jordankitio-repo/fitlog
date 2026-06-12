@@ -199,6 +199,26 @@ function ProductPreview() {
   )
 }
 
+// Tracks whether an element is in the viewport. `once` stops observing after
+// the first entry; otherwise it toggles on every enter/leave (so animations
+// can replay when the user scrolls away and comes back).
+function useInView({ threshold = 0.3, once = false } = {}) {
+  const ref = useRef(null)
+  const [inView, setInView] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') { setInView(true); return }
+    const io = new IntersectionObserver(([e]) => {
+      setInView(e.isIntersecting)
+      if (e.isIntersecting && once) io.disconnect()
+    }, { threshold })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [threshold, once])
+  return [ref, inView]
+}
+
 // A tiny ambient animation per workflow step, dramatizing the action.
 function StepViz({ kind }) {
   if (kind === 'targets') {
@@ -228,20 +248,27 @@ function StepViz({ kind }) {
   )
 }
 
+// Workflow steps — the per-step animations play when the section scrolls into
+// view, settle, and stop; they replay each time you scroll away and back.
+function WorkflowSteps() {
+  const [ref, inView] = useInView({ threshold: 0.3 })
+  return (
+    <div ref={ref} className={`lp-step-grid${inView ? ' is-playing' : ''}`}>
+      {steps.map((s) => (
+        <div key={s.n} className="lp-step">
+          <span className="lp-step-num">{s.n}</span>
+          <h3 className="lp-step-title">{s.title}</h3>
+          <p className="lp-step-copy">{s.copy}</p>
+          <StepViz kind={s.kind} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // Trial checklist: steps light up one after another once scrolled into view.
 function TrialChecklist() {
-  const ref = useRef(null)
-  const [shown, setShown] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    if (typeof IntersectionObserver === 'undefined') { setShown(true); return }
-    const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setShown(true); io.disconnect() }
-    }, { threshold: 0.35 })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
+  const [ref, shown] = useInView({ threshold: 0.35, once: true })
   return (
     <div ref={ref} className={`lp-trial-checklist${shown ? ' is-shown' : ''}`}>
       {trialSteps.map((step, i) => (
@@ -370,16 +397,7 @@ export default function Landing() {
         <div className="lp-section-narrow">
           <p className="lp-eyebrow-text lp-eyebrow-green">Workflow</p>
           <h2 className="lp-h2">Invite, log, coach.</h2>
-          <div className="lp-step-grid">
-            {steps.map((s) => (
-              <div key={s.n} className="lp-step">
-                <span className="lp-step-num">{s.n}</span>
-                <h3 className="lp-step-title">{s.title}</h3>
-                <p className="lp-step-copy">{s.copy}</p>
-                <StepViz kind={s.kind} />
-              </div>
-            ))}
-          </div>
+          <WorkflowSteps />
         </div>
       </section>
 
