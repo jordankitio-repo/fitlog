@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Logo from '../components/Logo'
 import './landing.css'
@@ -61,9 +61,9 @@ const contrast = [
 ]
 
 const steps = [
-  { n: '01', title: 'Set the targets',          copy: 'Invite a client, set calories, macros, cardio, steps, and weight goals.' },
-  { n: '02', title: 'Clients log from the web', copy: 'No app download required. Clients record what you need from any browser.' },
-  { n: '03', title: 'Coach from the evidence',  copy: 'One view for compliance, messages, check-ins, notes, reports, and trends.' },
+  { n: '01', kind: 'targets', title: 'Set the targets',          copy: 'Invite a client, set calories, macros, cardio, steps, and weight goals.' },
+  { n: '02', kind: 'log',     title: 'Clients log from the web', copy: 'No app download required. Clients record what you need from any browser.' },
+  { n: '03', kind: 'chart',   title: 'Coach from the evidence',  copy: 'One view for compliance, messages, check-ins, notes, reports, and trends.' },
 ]
 
 const trialSteps = [
@@ -92,7 +92,31 @@ function StatusBadge({ status }) {
 
 function ProductPreview() {
   const [sel, setSel] = useState(0)
+  const [cta, setCta] = useState('idle') // idle | sending | sent
+  const timers = useRef([])
   const c = clients[sel]
+
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+
+  function clearTimers() {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
+  }
+  function selectClient(i) {
+    clearTimers()
+    setCta('idle')
+    setSel(i)
+  }
+  function sendReport() {
+    if (cta !== 'idle') return
+    clearTimers()
+    setCta('sending')
+    timers.current.push(setTimeout(() => setCta('sent'), 650))
+    timers.current.push(setTimeout(() => setCta('idle'), 2600))
+  }
+
+  const ctaLabel = cta === 'sending' ? 'Sending…' : cta === 'sent' ? 'Sent ✓' : 'Review and send →'
+
   return (
     <div className="lp-pp">
       {/* Chrome */}
@@ -115,8 +139,8 @@ function ProductPreview() {
             <div
               key={client.name}
               className={`lp-pp-client${i === sel ? ' is-sel' : ''}`}
-              onMouseEnter={() => setSel(i)}
-              onClick={() => setSel(i)}
+              onMouseEnter={() => selectClient(i)}
+              onClick={() => selectClient(i)}
             >
               <div>
                 <p className="lp-pp-client-name">{client.name}</p>
@@ -159,14 +183,73 @@ function ProductPreview() {
           <div className="lp-pp-card">
             <div className="lp-pp-report-head">
               <p className="lp-pp-card-label" style={{ margin: 0 }}>Weekly report</p>
-              <span className="lp-pp-report-status">{c.reportStatus}</span>
+              <span className={`lp-pp-report-status${cta === 'sent' ? ' is-sent' : ''}`}>
+                {cta === 'sent' ? 'Sent ✓' : c.reportStatus}
+              </span>
             </div>
             <p className="lp-pp-report-text">{c.report}</p>
           </div>
 
-          <div className="lp-pp-cta"><span>Review and send →</span></div>
+          <button type="button" className={`lp-pp-cta lp-pp-cta-${cta}`} onClick={sendReport}>
+            <span>{ctaLabel}</span>
+          </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// A tiny ambient animation per workflow step, dramatizing the action.
+function StepViz({ kind }) {
+  if (kind === 'targets') {
+    return (
+      <div className="lp-viz lp-viz-targets" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="lp-viz-track"><span className="lp-viz-fill" style={{ '--i': i }} /></div>
+        ))}
+      </div>
+    )
+  }
+  if (kind === 'log') {
+    return (
+      <div className="lp-viz lp-viz-log" aria-hidden="true">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <span key={i} className="lp-viz-cell" style={{ '--i': i }} />
+        ))}
+      </div>
+    )
+  }
+  return (
+    <div className="lp-viz lp-viz-chart" aria-hidden="true">
+      {[40, 62, 50, 74, 66, 86].map((h, i) => (
+        <span key={i} className="lp-viz-bar" style={{ '--h': `${h}%`, '--i': i }} />
+      ))}
+    </div>
+  )
+}
+
+// Trial checklist: steps light up one after another once scrolled into view.
+function TrialChecklist() {
+  const ref = useRef(null)
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') { setShown(true); return }
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setShown(true); io.disconnect() }
+    }, { threshold: 0.35 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  return (
+    <div ref={ref} className={`lp-trial-checklist${shown ? ' is-shown' : ''}`}>
+      {trialSteps.map((step, i) => (
+        <div key={step} className="lp-trial-item" style={{ '--i': i }}>
+          <span className="lp-trial-num">{i + 1}</span>
+          <p className="lp-trial-text">{step}</p>
+        </div>
+      ))}
     </div>
   )
 }
@@ -293,6 +376,7 @@ export default function Landing() {
                 <span className="lp-step-num">{s.n}</span>
                 <h3 className="lp-step-title">{s.title}</h3>
                 <p className="lp-step-copy">{s.copy}</p>
+                <StepViz kind={s.kind} />
               </div>
             ))}
           </div>
@@ -314,14 +398,7 @@ export default function Landing() {
               <Link to={signupPath} className="lp-trial-cta">Start your 30-day trial</Link>
               <p className="lp-trial-note">$19/month after the trial. Cancel anytime.</p>
             </div>
-            <div className="lp-trial-checklist">
-              {trialSteps.map((step, i) => (
-                <div key={step} className="lp-trial-item">
-                  <span className="lp-trial-num">{i + 1}</span>
-                  <p className="lp-trial-text">{step}</p>
-                </div>
-              ))}
-            </div>
+            <TrialChecklist />
           </div>
         </div>
       </section>
