@@ -283,5 +283,24 @@ button, a, input, select, textarea {
   border-color: var(--color-muted);
   background-color: var(--color-surface);
 }
-.gw-arrow { transition: transform 0.15s ease; }
-.gw-tile:hover:not(:disabled) .gw-arrow { transform: translateX(3px); }
+.gw-tilewrap { position: relative; }
+.gw-tip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  max-width: 300px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  line-height: 1.45;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.gw-tilewrap:hover .gw-tip { opacity: 1; transform: translateY(0); }

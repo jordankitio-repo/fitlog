@@ -1129,49 +1129,34 @@ async function sendMessage(text) {
           onClick={() => setAiToolsCollapsed(!aiToolsCollapsed)}
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h2 style={{ margin: 0 }}>Groundwork</h2>
-            <span style={{ fontSize: '0.7rem', color: '#a78bfa', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', border: '1px solid #a78bfa' }}>AI · coach-only</span>
-          </div>
+          <h2 style={{ margin: 0 }}>Groundwork</h2>
           <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{aiToolsCollapsed ? '▶' : '▼'}</span>
         </div>
 
         {!aiToolsCollapsed && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-              <button className="gw-tile" onClick={generateCallPrep} disabled={briefingLoading}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', padding: '14px 16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #a78bfa', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, background: 'rgba(167, 139, 250, 0.12)', flexShrink: 0 }}>
-                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
-                </span>
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Call prep</span>
-                    <span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '999px', padding: '2px 8px', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>PRIVATE</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: '0.8rem', color: 'var(--color-muted)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{briefingLoading ? 'Preparing briefing…' : 'Private briefing before your call.'}</span>
-                    <span className="gw-arrow" style={{ color: '#a78bfa', fontSize: '1.05rem', flexShrink: 0 }} aria-hidden="true">→</span>
-                  </div>
-                </div>
-              </button>
+              <div className="gw-tilewrap">
+                <button className="gw-tile" onClick={generateCallPrep} disabled={briefingLoading}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '14px 16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #a78bfa', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, background: 'rgba(167, 139, 250, 0.12)', flexShrink: 0 }}>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
+                </button>
+                <span className="gw-tip" role="tooltip">Get up to speed before you meet this client — recent progress, gaps, and what to raise. Just for you.</span>
+              </div>
 
-              <button className="gw-tile" onClick={generateWeeklyReport} disabled={reportLoading}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', padding: '14px 16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #34d399', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, background: 'rgba(52, 211, 153, 0.12)', flexShrink: 0 }}>
-                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
-                </span>
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Weekly report</span>
-                    <span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#34d399', border: '1px solid #34d399', borderRadius: '999px', padding: '2px 8px', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>GOES TO CLIENT</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: '0.8rem', color: 'var(--color-muted)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reportLoading ? 'Drafting recap…' : 'AI-drafted recap to review & send.'}</span>
-                    <span className="gw-arrow" style={{ color: '#34d399', fontSize: '1.05rem', flexShrink: 0 }} aria-hidden="true">→</span>
-                  </div>
-                </div>
-              </button>
+              <div className="gw-tilewrap">
+                <button className="gw-tile" onClick={generateWeeklyReport} disabled={reportLoading}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '14px 16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #34d399', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, background: 'rgba(52, 211, 153, 0.12)', flexShrink: 0 }}>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
+                </button>
+                <span className="gw-tip" role="tooltip">Draft this week's summary to send the client — their numbers, the trend, and your note.</span>
+              </div>
             </div>
 
             {callBriefing && (

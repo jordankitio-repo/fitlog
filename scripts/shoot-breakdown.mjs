@@ -113,6 +113,8 @@ try {
   const gw = pC.getByText('Groundwork', { exact: true }).locator('xpath=ancestor::div[3]')
   await gw.scrollIntoViewIfNeeded(); await pC.waitForTimeout(300)
   await gw.screenshot({ path: `${OUT}/groundwork.png` }); console.log('shot groundwork')
+  await pC.getByText('Meeting prep', { exact: true }).hover(); await pC.waitForTimeout(450)
+  await pC.screenshot({ path: `${OUT}/groundwork-hover.png`, clip: { x: 100, y: 120, width: 1166, height: 420 } }); console.log('shot groundwork-hover')
   const grip = pC.locator('[aria-label="Drag to reorder"]').first()
   await grip.scrollIntoViewIfNeeded(); await pC.waitForTimeout(300)
   await grip.locator('xpath=..').screenshot({ path: `${OUT}/reorder-grip.png` }); console.log('shot reorder-grip')
