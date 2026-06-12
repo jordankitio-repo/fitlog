@@ -157,7 +157,7 @@ export default function Landing() {
         <div className="lp-hero-copy">
           <div className="lp-eyebrow">
             <span className="lp-eyebrow-dot" />
-            <span className="lp-eyebrow-label">Nutrition coaching software</span>
+            <span className="lp-eyebrow-label">Nutrition coaching intelligence</span>
           </div>
           <h1 className="lp-h1">Stop guessing how your clients' week actually went.</h1>
           <p className="lp-subhead">
