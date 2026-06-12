@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Logo from '../components/Logo'
 import './landing.css'
@@ -6,17 +7,44 @@ const signupPath = '/login?mode=signup&role=coach'
 
 // ── Data ────────────────────────────────────────────────────────────────────
 
-const clientRows = [
-  { name: 'Maya Chen',  goal: 'Cut phase',    lastLog: 'Today',     status: 'ready' },
-  { name: 'Jordan Lee', goal: 'Reverse diet', lastLog: 'Yesterday', status: 'watch' },
-  { name: 'Sam Rivera', goal: 'Maintenance',  lastLog: '3 days',    status: 'nudge' },
-]
-
-const compliancePills = [
-  { label: 'Calories', value: '5/7', tone: 'good' },
-  { label: 'Protein',  value: '6/7', tone: 'good' },
-  { label: 'Cardio',   value: '3/7', tone: 'warn' },
-  { label: 'Steps',    value: '6/7', tone: 'good' },
+// Each client tells a story the hover reveals: a winner, a watch, and a lapse.
+const clients = [
+  {
+    name: 'Maya Chen', goal: 'Cut phase', lastLog: 'Today', status: 'ready',
+    pills: [
+      { label: 'Calories', value: '5/7', tone: 'good' },
+      { label: 'Protein',  value: '6/7', tone: 'good' },
+      { label: 'Cardio',   value: '3/7', tone: 'warn' },
+      { label: 'Steps',    value: '6/7', tone: 'good' },
+    ],
+    bars: [82, 76, 71, 67, 62, 58, 54],
+    reportStatus: 'Draft ready',
+    report: 'Protein on target 6/7 days. Cardio dipped midweek — weight still trending down.',
+  },
+  {
+    name: 'Jordan Lee', goal: 'Reverse diet', lastLog: 'Yesterday', status: 'watch',
+    pills: [
+      { label: 'Calories', value: '4/7', tone: 'warn' },
+      { label: 'Protein',  value: '5/7', tone: 'good' },
+      { label: 'Cardio',   value: '2/7', tone: 'warn' },
+      { label: 'Steps',    value: '4/7', tone: 'warn' },
+    ],
+    bars: [60, 63, 61, 64, 62, 65, 64],
+    reportStatus: 'Draft ready',
+    report: 'Weekend calories crept up. Weight holding flat — on plan for a reverse.',
+  },
+  {
+    name: 'Sam Rivera', goal: 'Maintenance', lastLog: '3 days', status: 'nudge',
+    pills: [
+      { label: 'Calories', value: '2/7', tone: 'bad' },
+      { label: 'Protein',  value: '2/7', tone: 'bad' },
+      { label: 'Cardio',   value: '1/7', tone: 'bad' },
+      { label: 'Steps',    value: '3/7', tone: 'warn' },
+    ],
+    bars: [54, 48, 0, 0, 46, 0, 40],
+    reportStatus: 'Nudge sent',
+    report: 'Logging stopped 3 days ago. Nudge sent — waiting on re-engagement.',
+  },
 ]
 
 const pains = [
@@ -54,6 +82,8 @@ function StatusBadge({ status }) {
 }
 
 function ProductPreview() {
+  const [sel, setSel] = useState(0)
+  const c = clients[sel]
   return (
     <div className="lp-pp">
       {/* Chrome */}
@@ -72,20 +102,25 @@ function ProductPreview() {
             <span className="lp-pp-sort">Sort: compliance</span>
           </div>
 
-          {clientRows.map((c) => (
-            <div key={c.name} className="lp-pp-client">
+          {clients.map((client, i) => (
+            <div
+              key={client.name}
+              className={`lp-pp-client${i === sel ? ' is-sel' : ''}`}
+              onMouseEnter={() => setSel(i)}
+              onClick={() => setSel(i)}
+            >
               <div>
-                <p className="lp-pp-client-name">{c.name}</p>
-                <p className="lp-pp-client-meta">{c.goal} · {c.lastLog}</p>
+                <p className="lp-pp-client-name">{client.name}</p>
+                <p className="lp-pp-client-meta">{client.goal} · {client.lastLog}</p>
               </div>
-              <StatusBadge status={c.status} />
+              <StatusBadge status={client.status} />
             </div>
           ))}
 
           <div className="lp-pp-pills">
-            <p className="lp-pp-pills-label">Maya Chen · 7-day compliance</p>
+            <p className="lp-pp-pills-label">{c.name} · 7-day compliance</p>
             <div className="lp-pp-pills-row">
-              {compliancePills.map((p) => (
+              {c.pills.map((p) => (
                 <span key={p.label} className={`lp-pp-pill lp-pp-pill-${p.tone}`}>
                   {p.label} {p.value}
                 </span>
@@ -94,18 +129,18 @@ function ProductPreview() {
           </div>
         </div>
 
-        {/* Right: client detail */}
+        {/* Right: client detail — driven by the hovered client */}
         <div className="lp-pp-right">
           <p className="lp-pp-label">Client view</p>
-          <p className="lp-pp-client-title">Maya Chen</p>
+          <p className="lp-pp-client-title">{c.name}</p>
 
           <div className="lp-pp-card">
             <p className="lp-pp-card-label">Weight trend</p>
             <div className="lp-pp-chart">
-              {[48, 55, 52, 65, 70, 78, 74].map((h, i) => (
+              {c.bars.map((h, i) => (
                 <span
                   key={i}
-                  className={`lp-pp-bar${i === 6 ? ' lp-pp-bar-last' : ''}`}
+                  className={`lp-pp-bar${i === c.bars.length - 1 ? ' lp-pp-bar-last' : ''}`}
                   style={{ height: `${h}%` }}
                 />
               ))}
@@ -115,11 +150,9 @@ function ProductPreview() {
           <div className="lp-pp-card">
             <div className="lp-pp-report-head">
               <p className="lp-pp-card-label" style={{ margin: 0 }}>Weekly report</p>
-              <span className="lp-pp-report-status">Draft ready</span>
+              <span className="lp-pp-report-status">{c.reportStatus}</span>
             </div>
-            <p className="lp-pp-report-text">
-              Protein on target 6/7 days. Cardio dipped midweek — weight still trending down.
-            </p>
+            <p className="lp-pp-report-text">{c.report}</p>
           </div>
 
           <div className="lp-pp-cta"><span>Review and send →</span></div>

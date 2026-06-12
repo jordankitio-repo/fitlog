@@ -89,8 +89,13 @@
 .lp-pp-listhead { padding: 14px 16px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #161616; }
 .lp-pp-listhead > span:first-child { font-size: 0.62rem; color: #444; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
 .lp-pp-sort { font-size: 0.6rem; color: #3b82f6; font-weight: 500; }
-.lp-pp-client { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #131313; }
+.lp-pp-client { position: relative; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #131313; cursor: pointer; transition: background-color 0.15s ease; }
 .lp-pp-client:last-of-type { border-bottom: none; }
+.lp-pp-client::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--color-primary); opacity: 0; transition: opacity 0.15s ease; }
+.lp-pp-client:hover { background: rgba(255,255,255,0.02); }
+.lp-pp-client.is-sel { background: rgba(34,197,94,0.05); }
+.lp-pp-client.is-sel::before { opacity: 1; }
+.lp-pp-client.is-sel .lp-pp-client-name { color: #fff; }
 .lp-pp-client-name { margin: 0; font-size: 0.8rem; font-weight: 600; color: #ddd; letter-spacing: -0.01em; }
 .lp-pp-client-meta { margin: 2px 0 0; font-size: 0.62rem; color: #3a3a3a; }
 .lp-pp-pills { padding: 12px 16px; border-top: 1px solid #161616; background: #0a0a0a; }
@@ -99,13 +104,14 @@
 .lp-pp-pill { padding: 3px 8px; border-radius: 6px; font-size: 0.65rem; font-weight: 700; }
 .lp-pp-pill-good { color: #34d399; background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.15); }
 .lp-pp-pill-warn { color: #fbbf24; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.15); }
+.lp-pp-pill-bad  { color: #f87171; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.15); }
 .lp-pp-right { padding: 14px; }
 .lp-pp-label { margin: 0 0 2px; font-size: 0.6rem; color: #333; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
 .lp-pp-client-title { margin: 0 0 12px; font-size: 0.85rem; font-weight: 700; color: #ddd; letter-spacing: -0.01em; }
 .lp-pp-card { background: #0a0a0a; border: 1px solid #161616; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
 .lp-pp-card-label { margin: 0 0 6px; font-size: 0.58rem; color: #333; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
 .lp-pp-chart { display: flex; align-items: flex-end; gap: 2px; height: 32px; }
-.lp-pp-bar { flex: 1; background: rgba(52,211,153,0.15); border-radius: 2px 2px 0 0; display: block; }
+.lp-pp-bar { flex: 1; background: rgba(52,211,153,0.15); border-radius: 2px 2px 0 0; display: block; transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 .lp-pp-bar-last { background: linear-gradient(to top, #34d399, rgba(52,211,153,0.4)); }
 .lp-pp-report-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .lp-pp-report-status { font-size: 0.58rem; color: #3b82f6; font-weight: 500; }
