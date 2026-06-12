@@ -574,6 +574,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               value={selectedDate}
               max={toLocalDateString(new Date())}
               onChange={(e) => setSelectedDate(e.target.value)}
+              onClick={(e) => { try { e.currentTarget.showPicker() } catch { /* unsupported → native focus opens it */ } }}
               style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
             />
           </label>
@@ -796,6 +797,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 type="date"
                 value={copyFromDate}
                 max={toLocalDateString(new Date())}
+                onClick={(e) => { try { e.currentTarget.showPicker() } catch { /* unsupported */ } }}
                 onChange={(e) => {
                   setCopyFromDate(e.target.value)
                   setCopyEntries([])
@@ -913,7 +915,21 @@ function Log({ session, profile, hasSoloPremium = true }) {
             >+ Add Food</Button>
             <Button onClick={() => { setShowScanner(true); setNutritionExpanded(true) }} variant="muted" size="sm">Scan Barcode</Button>
             <Button
-              onClick={() => { setShowCopyPanel(!showCopyPanel); setCopyEntries([]); setSelectedCopyIds(new Set()) }}
+              onClick={() => {
+                const opening = !showCopyPanel
+                setShowCopyPanel(opening)
+                setCopyEntries([])
+                setSelectedCopyIds(new Set())
+                if (opening) {
+                  // Default to yesterday (the usual "copy yesterday's meals")
+                  // so the field isn't blank and its entries load immediately.
+                  const y = toLocalDateString(new Date(Date.now() - 86400000))
+                  setCopyFromDate(y)
+                  fetchCopyEntries(y)
+                } else {
+                  setCopyFromDate('')
+                }
+              }}
               variant="muted"
               size="sm"
             >{showCopyPanel ? 'Cancel' : 'Copy Day'}</Button>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Button from './Button'
 
 // A per-thread chat widget pinned to the bottom-right corner. Presentational +
@@ -43,7 +44,7 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
   }
 
   if (!open) {
-    return (
+    return createPortal((
       <button className="chat-launcher" onClick={handleOpen} aria-label="Open messages"
         style={{
           width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
@@ -59,10 +60,10 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
           }}>{unread}</span>
         )}
       </button>
-    )
+    ), document.body)
   }
 
-  return (
+  return createPortal((
     <div className="chat-panel" style={{
       backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
       borderRadius: 'var(--radius)', boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
@@ -110,5 +111,5 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
         <Button onClick={handleSend} disabled={sending} loading={sending} variant="primary">Send</Button>
       </div>
     </div>
-  )
+  ), document.body)
 }

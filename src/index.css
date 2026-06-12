@@ -273,6 +273,9 @@ button, a, input, select, textarea {
     height: auto;
     max-height: none;
     border-radius: 0;
+    /* Clear the iOS status bar / notch in the standalone PWA so the header
+       (recipient name + ×) isn't tucked under it. */
+    padding-top: env(safe-area-inset-top, 0px);
   }
   .chat-launcher { bottom: 16px; right: 16px; }
 }
