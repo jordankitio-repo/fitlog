@@ -10,11 +10,11 @@
 ---
 
 ## Current Commit
-`c4be33f feat(log): food name search via USDA FoodData Central`
+`0ad5911 polish(landing): metric-palette step viz + bounded play-on-scroll`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
-- **Build:** Passing (`npm run build`), 48/48 tests passing
+- **Build:** Passing (`npm run build`), 100/100 tests passing
 - **Lint:** 6 errors / 8 warnings — all 6 errors are the `react-hooks/set-state-in-effect` rule in load-bearing billing/log effects (App.jsx, Log.jsx); deferred as a manually-tested refactor. All genuinely-safe errors fixed Jun 8.
 - **Deploy:** Auto on push to `main` via Vercel
 - **Billing:** Live mode active (`BILLING_ENABLED = true`)
@@ -23,6 +23,24 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Landing page made "live" + intelligence positioning (Jun 11–12)** — Reworked the marketing page (`Landing.jsx` / `landing.css`) to deliver on the "coaching intelligence" promise and feel alive.
+- **Copy:** eyebrow → "Nutrition coaching intelligence"; trial note trimmed to "Cancel anytime."; contrast "call prep" → "meeting prep" (matches the Groundwork rename).
+- **Interactive hero** (`ProductPreview`): three demo clients (Maya READY / Jordan WATCH / Sam NUDGE) each tell a story; hovering/tapping a client swaps the whole right panel — title, animated weight-trend bars, weekly report, and 7-day compliance pills. "Review and send" is an actionable button (Review → Sending… → Sent ✓, flips the report badge, auto-resets; resets on client switch).
+- **New "Instruments" section** — names the six real intelligence instruments (attention triage, compliance breakdown, energy balance read, meeting prep, smart nudges, weekly reports) under the eyebrow **"The layer between tracking and coaching"** (the category-defining positioning line).
+- **Workflow step mini-animations** (`StepViz`): each step dramatizes its action using the **dashboard metric palette** — targets fill calories-green/protein-red/cardio-blue, a week of logs fills weight-green, the "evidence" chart is a 6-bar multi-metric trend. **Bounded play:** build in and settle when scrolled into view, then stop, and replay on re-entry (shared `useInView` hook + IntersectionObserver). Trial "proof plan" steps cascade/light up one-by-one on scroll-in (one-time).
+- All motion respects `prefers-reduced-motion`. New `scripts/shoot-landing.mjs`. Commits `639ece3`→`0ad5911`. **Reasoning behind the honest-marketing stance (no fake testimonials/ROI) is in `decisions.md`.**
+
+**Coach "Groundwork" + Meeting prep + smart Nudge (Jun 11)** — Renamed the coach's "AI tools" card to **Groundwork**, redesigned as two distinct icon+title action tiles (hover for description; no pills/arrows): **Meeting prep** (private readiness) and **Weekly report** (client-facing).
+- **Meeting prep is now a genuinely distinct brief**, not a re-summary: `call-prep` edge fn reframed to a PRE-MEETING briefing (Since last contact / Wins / Watch-outs / Bring up·ask), fed recency-based `signals`, and **drops client recommendations** (those live in the report) so the two tools don't overlap.
+- **Smart contextual Nudge** (`nudgeReason` util): one button sends a tailored email by reason — log reminder (no log ≥2 days) vs check-in (none yet, late week). `nudge-client` edge fn takes `{reason, days}` and renders a tailored subject/heading/body/CTA, on-brand green. Button is an icon pill + contextual label.
+
+**Chat bubble messaging + drag-to-reorder cards (Jun 11)** — Moved messaging into a **bottom-right chat bubble** (`ChatBubble`): per-client thread on `ClientView`, coach thread on the client `Dashboard` (unread badge, mobile full-screen). Added **drag-to-reorder dashboard cards** (`Reorderable` / `SortableCard` via @dnd-kit): always on for the coach `ClientView`; gated `role==='solo' && hasSoloPremium` on the solo Dashboard. Order persists per-user in **`profiles.layout` (jsonb)** — new migration `20260611120000_add_profiles_layout.sql` (deployed). Stats/Groundwork pinned top, offboard pinned bottom.
+
+**Coaching-intelligence instruments: attention triage, compliance breakdown, energy balance read (Jun 11)** — The session's core feature arc — turning client data into coaching decisions (see `vision.md`).
+- **Attention triage** (`attentionLevel` util): `CoachDashboard` ranks clients red/yellow/green by compliance + last-log with reasons, sorting who-needs-you-first to the top.
+- **Compliance breakdown** (`complianceBreakdown` util + `ComplianceBreakdown` component): weekday vs weekend adherence on a target-anchored diverging-bar viz (*why* a client is slipping). Drove the **on-target = BAND (90–110%)** fix across heatmap/summary/bars/progress so over-eating reads as a deviation, not green (see `decisions.md`).
+- **Energy Balance Read** (`energyBalanceRead` util + component): empirical maintenance range + weight trajectory from real intake/weigh-ins (OLS fit, ~3-week window, coverage/settling caveats). **Facts + provenance only** — the plausibility-verdict flag was deliberately removed (see `decisions.md`). New harness `scripts/shoot-breakdown.mjs` seeds throwaway coach+client to screenshot these.
 
 **Food name search via USDA FoodData Central (Jun 10) — `food-search` edge fn** — Added search-as-you-type to the Log Add-Food form (the "Food name" field is now a 350ms-debounced search with a stale-response guard) → results dropdown → select prefills the form via the *same per-100g path barcode uses* (macros + serving + live scaling). All roles, wall-safe. Logged results feed Quick add + Copy Day. **Architecture (deliberate): OFF stays for barcode (packaged products), FDC handles typed search (generic foods) — each DB does what it's best at, no merging.** `food-search` proxies FDC server-side (key never client-side), auth-gated (`verify_jwt`), `dataType=Foundation,SR Legacy,Survey (FNDDS)` (no Branded noise). Verified end-to-end via throwaway account.
 - **Gotchas (non-obvious, worth remembering):**

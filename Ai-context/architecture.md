@@ -111,6 +111,7 @@ supabase/
 
 **profiles**
 - `id` uuid PK (references auth.users), `email`, `full_name`, `role` (null|'solo'|'coach'|'client' — NO DEFAULT), `last_milestone_streak` int default 0, `created_at`
+- `layout` jsonb not null default `'{}'` (migration `20260611120000`) — per-user dashboard card order, keyed by surface (`clientView`, `dashboard`); written by the drag-to-reorder feature, read with a `mergeOrder(saved, defaults)` fallback so new/un-ordered cards still appear.
 
 **nutrition_log**
 - `id`, `user_id`, `food`, `calories`, `protein`, `carbs`, `fat`, `serving_size`, `serving_unit`, `logged_date`, `created_at`

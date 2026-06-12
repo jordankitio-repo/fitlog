@@ -204,11 +204,11 @@ function ProductPreview() {
 // can replay when the user scrolls away and comes back).
 function useInView({ threshold = 0.3, once = false } = {}) {
   const ref = useRef(null)
-  const [inView, setInView] = useState(false)
+  // No IntersectionObserver (SSR / ancient browsers) → treat as always in view.
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === 'undefined')
   useEffect(() => {
     const el = ref.current
-    if (!el) return
-    if (typeof IntersectionObserver === 'undefined') { setInView(true); return }
+    if (!el || typeof IntersectionObserver === 'undefined') return
     const io = new IntersectionObserver(([e]) => {
       setInView(e.isIntersecting)
       if (e.isIntersecting && once) io.disconnect()
