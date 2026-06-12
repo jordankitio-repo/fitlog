@@ -304,3 +304,10 @@ button, a, input, select, textarea {
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .gw-tilewrap:hover .gw-tip { opacity: 1; transform: translateY(0); }
+
+/* Nudge button (client header) */
+.nudge-btn { transition: border-color 0.15s ease, background-color 0.15s ease; }
+.nudge-btn:hover:not(:disabled) {
+  border-color: var(--color-muted);
+  background-color: var(--color-bg);
+}

@@ -110,6 +110,7 @@ try {
   // Drag-to-reorder: grip handle render + a drag that should persist to profiles.layout.
   await pC.setViewportSize({ width: 1366, height: 1000 })
   await pC.goto(`${BASE}/client/${D.id}`, { waitUntil: 'networkidle' }); await pC.waitForTimeout(1500)
+  await pC.screenshot({ path: `${OUT}/nudge-btn.png`, clip: { x: 0, y: 0, width: 1366, height: 110 } }); console.log('shot nudge-btn')
   const gw = pC.getByText('Groundwork', { exact: true }).locator('xpath=ancestor::div[3]')
   await gw.scrollIntoViewIfNeeded(); await pC.waitForTimeout(300)
   await gw.screenshot({ path: `${OUT}/groundwork.png` }); console.log('shot groundwork')

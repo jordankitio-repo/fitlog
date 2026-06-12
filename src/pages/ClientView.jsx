@@ -1137,17 +1137,20 @@ async function sendMessage(text) {
         </div>
         {(() => {
           const nudge = nudgeReason({ daysSinceLog, hasCheckIn: !!clientCheckIn })
-          return nudge ? (
-            <Button
+          if (!nudge) return null
+          const label = nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log'
+          return (
+            <button
               onClick={() => nudgeClient(nudge)}
-              variant="ghost"
-              size="sm"
-              loading={nudging}
-              title={nudge.key === 'checkin' ? 'Nudge them to do this week’s check-in' : 'Nudge them to log — they’ve gone quiet'}
+              disabled={nudging}
+              className="nudge-btn"
+              title={nudge.key === 'checkin' ? 'Emails them a reminder to do this week’s check-in' : 'Emails them a prompt to get back to logging'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: '999px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: '0.82rem', fontWeight: 600, cursor: nudging ? 'default' : 'pointer', opacity: nudging ? 0.6 : 1, whiteSpace: 'nowrap' }}
             >
-              Nudge
-            </Button>
-          ) : null
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+              {nudging ? 'Nudging…' : label}
+            </button>
+          )
         })()}
       </div>
 
