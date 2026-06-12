@@ -875,7 +875,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                       backgroundColor: 'var(--color-bg)',
                       border: '1px solid var(--color-border)',
                       borderRadius: 'var(--radius)',
-                      padding: '10px 12px',
+                      padding: '7px 10px',
                       cursor: pending ? 'default' : 'pointer',
                       opacity: pending ? 0.5 : 1,
                       fontFamily: 'inherit',
@@ -884,17 +884,17 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.food}</p>
-                      {macroLine && <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', margin: '2px 0 0' }}>{macroLine}</p>}
+                      <p style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.food}</p>
+                      {macroLine && <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', margin: '1px 0 0' }}>{macroLine}</p>}
                     </div>
                     <span style={{
                       flexShrink: 0,
-                      width: '22px', height: '22px',
+                      width: '18px', height: '18px',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       borderRadius: '50%',
                       backgroundColor: 'var(--color-primary-dim)',
                       color: 'var(--color-primary)',
-                      fontSize: '1rem', fontWeight: 700, lineHeight: 1,
+                      fontSize: '0.85rem', fontWeight: 700, lineHeight: 1,
                     }}>+</span>
                   </button>
                 )
