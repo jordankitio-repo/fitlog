@@ -23,11 +23,19 @@ const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
 
 function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium, onProfileUpdate }) {
   const location = useLocation()
-  const isLanding = !session && location.pathname === '/'
+  const path = location.pathname
+  const isLanding = !session && path === '/'
+
+  // Coach-facing data screens (a client's full record, and the coach's
+  // client dashboard) are dense cockpits — give them room so the auto-fit
+  // grids spread out and the page scrolls less. Reading/form pages (solo
+  // dashboard, profile, log, auth) stay at a readable 800px.
+  const isWideScreen =
+    path.startsWith('/client/') || (path === '/' && profile?.role === 'coach')
 
   const mainStyle = isLanding
     ? { width: '100%' }
-    : { maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }
+    : { maxWidth: isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: '24px 16px' }
 
   return (
     <>
