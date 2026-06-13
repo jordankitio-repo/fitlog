@@ -6,25 +6,29 @@ function StatCard({ label, value, color, sub }) {
       className="stat-card"
       style={{
         ...cardStyle,
-        borderLeft: color ? `3px solid ${color}` : '1px solid var(--color-border)',
         padding: '16px 20px',
         minHeight: '80px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
+        gap: '6px',
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
       }}
     >
-      <p style={{
-        fontSize: '0.65rem',
-        color: 'var(--color-muted)',
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        margin: 0
-      }}>
-        {label}
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+        {color && (
+          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: color, flex: '0 0 auto' }} />
+        )}
+        <p style={{
+          fontSize: '0.65rem',
+          color: 'var(--color-muted)',
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          margin: 0
+        }}>
+          {label}
+        </p>
+      </div>
       <p className="stat-card-value" style={{
         fontSize: '1.75rem',
         fontWeight: 700,
