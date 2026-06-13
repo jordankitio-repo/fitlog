@@ -9,6 +9,7 @@ import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import InfoTip from '../components/InfoTip'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
+import { metricBarData } from '../utils/metricBarChart'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
@@ -1225,9 +1226,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Cardio chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && cardioHistory.length > 0 && (
         <div key="cardioChart" style={cardStyle}>
-          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes logged each day over the last 30 days." collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})` })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1236,9 +1237,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Steps chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && stepsHistory.length > 0 && (
         <div key="stepsChart" style={cardStyle}>
-          <SectionHeader title="Steps — last 30 days" info="Steps logged each day over the last 30 days." collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps — last 30 days" info="Steps each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
-              <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})` })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>

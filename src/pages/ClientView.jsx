@@ -13,6 +13,7 @@ import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
 import InfoTip from '../components/InfoTip'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
+import { metricBarData } from '../utils/metricBarChart'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
@@ -1710,9 +1711,9 @@ async function sendMessage(text) {
 
       {cardioHistory.length > 0 && (
         <div key="cardioChart" style={sectionCardStyle}>
-          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes logged each day over the last 30 days." collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})` })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1720,9 +1721,9 @@ async function sendMessage(text) {
 
       {stepsHistory.length > 0 && (
         <div key="stepsChart" style={sectionCardStyle}>
-          <SectionHeader title="Steps — last 30 days" info="Steps logged each day over the last 30 days." collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps — last 30 days" info="Steps each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
-              <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})` })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
