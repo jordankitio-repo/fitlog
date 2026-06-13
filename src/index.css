@@ -350,21 +350,16 @@ button, a, input, select, textarea {
 }
 .info-tip:hover .info-tip-mark,
 .info-tip:focus .info-tip-mark { border-color: var(--color-muted); color: var(--color-text); }
+/* Portaled to <body>, positioned via inline top/left from the icon's rect. */
 .info-tip-bubble {
-  position: absolute; bottom: calc(100% + 8px); left: 50%;
-  transform: translateX(-50%) translateY(3px);
-  width: max-content; max-width: 210px;
+  position: fixed;
+  width: max-content; max-width: 230px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius); padding: 8px 10px;
   font-size: 0.72rem; line-height: 1.45; color: var(--color-muted);
   font-weight: 400; text-transform: none; letter-spacing: normal; text-align: left;
   white-space: normal; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
-  opacity: 0; pointer-events: none; z-index: 50;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-.info-tip:hover .info-tip-bubble,
-.info-tip:focus .info-tip-bubble {
-  opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto;
+  pointer-events: none; z-index: 3000;
 }
 
 /* Nudge button (client header) */
