@@ -14,8 +14,9 @@ function color(pct, a) {
   return pct >= 90 ? GREEN(a) : pct >= 60 ? AMBER(a) : RED(a)
 }
 
-export function metricBarData({ history, valueKey, dateKey = 'date', label, target, fallback }) {
-  const barColor = (value, a) => (target ? color((value / target) * 100, a) : fallback(a))
+export function metricBarData({ history, valueKey, dateKey = 'date', label, target, fallback, plain = false }) {
+  // plain = revert to the flat metric color (no target coloring, no target line).
+  const barColor = (value, a) => (target && !plain ? color((value / target) * 100, a) : fallback(a))
   const datasets = [{
     label,
     data: history.map((d) => d[valueKey]),
@@ -24,7 +25,7 @@ export function metricBarData({ history, valueKey, dateKey = 'date', label, targ
     borderWidth: 1,
     borderRadius: 4,
   }]
-  if (target) {
+  if (target && !plain) {
     datasets.push({
       type: 'line',
       label: 'Target',

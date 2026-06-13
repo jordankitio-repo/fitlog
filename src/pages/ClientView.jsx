@@ -12,8 +12,10 @@ import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
 import InfoTip from '../components/InfoTip'
+import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
+import { usePlainCharts } from '../utils/usePlainCharts'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
@@ -68,6 +70,7 @@ function ClientView({ profile }) {
   const [reportWeekRange, setReportWeekRange] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [weightHistory, setWeightHistory] = useState([])
+  const [plainCharts, togglePlain] = usePlainCharts()
   const [calorieHistory, setCalorieHistory] = useState([])
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
@@ -1018,10 +1021,10 @@ async function sendMessage(text) {
 
   // Raw "Calories — last 30 days" bar chart: same bucket colors as the heatmap/
   // summary (green on-target, orange over, amber/red under) plus a target line.
-  function calorieChartData() {
+  function calorieChartData(plain = false) {
     const calTarget = parseInt(clientTargets.calories) || null
     const barColor = (cal, a) => {
-      if (!calTarget) return `rgba(251, 191, 36, ${a})`
+      if (!calTarget || plain) return `rgba(251, 191, 36, ${a})`
       const v = (cal / calTarget) * 100
       return v > 110 ? `rgba(251, 146, 60, ${a})`
         : v >= 90 ? `rgba(52, 211, 153, ${a})`
@@ -1035,7 +1038,7 @@ async function sendMessage(text) {
       borderColor: calorieHistory.map(d => barColor(d.calories, 1)),
       borderWidth: 1, borderRadius: 4,
     }]
-    if (calTarget) {
+    if (calTarget && !plain) {
       datasets.push({
         type: 'line', label: 'Target',
         data: calorieHistory.map(() => calTarget),
@@ -1701,9 +1704,9 @@ async function sendMessage(text) {
 
       {calorieHistory.length > 0 && (
         <div key="calorieChart" style={sectionCardStyle}>
-          <SectionHeader title="Calories — last 30 days" info="Calories logged each day over the last 30 days." collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
+          <SectionHeader title="Calories — last 30 days" info="Calories logged each day over the last 30 days." action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
-              <Bar data={calorieChartData()} options={chartOptions} />
+              <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1711,9 +1714,9 @@ async function sendMessage(text) {
 
       {cardioHistory.length > 0 && (
         <div key="cardioChart" style={sectionCardStyle}>
-          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})` })} options={chartOptions} />
+              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1721,9 +1724,9 @@ async function sendMessage(text) {
 
       {stepsHistory.length > 0 && (
         <div key="stepsChart" style={sectionCardStyle}>
-          <SectionHeader title="Steps — last 30 days" info="Steps each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps — last 30 days" info="Steps each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
-              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})` })} options={chartOptions} />
+              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>

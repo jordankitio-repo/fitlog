@@ -8,8 +8,10 @@ import SoloUpgrade from '../components/SoloUpgrade'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import InfoTip from '../components/InfoTip'
+import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
+import { usePlainCharts } from '../utils/usePlainCharts'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
@@ -48,6 +50,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [weightEntry, setWeightEntry] = useState(null)
   const [reports, setReports] = useState([])
   const [weightHistory, setWeightHistory] = useState([])
+  const [plainCharts, togglePlain] = usePlainCharts()
   const [calorieHistory, setCalorieHistory] = useState([])
   const [targets, setTargets] = useState(null)
   const [cardioToday, setCardioToday] = useState({ minutes: 0, sessions: 0 })
@@ -1226,9 +1229,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Cardio chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && cardioHistory.length > 0 && (
         <div key="cardioChart" style={cardStyle}>
-          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})` })} options={chartOptions} />
+              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1237,9 +1240,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Steps chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && stepsHistory.length > 0 && (
         <div key="stepsChart" style={cardStyle}>
-          <SectionHeader title="Steps — last 30 days" info="Steps each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps — last 30 days" info="Steps each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
-              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})` })} options={chartOptions} />
+              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
