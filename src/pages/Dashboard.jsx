@@ -7,6 +7,8 @@ import SectionHeader from '../components/SectionHeader'
 import SoloUpgrade from '../components/SoloUpgrade'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
+import InfoTip from '../components/InfoTip'
+import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
@@ -1130,7 +1132,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               {consistency && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon–Fri)</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon–Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
                     <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? '#34d399' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
                       {consistency.weekdayLogged}
                       <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
@@ -1140,7 +1142,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                     </p>
                   </div>
                   <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat–Sun)</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat–Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
                     <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? '#34d399' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
                       {consistency.weekendLogged}
                       <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
@@ -1164,7 +1166,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   justifyContent: 'space-between',
                 }}>
                   <div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Best week (last 90 days)</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Best week (last 90 days) <InfoTip text={CONSISTENCY_TIPS.bestWeek} /></p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>
                       {bestWeek.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       {' – '}

@@ -11,6 +11,8 @@ import ComplianceSummary from '../components/ComplianceSummary'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
+import InfoTip from '../components/InfoTip'
+import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
@@ -1254,20 +1256,20 @@ async function sendMessage(text) {
         <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Current streak</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Current streak <InfoTip text={CONSISTENCY_TIPS.streak} /></p>
               <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.streak > 0 ? '#34d399' : 'var(--color-muted)' }}>
                 {consistency.streak}
                 <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}> days</span>
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 7 days</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 7 days <InfoTip text={CONSISTENCY_TIPS.last7} /></p>
               <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days7 >= 5 ? '#34d399' : consistency.days7 >= 3 ? 'var(--color-primary)' : '#f87171' }}>
                 {consistency.days7}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 30 days</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 30 days <InfoTip text={CONSISTENCY_TIPS.last30} /></p>
               <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days30 >= 20 ? '#34d399' : consistency.days30 >= 10 ? 'var(--color-primary)' : '#f87171' }}>
                 {consistency.days30}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
               </p>
@@ -1275,7 +1277,7 @@ async function sendMessage(text) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon-Fri)</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon-Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
               <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? '#34d399' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
                 {consistency.weekdayLogged}
                 <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
@@ -1285,7 +1287,7 @@ async function sendMessage(text) {
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat-Sun)</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat-Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
               <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? '#34d399' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
                 {consistency.weekendLogged}
                 <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
@@ -1307,7 +1309,7 @@ async function sendMessage(text) {
             }}>
               <div>
                 <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>
-                  Best week (last 90 days)
+                  Best week (last 90 days) <InfoTip text={CONSISTENCY_TIPS.bestWeek} />
                 </p>
                 <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>
                   {consistency.bestWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
