@@ -7,16 +7,20 @@
 const GREEN = (a) => `rgba(52, 211, 153, ${a})`
 const AMBER = (a) => `rgba(251, 191, 36, ${a})`
 const RED = (a) => `rgba(248, 113, 113, ${a})`
+const ORANGE = (a) => `rgba(251, 146, 60, ${a})`
 
-// Same 90 / 60 thresholds the rest of the app uses for "on target" — minus the
-// upper bound, since here exceeding the target is good.
-function color(pct, a) {
+// Same 90 / 60 thresholds the rest of the app uses for "on target". For
+// one-directional metrics (cardio, steps) more is better, so there's no upper
+// bound. For bidirectional ones (calories) going over the target is a deviation
+// (orange), matching the calorie compliance band elsewhere.
+function color(pct, a, bidirectional) {
+  if (bidirectional && pct > 110) return ORANGE(a)
   return pct >= 90 ? GREEN(a) : pct >= 60 ? AMBER(a) : RED(a)
 }
 
-export function metricBarData({ history, valueKey, dateKey = 'date', label, target, fallback, plain = false }) {
+export function metricBarData({ history, valueKey, dateKey = 'date', label, target, fallback, plain = false, bidirectional = false }) {
   // plain = revert to the flat metric color (no target coloring, no target line).
-  const barColor = (value, a) => (target && !plain ? color((value / target) * 100, a) : fallback(a))
+  const barColor = (value, a) => (target && !plain ? color((value / target) * 100, a, bidirectional) : fallback(a))
   const datasets = [{
     label,
     data: history.map((d) => d[valueKey]),

@@ -1218,9 +1218,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Calories chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && !hideCalories && calorieHistory.length > 0 && (
         <div key="calorieChart" style={cardStyle}>
-          <SectionHeader title="Calories — last 30 days" info="Calories logged each day over the last 30 days." collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
+          <SectionHeader title="Calories — last 30 days" info="Calories each day over the last 30 days, colored by compliance — green on target, orange over, amber/red under. The dashed line is the target." action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
-              <Bar data={{ labels: calorieHistory.map(d => d.date), datasets: [{ label: 'Calories', data: calorieHistory.map(d => d.calories), backgroundColor: 'rgba(251, 191, 36, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
+              <Bar data={metricBarData({ history: calorieHistory, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={chartOptions} />
             )}
           </SectionHeader>
         </div>
