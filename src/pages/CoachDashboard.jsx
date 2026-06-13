@@ -70,7 +70,9 @@ function CoachDashboard({ profile }) {
 
   async function fetchAllClientStats(clientIds, relationships = []) {
     const weekOf = getCurrentWeekSunday()
-    const negativeEmojis = ['👎', '😔', '😰', '🤕', '😴']
+    // Clients can now react with any OS emoji, so flag a broader set of
+    // distress/negative-sentiment emojis (not just the old fixed reactions).
+    const negativeEmojis = ['👎', '😔', '😰', '🤕', '😴', '😢', '😭', '😞', '😟', '😩', '😫', '😣', '😖', '💔', '🤒', '🤢', '😪', '😓', '😨', '😱', '🥵', '😡', '🤬']
     const sevenDaysAgo = toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
     const today = toLocalDateString(new Date())
 

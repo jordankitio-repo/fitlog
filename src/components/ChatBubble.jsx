@@ -8,7 +8,18 @@ import Button from './Button'
 // Dashboard (thread with their coach). Launcher shows an unread badge; opening
 // marks the thread read.
 
-const REACTIONS = ['👍', '💪', '🔥', '🎯', '👎', '😔', '😰', '🤕', '😴']
+// Reactions come from the native OS emoji picker now (any emoji). Keep just the
+// first grapheme so a reaction stays a single glyph even if extra is typed.
+function firstEmoji(str) {
+  const s = (str || '').trim()
+  if (!s) return ''
+  try {
+    const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    return [...seg.segment(s)][0]?.segment || s
+  } catch {
+    return s
+  }
+}
 
 function ChatIcon() {
   return (
@@ -23,7 +34,19 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [openReactId, setOpenReactId] = useState(null)
+  const [reactDraft, setReactDraft] = useState('')
   const endRef = useRef(null)
+
+  function openReact(id) {
+    setReactDraft('')
+    setOpenReactId(openReactId === id ? null : id)
+  }
+  function applyReaction(id) {
+    const emoji = firstEmoji(reactDraft)
+    if (emoji) onReact(id, emoji)
+    setOpenReactId(null)
+    setReactDraft('')
+  }
 
   const unread = messages.filter(m => !m.read_at && m.sender_id !== currentUserId).length
 
@@ -88,15 +111,26 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
                 <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>{new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 {m.reaction && <span style={{ fontSize: '0.875rem' }}>{m.reaction}</span>}
                 {!isMe && onReact && (
-                  <button onClick={() => setOpenReactId(openReactId === m.id ? null : m.id)} style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 6, padding: '1px 6px', cursor: 'pointer', fontSize: '0.65rem', color: 'var(--color-muted)' }}>{m.reaction ? '✎' : 'React +'}</button>
+                  <button onClick={() => openReact(m.id)} style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 6, padding: '1px 6px', cursor: 'pointer', fontSize: '0.65rem', color: 'var(--color-muted)' }}>{m.reaction ? '✎' : 'React +'}</button>
                 )}
               </div>
               {openReactId === m.id && onReact && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {REACTIONS.map(emoji => (
-                    <button key={emoji} onClick={() => { onReact(m.id, m.reaction === emoji ? null : emoji); setOpenReactId(null) }} style={{ backgroundColor: m.reaction === emoji ? 'var(--color-border)' : 'transparent', border: '1px solid var(--color-border)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: '0.875rem' }}>{emoji}</button>
-                  ))}
-                  {m.reaction && <button onClick={() => { onReact(m.id, null); setOpenReactId(null) }} style={{ background: 'transparent', border: '1px solid #f87171', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: '0.65rem', color: '#f87171', fontWeight: 600 }}>Remove</button>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    maxLength={20}
+                    value={reactDraft}
+                    onChange={e => setReactDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') applyReaction(m.id)
+                      else if (e.key === 'Escape') { setOpenReactId(null); setReactDraft('') }
+                    }}
+                    placeholder="Pick an emoji 🙂"
+                    style={{ width: 130, backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 8px', color: 'var(--color-text)', fontSize: '0.95rem' }}
+                  />
+                  <button onClick={() => applyReaction(m.id)} style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600 }}>Add</button>
+                  {m.reaction && <button onClick={() => { onReact(m.id, null); setOpenReactId(null); setReactDraft('') }} style={{ background: 'transparent', border: '1px solid #f87171', borderRadius: 6, padding: '4px 9px', cursor: 'pointer', fontSize: '0.65rem', color: '#f87171', fontWeight: 600 }}>Remove</button>}
                 </div>
               )}
             </div>
