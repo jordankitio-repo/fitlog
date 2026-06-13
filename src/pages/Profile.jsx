@@ -8,6 +8,9 @@ import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 import { SOLO_BILLING_ENABLED } from '../App'
 
+/* global __BUILD_TIME__ */
+const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
+
 function Profile({ session, profile, subscription, soloSubscription, onProfileUpdate }) {
   const soloSubActive =
     !!soloSubscription &&
@@ -524,6 +527,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         <a href="/privacy" style={{ color: 'var(--color-muted)', fontSize: 'var(--text-xs)', textDecoration: 'none' }}>Privacy</a>
         <a href="mailto:digigardenllc@gmail.com" style={{ color: 'var(--color-muted)', fontSize: 'var(--text-xs)', textDecoration: 'none' }}>Feedback</a>
       </div>
+      <p style={{ textAlign: 'center', padding: '0 0 16px', color: 'var(--color-border)', fontSize: 'var(--text-xs)' }}>
+        Build {BUILD_TIME}
+      </p>
     </div>
   )
 }

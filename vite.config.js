@@ -2,7 +2,12 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Stamped into the bundle so the running app can show which build it is — lets
+// us tell "stale PWA cache" apart from "real bug" at a glance.
+const buildTime = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+
 export default defineConfig({
+  define: { __BUILD_TIME__: JSON.stringify(buildTime) },
   plugins: [
     react(),
     // Installable PWA: precaches the hashed app shell so the home-screen icon
