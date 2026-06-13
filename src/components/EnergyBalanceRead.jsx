@@ -1,4 +1,5 @@
 import { energyBalanceRead } from '../utils/energyBalanceRead'
+import InfoTip from './InfoTip'
 
 // Coach-only instrument. We state only what we measured — maintenance (derived
 // transparently from the two rows below it), the weight trend, and compliance
@@ -16,10 +17,10 @@ const BAND = 0.1 // within ±10% of target = on plan (matches ComplianceBreakdow
 
 const toneColor = (tone) => (tone === 'toward' ? GOOD : tone === 'away' ? WEAK : TEXT)
 
-function Row({ label, value, note }) {
+function Row({ label, value, note, tip }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-      <span style={{ fontSize: '0.8rem', color: TEXT }}>{label}</span>
+      <span style={{ fontSize: '0.8rem', color: TEXT }}>{label}{tip && <InfoTip text={tip} />}</span>
       <span style={{ fontSize: '0.8rem', textAlign: 'right' }}>
         <strong style={{ fontWeight: 600, color: TEXT }}>{value}</strong>
         {note && <span style={{ fontSize: '0.72rem' }}>{' · '}{note}</span>}
@@ -79,9 +80,23 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Row label="Est. maintenance" value={`~${num(r.maintenance.low)}–${num(r.maintenance.high)} cal`} note={maintNote} />
-          <Row label="Weight trend" value={weightValue} />
-          <Row label="Logged vs target" value={`${num(r.avgIntake)} / ${num(r.target)}`} note={gapNote} />
+          <Row
+            label="Est. maintenance"
+            value={`~${num(r.maintenance.low)}–${num(r.maintenance.high)} cal`}
+            note={maintNote}
+            tip="Calories where weight would hold steady, inferred from logged intake and the weight trend this window. A range — it narrows as logging gets more consistent."
+          />
+          <Row
+            label="Weight trend"
+            value={weightValue}
+            tip="Rate of weight change over the window, from a line fit across all weigh-ins (not just first vs last). The arrow shows toward (green) or away from (amber) the goal."
+          />
+          <Row
+            label="Logged vs target"
+            value={`${num(r.avgIntake)} / ${num(r.target)}`}
+            note={gapNote}
+            tip="Average logged calories vs the set target, and the gap. Green within ±10% of target, amber when off it."
+          />
           {r.trajectory && (
             <p style={{ fontSize: '0.78rem', color: TEXT, margin: '2px 0 0' }}>
               Vs the prior window: maintenance ~{num(r.trajectory.prevMaintenance)} → ~{num(r.maintenance.mid)}, rate {fmtRateWord(r.trajectory.prevRateLbPerWk)} → {fmtRateWord(r.rateLbPerWk)}.
