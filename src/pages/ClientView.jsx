@@ -1169,27 +1169,27 @@ async function sendMessage(text) {
         {!aiToolsCollapsed && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-              <div className="gw-tilewrap">
-                <button className="gw-tile" onClick={generateCallPrep} disabled={briefingLoading}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '14px 16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #a78bfa', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, background: 'rgba(167, 139, 250, 0.12)', flexShrink: 0 }}>
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
-                  </span>
+              <button className="gw-tile" onClick={generateCallPrep} disabled={briefingLoading}
+                style={{ '--gw-accent': '#a78bfa', display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '16px 18px', borderRadius: 'var(--radius)', background: 'linear-gradient(135deg, rgba(167,139,250,0.08), rgba(167,139,250,0))', border: '1px solid var(--color-border)', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
+                <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: 'rgba(167, 139, 250, 0.16)', flexShrink: 0 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
+                </span>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
-                </button>
-                <span className="gw-tip" role="tooltip">AI brief to get you up to speed before you meet — recent progress, gaps, and what to raise. Just for you.</span>
-              </div>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI brief to walk in prepared — just for you</span>
+                </span>
+              </button>
 
-              <div className="gw-tilewrap">
-                <button className="gw-tile" onClick={generateWeeklyReport} disabled={reportLoading}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '14px 16px', borderRadius: 'var(--radius)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: 'inset 3px 0 0 #34d399', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, background: 'rgba(52, 211, 153, 0.12)', flexShrink: 0 }}>
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
-                  </span>
+              <button className="gw-tile" onClick={generateWeeklyReport} disabled={reportLoading}
+                style={{ '--gw-accent': '#34d399', display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '16px 18px', borderRadius: 'var(--radius)', background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0))', border: '1px solid var(--color-border)', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
+                <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: 'rgba(52, 211, 153, 0.16)', flexShrink: 0 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
+                </span>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
-                </button>
-                <span className="gw-tip" role="tooltip">AI-drafted week summary to review and send the client — their numbers, the trend, and your note.</span>
-              </div>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI draft to review and send the client</span>
+                </span>
+              </button>
             </div>
 
             {callBriefing && (

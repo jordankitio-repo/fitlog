@@ -313,11 +313,15 @@ button, a, input, select, textarea {
 }
 
 /* Groundwork action tiles */
-.gw-tile { transition: border-color 0.15s ease, background-color 0.15s ease; }
+.gw-tile { transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
 .gw-tile:hover:not(:disabled) {
-  border-color: var(--color-muted);
-  background-color: var(--color-surface);
+  border-color: var(--gw-accent, var(--color-muted));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+.gw-tile:active:not(:disabled) { transform: translateY(0); }
+.gw-icon { transition: transform 0.15s ease; }
+.gw-tile:hover:not(:disabled) .gw-icon { transform: scale(1.06); }
 .gw-tilewrap { position: relative; }
 .gw-tip {
   position: absolute;
