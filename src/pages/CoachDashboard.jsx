@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import Toast from '../components/Toast'
+import InfoTip from '../components/InfoTip'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString } from '../utils/dateHelpers'
 import { getInviteBlockReason } from '../utils/inviteValidation'
@@ -451,19 +452,22 @@ function CoachDashboard({ profile }) {
                 {s && (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {/* Attention triage — owns overall status; the pills below are supporting evidence */}
-                    <span
-                      title={triage.reasons.length ? triage.reasons.join(' · ') : logLabel(s.daysSinceLog)}
-                      style={{
-                        fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
-                        borderRadius: '999px',
-                        backgroundColor: triage.level === 'green' ? 'var(--color-bg)' : `${attentionColors[triage.level]}26`,
-                        border: `1px solid ${attentionColors[triage.level]}`,
-                        color: attentionColors[triage.level],
-                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                      }}
-                    >
-                      <span style={{ width: 7, height: 7, borderRadius: '999px', backgroundColor: attentionColors[triage.level] }} />
-                      {triage.level === 'green' ? logLabel(s.daysSinceLog) : triage.reasons[0]}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span
+                        title={triage.reasons.length ? triage.reasons.join(' · ') : logLabel(s.daysSinceLog)}
+                        style={{
+                          fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
+                          borderRadius: '999px',
+                          backgroundColor: triage.level === 'green' ? 'var(--color-bg)' : `${attentionColors[triage.level]}26`,
+                          border: `1px solid ${attentionColors[triage.level]}`,
+                          color: attentionColors[triage.level],
+                          display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        }}
+                      >
+                        <span style={{ width: 7, height: 7, borderRadius: '999px', backgroundColor: attentionColors[triage.level] }} />
+                        {triage.level === 'green' ? logLabel(s.daysSinceLog) : triage.reasons[0]}
+                      </span>
+                      <InfoTip text="Attention flag — the most pressing reason this client may need you: no check-in this week, days without a log, or a concerning reaction. Green means they're on track." />
                     </span>
 
                     {/* Check-in (positive only — a missing check-in surfaces via the triage badge) */}
@@ -505,7 +509,7 @@ function CoachDashboard({ profile }) {
                 {(s?.complianceItems?.some(i => i.logged > 0) || s?.lockInfo?.locked) && (
                   <div style={{ paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
                     <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                      7-day compliance
+                      7-day compliance <InfoTip text="For each metric, how many of the last 7 days hit the target. Dimmer pills mean fewer days on target." />
                     </p>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {s.lockInfo?.locked && (
