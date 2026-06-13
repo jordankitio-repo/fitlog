@@ -1,4 +1,6 @@
-function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, children, animated = true }) {
+import InfoTip from './InfoTip'
+
+function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, info, children, animated = true }) {
   return (
     <>
       <div
@@ -7,6 +9,12 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, children
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h2 style={{ margin: 0 }}>{title}</h2>
+          {info && (
+            // Stop the click so tapping the "i" reveals the tip instead of collapsing.
+            <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+              <InfoTip text={info} />
+            </span>
+          )}
           {badge && (
             <span style={{ backgroundColor: badgeColor || 'var(--color-primary)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>{badge}</span>
           )}

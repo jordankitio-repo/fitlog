@@ -1645,7 +1645,7 @@ async function sendMessage(text) {
 
       {(weightHistory.length > 0 || calorieHistory.length > 0) && (
         <div key="correlatedChart" style={sectionCardStyle}>
-          <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
+          <SectionHeader title="Progress overview" info="Weight (line) over daily calorie and cardio compliance (bars, as % of target), so you can see how adherence tracks with the scale. The dashed line marks 100% of target." collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
             {!sectionsCollapsed.correlatedChart && (
               <div style={{ paddingTop: '8px' }}>
                 <Chart type="bar" data={getCorrelatedChartData()} options={correlatedChartOptions} />
@@ -1664,7 +1664,7 @@ async function sendMessage(text) {
 
       {weightHistory.length > 1 && (
         <div key="weightChart" style={sectionCardStyle}>
-          <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
+          <SectionHeader title="Weight trend" info="Logged body weight over time. The dashed line is a 7-day rolling average that smooths out day-to-day fluctuation." collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
               <Line
                 data={{
@@ -1700,7 +1700,7 @@ async function sendMessage(text) {
 
       {calorieHistory.length > 0 && (
         <div key="calorieChart" style={sectionCardStyle}>
-          <SectionHeader title="Calories — last 30 days" collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
+          <SectionHeader title="Calories — last 30 days" info="Calories logged each day over the last 30 days." collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
               <Bar data={calorieChartData()} options={chartOptions} />
             )}
@@ -1710,7 +1710,7 @@ async function sendMessage(text) {
 
       {cardioHistory.length > 0 && (
         <div key="cardioChart" style={sectionCardStyle}>
-          <SectionHeader title="Cardio — last 30 days" collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes logged each day over the last 30 days." collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
               <Bar data={{ labels: cardioHistory.map(d => d.date), datasets: [{ label: 'Minutes', data: cardioHistory.map(d => d.minutes), backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
@@ -1720,7 +1720,7 @@ async function sendMessage(text) {
 
       {stepsHistory.length > 0 && (
         <div key="stepsChart" style={sectionCardStyle}>
-          <SectionHeader title="Steps — last 30 days" collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps — last 30 days" info="Steps logged each day over the last 30 days." collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
               <Bar data={{ labels: stepsHistory.map(d => d.date), datasets: [{ label: 'Steps', data: stepsHistory.map(d => d.steps), backgroundColor: 'rgba(167, 139, 250, 0.7)', borderRadius: 4 }] }} options={chartOptions} />
             )}
