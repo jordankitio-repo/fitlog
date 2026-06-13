@@ -1031,7 +1031,7 @@ async function sendMessage(text) {
       data: calorieHistory.map(d => d.calories),
       backgroundColor: calorieHistory.map(d => barColor(d.calories, 0.7)),
       borderColor: calorieHistory.map(d => barColor(d.calories, 1)),
-      borderWidth: 1, borderRadius: 4,
+      borderWidth: 1, borderRadius: 4, maxBarThickness: 12,
     }]
     if (calTarget && !plain) {
       datasets.push({

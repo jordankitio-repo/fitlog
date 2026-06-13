@@ -28,6 +28,9 @@ export function metricBarData({ history, valueKey, dateKey = 'date', label, targ
     borderColor: history.map((d) => barColor(d[valueKey], 1)),
     borderWidth: 1,
     borderRadius: 4,
+    // Cap width so a chart with fewer logged days (e.g. cardio) doesn't balloon
+    // into fat bars — keeps all the metric charts visually consistent.
+    maxBarThickness: 12,
   }]
   if (target && !plain) {
     datasets.push({
