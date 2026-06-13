@@ -911,11 +911,6 @@ async function markMessagesRead() {
   await fetchMessages()
 }
 
-async function reactToMessage(messageId, emoji) {
-  const { error } = await supabase.from('messages').update({ reaction: emoji }).eq('id', messageId)
-  if (error) console.error(error)
-  else fetchMessages()
-}
 
 async function sendMessage(text) {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
@@ -1790,7 +1785,6 @@ async function sendMessage(text) {
       currentUserId={profile?.id}
       recipientName={clientProfile?.full_name || 'client'}
       onSend={sendMessage}
-      onReact={reactToMessage}
       onMarkRead={markMessagesRead}
     />
     <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />

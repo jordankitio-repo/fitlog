@@ -56,19 +56,12 @@ export default function ClientChat({ profile }) {
     await fetchMessages()
   }
 
-  async function reactToMessage(messageId, emoji) {
-    const { error } = await supabase.from('messages').update({ reaction: emoji }).eq('id', messageId)
-    if (error) console.error(error)
-    else fetchMessages()
-  }
-
   return (
     <ChatBubble
       messages={messages}
       currentUserId={profile?.id}
       recipientName="your coach"
       onSend={sendMessage}
-      onReact={reactToMessage}
       onMarkRead={markMessagesRead}
     />
   )

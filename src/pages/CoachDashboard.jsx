@@ -70,9 +70,6 @@ function CoachDashboard({ profile }) {
 
   async function fetchAllClientStats(clientIds, relationships = []) {
     const weekOf = getCurrentWeekSunday()
-    // Clients can now react with any OS emoji, so flag a broader set of
-    // distress/negative-sentiment emojis (not just the old fixed reactions).
-    const negativeEmojis = ['👎', '😔', '😰', '🤕', '😴', '😢', '😭', '😞', '😟', '😩', '😫', '😣', '😖', '💔', '🤒', '🤢', '😪', '😓', '😨', '😱', '🥵', '😡', '🤬']
     const sevenDaysAgo = toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
     const today = toLocalDateString(new Date())
 
@@ -113,7 +110,6 @@ function CoachDashboard({ profile }) {
       if (lastLogDate) daysSinceLog = Math.max(0, Math.floor((new Date(todayStr) - new Date(lastLogDate)) / 86400000))
 
       const checkIn = checkIns.find(c => c.client_id === id) || null
-      const concerningReactions = messages.filter(m => m.client_id === id && negativeEmojis.includes(m.reaction))
       const clientTargets = targetsData.find(t => t.user_id === id)
 
       const complianceItems = []
@@ -162,7 +158,7 @@ function CoachDashboard({ profile }) {
         complianceItems.push({ label: 'Steps', value: count, logged, hasData: logged > 0 })
       }
 
-      stats[id] = { lastLogDate, daysSinceLog, checkIn, concerningReactions, complianceItems, lockInfo }
+      stats[id] = { lastLogDate, daysSinceLog, checkIn, complianceItems, lockInfo }
     })
 
     setClientStats(stats)
@@ -484,17 +480,6 @@ function CoachDashboard({ profile }) {
                         }}
                       >
                         {s.checkIn.adherence_rating}/10 adherence · {s.checkIn.energy_level}/10 energy
-                      </span>
-                    )}
-
-                    {/* Concerning reactions */}
-                    {s.concerningReactions.length > 0 && (
-                      <span style={{
-                        fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px',
-                        borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                        border: '1px solid #fbbf24', color: '#fbbf24'
-                      }}>
-                        {s.concerningReactions.map(m => m.reaction).join(' ')} reaction
                       </span>
                     )}
                   </div>

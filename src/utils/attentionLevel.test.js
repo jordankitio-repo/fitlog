@@ -6,7 +6,6 @@ function stats(over = {}) {
   return {
     daysSinceLog: 0,
     checkIn: { adherence_rating: 8 },
-    concerningReactions: [],
     complianceItems: [],
     lockInfo: { locked: false },
     ...over,
@@ -42,11 +41,6 @@ describe('attentionLevel', () => {
     const r = attentionLevel(stats({ lockInfo: { locked: true } }))
     expect(r.level).toBe('red')
     expect(r.reasons).toContain('Locked')
-  })
-
-  it('flags negative reactions as red, pluralizing the count', () => {
-    expect(attentionLevel(stats({ concerningReactions: [{}] })).reasons).toContain('Negative reaction')
-    expect(attentionLevel(stats({ concerningReactions: [{}, {}] })).reasons).toContain('2 negative reactions')
   })
 
   it('treats 2-3 days since log as yellow, not red', () => {

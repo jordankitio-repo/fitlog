@@ -9,7 +9,7 @@
 // UI shows reasons[0] as the badge label.
 //
 // `stats` is one entry from CoachDashboard's clientStats:
-//   { daysSinceLog, checkIn, concerningReactions, complianceItems, lockInfo }
+//   { daysSinceLog, checkIn, complianceItems, lockInfo }
 
 // 7-day compliance count below this is "weak" (matches the <3 bucket the pills
 // already render at reduced opacity in CoachDashboard).
@@ -21,7 +21,7 @@ const STALE_LOG_DAYS = 4
 export function attentionLevel(stats) {
   if (!stats) return { level: 'green', reasons: [] }
 
-  const { daysSinceLog, checkIn, concerningReactions, complianceItems, lockInfo } = stats
+  const { daysSinceLog, checkIn, complianceItems, lockInfo } = stats
 
   const red = []
   const yellow = []
@@ -33,9 +33,6 @@ export function attentionLevel(stats) {
     red.push(`${daysSinceLog} days no log`)
   }
   if (lockInfo?.locked) red.push('Locked')
-  if (concerningReactions?.length > 0) {
-    red.push(concerningReactions.length === 1 ? 'Negative reaction' : `${concerningReactions.length} negative reactions`)
-  }
 
   // --- Yellow: watch (only meaningful if not already red) ---
   if (daysSinceLog !== null && daysSinceLog >= 2 && daysSinceLog < STALE_LOG_DAYS) {
