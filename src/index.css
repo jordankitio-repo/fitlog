@@ -249,6 +249,27 @@ button, a, input, select, textarea {
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.12);
 }
 
+/* Today's stats: spread across columns on desktop; on mobile pack into 2
+   compact columns so all metrics fit in a glance instead of a long scroll. */
+.today-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .today-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .today-stats-grid .stat-card {
+    padding: 11px 13px !important;
+    min-height: 0 !important;
+  }
+  .today-stats-grid .stat-card-value {
+    font-size: 1.4rem !important;
+  }
+}
+
 /* Dark scrollbar for message threads */
 .message-thread::-webkit-scrollbar {
   width: 4px;
