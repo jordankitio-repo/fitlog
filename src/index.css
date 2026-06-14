@@ -316,6 +316,24 @@ button, a, input, select, textarea {
   border-radius: 2px;
 }
 
+/* Installed PWA (display: standalone): hide scrollbar chrome — a persistent bar
+   reads as a desktop-browser artifact inside what should feel like a native
+   app. Scrolling still works; only the visible track is hidden. Scoped to the
+   PWA so the browser keeps its normal scrollbars. */
+@media (display-mode: standalone) {
+  html, body {
+    scrollbar-width: none;       /* Firefox */
+    -ms-overflow-style: none;    /* legacy Edge/IE */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;               /* Chromium / WebKit */
+  }
+}
+
 /* Chat bubble (bottom-right per-thread widget) */
 .chat-launcher {
   position: fixed;

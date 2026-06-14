@@ -15,6 +15,7 @@ import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
 import { refreshNotifications } from '../utils/notifyRefresh'
+import ReportBody from '../components/ReportBody'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
@@ -942,7 +943,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                             )}
                           </div>
                         </div>
-                        <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
+                        <ReportBody
+                          content={r.content}
+                          heading={`Sent ${new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                        />
                       </div>
                     ))}
                   </div>
@@ -985,7 +989,11 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                                 Unarchive
                               </button>
                             </div>
-                            <p style={{ color: 'var(--color-muted)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
+                            <ReportBody
+                              content={r.content}
+                              color="var(--color-muted)"
+                              heading={`Sent ${new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                            />
                           </div>
                         ))}
                       </div>
