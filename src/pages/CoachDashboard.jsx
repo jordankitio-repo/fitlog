@@ -14,6 +14,15 @@ import { cardStyle } from '../utils/styles'
 
 const attentionColors = { red: '#f87171', yellow: '#fbbf24', green: '#34d399' }
 
+// Summary-card styles. The label reserves a fixed two-line height so the big
+// numbers line up across all three cards even when a label wraps.
+const summaryLabelStyle = {
+  fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase',
+  letterSpacing: '0.08em', fontWeight: 600, margin: 0, textAlign: 'center',
+  lineHeight: 1.3, minHeight: '2.6em', display: 'flex', alignItems: 'center', justifyContent: 'center',
+}
+const summaryNumStyle = { fontSize: '2rem', fontWeight: 700, margin: 0, lineHeight: 1 }
+
 function scoreClient(s) {
   if (!s) return -1
   return s.complianceItems
@@ -342,20 +351,20 @@ function CoachDashboard({ profile }) {
       {/* Summary bar */}
       {clients.length > 0 && !loading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-          <div style={{ ...cardStyle, padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: 600 }}>Total clients</p>
-            <p style={{ fontSize: '2rem', fontWeight: 700 }}>{clients.length}</p>
+          <div style={{ ...cardStyle, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <p style={summaryLabelStyle}>Total clients</p>
+            <p style={summaryNumStyle}>{clients.length}</p>
           </div>
-          <div style={{ ...cardStyle, padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: 600 }}>Checked in this week</p>
-            <p style={{ fontSize: '2rem', fontWeight: 700, color: '#34d399' }}>
+          <div style={{ ...cardStyle, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <p style={summaryLabelStyle}>Checked in this week</p>
+            <p style={{ ...summaryNumStyle, color: '#34d399' }}>
               {clients.filter(c => clientStats[c.client_id]?.checkIn).length}
               <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{clients.length}</span>
             </p>
           </div>
-          <div style={{ ...cardStyle, border: `1px solid ${needsAttention > 0 ? '#f87171' : 'var(--color-border)'}`, padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: 600 }}>Need attention</p>
-            <p style={{ fontSize: '2rem', fontWeight: 700, color: needsAttention > 0 ? '#f87171' : '#34d399' }}>{needsAttention}</p>
+          <div style={{ ...cardStyle, border: `1px solid ${needsAttention > 0 ? '#f87171' : 'var(--color-border)'}`, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <p style={summaryLabelStyle}>Need attention</p>
+            <p style={{ ...summaryNumStyle, color: needsAttention > 0 ? '#f87171' : '#34d399' }}>{needsAttention}</p>
           </div>
         </div>
       )}
