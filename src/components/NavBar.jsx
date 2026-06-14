@@ -4,6 +4,7 @@ import { supabase } from '../supabase'
 import Button from './Button'
 import Logo from './Logo'
 import FeedbackButton from './FeedbackButton'
+import NotificationCenter from './NotificationCenter'
 
 function useMediaQuery(query) {
   const [matches, setMatches] = useState(() =>
@@ -95,15 +96,18 @@ function NavBar({ profile }) {
     return (
       <nav className="gnav" style={{ ...navBase, justifyContent: 'space-between' }}>
         {brand}
-        <button
-          type="button"
-          className="gnav-burger"
-          onClick={() => setMenuOpen((o) => !o)}
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={menuOpen}
-        >
-          <BurgerIcon open={menuOpen} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+          <NotificationCenter profile={profile} />
+          <button
+            type="button"
+            className="gnav-burger"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+          >
+            <BurgerIcon open={menuOpen} />
+          </button>
+        </div>
 
         {menuOpen && (
           <>
@@ -167,6 +171,7 @@ function NavBar({ profile }) {
             {l.label}
           </Link>
         ))}
+        <NotificationCenter profile={profile} />
         <span style={{ width: '8px' }} />
         <FeedbackButton userEmail={profile?.email || ''} userName={profile?.full_name || ''} />
         <Button onClick={handleSignOut} variant="muted" size="sm">Sign out</Button>
