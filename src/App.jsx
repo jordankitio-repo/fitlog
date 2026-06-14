@@ -145,6 +145,11 @@ function App() {
     return () => subscription.unsubscribe()
   }, [fetchProfile])
 
+  // Dismiss the cold-start splash (index.html) once the app shell is ready.
+  useEffect(() => {
+    if (!loading) window.hideSplash?.()
+  }, [loading])
+
   useEffect(() => {
     if (profile?.role !== 'coach') {
       setSubscription(null)
