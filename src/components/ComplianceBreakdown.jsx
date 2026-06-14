@@ -81,27 +81,31 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
   const wd = b.weekday
   const we = b.weekend
 
-  // One-line takeaway, composed from each segment's own state.
-  const off = (seg) => seg.logged > 0 && seg.avgDelta !== null && Math.abs(seg.avgDelta) > target * BAND
+  // One-line takeaway that names the weekday-vs-weekend PATTERN — the numbers
+  // are already on the bars, so the prose adds the "so what" instead of
+  // repeating them.
+  const hasData = (seg) => seg.logged > 0 && seg.avgDelta !== null
+  const off = (seg) => hasData(seg) && Math.abs(seg.avgDelta) > target * BAND
   const dir = (seg) => (seg.avgDelta > 0 ? 'over' : 'under')
-  const offs = [
-    { seg: wd, where: 'Weekdays', wl: 'weekdays' },
-    { seg: we, where: 'Weekends', wl: 'weekends' },
-  ].filter(o => off(o.seg))
+  const wdOff = off(wd)
+  const weOff = off(we)
+  // The gap BETWEEN weekdays and weekends — this is genuinely new (not on a bar).
+  const gap = Math.round(Math.abs((wd.avgDelta || 0) - (we.avgDelta || 0)))
+  const bigGap = gap > target * BAND
 
   let headline = null
   if (!b.insufficient) {
-    if (offs.length === 0) headline = 'On target across the week.'
-    else if (offs.length === 1) {
-      const o = offs[0]
-      headline = dir(o.seg) === 'over'
-        ? `${o.where} run ~${Math.abs(o.seg.avgDelta)} cal/day over target.`
-        : `${o.where} run ~${Math.abs(o.seg.avgDelta)} cal/day under target.`
+    if (!wdOff && !weOff) {
+      headline = 'On target all week.'
+    } else if (wdOff && weOff && dir(wd) === dir(we)) {
+      headline = bigGap
+        ? `${Math.abs(we.avgDelta) >= Math.abs(wd.avgDelta) ? 'Weekends' : 'Weekdays'} run further ${dir(wd)} — about ~${gap.toLocaleString()} cal/day apart.`
+        : `Consistently ${dir(wd)} all week, not just weekends.`
+    } else if (wdOff && weOff) {
+      headline = `Split week — ${dir(wd)} on weekdays, ${dir(we)} on weekends.`
     } else {
-      // No +/- sign — the "over"/"under" word already carries direction.
-      const part = (o) => `${dir(o.seg)} on ${o.wl} (~${Math.abs(o.seg.avgDelta)})`
-      const first = part(offs[0])
-      headline = `${first.charAt(0).toUpperCase()}${first.slice(1)}, ${part(offs[1])} cal/day.`
+      const o = wdOff ? { where: 'Weekdays', other: 'weekends', seg: wd } : { where: 'Weekends', other: 'weekdays', seg: we }
+      headline = `${o.where} are the gap — ${dir(o.seg)} target, while ${o.other} stay on plan.`
     }
   }
 
