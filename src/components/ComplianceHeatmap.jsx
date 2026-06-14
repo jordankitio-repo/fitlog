@@ -3,11 +3,12 @@ import { toLocalDateString } from '../utils/dateHelpers'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const WEEKS = 13
-const CELL = 18
 const GAP = 2
 const DAY_LABEL_WIDTH = 22
 const DAY_LABEL_GAP = 4
-const WEEK_SLOT_WIDTH = CELL + GAP
+// Cells are fluid (fill the container width); cap the whole grid so it fills a
+// phone but doesn't blow up into giant cells on a wide desktop card.
+const MAX_WIDTH = 440
 
 function getColor(calories, target, hasLog) {
   if (!hasLog) return 'var(--color-border)'
@@ -84,85 +85,86 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <div style={{ display: 'flex', marginLeft: DAY_LABEL_WIDTH + DAY_LABEL_GAP, marginBottom: 4 }}>
-        {weeks.map((_, weekIndex) => (
-          <div key={weekIndex} style={{ width: WEEK_SLOT_WIDTH, flexShrink: 0 }}>
-            {monthLabels.has(weekIndex) && (
-              <span style={{ fontSize: '0.6rem', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>
-                {monthLabels.get(weekIndex)}
-              </span>
-            )}
+    <div>
+      <div style={{ width: '100%', maxWidth: MAX_WIDTH }}>
+        {/* Month labels — mirrors the grid row (spacer + fluid week columns) */}
+        <div style={{ display: 'flex', gap: DAY_LABEL_GAP, marginBottom: 4 }}>
+          <div style={{ width: DAY_LABEL_WIDTH, flexShrink: 0 }} />
+          <div style={{ display: 'flex', gap: GAP, flex: 1 }}>
+            {weeks.map((_, weekIndex) => (
+              <div key={weekIndex} style={{ flex: 1, minWidth: 0, fontSize: '0.6rem', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>
+                {monthLabels.get(weekIndex) || ''}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 0 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, marginRight: DAY_LABEL_GAP }}>
-          {DAYS.map((day, index) => (
-            <div
-              key={day}
-              style={{
-                height: CELL,
-                width: DAY_LABEL_WIDTH,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                fontSize: '0.55rem',
-                color: 'var(--color-muted)',
-                paddingRight: 4,
-              }}
-            >
-              {index % 2 === 0 ? day.slice(0, 1) : ''}
-            </div>
-          ))}
         </div>
 
-        <div style={{ display: 'flex', gap: GAP }}>
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-              {week.map((cell) => {
-                const tooltipText = formatTooltip(cell)
+        <div style={{ display: 'flex', gap: DAY_LABEL_GAP }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, width: DAY_LABEL_WIDTH, flexShrink: 0 }}>
+            {DAYS.map((day, index) => (
+              <div
+                key={day}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  fontSize: '0.55rem',
+                  color: 'var(--color-muted)',
+                  paddingRight: 4,
+                }}
+              >
+                {index % 2 === 0 ? day.slice(0, 1) : ''}
+              </div>
+            ))}
+          </div>
 
-                return (
-                  <div
-                    key={cell.dateStr}
-                    aria-label={tooltipText || cell.dateStr}
-                    onMouseEnter={(event) => {
-                      if (tooltipText) {
-                        setTooltip({
-                          text: tooltipText,
-                          x: event.clientX,
-                          y: event.clientY,
-                        })
-                      }
-                    }}
-                    onMouseMove={(event) => {
-                      if (tooltipText) {
-                        setTooltip((current) => current && {
-                          ...current,
-                          x: event.clientX,
-                          y: event.clientY,
-                        })
-                      }
-                    }}
-                    onMouseLeave={() => setTooltip(null)}
-                    style={{
-                      width: CELL,
-                      height: CELL,
-                      borderRadius: 4,
-                      backgroundColor: cell.isFuture
-                        ? 'transparent'
-                        : getColor(cell.calories, target, cell.hasLog),
-                      border: cell.isFuture ? '1px solid var(--color-border)' : 'none',
-                      opacity: cell.isFuture ? 0.2 : 1,
-                      cursor: tooltipText ? 'help' : 'default',
-                    }}
-                  />
-                )
-              })}
-            </div>
-          ))}
+          <div style={{ display: 'flex', gap: GAP, flex: 1 }}>
+            {weeks.map((week, weekIndex) => (
+              <div key={weekIndex} style={{ display: 'flex', flexDirection: 'column', gap: GAP, flex: 1, minWidth: 0 }}>
+                {week.map((cell) => {
+                  const tooltipText = formatTooltip(cell)
+
+                  return (
+                    <div
+                      key={cell.dateStr}
+                      aria-label={tooltipText || cell.dateStr}
+                      onMouseEnter={(event) => {
+                        if (tooltipText) {
+                          setTooltip({
+                            text: tooltipText,
+                            x: event.clientX,
+                            y: event.clientY,
+                          })
+                        }
+                      }}
+                      onMouseMove={(event) => {
+                        if (tooltipText) {
+                          setTooltip((current) => current && {
+                            ...current,
+                            x: event.clientX,
+                            y: event.clientY,
+                          })
+                        }
+                      }}
+                      onMouseLeave={() => setTooltip(null)}
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        borderRadius: 4,
+                        backgroundColor: cell.isFuture
+                          ? 'transparent'
+                          : getColor(cell.calories, target, cell.hasLog),
+                        border: cell.isFuture ? '1px solid var(--color-border)' : 'none',
+                        opacity: cell.isFuture ? 0.2 : 1,
+                        cursor: tooltipText ? 'help' : 'default',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
