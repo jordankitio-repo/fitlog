@@ -82,10 +82,9 @@ function CoachDashboard({ profile }) {
     const sevenDaysAgo = toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
     const today = toLocalDateString(new Date())
 
-    const [logsResult, checkInsResult, messagesResult, nutritionResult, cardioResult, stepsResult, targetsResult] = await Promise.all([
+    const [logsResult, checkInsResult, nutritionResult, cardioResult, stepsResult, targetsResult] = await Promise.all([
       supabase.from('nutrition_log').select('user_id, logged_date').in('user_id', clientIds).order('logged_date', { ascending: false }),
       supabase.from('check_ins').select('*').in('client_id', clientIds).eq('week_of', weekOf),
-      supabase.from('messages').select('client_id, reaction, content, created_at').in('client_id', clientIds).eq('coach_id', profile.id).not('reaction', 'is', null).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       supabase.from('nutrition_log').select('user_id, logged_date, calories, protein').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
       supabase.from('cardio_log').select('user_id, logged_date, duration').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
       supabase.from('steps_log').select('user_id, logged_date, steps').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
@@ -94,7 +93,6 @@ function CoachDashboard({ profile }) {
 
     const recentLogs = logsResult.data || []
     const checkIns = checkInsResult.data || []
-    const messages = messagesResult.data || []
     const nutritionData = nutritionResult.data || []
     const cardioData = cardioResult.data || []
     const stepsData = stepsResult.data || []

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
@@ -61,6 +61,7 @@ function computeRollingAverage(data, window = 7) {
 function ClientView({ profile }) {
   const { clientId } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [clientProfile, setClientProfile] = useState(null)
   const [entries, setEntries] = useState([])
@@ -145,6 +146,27 @@ function ClientView({ profile }) {
     const hour = h % 12 || 12
     return `${hour}:${minutes} ${ampm}`
   }
+
+  // Deep-link from a notification (?focus=checkIn etc.): expand + scroll to it.
+  // 'chat' is handled by ChatBubble; other values name a section here.
+  useEffect(() => {
+    const focus = searchParams.get('focus')
+    if (!focus || focus === 'chat') return
+    let timer, tries = 0
+    const scrollWhenReady = () => {
+      const el = document.getElementById('section-' + focus)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      else if (tries++ < 20) timer = setTimeout(scrollWhenReady, 100)
+    }
+    const raf = requestAnimationFrame(() => {
+      setSectionsCollapsed(prev => ({ ...prev, [focus]: false }))
+      timer = setTimeout(scrollWhenReady, 80)
+    })
+    const sp = new URLSearchParams(searchParams)
+    sp.delete('focus')
+    setSearchParams(sp, { replace: true })
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
+  }, [searchParams, setSearchParams])
 
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
@@ -1543,7 +1565,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div key="checkIn" style={sectionCardStyle}>
+      <div key="checkIn" id="section-checkIn" style={sectionCardStyle}>
         <SectionHeader title="This week's check-in" collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
           {!clientCheckIn ? (
             <div style={{ paddingTop: '8px' }}>

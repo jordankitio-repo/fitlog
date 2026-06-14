@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import Button from './Button'
 
 // A per-thread chat widget pinned to the bottom-right corner. Presentational +
@@ -21,8 +22,20 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const endRef = useRef(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const unread = messages.filter(m => !m.read_at && m.sender_id !== currentUserId).length
+
+  // Open straight to the chat when a "Message" notification deep-links here.
+  useEffect(() => {
+    if (searchParams.get('focus') !== 'chat') return
+    const raf = requestAnimationFrame(() => setOpen(true))
+    if (onMarkRead) onMarkRead()
+    const sp = new URLSearchParams(searchParams)
+    sp.delete('focus')
+    setSearchParams(sp, { replace: true })
+    return () => cancelAnimationFrame(raf)
+  }, [searchParams, onMarkRead, setSearchParams])
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: 'end' })

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
@@ -110,6 +111,28 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     const hour = h % 12 || 12
     return `${hour}:${minutes} ${ampm}`
   }
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Deep-link from a notification (?focus=reports): expand + scroll to it.
+  // 'chat' is handled by ChatBubble.
+  useEffect(() => {
+    const focus = searchParams.get('focus')
+    if (!focus || focus === 'chat') return
+    let timer, tries = 0
+    const scrollWhenReady = () => {
+      const el = document.getElementById('section-' + focus)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      else if (tries++ < 20) timer = setTimeout(scrollWhenReady, 100)
+    }
+    const raf = requestAnimationFrame(() => {
+      setSectionsCollapsed(prev => ({ ...prev, [focus]: false }))
+      timer = setTimeout(scrollWhenReady, 80)
+    })
+    const sp = new URLSearchParams(searchParams)
+    sp.delete('focus')
+    setSearchParams(sp, { replace: true })
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
+  }, [searchParams, setSearchParams])
 
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
@@ -865,7 +888,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
       {/* Coach reports */}
       {reports.length > 0 && (
-        <div style={cardStyle}>
+        <div id="section-reports" style={cardStyle}>
           <SectionHeader
             title="Reports from your coach"
             collapsed={sectionsCollapsed.reports}

@@ -57,15 +57,15 @@ export default function NotificationCenter({ profile }) {
         supabase.from('check_ins').select('id, client_id, created_at').eq('coach_id', uid).order('created_at', { ascending: false }).limit(15),
         supabase.from('messages').select('id, client_id, content, created_at').eq('coach_id', uid).neq('sender_id', uid).order('created_at', { ascending: false }).limit(15),
       ])
-      ;(ci.data || []).forEach((c) => out.push({ id: 'ci' + c.id, kind: 'checkin', title: `${names[c.client_id] || 'A client'} checked in`, time: +new Date(c.created_at), href: `/client/${c.client_id}` }))
-      ;(msg.data || []).forEach((m) => out.push({ id: 'm' + m.id, kind: 'message', title: `${names[m.client_id] || 'A client'} messaged you`, sub: trim(m.content), time: +new Date(m.created_at), href: `/client/${m.client_id}` }))
+      ;(ci.data || []).forEach((c) => out.push({ id: 'ci' + c.id, kind: 'checkin', title: `${names[c.client_id] || 'A client'} checked in`, time: +new Date(c.created_at), href: `/client/${c.client_id}?focus=checkIn` }))
+      ;(msg.data || []).forEach((m) => out.push({ id: 'm' + m.id, kind: 'message', title: `${names[m.client_id] || 'A client'} messaged you`, sub: trim(m.content), time: +new Date(m.created_at), href: `/client/${m.client_id}?focus=chat` }))
     } else if (profile?.role === 'client') {
       const [rep, msg] = await Promise.all([
         supabase.from('reports').select('id, created_at').eq('client_id', uid).order('created_at', { ascending: false }).limit(15),
         supabase.from('messages').select('id, content, created_at').eq('client_id', uid).neq('sender_id', uid).order('created_at', { ascending: false }).limit(15),
       ])
-      ;(rep.data || []).forEach((r) => out.push({ id: 'r' + r.id, kind: 'report', title: 'New weekly report', sub: 'From your coach', time: +new Date(r.created_at), href: '/' }))
-      ;(msg.data || []).forEach((m) => out.push({ id: 'm' + m.id, kind: 'message', title: 'Message from your coach', sub: trim(m.content), time: +new Date(m.created_at), href: '/' }))
+      ;(rep.data || []).forEach((r) => out.push({ id: 'r' + r.id, kind: 'report', title: 'New weekly report', sub: 'From your coach', time: +new Date(r.created_at), href: '/?focus=reports' }))
+      ;(msg.data || []).forEach((m) => out.push({ id: 'm' + m.id, kind: 'message', title: 'Message from your coach', sub: trim(m.content), time: +new Date(m.created_at), href: '/?focus=chat' }))
     }
 
     out.sort((a, b) => b.time - a.time)
@@ -73,12 +73,12 @@ export default function NotificationCenter({ profile }) {
   }, [profile?.role])
 
   useEffect(() => {
-    if (profile?.role === 'coach' || profile?.role === 'client') {
-      load()
-      const onFocus = () => { if (document.visibilityState === 'visible') load() }
-      document.addEventListener('visibilitychange', onFocus)
-      return () => document.removeEventListener('visibilitychange', onFocus)
-    }
+    if (profile?.role !== 'coach' && profile?.role !== 'client') return
+    async function run() { await load() }
+    run()
+    const onFocus = () => { if (document.visibilityState === 'visible') run() }
+    document.addEventListener('visibilitychange', onFocus)
+    return () => document.removeEventListener('visibilitychange', onFocus)
   }, [profile?.role, load])
 
   if (profile?.role !== 'coach' && profile?.role !== 'client') return null
@@ -100,6 +100,10 @@ export default function NotificationCenter({ profile }) {
     setOpen(false)
     navigate(item.href)
   }
+
+  // Only show what hasn't been seen — once the panel is opened, those items are
+  // marked seen (snapshot below) and drop off on the next open.
+  const visible = items.filter((i) => i.time > seenSnapshot)
 
   return (
     <div style={{ position: 'relative', display: 'inline-flex' }}>
@@ -136,18 +140,18 @@ export default function NotificationCenter({ profile }) {
             <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--color-border)', fontWeight: 700, fontSize: '0.9rem' }}>
               Notifications
             </div>
-            {items.length === 0 ? (
+            {visible.length === 0 ? (
               <p style={{ padding: '20px 14px', fontSize: '0.85rem', color: 'var(--color-muted)', margin: 0, textAlign: 'center' }}>
                 You're all caught up.
               </p>
             ) : (
-              items.map((i) => (
+              visible.map((i) => (
                 <button
                   key={i.id}
                   onClick={() => go(i)}
                   style={{
                     width: '100%', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2,
-                    padding: '11px 14px', background: i.time > seenSnapshot ? 'var(--color-primary-dim)' : 'transparent',
+                    padding: '11px 14px', background: 'transparent',
                     border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', color: 'var(--color-text)',
                   }}
                 >
