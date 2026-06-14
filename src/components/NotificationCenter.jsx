@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
-import { computeClientStats, computeClientLock } from '../utils/clientStats'
+import { computeClientStats, computeClientAlerts } from '../utils/clientStats'
 import { attentionLevel } from '../utils/attentionLevel'
 
 // Notification bell + dropdown. Two kinds of entry, deliberately handled
@@ -107,13 +107,20 @@ export default function NotificationCenter({ profile }) {
       ;(rep.data || []).forEach((r) => ev.push({ id: 'r' + r.id, kind: 'report', title: 'New weekly report', sub: 'From your coach', time: +new Date(r.created_at), href: '/?focus=reports' }))
       ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: 'Message from your coach', sub: trim(m.content), time: +new Date(m.created_at), href: '/?focus=chat' }))
 
-      // Alert — the client's own lock state.
-      const lock = await computeClientLock(uid)
-      if (lock?.locked) {
-        al.push({ id: 'al:lock', level: 'red', title: 'Progress view paused', sub: `No nutrition logged for ${lock.days} ${lock.days === 1 ? 'day' : 'days'}`, href: '/' })
-      } else if (lock?.reason === 'coach-unlocked') {
+      // Alerts — the client's own action-items (lock, due check-in, coach nudge).
+      const act = await computeClientAlerts(uid)
+      if (act.lock?.locked) {
+        al.push({ id: 'al:lock', level: 'red', title: 'Progress view paused', sub: `No nutrition logged for ${act.lock.days} ${act.lock.days === 1 ? 'day' : 'days'}`, href: '/' })
+      } else if (act.lock?.reason === 'coach-unlocked') {
         al.push({ id: 'al:unlock', level: 'yellow', title: 'Logging window open', sub: '48 hours to log before your view locks again', href: '/' })
       }
+      if (act.checkInDue) {
+        al.push({ id: 'al:checkin', level: 'yellow', title: 'Weekly check-in due', sub: 'Let your coach know how your week went', href: '/?focus=checkin' })
+      }
+      if (act.nudged) {
+        al.push({ id: 'al:nudge', level: 'yellow', title: 'Your coach nudged you', sub: 'Log your nutrition today to stay on track', href: '/log' })
+      }
+      al.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level])
     }
 
     ev.sort((a, b) => b.time - a.time)

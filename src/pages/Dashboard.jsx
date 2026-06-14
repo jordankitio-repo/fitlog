@@ -1000,7 +1000,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
       {/* Weekly check-in */}
       {profile?.role === 'client' && (
-        <div style={cardStyle}>
+        <div id="section-checkin" style={cardStyle}>
           <SectionHeader
             title="Weekly check-in"
             collapsed={sectionsCollapsed.checkin}

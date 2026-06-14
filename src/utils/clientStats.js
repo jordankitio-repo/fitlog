@@ -104,28 +104,41 @@ export async function computeClientStats(clientIds, relationships = []) {
   return stats
 }
 
-// A single client's own lock state (for the client-facing bell alert). Returns
-// null when the client has no active coach (lock never applies).
-export async function computeClientLock(userId) {
+// A client's own action-items, for the client-facing bell alerts. Mirrors the
+// signals the dashboard already shows (lock banner, "To do" check-in badge,
+// coach-nudge banner) so the bell and the page agree. Returns hasCoach:false
+// when there's no active coach (none of these apply to solo users).
+const NUDGE_WINDOW_MS = 48 * 60 * 60 * 1000
+
+export async function computeClientAlerts(userId) {
   const { data: connection } = await supabase
     .from('coach_clients')
-    .select('created_at, lock_cleared_at')
+    .select('created_at, lock_cleared_at, last_nudged_at')
     .eq('client_id', userId)
     .eq('status', 'active')
     .maybeSingle()
-  if (!connection) return null
+  if (!connection) return { hasCoach: false, lock: null, checkInDue: false, nudged: false }
 
-  const { data: lastLog } = await supabase
-    .from('nutrition_log')
-    .select('logged_date')
-    .eq('user_id', userId)
-    .order('logged_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const today = toLocalDateString(new Date())
+  const [lastLogRes, checkInRes] = await Promise.all([
+    supabase.from('nutrition_log').select('logged_date').eq('user_id', userId).order('logged_date', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('check_ins').select('id').eq('client_id', userId).eq('week_of', getCurrentWeekSunday()).maybeSingle(),
+  ])
 
-  return resolveLockState({
-    lastNutritionDate: lastLog?.logged_date || null,
+  const lastLogDate = lastLogRes.data?.logged_date || null
+  const loggedToday = lastLogDate === today
+
+  const lock = resolveLockState({
+    lastNutritionDate: lastLogDate,
     connectionCreatedAt: connection.created_at.split('T')[0],
     lockClearedAt: connection.lock_cleared_at || null,
   })
+
+  // Only prompt for the check-in later in the week (Thu+, getDay() >= 4) — the
+  // same restraint as the coach's Nudge button, so we don't nag on a Sunday.
+  const checkInDue = !checkInRes.data && new Date().getDay() >= 4
+  const nudgedRecently = connection.last_nudged_at &&
+    (Date.now() - new Date(connection.last_nudged_at).getTime() < NUDGE_WINDOW_MS)
+
+  return { hasCoach: true, lock, checkInDue, nudged: Boolean(nudgedRecently && !loggedToday) }
 }
