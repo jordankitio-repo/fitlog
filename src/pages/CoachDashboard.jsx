@@ -409,9 +409,8 @@ function CoachDashboard({ profile }) {
                     {label}
                   </button>
                 ))}
-                <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
-                  How to read these
-                  <InfoTip text="Status pill = the most pressing reason a client needs you (no check-in, days without a log, a concerning reaction); green means on track. Compliance pills = days on target out of 7 per metric — dimmer means fewer." />
+                <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
+                  <InfoTip text="Status pill = the most pressing reason a client needs you (no check-in, or days without a log); green means on track. Compliance pills = days on target out of 7 per metric — dimmer means fewer." />
                 </span>
               </div>
             )}
