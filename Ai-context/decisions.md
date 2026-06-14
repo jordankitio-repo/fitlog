@@ -55,6 +55,22 @@
 **Reason:** Removing the app-install step lowers friction for coaches onboarding clients — a key differentiator.
 **Consequences:** Everything must work in-browser and be mobile responsive. A branded mobile app is far-future only.
 
+### Solo is now free — the Solo Premium paywall is retired (Jun 13 2026)
+**Reason:** With zero coaches onboarded yet, gating solo self-analytics behind a $7.99 upsell was friction with no payoff — solo users are the top of the funnel and potential word-of-mouth, not a revenue line. The business model is coach subscriptions; solo stays free to grow usage and prove the product.
+**Consequences:** `SOLO_BILLING_ENABLED = false` in `App.jsx` disables the solo paywall app-wide (the SoloUpgrade CTA / Premium gates no longer block solo features). The Stripe solo price/plumbing is left intact but dormant, so it can be re-enabled by flipping the flag if the strategy changes. **Coach billing is unchanged.** Legal docs still referencing Solo Premium $7.99 terms are now stale (see `current-state.md`).
+
+---
+
+## Design & UX
+
+### Dark is the default; light mode is opt-in/auto (Jun 14 2026)
+**Reason:** The brand and all prior design work is dark-first, but a light mode is table stakes for daytime/outdoor use and accessibility. Rather than fork styles, the entire neutral surface/text ramp was tokenized so a theme is just a different set of CSS-variable values.
+**Consequences:** Preference (`gardnr-theme`: `auto`|`light`|`dark`, default `auto` → follows the OS via `matchMedia`) lives in `utils/theme.js`; resolved value is written to `<html data-theme>`, and `:root[data-theme="light"]` in `index.css` flips the ramp. An **inline script in `index.html` applies it before first paint** (must stay in sync with theme.js) to avoid a flash. **chart.js renders to canvas and cannot read CSS variables**, so all chart chrome (ticks/grid/tooltip/target line) uses theme-agnostic literals in `utils/chartTheme.js` (`CHART`) that read on both backgrounds — never put `var(--…)` in chart options. Interactive control outlines use a dedicated translucent `--color-control-border` (the decorative `--color-border` is too faint to read as a button edge on white). The **landing page (`.lp`) is deliberately always-dark** (hardcoded, full-bleed) and excluded from tokenization.
+
+### Notifications: events drop off, alerts persist until resolved (Jun 13–14 2026)
+**Reason:** The bell carries two fundamentally different things. A message/check-in/report is a one-off **event** — seeing it is the end of it. "A client has gone quiet for 3 days" is an ongoing **condition** — it must not vanish just because you glanced at the bell; it should stay until it actually clears. Collapsing both into one "mark all read" model (the naive approach) either loses unresolved problems or, if you keep everything counted, produces a permanently-lit badge users learn to ignore. This mirrors how PagerDuty/Linear separate state from events.
+**Consequences:** Events use a last-seen timestamp and drop off once seen; alerts are recomputed live and shown in a separate "Needs attention" group that persists. The red badge counts *new* alerts + unseen events and clears on open (acknowledge), but the alert stays listed; a resolved-then-reappearing alert pings again. Everything is **derived from existing tables — no notifications schema**. Alerts reuse the exact facts the dashboards compute (`utils/clientStats.js`, shared with CoachDashboard) so the bell can't disagree with the page. Coach alerts = `attentionLevel` triage; client alerts = their own action-items (lock / check-in due, gated Thu+ like the coach's Nudge / coach-nudge until they log). The bell only refreshes on mount/tab-refocus, so same-page actions (logging, check-in) fire a `gardnr-notif-refresh` event (`utils/notifyRefresh.js`) to clear the alert they resolve.
+
 ---
 
 ## Pricing & Billing

@@ -45,8 +45,10 @@ Role is set on first login via RolePicker. New users (including OAuth) see RoleP
 - **react-router-dom** for routing
 - **Chart.js** via react-chartjs-2 (Line, Bar, mixed Chart); `Filler` plugin registered in Dashboard.jsx and ClientView.jsx
 - Styling: **inline styles + CSS variables in `index.css`** (no Tailwind)
+- **Theming:** dark default + light mode via tokenized CSS-variable ramp. `utils/theme.js` owns the `gardnr-theme` preference (`auto`|`light`|`dark`); resolved value on `<html data-theme>`; `:root[data-theme="light"]` flips the ramp; pre-paint inline script in `index.html`. Chart chrome uses theme-agnostic literals (`utils/chartTheme.js`) because canvas can't read CSS vars. (Full rationale in `decisions.md` → Design & UX.)
 - **Inter** font from Google Fonts; type scale via CSS vars (`--text-xl` … `--text-xs`)
-- Deployed on **Vercel** (auto-deploy on push to `main`)
+- **PWA:** `vite-plugin-pwa` (`registerType:'prompt'`, `injectRegister:false`) + service worker; `PWAUpdatePrompt` surfaces updates; build stamp (`__BUILD_TIME__` via Vite `define`) shown in Profile for cache diagnosis.
+- Deployed on **Vercel** (project `gardnr`; `npx vercel --prod --project gardnr --yes` — direct deploy reliable, push hook intermittently no-ops)
 
 ### Backend
 - **Supabase** (Postgres + Auth + Edge Functions + Storage)
@@ -91,9 +93,15 @@ src/
     BarcodeScanner.jsx, SectionHeader.jsx, FeedbackButton.jsx,
     CoachPaywall.jsx — gate for coaches without active subscription. Checks trial_ledger on mount via check-trial-eligibility; shows billing warning + confirm modal if trial used. Always exposes both "Sign out" and "Delete account" — users who abandon at the paywall can self-serve exit without contacting support.
     ComplianceHeatmap.jsx, SoloUpgrade.jsx, SubscriptionManager.jsx
+    NotificationCenter.jsx — bell + dropdown (events + persistent alerts); ThemeToggle.jsx — Auto/Light/Dark segmented control (Profile → Appearance)
+    ChatBubble.jsx / ClientChat.jsx — bottom-right messaging; PWAUpdatePrompt.jsx — service-worker update toast
+    InfoTip.jsx — portaled, viewport-clamped "i" tooltip; ChartColorToggle.jsx — per-chart plain-colors switch
   utils/
     passwordValidation.js, styles.js (cardStyle), lockState.js (resolveLockState),
     dateHelpers.js, inviteValidation.js (getInviteBlockReason)
+    theme.js (day/night), chartTheme.js (CHART literals for canvas), notifyRefresh.js (bell refresh event)
+    clientStats.js (computeClientStats/computeClientAlerts — shared by bell + CoachDashboard)
+    attentionLevel.js (coach triage), nudgeReason.js (nudge reason), metricBarChart.js, usePlainCharts.js
   supabase.js         — Supabase client init
   index.css           — CSS variables, global styles, dark scrollbar.
                         NOTE: `html, body, #root` use `overflow-x: clip` (NOT `hidden`) —
@@ -287,6 +295,13 @@ All email via Resend (`noreply@gardnr.fit`). Email sends are wrapped in non-thro
 | `delete-account` (inline) | Client with active coach deletes account | Coach (notification) |
 
 In-app: nudge banner (client Dashboard, dismissible per nudge timestamp); milestone celebration banner.
+
+### Notification center (`NotificationCenter.jsx`, in NavBar)
+A bell + dropdown, all **derived from existing tables — no notifications schema**. Carries two kinds of entry (model rationale in `decisions.md` → Design & UX):
+- **Recent (events)** — one-off: new check-in / client message (coach), new report / coach message (client). Tracked by last-seen timestamp (`gardnr-notif-seen`), drop off once seen. Click deep-links via `?focus=` (`reports`/`chat`/`checkIn`/`checkin`) consumed by Dashboard/ClientView section-scroll effects + `ChatBubble`.
+- **Needs attention (alerts)** — ongoing conditions that persist until they clear. Coach: per off-track client via `attentionLevel` (`utils/clientStats.js` → `computeClientStats`). Client: own action-items via `computeClientAlerts` (lock / coach-unlock / check-in due, Thu+ / coach-nudge until logged today). Badge counts *new* alerts + unseen events, clears on open; seen alert ids in `gardnr-notif-seen-alerts`.
+- **Freshness:** recomputes on mount, tab-refocus, and a `gardnr-notif-refresh` window event (`utils/notifyRefresh.js`) fired by nutrition saves/edits/deletes + check-in submit, so a same-page action clears the alert it resolves.
+- **`utils/clientStats.js`** is the single source of truth for per-client facts (days-since-log, this-week check-in, 7-day compliance, lock state), shared by the bell and `CoachDashboard` so they can't drift.
 
 ---
 

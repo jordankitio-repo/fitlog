@@ -10,19 +10,35 @@
 ---
 
 ## Current Commit
-`0ad5911 polish(landing): metric-palette step viz + bounded play-on-scroll`
+`71c45d3 fix(notifications): refresh the bell after logging / check-in`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
-- **Build:** Passing (`npm run build`), 100/100 tests passing
-- **Lint:** 6 errors / 8 warnings — all 6 errors are the `react-hooks/set-state-in-effect` rule in load-bearing billing/log effects (App.jsx, Log.jsx); deferred as a manually-tested refactor. All genuinely-safe errors fixed Jun 8.
-- **Deploy:** Auto on push to `main` via Vercel
-- **Billing:** Live mode active (`BILLING_ENABLED = true`)
-- **Supabase:** Upgraded to Pro (no longer free tier — auto-pause risk eliminated)
+- **Build:** Passing (`npm run build`), 99/99 tests passing (was 100 — removed the one message-reaction test when reactions were reverted)
+- **Lint:** 6 errors / 7 warnings — all 6 errors are the `react-hooks/set-state-in-effect` rule in load-bearing billing/log effects (App.jsx, Log.jsx); deferred as a manually-tested refactor. All genuinely-safe errors fixed Jun 8.
+- **Deploy:** `npx vercel --prod --project gardnr --yes` (direct deploy is reliable; the git-push hook intermittently no-ops). Vercel project is `gardnr`.
+- **Billing:** Live mode active (`BILLING_ENABLED = true`). **Solo billing is now DISABLED** — `SOLO_BILLING_ENABLED = false` in App.jsx; solo is free (see `decisions.md`). Coach billing unchanged.
+- **Supabase:** Upgraded to Pro (no longer free tier — auto-pause risk eliminated). Ref `mlqaurxefttbqsrllbyj`.
 
 ---
 
 ## Recently Shipped (most recent first)
+
+**Notification center — events + persistent alerts (Jun 13–14)** — A bell + dropdown in the NavBar (`NotificationCenter.jsx`), all derived from existing tables (no new schema). Two deliberately-distinct kinds of entry (model rationale in `decisions.md`):
+- **Recent (events)** — one-off things that happened: a message, a check-in, a new weekly report. Tracked by a last-seen timestamp (`gardnr-notif-seen`); they drop off once seen. Clicking deep-links to the root cause via `?focus=` (consumed by `Dashboard`/`ClientView` section-scroll effects and `ChatBubble`).
+- **Needs attention (alerts)** — ongoing conditions that persist until they clear (PagerDuty/Linear model). **Coach:** one entry per off-track client straight from `attentionLevel` (never logged / 4+ days no log / locked / 2-3 days no log / no check-in / weak compliance), color-dotted by severity. **Client:** their own action-items — locked / coach-unlocked window / **weekly check-in due** (gated Thu+ like the coach's Nudge) / **coach nudged you** (until they log today). Acknowledged (not dismissed) on open: the red badge counts *new* alerts + unseen events and clears on open; a resolved-then-reappearing alert pings again (`gardnr-notif-seen-alerts`).
+- **Shared stat computation extracted** to `utils/clientStats.js` (`computeClientStats` + `computeClientAlerts`) so the bell and CoachDashboard derive identical facts and can't drift — `fetchAllClientStats` is now a 3-line wrapper.
+- **Live refresh** (`utils/notifyRefresh.js`): the bell otherwise only recomputes on mount/tab-refocus, so nutrition saves/edits/deletes and check-in submit fire a `gardnr-notif-refresh` event that clears the alert they resolve without a navigation. Commits up to `71c45d3`.
+
+**Day/night mode (Jun 14)** — Auto/Light/Dark preference (`utils/theme.js`, `gardnr-theme` localStorage; Auto follows the OS via `matchMedia` and reacts live). Toggle in **Profile → Appearance** (`ThemeToggle.jsx`). An inline script in `index.html` applies the resolved theme before first paint (no flash). The whole neutral surface/text ramp was tokenized so light mode is just a `:root[data-theme="light"]` block in `index.css`; metric accents carry over (carbs darkened). **chart.js canvas can't read CSS vars** → chart chrome (ticks/grid/tooltip/target-line) uses theme-agnostic literals in `utils/chartTheme.js` (`CHART`). Light-mode fixes: `--color-control-border` (translucent, reads on both themes) for secondary/ghost button outlines that were invisible on white; date inputs dropped hardcoded `colorScheme:'dark'` so the native calendar icon follows the theme; `--shadow-card` token. The landing page (`.lp`) stays intentionally always-dark.
+
+**Solo made free + logging/UX polish (Jun 13)** — Retired Solo Premium as a paywall: `SOLO_BILLING_ENABLED = false` (solo is free; see `decisions.md`). Plus a batch of fixes/polish:
+- **Barcode scanner rewritten** on `@zxing/browser` (`BarcodeScanner.jsx`) — the old `html5-qrcode` left the camera stream running (black screen / no detection); the new one owns the stream and stops tracks directly.
+- **PWA update hardening** — `vite-plugin-pwa` (`registerType:'prompt'`) + `PWAUpdatePrompt`, aggressive update checks (load/focus/online/30min), and a **build stamp in Profile** (`__BUILD_TIME__` via Vite `define`) to diagnose stale-cache reports.
+- **Compliance-colored cardio/steps charts** (`utils/metricBarChart.js`) — bars colored by target with a capped width, plus a **per-chart plain-colors toggle** (`ChartColorToggle` small grey switch + `usePlainCharts` localStorage). **Compliance heatmap** (`ComplianceHeatmap.jsx`) made fluid/fill-width on mobile. Stat cards + coach "Groundwork" tiles redesigned (dot instead of left stripe).
+- **InfoTips** (`InfoTip.jsx`, portaled, viewport-clamped) added to metrics, then **deliberately reduced** (one legend on the coach list + only on computed instruments — they were overwhelming).
+- **Mobile zoom removed** — `maximum-scale=1.0, user-scalable=no` + 16px input font so iOS never zooms on credential fields.
+- **Message reactions added then fully reverted** — OS-emoji reactions shipped, user disliked them, removed entirely (incl. the test, 100→99).
 
 **Landing page made "live" + intelligence positioning (Jun 11–12)** — Reworked the marketing page (`Landing.jsx` / `landing.css`) to deliver on the "coaching intelligence" promise and feel alive.
 - **Copy:** eyebrow → "Nutrition coaching intelligence"; trial note trimmed to "Cancel anytime."; contrast "call prep" → "meeting prep" (matches the Groundwork rename).
@@ -198,7 +214,7 @@ Parts 2–4 coach offboarding — tested end-to-end after full function redeploy
 | Issue | Status |
 |---|---|
 | Chart.js Filler plugin warning | Cosmetic, deferred (Filler now registered — verify gone) |
-| `npm run lint` 6 errors / 8 warnings | All 6 are `react-hooks/set-state-in-effect` in App.jsx + Log.jsx billing/log effects; deferred as a manually-tested refactor (functional, not a bug) |
+| `npm run lint` 6 errors / 7 warnings | All 6 are `react-hooks/set-state-in-effect` in App.jsx + Log.jsx billing/log effects; deferred as a manually-tested refactor (functional, not a bug) |
 | Large Vite JS chunk warning | Deferred |
 
 **Resolved:** ~~`subscriptions.status` writes `active` instead of `trialing`~~ — fixed (webhook fetches real Stripe sub object); verified `trialing` live June 6.
@@ -210,7 +226,7 @@ Parts 2–4 coach offboarding — tested end-to-end after full function redeploy
 
 1. **Beta coach outreach** — 3–5 founding coaches at $19/mo locked.
 2. **Google OAuth production verification** — currently testing mode only.
-3. **Legal doc updates** — self-serve cancellation, Solo Premium $7.99 terms, pause/resume behavior, trial-aging disclosure, client-reconnection clause, coach-cancel-timing clause.
+3. **Legal doc updates** — self-serve cancellation, pause/resume behavior, trial-aging disclosure, client-reconnection clause, coach-cancel-timing clause. (Solo Premium $7.99 terms now moot — solo is free; remove any Solo-paywall language.)
 4. **Redirect URL cleanup** — once confident no old tryfitlog.com email links are still in circulation, remove tryfitlog.com entries from Supabase Auth allowlist.
 
 ---
@@ -236,6 +252,8 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 14** — Day/night mode + notification-center alerts. Theme system (`utils/theme.js`, Auto/Light/Dark, OS-following, pre-paint inline script, `[data-theme="light"]` token block, `chartTheme.js` literals because chart.js canvas can't read CSS vars). Light-mode bug fixes (translucent `--color-control-border` for vanishing button outlines; date inputs follow theme `color-scheme` so the calendar icon shows; `--shadow-card`). Routed alerts into the bell: coach gets per-client `attentionLevel` triage, client gets lock/check-in-due(Thu+)/coach-nudge — persist-until-resolved with a *new*-only badge. Extracted `utils/clientStats.js` (shared by bell + CoachDashboard). Bell live-refresh via `utils/notifyRefresh.js` (fires on nutrition save/check-in). Commits `71b092f`→`71c45d3`.
+- **Jun 13** — Made solo free (`SOLO_BILLING_ENABLED = false`). Barcode scanner rewritten on `@zxing/browser` (old one didn't release the camera). PWA update hardening + Profile build stamp. Compliance-colored cardio/steps bars + per-chart plain toggle; heatmap fill-width on mobile; stat-card/Groundwork redesign. InfoTips added then reduced. Mobile credential-zoom removed. Message reactions added then fully reverted (100→99 tests). First notification-center pass (deep-link to root cause, seen-items drop off).
 - **Jun 10** — Food name search (USDA FDC) shipped: new `food-search` edge fn (FDC POST proxy, generic foods, auth-gated, key server-side) + search-as-you-type in the Log Add-Food form reusing the barcode prefill path. OFF stays for barcode, FDC for search (no merge). Verified end-to-end. Gotchas recorded above: `.env` key had a stray char (real key = first 40 alnum); FDC GET 400s on `%2C`-encoded commas → use POST + dataType array; energy under 208 or 957/958 (Foundation) → priority resolve, KCAL-only, clamp ≥0; `secrets set` needs an `sbp_` PAT (browser-OAuth login won't do it) → set the secret in the dashboard. `c4be33f`.
 
 - **Jun 9 (session 3, cont.)** — "Quick add" frequent-foods row on the Log Nutrition section: top 8 most-logged foods as one-tap chips (macros from most recent entry, reuses existing insert), derived from `nutrition_log` with no new schema. All roles, wall-safe. Inspired by Cronometer; skipped Apple rings per user. `fc64a3e`. Next up: coach-facing reasoning/feature.
