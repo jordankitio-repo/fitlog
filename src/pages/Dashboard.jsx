@@ -14,6 +14,7 @@ import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
+import { refreshNotifications } from '../utils/notifyRefresh'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
@@ -495,7 +496,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     }, { onConflict: 'client_id,week_of' })
     if (error) console.error(error)
     else {
-      setCheckInSaved(true); setShowCheckIn(false); fetchCheckIn(); setTimeout(() => setCheckInSaved(false), 3000)
+      setCheckInSaved(true); setShowCheckIn(false); fetchCheckIn(); refreshNotifications(); setTimeout(() => setCheckInSaved(false), 3000)
       // Notify coach by email
       if (coachEmail) {
         fetch('https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/notify-checkin', {

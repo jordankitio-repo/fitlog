@@ -5,6 +5,7 @@ import Button from '../components/Button'
 import SoloUpgrade from '../components/SoloUpgrade'
 import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
+import { refreshNotifications } from '../utils/notifyRefresh'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -191,7 +192,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       user_id: currentSession.user.id,
     }])
     if (error) console.error('Error quick-adding food:', error)
-    else { fetchEntries(); fetchFrequentFoods() }
+    else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
     setQuickAddKey(null)
   }
 
@@ -278,6 +279,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) console.error('Error copying entries:', error)
     else {
       fetchEntries()
+      refreshNotifications()
       setShowCopyPanel(false)
       setSelectedCopyIds(new Set())
       setCopyEntries([])
@@ -305,7 +307,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit
       }).eq('id', editingEntry.id)
       if (error) console.error('Error updating:', error)
-      else { setEditingEntry(null); clearNutritionForm(); setNutritionExpanded(false); fetchEntries() }
+      else { setEditingEntry(null); clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
     } else {
       const { error } = await supabase.from('nutrition_log').insert([{
         food, calories: parseInt(calories), protein: parseInt(protein) || 0,
@@ -314,7 +316,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         logged_date: selectedDate, user_id: currentSession.user.id
       }])
       if (error) console.error('Error saving:', error)
-      else { clearNutritionForm(); setNutritionExpanded(false); fetchEntries() }
+      else { clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
     }
   }
 
@@ -345,7 +347,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   async function deleteEntry(id) {
     const { error } = await supabase.from('nutrition_log').delete().eq('id', id)
     if (error) console.error('Error deleting:', error)
-    else { setFeedback(''); fetchEntries() }
+    else { setFeedback(''); fetchEntries(); refreshNotifications() }
   }
 
   async function getAIFeedback() {

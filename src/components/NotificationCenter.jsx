@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { computeClientStats, computeClientAlerts } from '../utils/clientStats'
 import { attentionLevel } from '../utils/attentionLevel'
+import { NOTIF_REFRESH } from '../utils/notifyRefresh'
 
 // Notification bell + dropdown. Two kinds of entry, deliberately handled
 // differently (see the day/night-mode-era decision to mirror PagerDuty/Linear):
@@ -134,7 +135,11 @@ export default function NotificationCenter({ profile }) {
     run()
     const onFocus = () => { if (document.visibilityState === 'visible') run() }
     document.addEventListener('visibilitychange', onFocus)
-    return () => document.removeEventListener('visibilitychange', onFocus)
+    window.addEventListener(NOTIF_REFRESH, run)
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener(NOTIF_REFRESH, run)
+    }
   }, [profile?.role, load])
 
   if (profile?.role !== 'coach' && profile?.role !== 'client') return null
