@@ -1195,7 +1195,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
               {/* 90-day heatmap (left) + summary totals (fills the space at right) */}
               <div style={{ marginTop: '16px', display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'stretch' }}>
-                <div style={{ flex: '0 0 auto' }}>
+                <div style={{ flex: '1 1 300px', minWidth: 0, maxWidth: 440 }}>
                   <ComplianceHeatmap logsByDate={heatmapData} calorieTarget={targets?.calories} />
                 </div>
                 <div style={{ flex: '1 1 240px', minWidth: 0 }}>

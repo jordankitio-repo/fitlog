@@ -1350,7 +1350,7 @@ async function sendMessage(text) {
               Calorie Compliance - Last 90 Days
             </p>
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <div style={{ flex: '0 0 auto' }}>
+              <div style={{ flex: '1 1 300px', minWidth: 0, maxWidth: 440 }}>
                 <ComplianceHeatmap
                   logsByDate={heatmapData}
                   calorieTarget={clientTargets.calories}
