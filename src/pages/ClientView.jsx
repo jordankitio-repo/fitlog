@@ -1644,7 +1644,7 @@ async function sendMessage(text) {
 
       {(weightHistory.length > 0 || calorieHistory.length > 0) && (
         <div key="correlatedChart" style={sectionCardStyle}>
-          <SectionHeader title="Progress overview" info="Weight (line) over daily calorie and cardio compliance (bars, as % of target), so you can see how adherence tracks with the scale. The dashed line marks 100% of target." collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
+          <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
             {!sectionsCollapsed.correlatedChart && (
               <div style={{ paddingTop: '8px' }}>
                 <Chart type="bar" data={getCorrelatedChartData()} options={correlatedChartOptions} />
@@ -1663,7 +1663,7 @@ async function sendMessage(text) {
 
       {weightHistory.length > 1 && (
         <div key="weightChart" style={sectionCardStyle}>
-          <SectionHeader title="Weight trend" info="Logged body weight over time. The dashed line is a 7-day rolling average that smooths out day-to-day fluctuation." collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
+          <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
               <Line
                 data={{
@@ -1699,7 +1699,7 @@ async function sendMessage(text) {
 
       {calorieHistory.length > 0 && (
         <div key="calorieChart" style={sectionCardStyle}>
-          <SectionHeader title="Calories — last 30 days" info="Calories logged each day over the last 30 days." action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
+          <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
               <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={chartOptions} />
             )}
@@ -1709,7 +1709,7 @@ async function sendMessage(text) {
 
       {cardioHistory.length > 0 && (
         <div key="cardioChart" style={sectionCardStyle}>
-          <SectionHeader title="Cardio — last 30 days" info="Cardio minutes each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
               <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={chartOptions} />
             )}
@@ -1719,7 +1719,7 @@ async function sendMessage(text) {
 
       {stepsHistory.length > 0 && (
         <div key="stepsChart" style={sectionCardStyle}>
-          <SectionHeader title="Steps — last 30 days" info="Steps each day over the last 30 days. Green bars hit the target, amber/red fall short; the dashed line is the target." action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
             )}
