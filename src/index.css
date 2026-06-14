@@ -7,13 +7,25 @@
 }
 
 :root {
-  --color-bg: #0a0a0a;
-  --color-surface: #141414;
-  --color-border: #242424;
+  color-scheme: dark;
+  /* Neutral surface/text ramp (themeable). Hardcoded greys across the app were
+     tokenized onto these so light mode flips cleanly. */
+  --color-bg: #0a0a0a;            /* page background, deepest */
+  --color-surface: #141414;       /* cards */
+  --color-surface-2: #1a1a1a;     /* raised / nested / tooltips */
+  --color-border: #242424;        /* default borders + subtle nested bgs */
+  --color-border-strong: #2a2a2a; /* stronger borders, chart gridlines */
   --color-primary: #22c55e;
   --color-primary-dim: rgba(34, 197, 94, 0.12);
-  --color-text: #f0f0f0;
-  --color-muted: #888;
+  --color-text: #f0f0f0;          /* primary text */
+  --color-text-dim: #cfcfcf;      /* secondary text */
+  --color-muted: #888;            /* muted text */
+  --color-faint: #555;            /* faintest text / disabled */
+  /* Outline for interactive controls (secondary/ghost buttons). Translucent so
+     it reads on whatever surface it sits on — and visible on both themes, unlike
+     the decorative --color-border which is deliberately faint. */
+  --color-control-border: rgba(255, 255, 255, 0.16);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
 
   /* Metric data colors — one per tracked dimension */
   --color-calories: #22c55e;
@@ -39,6 +51,28 @@
   --text-md: 0.9375rem;
   --text-sm: 0.8125rem;
   --text-xs: 0.6875rem;
+}
+
+/* Light theme — JS sets data-theme="light" on <html> (resolving the auto/system
+   preference). Only the neutral ramp + primary flip; metric accents carry over,
+   with carbs darkened so the pale tan stays legible on white. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f4f5f4;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef0ee;
+  --color-border: #e4e6e4;
+  --color-border-strong: #d2d5d2;
+  --color-primary: #16a34a;
+  --color-primary-dim: rgba(22, 163, 74, 0.13);
+  --color-text: #16181c;
+  --color-text-dim: #3b3f45;
+  --color-muted: #5f6469;
+  --color-faint: #8a9097;
+  --color-carbs: #b3933f;
+  --color-control-border: rgba(0, 0, 0, 0.18);
+  /* Softer, cooler shadow so white cards lift gently instead of looking smudged. */
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
 body {

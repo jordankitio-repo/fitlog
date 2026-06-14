@@ -189,7 +189,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
             position: 'fixed',
             left: tooltip.x + 12,
             top: tooltip.y - 28,
-            background: '#1a1a1a',
+            background: 'var(--color-surface-2)',
             border: '1px solid var(--color-border)',
             borderRadius: 6,
             padding: '4px 10px',

@@ -4,6 +4,7 @@ import Button from '../components/Button'
 import PasswordInput from '../components/PasswordInput'
 import SoloUpgrade from '../components/SoloUpgrade'
 import SubscriptionManager from '../components/SubscriptionManager'
+import ThemeToggle from '../components/ThemeToggle'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 import { SOLO_BILLING_ENABLED } from '../App'
@@ -261,6 +262,20 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </p>
           </div>
         )}
+      </div>
+
+      <div style={{
+        ...cardStyle,
+        padding: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        <h2>Appearance</h2>
+        <p style={{ fontSize: '0.875rem', marginTop: '-6px', color: 'var(--color-muted)' }}>
+          Auto follows your device's day/night setting.
+        </p>
+        <ThemeToggle />
       </div>
 
       {profile?.role !== 'coach' && (

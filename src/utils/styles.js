@@ -3,5 +3,5 @@ export const cardStyle = {
   border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius)',
   padding: 'var(--space-md)',
-  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.4)',
+  boxShadow: 'var(--shadow-card)',
 }

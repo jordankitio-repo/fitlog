@@ -42,11 +42,11 @@ function ResetPassword() {
   }
 
   const inputStyle = {
-    backgroundColor: '#1a1a1a',
-    border: '1px solid #2a2a2a',
+    backgroundColor: 'var(--color-surface-2)',
+    border: '1px solid var(--color-border-strong)',
     borderRadius: '8px',
     padding: '10px 14px',
-    color: '#f0f0f0',
+    color: 'var(--color-text)',
     fontSize: '1rem',
     width: '100%'
   }

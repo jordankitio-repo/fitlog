@@ -13,6 +13,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
+import { CHART } from '../utils/chartTheme'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
@@ -646,26 +647,26 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       legend: {
         display: true,
         labels: {
-          color: '#888',
+          color: CHART.tick,
           boxWidth: 12,
           padding: 12,
           font: { size: 11 },
         }
       },
       tooltip: {
-        backgroundColor: '#1a1a1a',
-        borderColor: '#2a2a2a',
+        backgroundColor: CHART.tooltipBg,
+        borderColor: CHART.tooltipBorder,
         borderWidth: 1,
-        titleColor: '#f0f0f0',
-        bodyColor: '#888',
+        titleColor: CHART.tooltipTitle,
+        bodyColor: CHART.tooltipBody,
         padding: 10,
         cornerRadius: 6,
         displayColors: false,
       }
     },
     scales: {
-      x: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } },
-      y: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } }
+      x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
+      y: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } }
     }
   }
   const cardStyle = {
@@ -731,7 +732,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	      <>
 	      {milestone && (
 	        <div style={{
-	          background: 'linear-gradient(135deg, #1a1a1a 0%, #1f2a1f 100%)',
+	          background: 'linear-gradient(135deg, var(--color-surface-2) 0%, #1f2a1f 100%)',
 	          border: '1px solid #34d399',
 	          borderRadius: 'var(--radius)',
 	          padding: '16px 20px',
@@ -854,7 +855,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
-          <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} />
+          <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
           <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
           {isToday && <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
           {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}

@@ -29,7 +29,7 @@ export default function Logo({ size = 30, wordmark = false, className }) {
           fontWeight: 800,
           fontSize: size * 0.5,
           letterSpacing: '-0.03em',
-          color: 'var(--color-text, #f0f0f0)',
+          color: 'var(--color-text)',
         }}
       >
         gardnr

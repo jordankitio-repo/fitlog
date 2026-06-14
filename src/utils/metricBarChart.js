@@ -3,6 +3,7 @@
 // target, amber partial, red well under — with a dashed target line. Unlike
 // calories there's no "over" penalty (exceeding the target is just green).
 // When no target is set, bars fall back to the metric's own color.
+import { CHART } from './chartTheme'
 
 const GREEN = (a) => `rgba(52, 211, 153, ${a})`
 const AMBER = (a) => `rgba(251, 191, 36, ${a})`
@@ -37,7 +38,7 @@ export function metricBarData({ history, valueKey, dateKey = 'date', label, targ
       type: 'line',
       label: 'Target',
       data: history.map(() => target),
-      borderColor: 'rgba(255, 255, 255, 0.3)',
+      borderColor: CHART.targetLine,
       borderDash: [4, 4],
       borderWidth: 1,
       pointRadius: 0,

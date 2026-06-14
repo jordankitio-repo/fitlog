@@ -78,10 +78,10 @@ function Button({
     muted: {
       backgroundColor: 'transparent',
       color: 'var(--color-muted)',
-      border: '1px solid var(--color-border)',
+      border: '1px solid var(--color-control-border)',
     },
     ai: {
-      backgroundColor: '#1a1a1a',
+      backgroundColor: 'var(--color-surface-2)',
       color: 'var(--color-ai)',
       border: '1px solid var(--color-ai)',
     },

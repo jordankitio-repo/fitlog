@@ -16,6 +16,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
+import { CHART } from '../utils/chartTheme'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
@@ -1028,7 +1029,7 @@ async function sendMessage(text) {
     if ((calorieHistory.length > 0 && calTarget) || (cardioHistory.length > 0 && cardioTarget)) {
       datasets.push({
         type: 'line', label: 'Target', data: allDates.map(() => 100),
-        yAxisID: 'yPct', borderColor: 'rgba(255, 255, 255, 0.3)', borderDash: [4, 4],
+        yAxisID: 'yPct', borderColor: CHART.targetLine, borderDash: [4, 4],
         borderWidth: 1, pointRadius: 0, fill: false, tension: 0,
       })
     }
@@ -1059,7 +1060,7 @@ async function sendMessage(text) {
       datasets.push({
         type: 'line', label: 'Target',
         data: calorieHistory.map(() => calTarget),
-        borderColor: 'rgba(255, 255, 255, 0.3)', borderDash: [4, 4],
+        borderColor: CHART.targetLine, borderDash: [4, 4],
         borderWidth: 1, pointRadius: 0, fill: false, tension: 0,
       })
     }
@@ -1070,21 +1071,21 @@ async function sendMessage(text) {
     responsive: true,
     animation: false,
     plugins: {
-      legend: { display: true, labels: { color: '#888', boxWidth: 12, padding: 16 } },
+      legend: { display: true, labels: { color: CHART.tick, boxWidth: 12, padding: 16 } },
       tooltip: {
-        backgroundColor: '#1a1a1a', borderColor: '#2a2a2a', borderWidth: 1,
-        titleColor: '#f0f0f0', bodyColor: '#888', padding: 10, cornerRadius: 6,
+        backgroundColor: CHART.tooltipBg, borderColor: CHART.tooltipBorder, borderWidth: 1,
+        titleColor: CHART.tooltipTitle, bodyColor: CHART.tooltipBody, padding: 10, cornerRadius: 6,
       }
     },
     scales: {
-      x: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } },
+      x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
       yWeight: {
         type: 'linear', position: 'left',
-        ticks: { color: '#34d399' }, grid: { color: '#2a2a2a' },
+        ticks: { color: '#34d399' }, grid: { color: CHART.grid },
       },
       yPct: {
         type: 'linear', position: 'right', min: 0, max: 150,
-        ticks: { color: '#888', callback: (v) => `${v}%` },
+        ticks: { color: CHART.tick, callback: (v) => `${v}%` },
         grid: { display: false },
       }
     }
@@ -1111,26 +1112,26 @@ async function sendMessage(text) {
       legend: {
         display: true,
         labels: {
-          color: '#888',
+          color: CHART.tick,
           boxWidth: 12,
           padding: 12,
           font: { size: 11 },
         }
       },
       tooltip: {
-        backgroundColor: '#1a1a1a',
-        borderColor: '#2a2a2a',
+        backgroundColor: CHART.tooltipBg,
+        borderColor: CHART.tooltipBorder,
         borderWidth: 1,
-        titleColor: '#f0f0f0',
-        bodyColor: '#888',
+        titleColor: CHART.tooltipTitle,
+        bodyColor: CHART.tooltipBody,
         padding: 10,
         cornerRadius: 6,
         displayColors: false,
       }
     },
     scales: {
-      x: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } },
-      y: { ticks: { color: '#888' }, grid: { color: '#2a2a2a' } }
+      x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
+      y: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } }
     }
   }
 
@@ -1251,7 +1252,7 @@ async function sendMessage(text) {
           value={selectedDate}
           max={toLocalDateString(new Date())}
           onChange={(e) => setSelectedDate(e.target.value)}
-          style={{ ...inputStyle, colorScheme: 'dark' }}
+          style={inputStyle}
         />
 
         <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>

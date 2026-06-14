@@ -440,7 +440,7 @@ function CoachDashboard({ profile }) {
                         size="sm"
                         loading={Boolean(nudgeLoadingIds[c.client_id])}
                         title={nudge.key === 'checkin' ? 'Nudge them to do this week’s check-in' : 'Nudge them to log — they’ve gone quiet'}
-                        style={{ border: '1px solid rgba(255, 255, 255, 0.08)', padding: '5px 10px' }}
+                        style={{ border: '1px solid var(--color-control-border)', padding: '5px 10px' }}
                       >
                         Nudge
                       </Button>

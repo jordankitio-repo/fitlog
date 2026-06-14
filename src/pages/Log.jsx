@@ -804,7 +804,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                   setSelectedCopyIds(new Set())
                   if (e.target.value) fetchCopyEntries(e.target.value)
                 }}
-                style={{ ...inputStyle, colorScheme: 'dark', flex: 1 }}
+                style={{ ...inputStyle, flex: 1 }}
               />
               {copyEntries.length > 0 && (
                 <Button

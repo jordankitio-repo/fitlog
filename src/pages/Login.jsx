@@ -155,7 +155,7 @@ function Login() {
 
       {isSignUp && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontSize: '0.875rem', color: '#888' }}>I am a...</p>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>I am a...</p>
           <div style={{ display: 'flex', gap: '8px' }}>
             {['solo', 'coach'].map((r) => (
               <button
@@ -167,7 +167,7 @@ function Login() {
                   padding: '10px',
                   borderRadius: 'var(--radius)',
                   border: role === r ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                  backgroundColor: role === r ? '#1a2a3a' : 'var(--color-surface)',
+                  backgroundColor: role === r ? 'var(--color-primary-dim)' : 'var(--color-surface)',
                   color: role === r ? 'var(--color-primary)' : 'var(--color-muted)',
                   cursor: 'pointer',
                   fontWeight: role === r ? 600 : 400,
@@ -179,7 +179,7 @@ function Login() {
             ))}
           </div>
           {role === 'coach' && (
-            <p style={{ fontSize: '0.75rem', color: '#888' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
               You'll be able to invite and manage clients from your dashboard.
             </p>
           )}
@@ -230,7 +230,7 @@ function Login() {
 )}
       <p
         onClick={() => { setIsSignUp(!isSignUp); setError(''); setErrors({}) }}
-        style={{ cursor: 'pointer', textAlign: 'center', color: '#888' }}
+        style={{ cursor: 'pointer', textAlign: 'center', color: 'var(--color-muted)' }}
       >
         {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
       </p>
