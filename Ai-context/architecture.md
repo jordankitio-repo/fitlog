@@ -47,7 +47,7 @@ Role is set on first login via RolePicker. New users (including OAuth) see RoleP
 - Styling: **inline styles + CSS variables in `index.css`** (no Tailwind)
 - **Theming:** dark default + light mode via tokenized CSS-variable ramp. `utils/theme.js` owns the `gardnr-theme` preference (`auto`|`light`|`dark`); resolved value on `<html data-theme>`; `:root[data-theme="light"]` flips the ramp; pre-paint inline script in `index.html`. Chart chrome uses theme-agnostic literals (`utils/chartTheme.js`) because canvas can't read CSS vars. (Full rationale in `decisions.md` → Design & UX.)
 - **Inter** font from Google Fonts; type scale via CSS vars (`--text-xl` … `--text-xs`)
-- **PWA:** `vite-plugin-pwa` (`registerType:'prompt'`, `injectRegister:false`) + service worker; `PWAUpdatePrompt` surfaces updates; build stamp (`__BUILD_TIME__` via Vite `define`) shown in Profile for cache diagnosis.
+- **PWA:** `vite-plugin-pwa` (`registerType:'prompt'`, `injectRegister:false`) + service worker; `PWAUpdatePrompt` surfaces updates; build stamp (`__BUILD_TIME__` via Vite `define`) shown in Profile for cache diagnosis. Scrollbar chrome hidden in the installed app via `@media (display-mode: standalone)` (`index.css`).
 - Deployed on **Vercel** (project `gardnr`; `npx vercel --prod --project gardnr --yes` — direct deploy reliable, push hook intermittently no-ops)
 
 ### Backend
@@ -96,6 +96,7 @@ src/
     NotificationCenter.jsx — bell + dropdown (events + persistent alerts); ThemeToggle.jsx — Auto/Light/Dark segmented control (Profile → Appearance)
     ChatBubble.jsx / ClientChat.jsx — bottom-right messaging; PWAUpdatePrompt.jsx — service-worker update toast
     InfoTip.jsx — portaled, viewport-clamped "i" tooltip; ChartColorToggle.jsx — per-chart plain-colors switch
+    ReportBody.jsx — collapses a coach report to a faded preview; tap opens the full report in a blurred-backdrop modal (Dashboard active + archived)
   utils/
     passwordValidation.js, styles.js (cardStyle), lockState.js (resolveLockState),
     dateHelpers.js, inviteValidation.js (getInviteBlockReason)

@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`71c45d3 fix(notifications): refresh the bell after logging / check-in`
+`601df36 feat(reports): tap to read full report in a blurred modal; hide PWA scrollbar`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,8 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Reports open in a blurred modal + PWA scrollbar hidden (Jun 14)** — Coach reports on the client Dashboard ran long and dragged the page down when expanded inline. Now each report shows only the **beginning** (~140px faded preview) with a "Read full report →" cue; tapping opens the full report in a **centered tile over a blurred, dimmed backdrop** (`ReportBody.jsx`, scrolls inside, capped 85vh, dismiss via backdrop / × / Escape, body scroll locked). Used for both active and archived reports; applies on mobile + web PWA. The coach's *draft* preview in ClientView is left full (it's a deliberate review step). Separately, **scrollbar chrome is hidden in the installed PWA** (`@media (display-mode: standalone)`) so the persistent overlay bar doesn't read as a desktop-browser artifact; the browser keeps its normal scrollbars. `601df36`.
 
 **Notification center — events + persistent alerts (Jun 13–14)** — A bell + dropdown in the NavBar (`NotificationCenter.jsx`), all derived from existing tables (no new schema). Two deliberately-distinct kinds of entry (model rationale in `decisions.md`):
 - **Recent (events)** — one-off things that happened: a message, a check-in, a new weekly report. Tracked by a last-seen timestamp (`gardnr-notif-seen`); they drop off once seen. Clicking deep-links to the root cause via `?focus=` (consumed by `Dashboard`/`ClientView` section-scroll effects and `ChatBubble`).
@@ -252,6 +254,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 14 (cont.)** — Reports on the client Dashboard now open in a blurred-backdrop modal (`ReportBody.jsx`: faded preview → tap → full report tile, dismiss by tapping away) instead of expanding inline and dragging the page. Hid scrollbar chrome in the standalone PWA. `601df36`.
 - **Jun 14** — Day/night mode + notification-center alerts. Theme system (`utils/theme.js`, Auto/Light/Dark, OS-following, pre-paint inline script, `[data-theme="light"]` token block, `chartTheme.js` literals because chart.js canvas can't read CSS vars). Light-mode bug fixes (translucent `--color-control-border` for vanishing button outlines; date inputs follow theme `color-scheme` so the calendar icon shows; `--shadow-card`). Routed alerts into the bell: coach gets per-client `attentionLevel` triage, client gets lock/check-in-due(Thu+)/coach-nudge — persist-until-resolved with a *new*-only badge. Extracted `utils/clientStats.js` (shared by bell + CoachDashboard). Bell live-refresh via `utils/notifyRefresh.js` (fires on nutrition save/check-in). Commits `71b092f`→`71c45d3`.
 - **Jun 13** — Made solo free (`SOLO_BILLING_ENABLED = false`). Barcode scanner rewritten on `@zxing/browser` (old one didn't release the camera). PWA update hardening + Profile build stamp. Compliance-colored cardio/steps bars + per-chart plain toggle; heatmap fill-width on mobile; stat-card/Groundwork redesign. InfoTips added then reduced. Mobile credential-zoom removed. Message reactions added then fully reverted (100→99 tests). First notification-center pass (deep-link to root cause, seen-items drop off).
 - **Jun 10** — Food name search (USDA FDC) shipped: new `food-search` edge fn (FDC POST proxy, generic foods, auth-gated, key server-side) + search-as-you-type in the Log Add-Food form reusing the barcode prefill path. OFF stays for barcode, FDC for search (no merge). Verified end-to-end. Gotchas recorded above: `.env` key had a stray char (real key = first 40 alnum); FDC GET 400s on `%2C`-encoded commas → use POST + dataType array; energy under 208 or 957/958 (Foundation) → priority resolve, KCAL-only, clamp ≥0; `secrets set` needs an `sbp_` PAT (browser-OAuth login won't do it) → set the secret in the dashboard. `c4be33f`.
