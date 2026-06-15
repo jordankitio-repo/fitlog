@@ -65,6 +65,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [moveMenu, setMoveMenu] = useState(false)
   const [groupMenu, setGroupMenu] = useState(false)
+  const [moveItemId, setMoveItemId] = useState(null) // id of the row/meal whose per-item "move to" menu is open
   const [expandedMeals, setExpandedMeals] = useState(new Set())
   const [addingToMeal, setAddingToMeal] = useState(null) // { id, name, meal } when adding a food into a logged meal
   const [foodResults, setFoodResults] = useState([])
@@ -234,7 +235,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setSelectedIds(prev => prev.size === entries.length ? new Set() : new Set(entries.map(e => e.id)))
   }
   function exitSelect() {
-    setSelectMode(false); setSelectedIds(new Set()); setShowSaveMeal(false); setMoveMenu(false); setGroupMenu(false); setSaveMealName('')
+    setSelectMode(false); setSelectedIds(new Set()); setShowSaveMeal(false); setMoveMenu(false); setGroupMenu(false); setSaveMealName(''); setMoveItemId(null)
   }
 
   // Save the SELECTED entries as a reusable meal.
@@ -262,6 +263,24 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) console.error('Error moving entries:', error)
     else { fetchEntries(); refreshNotifications() }
     exitSelect()
+  }
+
+  // Move one already-logged food row to another meal slot (in place).
+  async function moveEntryToMeal(entryId, mealKey) {
+    const { error } = await supabase.from('nutrition_log')
+      .update({ meal: mealKey === 'other' ? null : mealKey }).eq('id', entryId)
+    if (error) console.error('Error moving entry:', error)
+    else { fetchEntries(); refreshNotifications() }
+    setMoveItemId(null)
+  }
+
+  // Move a whole logged-meal container (all its rows) to another meal slot.
+  async function moveLoggedMealToMeal(item, mealKey) {
+    const { error } = await supabase.from('nutrition_log')
+      .update({ meal: mealKey === 'other' ? null : mealKey }).in('id', item.entries.map(e => e.id))
+    if (error) console.error('Error moving meal:', error)
+    else { fetchEntries(); refreshNotifications() }
+    setMoveItemId(null)
   }
 
   // Group the selected (already-logged) entries into a NEW container in place —
@@ -764,15 +783,25 @@ function Log({ session, profile, hasSoloPremium = true }) {
     cursor: 'pointer', fontFamily: 'inherit',
   }
 
+  // Meal slots that already exist on this day (the only valid move targets — you
+  // can't slide an item into a category that was never created).
+  const presentMealSlots = groupEntriesByMeal(entries).map(g => g.key)
+  const slotLabel = (k) => MEALS.find(m => m.key === k)?.label ?? 'Other'
+
   // A single food entry row — selectable in select mode, with re-log/edit/delete
   // otherwise. Reused for loose foods and for the children inside a meal.
-  function renderFoodEntry(entry) {
+  // inMeal: a child of a logged-meal container — no per-row move (the whole
+  // container moves together).
+  function renderFoodEntry(entry, inMeal = false) {
     const checked = selectedIds.has(entry.id)
+    const currentSlot = entry.meal || 'other'
+    const moveTargets = inMeal ? [] : presentMealSlots.filter(k => k !== currentSlot)
+    const moveOpen = moveItemId === entry.id
     return (
-      <div
-        key={entry.id}
+      <div key={entry.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+       <div
         onClick={selectMode ? () => toggleSelect(entry.id) : undefined}
-        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid var(--color-border)', cursor: selectMode ? 'pointer' : 'default' }}
+        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: selectMode ? 'pointer' : 'default' }}
       >
         {selectMode && (
           <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>{checked ? '✓' : ''}</span>
@@ -799,8 +828,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
               style={{ ...iconBtnStyle, fontSize: '1rem' }}
               title="Re-log"
             >↻</button>
+            {moveTargets.length > 0 && (
+              <button onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Move to another meal">⇄</button>
+            )}
             <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
             <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
+          </div>
+        )}
+       </div>
+        {!selectMode && moveOpen && moveTargets.length > 0 && (
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', padding: '0 0 10px' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Move to:</span>
+            {moveTargets.map(k => (
+              <button key={k} onClick={() => moveEntryToMeal(entry.id, k)} style={pillBtnStyle}>{slotLabel(k)}</button>
+            ))}
           </div>
         )}
       </div>
@@ -810,6 +851,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // A logged meal rendered as one collapsible container item.
   function renderLoggedMeal(item) {
     const open = expandedMeals.has(item.id)
+    const currentSlot = item.entries[0]?.meal || 'other'
+    const moveTargets = presentMealSlots.filter(k => k !== currentSlot)
+    const moveOpen = moveItemId === item.id
     return (
       <div key={item.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div onClick={() => toggleMealExpand(item.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: 'pointer' }}>
@@ -822,12 +866,23 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal">↻</button>
+            {moveTargets.length > 0 && (
+              <button onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Move meal to another slot">⇄</button>
+            )}
             <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete meal">✕</button>
           </div>
         </div>
+        {moveOpen && moveTargets.length > 0 && (
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', padding: '0 0 10px 22px' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Move to:</span>
+            {moveTargets.map(k => (
+              <button key={k} onClick={() => moveLoggedMealToMeal(item, k)} style={pillBtnStyle}>{slotLabel(k)}</button>
+            ))}
+          </div>
+        )}
         {open && (
           <div style={{ paddingLeft: '22px' }}>
-            {item.entries.map(e => renderFoodEntry(e))}
+            {item.entries.map(e => renderFoodEntry(e, true))}
             <button onClick={() => addToMeal(item)} style={{ ...selectLinkStyle, padding: '8px 0' }}>+ Add food to this meal</button>
           </div>
         )}
