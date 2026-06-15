@@ -128,12 +128,11 @@ function CoachDashboard({ profile }) {
     setSoloAccountDetected(false)
     setPendingInviteEmail('')
 
-    // Check if email already exists in profiles
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('email', normalizedEmail)
-      .maybeSingle()
+    // Check if the email already has an account via a SECURITY DEFINER RPC —
+    // profiles RLS hides other users' rows from the coach, so a direct read
+    // always returned null and existing-account states never fired.
+    const { data: lookupRows } = await supabase.rpc('invite_email_status', { p_email: normalizedEmail })
+    const existing = (Array.isArray(lookupRows) ? lookupRows[0] : null) || null
 
     let existingRelation = null
     if (existing?.role === 'client') {
@@ -186,10 +185,10 @@ function CoachDashboard({ profile }) {
     await sendInvite(normalizedEmail)
   }
 
-  async function sendInvite(email) {
+  async function sendInvite(email, accountExists = false) {
     const { data, error } = await supabase
       .from('invitations')
-      .insert([{ coach_id: profile.id, client_email: email }])
+      .insert([{ coach_id: profile.id, client_email: email, account_exists: accountExists }])
       .select().single()
     if (error) {
       setInviteError('Error sending invite.')
@@ -485,7 +484,7 @@ function CoachDashboard({ profile }) {
 	            </p>
 	            <div style={{ display: 'flex', gap: '8px' }}>
 	              <Button
-	                onClick={() => sendInvite(pendingInviteEmail)}
+	                onClick={() => sendInvite(pendingInviteEmail, true)}
 	                variant="primary"
 	                size="sm"
 	              >

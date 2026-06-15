@@ -69,13 +69,11 @@ function Join() {
 
     setInvitation(data)
 
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('email', data.client_email)
-      .maybeSingle()
-
-    setExistingAccount(existingProfile || null)
+    // Show "sign in to accept" vs "create account" from the flag the coach
+    // snapshotted at invite time — profiles RLS hides the row from this
+    // unauthenticated visitor, so we can't read it directly here. (The sign-up
+    // "already registered" pivot below is the fallback if the flag is stale.)
+    setExistingAccount(data.account_exists ? { exists: true } : null)
     setLoading(false)
   }
 
