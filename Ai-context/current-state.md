@@ -10,19 +10,37 @@
 ---
 
 ## Current Commit
-`dc3dca2 fix(invites): detect existing accounts for coach + Join (RLS-blocked)`
+`455ce65 Merge pull request #7 from .../feat/notify-checkin-review`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
-- **Build:** Passing (`npm run build`), 99/99 tests passing (was 100 — removed the one message-reaction test when reactions were reverted)
-- **Lint:** 6 errors / 7 warnings — all 6 errors are the `react-hooks/set-state-in-effect` rule in load-bearing billing/log effects (App.jsx, Log.jsx); deferred as a manually-tested refactor. All genuinely-safe errors fixed Jun 8.
-- **Deploy:** `npx vercel --prod --project gardnr --yes` (direct deploy is reliable; the git-push hook intermittently no-ops). Vercel project is `gardnr`.
-- **Billing:** Live mode active (`BILLING_ENABLED = true`). **Solo billing is now DISABLED** — `SOLO_BILLING_ENABLED = false` in App.jsx; solo is free (see `decisions.md`). Coach billing unchanged.
-- **Supabase:** Upgraded to Pro (no longer free tier — auto-pause risk eliminated). Ref `mlqaurxefttbqsrllbyj`.
+- **Build:** Passing (`npm run build`). **111 unit tests** + **71 RLS/integration tests** (`npm run test:rls`, runs against a local Supabase stack).
+- **Lint:** 4 errors / warnings — all 4 errors are the pre-existing `react-hooks/set-state-in-effect` rule in load-bearing effects (Log.jsx, Dashboard.jsx); deferred as a manually-tested refactor.
+- **Deploy:** `npx vercel deploy --prod --project gardnr --yes`. Edge functions: `supabase functions deploy <name> --project-ref mlqaurxefttbqsrllbyj` (no Docker needed). **DB migrations from this machine** must use the IPv4 session pooler (direct host is IPv6-only) — see `architecture.md` Development Environment.
+- **Billing:** Live mode active. Solo is free (`SOLO_BILLING_ENABLED = false`). Coach billing unchanged.
+- **Supabase:** Pro. Ref `mlqaurxefttbqsrllbyj`.
 
 ---
 
 ## Recently Shipped (most recent first)
+
+**Notify client when coach reviews a check-in (Jun 15)** — Closes the review loop: a coach's review/comment reaches the client three ways — email (`notify-checkin-review` edge fn, cloned from `notify-report`: active-coach verified server-side, comment escaped), an in-app bell event (derived from `check_ins.reviewed_at`, no schema), and the coach's note shown on the client's check-in card (Dashboard). No migration. PR #7 (`455ce65`). Deliberately did NOT gate the coach's per-check-in email or add a digest — premature at ~1 client (see `decisions.md`).
+
+**Check-in review queue — Layer 2 begins (Jun 15)** — Coaches mark a check-in reviewed + comment via the `review_checkin` RPC (SECURITY DEFINER, active-coach-only) + a `guard_checkin_review` trigger so clients can't fake `reviewed_at`/`coach_comment` on their own row (service_role + the coach-running RPC are exempt). Added `check_ins.reviewed_at`+`coach_comment`. Roster banner shows "N check-ins to review" (`summarizeRoster.checkInsToReview`); ClientView has the Mark-reviewed UI. Migration `20260615040000`. PR #6.
+
+**Layer 1 solo-completeness — meal grouping, saved meals, Complete Day (Jun 15)** — Made the solo tracker table-stakes-credible (the on-ramp thesis: solo→coached funnel, shared tables carry the data to the coach):
+- **Meal grouping** — `nutrition_log.meal` (Breakfast/Lunch/Dinner/Snack with per-meal subtotals), `utils/meals.js`. Migration `20260615010000`. PR #3.
+- **Saved meals** — `saved_meals` + `saved_meal_items` (owner-only RLS); "save today's foods as a meal" + one-tap re-log; `utils/savedMeals.js`. Migration `20260615020000`. PR #4.
+- **Complete Day** — `day_complete` (owner + coach-read-active RLS); one-tap "I'm done logging," surfaces to the coach as "marked complete / totals may be partial." Migration `20260615030000`. PR #5.
+- Found `copy-previous-day` + frequent-foods quick-add already existed — not rebuilt.
+
+**Coach roster triage rollup (Jun 15)** — `summarizeRoster` (in `attentionLevel.js`, built ON the existing triage — one brain, no parallel engine) → a banner on the coach dashboard: N at risk / needs review / on track + "N need targets set". `scripts/seed-demo-roster.mjs` (+ `shoot-roster.mjs`) seeds a 9-client demo roster into the local stack (demo coach `demo.coach@gardnr.test`). PR #2.
+
+**Security hardening + RLS/billing test harness (Jun 15)** — Built a local-Supabase integration harness (`tests/rls/`, `npm run rls:setup` + `npm run test:rls`) that verifies tenant isolation against the real prod schema — captured into `supabase/schema/prod_public.sql` (base tables were dashboard-created, never in migrations). It surfaced three live gaps, all fixed + deployed:
+- **invitations were world-readable** (`USING(true)` SELECT exposed every invitee email + join token) → token-gated `get_invitation_by_token` RPC; dropped the blanket policy. `20260615000000`.
+- **coach data access ignored relationship status** → added `status='active'` to the 6 coach-read policies on the per-client data tables. `20260615000100`.
+- **subscriptions had no unique on `solo_id`** → dedupe + partial unique index. `20260615000200`.
+- Plus billing-invariant tests (trial-ledger abuse prevention, subscription idempotency). PR #1.
 
 **Invite flow detects existing accounts (Jun 14)** — Re-inviting someone who already had an account (e.g. a client who left coaching → back to solo) was broken: the coach's invite box never warned "already has a Gardnr account," and the returning user was pushed into "Create account" → "User already registered." Root cause (both sides): `profiles` RLS (self-or-active-related) hides other users' rows, so neither the coach nor the anon Join page could read a profile by email to detect it.
 - **Coach side:** a **SECURITY DEFINER RPC `invite_email_status(email)`** returning only `{id, role}`, granted to `authenticated` only. `checkAndInvite` uses it (via `supabase.rpc`), so all existing-account states fire again (coach / already-your-client / client-of-another / existing-solo "already has an account" confirm).
@@ -262,6 +280,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 15** — Big session. (1) **Security/test foundation:** built a local-Supabase RLS+billing test harness (`tests/rls/`, Colima-backed), captured the prod schema baseline (`supabase/schema/prod_public.sql`), and fixed 3 live gaps it found — world-readable invitations (→ token-gated RPC), coach access to ex-clients' data (→ active-only policies), no unique on `subscriptions.solo_id`. (2) **Layer 1 (solo credibility):** coach roster triage rollup, meal grouping, saved meals, Complete Day. (3) **Layer 2:** check-in review queue (`review_checkin` RPC + guard trigger) and the client-notification loop (`notify-checkin-review`). 7 PRs (#1–#7), all merged + deployed to prod. Two recurring prod gotchas: pooler-created tables need explicit GRANTs; reload PostgREST schema cache after pooler DDL. Roadmap: Layer 1 done; Layer 2 review-queue done; remaining Layer-2 = check-in cadence + questionnaire builder. Constraint is still distribution (~1 active client) — features pursued as the solo on-ramp.
 - **Jun 14 (cont. 3)** — Invite flow now detects existing accounts (was RLS-blocked on both sides). SECURITY DEFINER RPC `invite_email_status` for the coach box + `invitations.account_exists` snapshot for the anon Join page (migration `20260614140000`); coach-role guard added to `acceptInvite`. Also fixed the notifications table missing GRANTs (`72fa3b1`, 42501). `dc3dca2`.
 - **Jun 14 (cont. 2)** — Coach now gets an in-app notification when a client leaves (self-leave or account deletion). New `notifications` table (`20260614120000`, applied to prod) because the departed client's name is unreadable to the coach post-leave (profiles RLS); `offboard-self`/`delete-account` snapshot the name + insert (both redeployed); bell reads it. `e863802`.
 - **Jun 14 (cont.)** — Reports on the client Dashboard now open in a blurred-backdrop modal (`ReportBody.jsx`: faded preview → tap → full report tile, dismiss by tapping away) instead of expanding inline and dragging the page. Hid scrollbar chrome in the standalone PWA. `601df36`.
