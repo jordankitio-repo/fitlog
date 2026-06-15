@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`72fa3b1 fix(notifications): grant table privileges (was 42501 permission denied)`
+`dc3dca2 fix(invites): detect existing accounts for coach + Join (RLS-blocked)`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,11 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Invite flow detects existing accounts (Jun 14)** — Re-inviting someone who already had an account (e.g. a client who left coaching → back to solo) was broken: the coach's invite box never warned "already has a Gardnr account," and the returning user was pushed into "Create account" → "User already registered." Root cause (both sides): `profiles` RLS (self-or-active-related) hides other users' rows, so neither the coach nor the anon Join page could read a profile by email to detect it.
+- **Coach side:** a **SECURITY DEFINER RPC `invite_email_status(email)`** returning only `{id, role}`, granted to `authenticated` only. `checkAndInvite` uses it (via `supabase.rpc`), so all existing-account states fire again (coach / already-your-client / client-of-another / existing-solo "already has an account" confirm).
+- **Join side (anon):** the coach snapshots **`invitations.account_exists`** at send time; the Join page reads it (anon can read pending invites) and shows "sign in to accept" upfront. A sign-up "already registered" → pivot-to-sign-in remains as the stale-flag fallback. Added a coach-role guard in `acceptInvite` (now authenticated, profile readable) since the old anon pre-check couldn't block a coach.
+- **No edge function / no `--no-verify-jwt`** — all via migration `20260614140000` (the `--no-verify-jwt` deploy was correctly blocked as a security weakening, so it was redesigned as the auth-gated RPC + snapshot). `dc3dca2`.
 
 **Coach notified in-app when a client leaves (Jun 14)** — A departing client (self-leave or account deletion) left the coach with no in-app notification, and it can't be derived: once the relationship ends, `profiles` RLS (active-only `is_profile_related`) hides the departed client's name from the coach, so the bell can't render it after the fact. Added a minimal **`notifications` table** (`20260614120000`: `user_id, type, title, body, href, created_at, read_at`; RLS = read/update your own; inserts via service role only — no authenticated insert policy). `offboard-self` and `delete-account` snapshot the client's name and insert a coach notification at leave time; the bell reads `notifications` (role-agnostic) as Recent events. Redeploying `offboard-self` also refreshes its existing coach-email path. **This is the deliberate exception to "no notifications schema"** (that stance was about deriving from activity tables, which the privacy RLS makes impossible for departures — see `decisions.md`). `e863802`.
 - **Gotcha (fixed `72fa3b1`):** the table shipped with RLS policies but no table-level GRANTs → `42501 permission denied for table notifications` on the authenticated read (and the service-role insert). **RLS scopes rows; GRANTs allow touching the table at all — new tables need both.** Migration `20260614130000` grants select/update to `authenticated` + full to `service_role`. Confirmed via an anon REST probe (`sb_publishable_…` key) that returned the 42501 hint. (Same class as the Jun 8 "RLS enabled, not just policies" gotcha.)
@@ -257,6 +262,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 14 (cont. 3)** — Invite flow now detects existing accounts (was RLS-blocked on both sides). SECURITY DEFINER RPC `invite_email_status` for the coach box + `invitations.account_exists` snapshot for the anon Join page (migration `20260614140000`); coach-role guard added to `acceptInvite`. Also fixed the notifications table missing GRANTs (`72fa3b1`, 42501). `dc3dca2`.
 - **Jun 14 (cont. 2)** — Coach now gets an in-app notification when a client leaves (self-leave or account deletion). New `notifications` table (`20260614120000`, applied to prod) because the departed client's name is unreadable to the coach post-leave (profiles RLS); `offboard-self`/`delete-account` snapshot the name + insert (both redeployed); bell reads it. `e863802`.
 - **Jun 14 (cont.)** — Reports on the client Dashboard now open in a blurred-backdrop modal (`ReportBody.jsx`: faded preview → tap → full report tile, dismiss by tapping away) instead of expanding inline and dragging the page. Hid scrollbar chrome in the standalone PWA. `601df36`.
 - **Jun 14** — Day/night mode + notification-center alerts. Theme system (`utils/theme.js`, Auto/Light/Dark, OS-following, pre-paint inline script, `[data-theme="light"]` token block, `chartTheme.js` literals because chart.js canvas can't read CSS vars). Light-mode bug fixes (translucent `--color-control-border` for vanishing button outlines; date inputs follow theme `color-scheme` so the calendar icon shows; `--shadow-card`). Routed alerts into the bell: coach gets per-client `attentionLevel` triage, client gets lock/check-in-due(Thu+)/coach-nudge — persist-until-resolved with a *new*-only badge. Extracted `utils/clientStats.js` (shared by bell + CoachDashboard). Bell live-refresh via `utils/notifyRefresh.js` (fires on nutrition save/check-in). Commits `71b092f`→`71c45d3`.

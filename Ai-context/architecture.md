@@ -160,7 +160,11 @@ supabase/
 - Unique: `(coach_id, client_id)`
 
 **invitations**
-- `id`, `coach_id`, `email`, `token`, `used`, `created_at`
+- `id`, `coach_id`, `client_email`, `token`, `status` ('pending'|'accepted'), `account_exists` bool default false, `created_at`
+- `account_exists` is snapshotted at send time (migration `20260614140000`) so the anon Join page can show "sign in to accept" vs "create account" without reading profiles. Anon can read a pending invite by token.
+
+**RPC `invite_email_status(email)`** (SECURITY DEFINER, migration `20260614140000`)
+- Returns `{id, role}` for an email; granted to `authenticated` only. Lets the coach's invite box detect an existing account despite profiles RLS hiding other users' rows. Reveals nothing beyond id+role.
 
 **notifications** (migration `20260614120000`)
 - `id`, `user_id` (→ auth.users, on delete cascade), `type`, `title`, `body`, `href`, `created_at`, `read_at`
