@@ -115,3 +115,9 @@ verify_jwt = false
 
 [functions.food-search]
 enabled = true
+
+[functions.notify-checkin-review]
+enabled = true
+verify_jwt = false
+import_map = "./functions/notify-checkin-review/deno.json"
+entrypoint = "./functions/notify-checkin-review/index.ts"
