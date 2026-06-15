@@ -54,6 +54,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [baseServingLabel, setBaseServingLabel] = useState('')
   const [frequentFoods, setFrequentFoods] = useState([])
   const [quickAddKey, setQuickAddKey] = useState(null)
+  const [dayComplete, setDayComplete] = useState(false)
+  const [dayCompleteSaving, setDayCompleteSaving] = useState(false)
   const [savedMeals, setSavedMeals] = useState([])
   const [showSaveMeal, setShowSaveMeal] = useState(false)
   const [saveMealName, setSaveMealName] = useState('')
@@ -97,6 +99,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchEntries()
     fetchFrequentFoods()
     fetchSavedMeals()
+    fetchDayComplete()
     fetchWeight()
     fetchCardioEntries()
     fetchSteps()
@@ -248,6 +251,32 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { error } = await supabase.from('saved_meals').delete().eq('id', id)
     if (error) console.error('Error deleting saved meal:', error)
     else fetchSavedMeals()
+  }
+
+  async function fetchDayComplete() {
+    if (!session?.user?.id) return
+    const { data } = await supabase
+      .from('day_complete').select('logged_date')
+      .eq('user_id', session.user.id).eq('logged_date', selectedDate).maybeSingle()
+    setDayComplete(Boolean(data))
+  }
+
+  // Toggle the "I'm done logging today" mark for the selected date.
+  async function toggleDayComplete() {
+    setDayCompleteSaving(true)
+    const { data: { session: cs } } = await supabase.auth.getSession()
+    if (dayComplete) {
+      const { error } = await supabase.from('day_complete')
+        .delete().eq('user_id', cs.user.id).eq('logged_date', selectedDate)
+      if (error) console.error('Error clearing day-complete:', error)
+      else setDayComplete(false)
+    } else {
+      const { error } = await supabase.from('day_complete')
+        .upsert({ user_id: cs.user.id, logged_date: selectedDate }, { onConflict: 'user_id,logged_date' })
+      if (error) console.error('Error marking day complete:', error)
+      else { setDayComplete(true); refreshNotifications() }
+    }
+    setDayCompleteSaving(false)
   }
 
   // Food name search (USDA FDC via the food-search edge fn), debounced. Selecting
@@ -701,6 +730,24 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Fat</div>
           </div>
         </div>
+
+        {/* Day complete — one-tap "I'm done logging today" (coach trust signal) */}
+        <button
+          onClick={toggleDayComplete}
+          disabled={dayCompleteSaving}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            width: '100%', padding: '8px', marginTop: '4px',
+            borderRadius: 'var(--radius)',
+            border: `1px solid ${dayComplete ? 'var(--color-primary)' : 'var(--color-border)'}`,
+            background: dayComplete ? 'var(--color-primary)' : 'transparent',
+            color: dayComplete ? '#fff' : 'var(--color-muted)',
+            fontSize: 'var(--text-xs)', fontWeight: 600, fontFamily: 'inherit',
+            cursor: dayCompleteSaving ? 'default' : 'pointer', opacity: dayCompleteSaving ? 0.6 : 1,
+          }}
+        >
+          {dayComplete ? '✓ Day marked complete — tap to undo' : 'Mark day complete'}
+        </button>
 
         {/* Food entries, grouped by meal */}
         {entries.length > 0 && (

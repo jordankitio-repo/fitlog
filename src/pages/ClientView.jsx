@@ -67,6 +67,7 @@ function ClientView({ profile }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [clientProfile, setClientProfile] = useState(null)
   const [entries, setEntries] = useState([])
+  const [dayComplete, setDayComplete] = useState(false)
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
   const [report, setReport] = useState('')
@@ -372,6 +373,11 @@ function ClientView({ profile }) {
   }
 
   async function fetchEntries() {
+    const { data: dc } = await supabase
+      .from('day_complete').select('logged_date')
+      .eq('user_id', clientId).eq('logged_date', selectedDate).maybeSingle()
+    setDayComplete(Boolean(dc))
+
     const { data, error } = await supabase
       .from('nutrition_log')
       .select('*')
@@ -1534,6 +1540,18 @@ async function sendMessage(text) {
 
       <div key="nutritionLog" style={sectionCardStyle}>
         <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')}>
+          <div style={{ marginBottom: '10px' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              fontSize: '0.75rem', fontWeight: 600,
+              padding: '4px 10px', borderRadius: 'var(--radius)',
+              color: dayComplete ? '#34d399' : 'var(--color-muted)',
+              backgroundColor: dayComplete ? 'rgba(52,211,153,0.12)' : 'var(--color-bg)',
+              border: `1px solid ${dayComplete ? 'rgba(52,211,153,0.4)' : 'var(--color-border)'}`,
+            }}>
+              {dayComplete ? '✓ Client marked this day complete' : 'Day not marked complete — totals may be partial'}
+            </span>
+          </div>
           {entries.length === 0 ? (
             <EmptyState
               icon={null}

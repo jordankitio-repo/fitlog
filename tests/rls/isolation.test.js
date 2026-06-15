@@ -44,6 +44,11 @@ beforeAll(async () => {
     .insert({ user_id: clientA1.id, name: 'A1 usual breakfast' }).select('id').single()
   await admin.from('saved_meal_items')
     .insert({ saved_meal_id: sm.id, user_id: clientA1.id, food: 'Oats', calories: 300, protein: 10 })
+
+  await admin.from('day_complete').insert([
+    { user_id: clientA1.id, logged_date: today },
+    { user_id: clientLeft.id, logged_date: today },
+  ])
 }, 60000)
 
 afterAll(async () => {
@@ -183,6 +188,29 @@ describe('coach_clients (relationship rows)', () => {
   })
   it('an outsider cannot see someone else\'s relationship', async () => {
     const { rows } = await readAs(outsider, 'coach_clients', 'client_id', clientA1.id)
+    expect(rows).toHaveLength(0)
+  })
+})
+
+describe('day_complete (owner + active-coach read)', () => {
+  it('the owner can read their own day-complete marks', async () => {
+    const { rows } = await readAs(clientA1, 'day_complete', 'user_id', clientA1.id)
+    expect(rows.length).toBeGreaterThan(0)
+  })
+  it('the active coach can read their client\'s marks', async () => {
+    const { rows } = await readAs(coachA, 'day_complete', 'user_id', clientA1.id)
+    expect(rows.length).toBeGreaterThan(0)
+  })
+  it('another tenant\'s coach CANNOT read them', async () => {
+    const { rows } = await readAs(coachB, 'day_complete', 'user_id', clientA1.id)
+    expect(rows).toHaveLength(0)
+  })
+  it('an unrelated client CANNOT read them', async () => {
+    const { rows } = await readAs(clientB1, 'day_complete', 'user_id', clientA1.id)
+    expect(rows).toHaveLength(0)
+  })
+  it('a coach CANNOT read an OFFBOARDED client\'s marks (active-only)', async () => {
+    const { rows } = await readAs(coachA, 'day_complete', 'user_id', clientLeft.id)
     expect(rows).toHaveLength(0)
   })
 })
