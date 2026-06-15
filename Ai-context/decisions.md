@@ -59,6 +59,10 @@
 **Reason:** With zero coaches onboarded yet, gating solo self-analytics behind a $7.99 upsell was friction with no payoff — solo users are the top of the funnel and potential word-of-mouth, not a revenue line. The business model is coach subscriptions; solo stays free to grow usage and prove the product.
 **Consequences:** `SOLO_BILLING_ENABLED = false` in `App.jsx` disables the solo paywall app-wide (the SoloUpgrade CTA / Premium gates no longer block solo features). The Stripe solo price/plumbing is left intact but dormant, so it can be re-enabled by flipping the flag if the strategy changes. **Coach billing is unchanged.** Legal docs still referencing Solo Premium $7.99 terms are now stale (see `current-state.md`).
 
+### Build out solo logging completeness as the acquisition on-ramp, despite ~1 active coach (Jun 15 2026)
+**Reason:** Coaches are the customer, but the solo tracker is the **on-ramp**: solo→coached is the funnel, and because solo + clients write the same tables, a converting solo user's history carries straight into the coach's view (active-relationship RLS). A solo tracker that hits friction walls (no meal grouping, no saved meals, can't find a food) won't acquire or convert. So solo feature-completeness is distribution work, not scope creep — *provided* it stays "table-stakes," not parity with Cronometer (whose moat is a food DB + micronutrient science we explicitly won't chase; see vision).
+**Consequences:** Shipped Layer 1 (meal grouping, saved meals, Complete Day, roster rollup) and started Layer 2 (check-in review queue) even at ~1 client. The guardrail still holds: the binding constraint is **distribution** (getting coaches), and competitor-feature teardowns have diminishing returns — features are pursued only where they (a) close a real table-stakes gap *and* (b) also strengthen the coach side via the shared data. Backlog + remaining Layer 2/3 in `features.md`; status in `current-state.md`.
+
 ---
 
 ## Design & UX
@@ -192,6 +196,22 @@
 **Reason:** `profiles` RLS (self-or-active-related) is deliberately tight, so a coach can't read a profile by an arbitrary email and an anon invite visitor can't read profiles at all. Both the invite box and the Join page need to know "does this email already have an account?" — but loosening profiles RLS would reintroduce the user-enumeration hole that lockdown closed.
 **Consequences:** Coach side uses `invite_email_status(email)` — a SECURITY DEFINER function returning only `{id, role}`, `grant execute` to `authenticated` only (a logged-in coach pre-checking; mild authenticated-only enumeration, acceptable). Join side reads `invitations.account_exists`, snapshotted by the coach at send time, so the anon page needs no privileged read; a sign-up "already registered" → sign-in pivot covers a stale flag. **Avoided an edge function with `--no-verify-jwt`** (that would put an open enumeration endpoint on the internet) — the auth-gated RPC + token-gated snapshot is the safer shape. General rule: to cross the RLS wall for one narrow fact, prefer a SECURITY DEFINER function scoped to exactly that fact over widening a table policy.
 
+### Tenant isolation is verified by a local-Supabase RLS harness against a captured prod schema baseline (Jun 15 2026)
+**Reason:** The base tables were dashboard-created and never added to migrations, so `supabase db reset` can't rebuild the schema and RLS could only be checked against prod by hand. In a multi-tenant coaching app, one coach seeing another's clients is the catastrophic bug class — it needs automated, repeatable proof, not trust.
+**Consequences:** `supabase/schema/prod_public.sql` (a pooler dump) is the committed baseline; `tests/rls/` loads it + post-baseline migrations into a local stack and asserts isolation as real signed-in users. It immediately surfaced three live gaps (world-readable invitations, coach access to offboarded clients' data, no unique on `subscriptions.solo_id`) — all fixed. Every new table now gets an RLS test. Running the harness against prod (which would mint throwaway auth users / trial-ledger rows) was explicitly rejected in favor of the local stack.
+
+### Coach data access is active-only; saved meals are owner-only (Jun 15 2026)
+**Reason:** `profiles` already required an *active* relationship, but the per-client data tables' coach-read policies only checked a `coach_clients` row *existed* — so a coach kept reading an offboarded client's nutrition/weight/etc. Inconsistent and a privacy gap.
+**Consequences:** `nutrition_log`/`weight_log`/`cardio_log`/`steps_log`/`check_ins`/`targets` coach-read now requires `status='active'` (`20260615000100`); `day_complete` follows suit. `saved_meals` is deliberately **owner-only** (a private logging convenience, never coach-visible) — but the rows it expands into carry to the coach as normal.
+
+### One triage "brain": the roster rollup is built ON attentionLevel, never a parallel engine (Jun 15 2026)
+**Reason:** A first pass added a separate `readiness` engine next to the existing `attentionLevel` triage. Two sources of "who needs attention" inevitably drift and contradict each other (the dashboard banner disagreeing with the per-client badges).
+**Consequences:** `summarizeRoster` (in `attentionLevel.js`) derives its counts from `attentionLevel`, so banner and badges can't disagree; the parallel engine was deleted. Rule: extend the single triage function, don't add a second.
+
+### Coaches review check-ins via a SECURITY DEFINER RPC + guard trigger, not a table policy (Jun 15 2026)
+**Reason:** A coach should set only `reviewed_at`/`coach_comment`, not edit a client's answers — and a client shouldn't fake a review on their own row. RLS is row-level, not column-level, so a coach-UPDATE policy couldn't enforce either.
+**Consequences:** `review_checkin(p_id, p_comment)` (SECURITY DEFINER, active-coach-only) is the only sanctioned path; a `guard_checkin_review` trigger raises if the review fields change and the caller isn't the active coach. **`service_role` must be exempted** (`auth.role()`) — caught when the guard first blocked admin/edge-function writes; the RPC itself passes because it runs with `auth.uid()` = the coach.
+
 ---
 
 ## Time & Dates
@@ -253,6 +273,10 @@
 ### `resumeSoloSubscription` is duplicated across three files (deferred extraction)
 **Reason:** Extracting to `_shared/` mid-feature would require editing two live-billing functions as a side effect of shipping a new feature — bad change hygiene.
 **Consequences:** Verbatim copies in `offboard-self`, `offboard-client`, `delete-account`. Flagged as tech debt: extract to `supabase/functions/_shared/resumeSoloSubscription.ts` in a dedicated refactor pass where all three are visible and testable together.
+
+### Notify the client on coach review; keep per-check-in coach email per-event for now; defer digest/exception-gating to scale (Jun 15 2026)
+**Reason:** A check-in submit already notifies the coach (bell derives it + `notify-checkin` emails). At ~1 active client that per-event email is fine, even good (responsiveness). The firehose problem — 50–100 emails/cycle → coaches filter/mute → signal dies, contradicting "100 clients with the attention of 20" — only appears at scale Gardnr doesn't have yet. Gating to exceptions or defaulting to a digest now is solving a problem before it exists, and the "what's an exception" threshold would be a guess without real data.
+**Consequences:** Shipped only the piece valuable at any scale — notify the **client** when the coach reviews/comments (`notify-checkin-review` + an in-app bell event + the coach's note on the client's check-in). Deliberately did NOT touch `notify-checkin` or build a per-event-vs-digest toggle. **Revisit at ~20+ clients:** route routine check-ins through the in-app review queue + `weekly-digest`, and reserve immediate coach email for at-risk check-ins. General rule: notifications 1:1 with routine events don't scale — aggregate + reserve real-time pushes for exceptions and for the client-facing reply.
 
 ### `checkout.session.completed` fetches the real subscription object from Stripe
 **Reason:** Inferring status from `payment_status === 'paid'` was unreliable for trial checkouts and wrote `active` when it should be `trialing`.

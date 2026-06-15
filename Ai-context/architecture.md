@@ -124,6 +124,7 @@ supabase/
 
 **nutrition_log**
 - `id`, `user_id`, `food`, `calories`, `protein`, `carbs`, `fat`, `serving_size`, `serving_unit`, `logged_date`, `created_at`
+- `meal` ('breakfast'|'lunch'|'dinner'|'snack'|null) — diary grouping (migration `20260615010000`); null renders under "Other". Grouping logic in `utils/meals.js` (pure, tested).
 
 **weight_log**
 - `id`, `user_id`, `weight`, `unit` ('lbs'|'kg'), `logged_date`, `weighed_at` (time, HH:MM:SS 24hr), `created_at`
@@ -153,6 +154,7 @@ supabase/
 
 **check_ins**
 - `id`, `client_id`, `coach_id`, `week_of` (date), `adherence_rating`, `energy_level`, `obstacles`, `notes`, `created_at`
+- `reviewed_at` timestamptz, `coach_comment` text (migration `20260615040000`) — the coach's review. Set ONLY via the `review_checkin` RPC (active-coach-only); a `guard_checkin_review` BEFORE UPDATE trigger blocks anyone else (incl. the client on their own row) from changing these fields (service_role + the coach-running RPC exempt via `auth.role()`/`auth.uid()`). `summarizeRoster.checkInsToReview` counts unreviewed; client is notified via `notify-checkin-review`.
 - Unique: `(client_id, week_of)`
 
 **coach_notes**
@@ -161,10 +163,14 @@ supabase/
 
 **invitations**
 - `id`, `coach_id`, `client_email`, `token`, `status` ('pending'|'accepted'), `account_exists` bool default false, `created_at`
-- `account_exists` is snapshotted at send time (migration `20260614140000`) so the anon Join page can show "sign in to accept" vs "create account" without reading profiles. Anon can read a pending invite by token.
+- `account_exists` is snapshotted at send time (migration `20260614140000`) so the anon Join page can show "sign in to accept" vs "create account" without reading profiles.
+- **Security fix (Jun 15, `20260615000000`):** invitations were previously **world-readable** — a `FOR SELECT USING(true)` policy meant any user (incl. anon) could enumerate the whole table (every invitee email + secret join token). RLS can't scope a SELECT to the query's `token=eq.X` filter. Dropped that policy; the Join page now reads a single invite via the token-gated `get_invitation_by_token` RPC below.
 
 **RPC `invite_email_status(email)`** (SECURITY DEFINER, migration `20260614140000`)
 - Returns `{id, role}` for an email; granted to `authenticated` only. Lets the coach's invite box detect an existing account despite profiles RLS hiding other users' rows. Reveals nothing beyond id+role.
+
+**RPC `get_invitation_by_token(p_token text)`** (SECURITY DEFINER, migration `20260615000000`)
+- Returns the single `pending` invitation matching the (secret) token; granted to `anon` + `authenticated`. Replaces the dropped world-read policy — you can only fetch an invite if you already hold its token (no enumeration). Used by the anon Join page.
 
 **notifications** (migration `20260614120000`)
 - `id`, `user_id` (→ auth.users, on delete cascade), `type`, `title`, `body`, `href`, `created_at`, `read_at`
@@ -172,11 +178,23 @@ supabase/
 
 **subscriptions**
 - `id`, `coach_id` → profiles, `solo_id` → profiles, `stripe_customer_id`, `stripe_subscription_id`, `stripe_price_id`, `status` ('trialing'|'active'|'past_due'|'canceled'|'incomplete'), `trial_end`, `current_period_end`, `paused_for_coaching` bool default false, `cancel_at_period_end` bool default false, `created_at`
-- Unique: `(coach_id)` (`subscriptions_coach_id_unique`)
+- Unique: `(coach_id)` (`subscriptions_coach_id_unique`); **partial unique on `solo_id` where not null** (`subscriptions_solo_id_unique`, migration `20260615000200`) — coach rows were replay-safe but solo rows weren't, so a race/missed pre-check could duplicate them. Migration dedupes then adds the index.
 - RLS: SELECT to authenticated where `coach_id = auth.uid()`; separate SELECT policy where `solo_id = auth.uid()`. INSERT/UPDATE to service_role.
+
+**saved_meals** / **saved_meal_items** (migration `20260615020000`)
+- `saved_meals`: `id`, `user_id`, `name`, `created_at`. `saved_meal_items`: `id`, `saved_meal_id` (→ saved_meals, cascade), `user_id`, `food`, `calories`, macros, `serving_size`, `serving_unit`.
+- RLS: **owner-only** on both (`user_id = auth.uid()`, FOR ALL) — a private logging convenience, not coaching data. `user_id` denormalized onto items for a flat owner check. GRANT CRUD to anon+authenticated. Snapshot/expand logic in `utils/savedMeals.js`.
+
+**day_complete** (migration `20260615030000`)
+- `(user_id, logged_date)` PK, `completed_at`. A present row = the client marked that day's logging complete (coach trust signal: real low day vs under-reporting).
+- RLS: owner manages (FOR ALL); coach SELECT for **active** clients only (mirrors the per-client data tables). GRANT CRUD to anon+authenticated.
+
+**RPC `review_checkin(p_id uuid, p_comment text)`** (SECURITY DEFINER, migration `20260615040000`)
+- Sets `check_ins.reviewed_at`/`coach_comment`, only when `auth.uid()` is the check-in client's **active** coach; granted to `authenticated`. The only sanctioned way to review — the `guard_checkin_review` trigger blocks direct writes to those fields.
 
 ### Triggers
 - `on_auth_user_created` (on `auth.users`) → `handle_new_user()` — inserts `id` + `email` into profiles. No default role. (Verified present in live DB, June 6 2026.)
+- `guard_checkin_review` (BEFORE UPDATE on `check_ins`, migration `20260615040000`) → raises if `reviewed_at`/`coach_comment` change and the caller isn't the client's active coach. `service_role` (edge fns/admin) is exempt via `auth.role()`; the `review_checkin` RPC passes because it runs with `auth.uid()` = the coach.
 
 ### RLS
 All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsecurity`, Jun 8 2026). Policies are user-scoped (`user_id = auth.uid()`) or coach/client-relationship-scoped.
@@ -184,6 +202,12 @@ All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsec
 > **History / gotcha (Jun 8 2026):** `profiles` had RLS *disabled* (`relrowsecurity = false`) — its SELECT/INSERT/UPDATE policies existed but were silently ignored, so any authenticated user could read/enumerate every profile (email, name, role). RLS being defined-but-not-enabled produces no error and looks correct in the policy list; the only reliable check is `relrowsecurity` itself (or a live cross-account read). Fixed in migration `20260608134000` (`alter table profiles enable row level security`). Lesson: enabling a policy ≠ enabling RLS on the table.
 
 `profiles` SELECT policy (`profiles_select_self_or_related`): own row OR an **active** coach↔client counterpart, via the `is_profile_related(target uuid)` SECURITY DEFINER helper (the SECURITY DEFINER bypass avoids profiles↔coach_clients policy recursion). INSERT/UPDATE are own-row only (`id = auth.uid()`); deletes go through the service-role `delete-account` function. Migrations: `20260608130000`/`131000` (policies), `134000` (enable RLS).
+
+**Coach reads of per-client data are active-only (Jun 15, `20260615000100`):** the coach-read SELECT policies on `nutrition_log`/`weight_log`/`cardio_log`/`steps_log`/`check_ins`/`targets` now require `status='active'` in `coach_clients` (they previously only checked the row *existed*, so a coach kept reading an *offboarded* client's data even though profiles already required active). `day_complete` uses the same active-only coach-read pattern.
+
+**Schema baseline:** the full prod `public` schema is captured in `supabase/schema/prod_public.sql` (dumped via the IPv4 pooler). The base tables were dashboard-created and are NOT in migrations, so `supabase db reset` can't rebuild from migrations alone — the RLS harness loads this baseline + post-baseline migrations (see Testing).
+
+> **Gotcha (Jun 15):** tables created via the session pooler (any non-dashboard path) do NOT inherit the platform default-privilege GRANTs → authenticated users hit `42501 permission denied`. Every new-table migration must include explicit `grant select,insert,update,delete … to anon, authenticated` (RLS still scopes the rows). Also: after pooler DDL, PostgREST's schema cache can lag — `notify pgrst, 'reload schema'` and poll the REST API before declaring a deploy done. (Same family as the Jun 8 "RLS enabled ≠ policies defined" and Jun 14 "GRANTs ≠ RLS" gotchas.)
 
 ---
 
@@ -381,6 +405,7 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 | `weekly-report` | coach + owns `clientId` | AI weekly coaching report. Client passes `clientId`; fn verifies active coach↔client. |
 | `notify-report` | coach + owns `clientId` | Email client when report sent. Recipient email derived server-side from `clientId` (not client-supplied). |
 | `notify-checkin` | client (caller) | Email coach on check-in. Coach + recipient derived server-side from caller's active relationship. |
+| `notify-checkin-review` | coach + owns `clientId` (Jun 15) | Email client when coach reviews their check-in (with the coach's comment). Clone of `notify-report`: active-coach verified, client email derived server-side, comment escaped. Called from `ClientView.reviewCheckIn`. |
 | `call-prep` | coach + owns `clientId` | AI call briefing (coach). Client passes `clientId`; fn verifies active coach↔client. |
 | `nudge-client` | coach | Nudge inactive client, 48hr cooldown |
 | `create-checkout-session` | user | Stripe checkout, 30-day trial, coach+solo branching |
@@ -419,14 +444,10 @@ supabase db push --linked                      # apply migrations to remote
 
 ## Testing
 
-48 unit tests passing across 4 files:
+**~111 unit tests** across `src/utils/*.test.js` (pure helpers: lock state, dates, compliance breakdown/summary, attention level + `summarizeRoster`, nudge reason, energy balance, card order, password/invite validation, `meals`, `savedMeals`). Run with `npm test` (watch) / `npx vitest run`. Config in `vite.config.js`; the RLS suite is excluded from the unit run.
 
-| File | Tests |
-|---|---|
-| `lockState.test.js` | 15 |
-| `passwordValidation.test.js` | 7 |
-| `dateHelpers.test.js` | 19 |
-| `inviteValidation.test.js` | 7 |
+### RLS + billing integration harness (`tests/rls/`, Jun 15)
+`npm run rls:setup` boots a **local Supabase stack** (Colima/Docker), loads `supabase/schema/prod_public.sql` (the prod baseline) + post-baseline migrations, then `npm run test:rls` runs **~71 tests** (`vitest --config vitest.integration.config.js`) that exercise **real RLS** as real signed-in users (service-role seeds; anon-key clients carry each user's JWT). Covers tenant isolation across every table (cross-tenant reads return empty; forbidden writes error), coach-private notes, billing invariants (trial-ledger abuse prevention, subscription idempotency), the invitations token-RPC, owner-only saved meals, active-only `day_complete`, and the check-in review RPC + guard trigger. `scripts/seed-demo-roster.mjs` (+ `shoot-roster.mjs`) seeds a realistic demo roster for manual/visual QA (demo coach `demo.coach@gardnr.test`). This harness caught the world-readable-invitations leak and the missing-grant / service-role-guard bugs before they shipped.
 
 ### Visual QA (Playwright)
 `scripts/shoot.mjs` and `scripts/shoot-all.mjs` (Playwright + Chromium, devDeps) screenshot real pages at phone + desktop widths using throwaway accounts, then delete them. `shoot-all.mjs` also covers gated screens: a throwaway coach gets a `trialing` `subscriptions` row injected (service-role key from `supabase projects api-keys`) to clear the paywall, and a throwaway client is linked via a **client-token** `coach_clients` insert (service_role has no INSERT grant there — the real path is the client inserting their own row in the Join flow). Run `node scripts/shoot.mjs [baseUrl]` (defaults to local dev; pass `https://www.gardnr.fit` for prod) and read `/tmp/shots/*.png`. **Run after any UI change** — these were built after a sticky-nav bug shipped that only surfaced when actually viewing a scrolled page. For richer (non-empty) screenshots, seed a test account with `test-data.sql` (30 days of solo logs).
