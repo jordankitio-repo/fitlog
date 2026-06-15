@@ -39,6 +39,11 @@ beforeAll(async () => {
   const { data: inv } = await admin.from('invitations')
     .insert({ coach_id: coachA.id, client_email: 'invitee@example.test' }).select().single()
   inviteToken = inv.token
+
+  const { data: sm } = await admin.from('saved_meals')
+    .insert({ user_id: clientA1.id, name: 'A1 usual breakfast' }).select('id').single()
+  await admin.from('saved_meal_items')
+    .insert({ saved_meal_id: sm.id, user_id: clientA1.id, food: 'Oats', calories: 300, protein: 10 })
 }, 60000)
 
 afterAll(async () => {
@@ -178,6 +183,25 @@ describe('coach_clients (relationship rows)', () => {
   })
   it('an outsider cannot see someone else\'s relationship', async () => {
     const { rows } = await readAs(outsider, 'coach_clients', 'client_id', clientA1.id)
+    expect(rows).toHaveLength(0)
+  })
+})
+
+describe('saved_meals (owner-only, private)', () => {
+  it('the owner can read their saved meals + items', async () => {
+    const { rows } = await readAs(clientA1, 'saved_meals', 'user_id', clientA1.id)
+    expect(rows.length).toBeGreaterThan(0)
+    const { rows: items } = await readAs(clientA1, 'saved_meal_items', 'user_id', clientA1.id)
+    expect(items.length).toBeGreaterThan(0)
+  })
+  it('another user CANNOT read them', async () => {
+    const { rows } = await readAs(clientB1, 'saved_meals', 'user_id', clientA1.id)
+    expect(rows).toHaveLength(0)
+    const { rows: items } = await readAs(clientB1, 'saved_meal_items', 'user_id', clientA1.id)
+    expect(items).toHaveLength(0)
+  })
+  it('even the coach CANNOT read a client\'s saved meals (personal, not coaching data)', async () => {
+    const { rows } = await readAs(coachA, 'saved_meals', 'user_id', clientA1.id)
     expect(rows).toHaveLength(0)
   })
 })
