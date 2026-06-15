@@ -829,7 +829,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               title="Re-log"
             >↻</button>
             {moveTargets.length > 0 && (
-              <button onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Move to another meal">⇄</button>
+              <button onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Move to another meal">⠿</button>
             )}
             <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
             <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
@@ -867,7 +867,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal">↻</button>
             {moveTargets.length > 0 && (
-              <button onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Move meal to another slot">⇄</button>
+              <button onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Move meal to another slot">⠿</button>
             )}
             <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete meal">✕</button>
           </div>
