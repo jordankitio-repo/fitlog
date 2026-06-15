@@ -4,6 +4,7 @@ import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
 import PasswordInput from '../components/PasswordInput'
+import LoadingScreen from '../components/LoadingScreen'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 
 function Join() {
@@ -272,7 +273,7 @@ function Join() {
     width: '100%',
   }
 
-  if (loading) return <p style={{ padding: '24px' }}>Loading...</p>
+  if (loading) return <LoadingScreen />
 
   if (error && !invitation) return (
     <div style={{ maxWidth: '400px', margin: '80px auto' }}>

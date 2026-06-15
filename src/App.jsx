@@ -7,6 +7,7 @@ import Profile from './pages/Profile'
 import Login from './pages/Login'
 import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
+import LoadingScreen from './components/LoadingScreen'
 import ClientChat from './components/ClientChat'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CoachPaywall from './components/CoachPaywall'
@@ -231,7 +232,7 @@ function App() {
     )
   }
 
-  if (loading) return <p style={{ padding: '24px' }}>Loading...</p>
+  if (loading) return <LoadingScreen />
 
   if (session && profile && !profile.role) {
     return (
@@ -244,7 +245,7 @@ function App() {
   }
 
   if (BILLING_ENABLED && profile?.role === 'coach' && subLoading) {
-    return <p style={{ padding: '24px' }}>Loading...</p>
+    return <LoadingScreen />
   }
 
   if (BILLING_ENABLED && profile?.role === 'coach') {
