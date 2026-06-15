@@ -140,7 +140,8 @@ supabase/
 - `id`, `user_id` (unique), `calories`, `protein`, `carbs`, `fat`, `cardio_minutes`, `steps`, `weight_goal`, `weight_goal_unit`, `updated_at`
 
 **coach_clients**
-- `id`, `coach_id`, `client_id`, `status` ('pending'|'active'), `hide_calories` bool default false, `last_nudged_at` timestamptz, `created_at`
+- `id`, `coach_id`, `client_id`, `status` ('pending'|'active'|'offboarded'), `hide_calories` bool default false, `last_nudged_at` timestamptz, `lock_cleared_at` timestamptz, `offboarded_at` timestamptz, `created_at`
+- A left relationship is `status='offboarded'` + `offboarded_at`. Client-initiated leave (`offboard-self`) sets no `profiles.offboard_reason`; coach-initiated (`offboard-client`) sets `coach_offboarded` — that's the discriminator.
 
 **messages** (unified — replaced old coach_messages + client_messages)
 - `id`, `coach_id`, `client_id`, `sender_id`, `content`, `reaction`, `read_at`, `created_at`
@@ -160,6 +161,10 @@ supabase/
 
 **invitations**
 - `id`, `coach_id`, `email`, `token`, `used`, `created_at`
+
+**notifications** (migration `20260614120000`)
+- `id`, `user_id` (→ auth.users, on delete cascade), `type`, `title`, `body`, `href`, `created_at`, `read_at`
+- RLS ENABLED: recipients SELECT/UPDATE their own rows (`user_id = auth.uid()`); **no INSERT policy** — only edge functions (service role) write. Holds server-pushed events that can't be derived from activity tables under RLS (currently `client_left`, written by `offboard-self` + `delete-account`). The bell reads it as Recent events. (See `decisions.md`.)
 
 **subscriptions**
 - `id`, `coach_id` → profiles, `solo_id` → profiles, `stripe_customer_id`, `stripe_subscription_id`, `stripe_price_id`, `status` ('trialing'|'active'|'past_due'|'canceled'|'incomplete'), `trial_end`, `current_period_end`, `paused_for_coaching` bool default false, `cancel_at_period_end` bool default false, `created_at`
@@ -299,7 +304,7 @@ In-app: nudge banner (client Dashboard, dismissible per nudge timestamp); milest
 
 ### Notification center (`NotificationCenter.jsx`, in NavBar)
 A bell + dropdown, all **derived from existing tables — no notifications schema**. Carries two kinds of entry (model rationale in `decisions.md` → Design & UX):
-- **Recent (events)** — one-off: new check-in / client message (coach), new report / coach message (client). Tracked by last-seen timestamp (`gardnr-notif-seen`), drop off once seen. Click deep-links via `?focus=` (`reports`/`chat`/`checkIn`/`checkin`) consumed by Dashboard/ClientView section-scroll effects + `ChatBubble`.
+- **Recent (events)** — one-off: new check-in / client message (coach), new report / coach message (client), plus role-agnostic rows from the `notifications` table (e.g. `client_left`). Tracked by last-seen timestamp (`gardnr-notif-seen`), drop off once seen. Click deep-links via `?focus=` (`reports`/`chat`/`checkIn`/`checkin`) consumed by Dashboard/ClientView section-scroll effects + `ChatBubble`.
 - **Needs attention (alerts)** — ongoing conditions that persist until they clear. Coach: per off-track client via `attentionLevel` (`utils/clientStats.js` → `computeClientStats`). Client: own action-items via `computeClientAlerts` (lock / coach-unlock / check-in due, Thu+ / coach-nudge until logged today). Badge counts *new* alerts + unseen events, clears on open; seen alert ids in `gardnr-notif-seen-alerts`.
 - **Freshness:** recomputes on mount, tab-refocus, and a `gardnr-notif-refresh` window event (`utils/notifyRefresh.js`) fired by nutrition saves/edits/deletes + check-in submit, so a same-page action clears the alert it resolves.
 - **`utils/clientStats.js`** is the single source of truth for per-client facts (days-since-log, this-week check-in, 7-day compliance, lock state), shared by the bell and `CoachDashboard` so they can't drift.

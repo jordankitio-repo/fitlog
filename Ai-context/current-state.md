@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`601df36 feat(reports): tap to read full report in a blurred modal; hide PWA scrollbar`
+`e863802 feat(notifications): notify coach in-app when a client leaves`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,8 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Coach notified in-app when a client leaves (Jun 14)** — A departing client (self-leave or account deletion) left the coach with no in-app notification, and it can't be derived: once the relationship ends, `profiles` RLS (active-only `is_profile_related`) hides the departed client's name from the coach, so the bell can't render it after the fact. Added a minimal **`notifications` table** (`20260614120000`: `user_id, type, title, body, href, created_at, read_at`; RLS = read/update your own; inserts via service role only — no authenticated insert policy). `offboard-self` and `delete-account` snapshot the client's name and insert a coach notification at leave time; the bell reads `notifications` (role-agnostic) as Recent events. Redeploying `offboard-self` also refreshes its existing coach-email path. **This is the deliberate exception to "no notifications schema"** (that stance was about deriving from activity tables, which the privacy RLS makes impossible for departures — see `decisions.md`). `e863802`.
 
 **Reports open in a blurred modal + PWA scrollbar hidden (Jun 14)** — Coach reports on the client Dashboard ran long and dragged the page down when expanded inline. Now each report shows only the **beginning** (~140px faded preview) with a "Read full report →" cue; tapping opens the full report in a **centered tile over a blurred, dimmed backdrop** (`ReportBody.jsx`, scrolls inside, capped 85vh, dismiss via backdrop / × / Escape, body scroll locked). Used for both active and archived reports; applies on mobile + web PWA. The coach's *draft* preview in ClientView is left full (it's a deliberate review step). Separately, **scrollbar chrome is hidden in the installed PWA** (`@media (display-mode: standalone)`) so the persistent overlay bar doesn't read as a desktop-browser artifact; the browser keeps its normal scrollbars. `601df36`.
 
@@ -254,6 +256,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 14 (cont. 2)** — Coach now gets an in-app notification when a client leaves (self-leave or account deletion). New `notifications` table (`20260614120000`, applied to prod) because the departed client's name is unreadable to the coach post-leave (profiles RLS); `offboard-self`/`delete-account` snapshot the name + insert (both redeployed); bell reads it. `e863802`.
 - **Jun 14 (cont.)** — Reports on the client Dashboard now open in a blurred-backdrop modal (`ReportBody.jsx`: faded preview → tap → full report tile, dismiss by tapping away) instead of expanding inline and dragging the page. Hid scrollbar chrome in the standalone PWA. `601df36`.
 - **Jun 14** — Day/night mode + notification-center alerts. Theme system (`utils/theme.js`, Auto/Light/Dark, OS-following, pre-paint inline script, `[data-theme="light"]` token block, `chartTheme.js` literals because chart.js canvas can't read CSS vars). Light-mode bug fixes (translucent `--color-control-border` for vanishing button outlines; date inputs follow theme `color-scheme` so the calendar icon shows; `--shadow-card`). Routed alerts into the bell: coach gets per-client `attentionLevel` triage, client gets lock/check-in-due(Thu+)/coach-nudge — persist-until-resolved with a *new*-only badge. Extracted `utils/clientStats.js` (shared by bell + CoachDashboard). Bell live-refresh via `utils/notifyRefresh.js` (fires on nutrition save/check-in). Commits `71b092f`→`71c45d3`.
 - **Jun 13** — Made solo free (`SOLO_BILLING_ENABLED = false`). Barcode scanner rewritten on `@zxing/browser` (old one didn't release the camera). PWA update hardening + Profile build stamp. Compliance-colored cardio/steps bars + per-chart plain toggle; heatmap fill-width on mobile; stat-card/Groundwork redesign. InfoTips added then reduced. Mobile credential-zoom removed. Message reactions added then fully reverted (100→99 tests). First notification-center pass (deep-link to root cause, seen-items drop off).

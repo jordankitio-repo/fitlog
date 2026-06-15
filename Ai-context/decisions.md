@@ -183,6 +183,10 @@
 **Reason:** A locale-dependent string ("10:30 AM") doesn't match the PostgreSQL `time` column and breaks sorting/parsing.
 **Consequences:** Stored as `HH:MM:SS`; `formatTime()` converts to 12hr for display.
 
+### `notifications` table is the one exception to "derive notifications from activity tables" (Jun 14 2026)
+**Reason:** The bell derives everything (messages, check-ins, reports, alerts) from tables that already exist — except a client *leaving*. The moment a relationship ends, `profiles` RLS (`is_profile_related` requires `status = 'active'`) hides the departed client's profile from the coach, so the bell can no longer read the name to render "X left your coaching." The departure leaves no coach-readable trace. So this single class of event needs a stored record whose text is snapshotted at leave time.
+**Consequences:** `notifications` (`user_id, type, title, body, href, created_at, read_at`) holds server-pushed events that can't be derived under RLS. **Inserts are service-role only** — there is intentionally no authenticated INSERT policy; RLS lets recipients read/update only their own rows. `offboard-self` and `delete-account` (client branch) snapshot the client's name and insert a `client_left` row for the coach. The bell reads it role-agnostically as a Recent event. Any future server-originated notification (not derivable from activity) belongs here too — but keep deriving where the data is already readable.
+
 ---
 
 ## Time & Dates
