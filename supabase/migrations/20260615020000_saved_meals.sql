@@ -40,3 +40,9 @@ create policy "saved_meal_items_owner" on public.saved_meal_items
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+-- Table privileges (RLS still enforces owner-only). Explicit because the
+-- platform default-privilege grants don't always cover tables created outside
+-- the dashboard flow — same reason 20260614130000_notifications_grants exists.
+grant select, insert, update, delete on public.saved_meals to anon, authenticated;
+grant select, insert, update, delete on public.saved_meal_items to anon, authenticated;
