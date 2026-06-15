@@ -6,6 +6,7 @@ import SoloUpgrade from '../components/SoloUpgrade'
 import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
+import { MEALS, mealForHour, groupEntriesByMeal } from '../utils/meals'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -46,6 +47,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [showBarcodeInput, setShowBarcodeInput] = useState(false)
   const [servingSize, setServingSize] = useState('')
   const [servingUnit, setServingUnit] = useState('g')
+  const [meal, setMeal] = useState(mealForHour(new Date().getHours()))
   const [baseNutrients, setBaseNutrients] = useState(null)
   const [baseServingSize, setBaseServingSize] = useState(null)
   const [baseServingLabel, setBaseServingLabel] = useState('')
@@ -188,6 +190,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       fat: item.fat,
       serving_size: item.serving_size,
       serving_unit: item.serving_unit,
+      meal: mealForHour(new Date().getHours()),
       logged_date: selectedDate,
       user_id: currentSession.user.id,
     }])
@@ -271,6 +274,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         fat: e.fat,
         serving_size: e.serving_size,
         serving_unit: e.serving_unit,
+        meal: e.meal,
         logged_date: selectedDate,
         user_id: currentSession.user.id
       }))
@@ -304,7 +308,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       const { error } = await supabase.from('nutrition_log').update({
         food, calories: parseInt(calories), protein: parseInt(protein) || 0,
         carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
-        serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit
+        serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal
       }).eq('id', editingEntry.id)
       if (error) console.error('Error updating:', error)
       else { setEditingEntry(null); clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
@@ -312,7 +316,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       const { error } = await supabase.from('nutrition_log').insert([{
         food, calories: parseInt(calories), protein: parseInt(protein) || 0,
         carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
-        serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit,
+        serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal,
         logged_date: selectedDate, user_id: currentSession.user.id
       }])
       if (error) console.error('Error saving:', error)
@@ -325,6 +329,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setCarbs(''); setFat(''); setServingSize('')
     setServingUnit('g'); setBaseNutrients(null)
     setBaseServingSize(null); setBaseServingLabel('')
+    setMeal(mealForHour(new Date().getHours()))
     setNutritionErrors({})
     setShowFoodResults(false); setFoodResults([])
   }
@@ -338,6 +343,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setFat(entry.fat.toString())
     setServingSize(entry.serving_size.toString())
     setServingUnit(entry.serving_unit || 'g')
+    setMeal(entry.meal || mealForHour(new Date().getHours()))
     setBaseNutrients(null)
     setBaseServingSize(null)
     setBaseServingLabel('')
@@ -645,41 +651,50 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         </div>
 
-        {/* Food entries */}
+        {/* Food entries, grouped by meal */}
         {entries.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--color-border)', paddingTop: '4px' }}>
-            {entries.map(entry => (
-              <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
-                <div style={{ flex: 1, minWidth: 0, marginRight: '8px' }}>
-                  <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9rem' }}>{entry.food}</p>
-                  <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
-                    {entry.serving_size}{entry.serving_unit}
-                    {!hideCalories && ` · ${entry.calories} kcal`}
-                    {entry.protein > 0 && ` · ${entry.protein}g protein`}
-                  </p>
+            {groupEntriesByMeal(entries).map(group => (
+              <div key={group.key}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
+                  {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
                 </div>
-                <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                  <button
-                    onClick={() => {
-                      setFood(entry.food)
-                      setCalories(entry.calories.toString())
-                      setProtein(entry.protein.toString())
-                      setCarbs(entry.carbs.toString())
-                      setFat(entry.fat.toString())
-                      setServingSize(entry.serving_size.toString())
-                      setServingUnit(entry.serving_unit || 'g')
-                      setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
-                      setBaseServingSize(null)
-                      setBaseServingLabel('')
-                      setEditingEntry(null)
-                      setNutritionExpanded(true)
-                    }}
-                    style={{ ...iconBtnStyle, fontSize: '1rem' }}
-                    title="Re-log"
-                  >↻</button>
-                  <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
-                  <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
-                </div>
+                {group.entries.map(entry => (
+                  <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
+                    <div style={{ flex: 1, minWidth: 0, marginRight: '8px' }}>
+                      <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9rem' }}>{entry.food}</p>
+                      <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
+                        {entry.serving_size}{entry.serving_unit}
+                        {!hideCalories && ` · ${entry.calories} kcal`}
+                        {entry.protein > 0 && ` · ${entry.protein}g protein`}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                      <button
+                        onClick={() => {
+                          setFood(entry.food)
+                          setCalories(entry.calories.toString())
+                          setProtein(entry.protein.toString())
+                          setCarbs(entry.carbs.toString())
+                          setFat(entry.fat.toString())
+                          setServingSize(entry.serving_size.toString())
+                          setServingUnit(entry.serving_unit || 'g')
+                          setMeal(entry.meal || mealForHour(new Date().getHours()))
+                          setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
+                          setBaseServingSize(null)
+                          setBaseServingLabel('')
+                          setEditingEntry(null)
+                          setNutritionExpanded(true)
+                        }}
+                        style={{ ...iconBtnStyle, fontSize: '1rem' }}
+                        title="Re-log"
+                      >↻</button>
+                      <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
+                      <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -688,6 +703,23 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {/* Add Food Form */}
         {nutritionExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: entries.length > 0 ? '4px' : '0' }}>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {MEALS.map(m => (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setMeal(m.key)}
+                  style={{
+                    flex: '1 1 0', minWidth: 0,
+                    background: meal === m.key ? 'var(--color-primary)' : 'var(--color-surface)',
+                    color: meal === m.key ? '#fff' : 'var(--color-muted)',
+                    border: `1px solid ${meal === m.key ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                    borderRadius: 'var(--radius)', padding: '7px 4px',
+                    fontSize: 'var(--text-xs)', fontWeight: meal === m.key ? 600 : 400, cursor: 'pointer',
+                  }}
+                >{m.label}</button>
+              ))}
+            </div>
             <input
               type="text"
               placeholder="Search or enter a food"
