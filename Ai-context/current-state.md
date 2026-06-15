@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`e863802 feat(notifications): notify coach in-app when a client leaves`
+`72fa3b1 fix(notifications): grant table privileges (was 42501 permission denied)`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -25,6 +25,7 @@
 ## Recently Shipped (most recent first)
 
 **Coach notified in-app when a client leaves (Jun 14)** — A departing client (self-leave or account deletion) left the coach with no in-app notification, and it can't be derived: once the relationship ends, `profiles` RLS (active-only `is_profile_related`) hides the departed client's name from the coach, so the bell can't render it after the fact. Added a minimal **`notifications` table** (`20260614120000`: `user_id, type, title, body, href, created_at, read_at`; RLS = read/update your own; inserts via service role only — no authenticated insert policy). `offboard-self` and `delete-account` snapshot the client's name and insert a coach notification at leave time; the bell reads `notifications` (role-agnostic) as Recent events. Redeploying `offboard-self` also refreshes its existing coach-email path. **This is the deliberate exception to "no notifications schema"** (that stance was about deriving from activity tables, which the privacy RLS makes impossible for departures — see `decisions.md`). `e863802`.
+- **Gotcha (fixed `72fa3b1`):** the table shipped with RLS policies but no table-level GRANTs → `42501 permission denied for table notifications` on the authenticated read (and the service-role insert). **RLS scopes rows; GRANTs allow touching the table at all — new tables need both.** Migration `20260614130000` grants select/update to `authenticated` + full to `service_role`. Confirmed via an anon REST probe (`sb_publishable_…` key) that returned the 42501 hint. (Same class as the Jun 8 "RLS enabled, not just policies" gotcha.)
 
 **Reports open in a blurred modal + PWA scrollbar hidden (Jun 14)** — Coach reports on the client Dashboard ran long and dragged the page down when expanded inline. Now each report shows only the **beginning** (~140px faded preview) with a "Read full report →" cue; tapping opens the full report in a **centered tile over a blurred, dimmed backdrop** (`ReportBody.jsx`, scrolls inside, capped 85vh, dismiss via backdrop / × / Escape, body scroll locked). Used for both active and archived reports; applies on mobile + web PWA. The coach's *draft* preview in ClientView is left full (it's a deliberate review step). Separately, **scrollbar chrome is hidden in the installed PWA** (`@media (display-mode: standalone)`) so the persistent overlay bar doesn't read as a desktop-browser artifact; the browser keeps its normal scrollbars. `601df36`.
 
