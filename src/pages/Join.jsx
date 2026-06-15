@@ -21,6 +21,10 @@ function Join() {
   const [existingSession, setExistingSession] = useState(null)
   const [connecting, setConnecting] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
+  // Set when sign-up reports the email already exists. We can't pre-detect this
+  // because profiles RLS hides every row from an unauthenticated visitor, so the
+  // "create account" form is shown by default and we pivot here on the error.
+  const [accountExists, setAccountExists] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -101,6 +105,15 @@ function Join() {
     })
 
     if (signUpError) {
+      // Returning user (e.g. a client who left coaching and went back to solo).
+      // Their auth account still exists, so sign-up fails — pivot to sign-in.
+      if (/already registered|already exists/i.test(signUpError.message || '')) {
+        setAccountExists(true)
+        setPassword('')
+        setError("You already have a Gardnr account with this email. Enter your password to sign in and accept.")
+        setAuthLoading(false)
+        return
+      }
       setError(signUpError.message)
       setAuthLoading(false)
       return
@@ -137,6 +150,20 @@ function Join() {
   async function acceptInvite(userId, options = {}) {
     setConnecting(true)
     setError('')
+
+    // Now authenticated, so we can read our own profile — guard against a coach
+    // account accepting a client invite (the anon pre-check couldn't see this).
+    const { data: ownProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (ownProfile?.role === 'coach') {
+      setError('This email belongs to a coach account and cannot accept a client invite.')
+      setConnecting(false)
+      return
+    }
 
     const { data: existingRelation } = await supabase
       .from('coach_clients')
@@ -287,7 +314,7 @@ function Join() {
             Cancel
           </Button>
         </div>
-      ) : existingAccount ? (
+      ) : (existingAccount || accountExists) ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
             You already have a Gardnr account with this email. Log in to accept your coach's invite.
@@ -299,9 +326,12 @@ function Join() {
             style={inputStyle}
           />
           {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
-          <Button onClick={handleLoginToAccept} variant="primary" fullWidth loading={authLoading}>
+          <Button onClick={handleLoginToAccept} variant="primary" fullWidth loading={authLoading || connecting}>
             Log in and accept
           </Button>
+          <p style={{ textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
+            Forgot your password? <Link to="/login" style={{ color: 'var(--color-primary)' }}>Reset it</Link>, then reopen this invite link.
+          </p>
         </div>
       ) : (
         <>
