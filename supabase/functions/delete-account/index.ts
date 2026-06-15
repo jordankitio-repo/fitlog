@@ -315,6 +315,7 @@ Deno.serve(async (req) => {
     // Fetch coach info before coach_clients rows are deleted (client role only)
     let coachEmail: string | null = null
     let coachName: string | null = null
+    let coachId: string | null = null
     if (callerRole === 'client') {
       try {
         const ccRes = await fetch(
@@ -322,7 +323,7 @@ Deno.serve(async (req) => {
           { headers },
         )
         const ccRows = await ccRes.json().catch(() => [])
-        const coachId = Array.isArray(ccRows) ? ccRows[0]?.coach_id : null
+        coachId = Array.isArray(ccRows) ? ccRows[0]?.coach_id : null
         if (coachId) {
           const coachProfRes = await fetch(
             `${supabaseUrl}/rest/v1/profiles?id=eq.${coachId}&select=email,full_name`,
@@ -335,6 +336,22 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error('Failed to fetch coach info for deletion notification:', e)
+      }
+
+      // In-app notification for the coach (name snapshotted before the client's
+      // profile is deleted; see migration 20260614120000).
+      if (coachId) {
+        await fetch(`${supabaseUrl}/rest/v1/notifications`, {
+          method: 'POST',
+          headers: { ...headers, Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            user_id: coachId,
+            type: 'client_left',
+            title: `${callerName || callerEmail || 'A client'} left your coaching`,
+            body: 'Their account was deleted',
+            href: '/',
+          }),
+        }).catch((e) => console.error('Coach deletion notification insert failed:', e))
       }
     }
 

@@ -124,6 +124,16 @@ export default function NotificationCenter({ profile }) {
       al.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level])
     }
 
+    // Server-pushed notifications (role-agnostic) — events that leave no other
+    // readable trace, e.g. a client leaving (the coach loses RLS access to the
+    // departed client's profile, so the name is snapshotted server-side).
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: notifs } = await supabase.from('notifications')
+      .select('id, title, body, href, created_at')
+      .eq('user_id', uid).gte('created_at', since)
+      .order('created_at', { ascending: false }).limit(15)
+    ;(notifs || []).forEach((n) => ev.push({ id: 'n' + n.id, kind: 'notif', title: n.title, sub: n.body, time: +new Date(n.created_at), href: n.href || '/' }))
+
     ev.sort((a, b) => b.time - a.time)
     setEvents(ev.slice(0, 20))
     setAlerts(al)

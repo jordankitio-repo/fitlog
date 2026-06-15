@@ -174,13 +174,14 @@ Deno.serve(async (req) => {
     let coachEmail: string | null = null
     let coachName: string | null = null
     let clientName: string | null = null
+    let coachId: string | null = null
     try {
       const ccRes = await fetch(
         `${supabaseUrl}/rest/v1/coach_clients?client_id=eq.${user.id}&status=eq.active&select=coach_id&limit=1`,
         { headers },
       )
       const ccRows = await ccRes.json().catch(() => [])
-      const coachId = Array.isArray(ccRows) ? ccRows[0]?.coach_id : null
+      coachId = Array.isArray(ccRows) ? ccRows[0]?.coach_id : null
       if (coachId) {
         const profRes = await fetch(
           `${supabaseUrl}/rest/v1/profiles?id=in.(${coachId},${user.id})&select=id,email,full_name`,
@@ -228,6 +229,24 @@ Deno.serve(async (req) => {
     }
 
     await resumeSoloSubscription(supabaseUrl, serviceKey, user.id)
+
+    // In-app notification for the coach. The name is snapshotted here because the
+    // coach loses RLS read access to the departed client's profile, so the bell
+    // can't look it up after the fact (see migration 20260614120000).
+    if (coachId) {
+      const safeName = clientName || 'A client'
+      await fetch(`${supabaseUrl}/rest/v1/notifications`, {
+        method: 'POST',
+        headers: { ...headers, Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          user_id: coachId,
+          type: 'client_left',
+          title: `${safeName} left your coaching`,
+          body: 'Returned to a solo plan',
+          href: '/',
+        }),
+      }).catch((e) => console.error('Coach offboard notification insert failed:', e))
+    }
 
     // Notify the coach that the client has left (best-effort, awaited so the
     // Edge isolate isn't torn down before the Resend request completes).
