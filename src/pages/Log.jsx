@@ -64,6 +64,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [moveMenu, setMoveMenu] = useState(false)
+  const [groupMenu, setGroupMenu] = useState(false)
   const [expandedMeals, setExpandedMeals] = useState(new Set())
   const [addingToMeal, setAddingToMeal] = useState(null) // { id, name, meal } when adding a food into a logged meal
   const [foodResults, setFoodResults] = useState([])
@@ -233,7 +234,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setSelectedIds(prev => prev.size === entries.length ? new Set() : new Set(entries.map(e => e.id)))
   }
   function exitSelect() {
-    setSelectMode(false); setSelectedIds(new Set()); setShowSaveMeal(false); setMoveMenu(false); setSaveMealName('')
+    setSelectMode(false); setSelectedIds(new Set()); setShowSaveMeal(false); setMoveMenu(false); setGroupMenu(false); setSaveMealName('')
   }
 
   // Save the SELECTED entries as a reusable meal.
@@ -259,6 +260,34 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { error } = await supabase.from('nutrition_log')
       .update({ meal: mealKey === 'other' ? null : mealKey }).in('id', ids)
     if (error) console.error('Error moving entries:', error)
+    else { fetchEntries(); refreshNotifications() }
+    exitSelect()
+  }
+
+  // Group the selected (already-logged) entries into a NEW container in place —
+  // no re-log. They cohere in one slot (the first selected item's).
+  async function groupSelectedAsMeal() {
+    const name = saveMealName.trim()
+    const ids = [...selectedIds]
+    if (!name || ids.length === 0) return
+    setSavingMeal(true)
+    const first = entries.find(e => selectedIds.has(e.id))
+    const { error } = await supabase.from('nutrition_log')
+      .update({ logged_meal_id: crypto.randomUUID(), logged_meal_name: name, meal: first?.meal ?? null })
+      .in('id', ids)
+    if (error) console.error('Error grouping meal:', error)
+    else { fetchEntries(); refreshNotifications() }
+    setSavingMeal(false); exitSelect()
+  }
+
+  // Add the selected entries into an EXISTING logged meal container.
+  async function groupSelectedIntoMeal(container) {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    const { error } = await supabase.from('nutrition_log')
+      .update({ logged_meal_id: container.id, logged_meal_name: container.name, meal: container.entries[0]?.meal ?? null })
+      .in('id', ids)
+    if (error) console.error('Error adding to meal:', error)
     else { fetchEntries(); refreshNotifications() }
     exitSelect()
   }
@@ -955,9 +984,29 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     ))}
                     <button onClick={() => setMoveMenu(false)} style={selectLinkStyle}>Back</button>
                   </div>
+                ) : groupMenu ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <input type="text" placeholder="New meal name" value={saveMealName} onChange={e => setSaveMealName(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '160px' }} />
+                      <Button onClick={groupSelectedAsMeal} variant="primary" size="sm" loading={savingMeal} disabled={!saveMealName.trim()}>Group as new meal</Button>
+                      <Button onClick={() => setGroupMenu(false)} variant="muted" size="sm">Back</Button>
+                    </div>
+                    {(() => {
+                      const containers = groupLoggedMeals(entries).filter(i => i.type === 'meal')
+                      return containers.length > 0 ? (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>or into:</span>
+                          {containers.map(c => (
+                            <button key={c.id} onClick={() => groupSelectedIntoMeal(c)} style={pillBtnStyle}>🍽 {c.name}</button>
+                          ))}
+                        </div>
+                      ) : null
+                    })()}
+                  </div>
                 ) : (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <Button onClick={() => setShowSaveMeal(true)} variant="primary" size="sm">Save as meal</Button>
+                    <Button onClick={() => setGroupMenu(true)} variant="primary" size="sm">Group as meal</Button>
+                    <Button onClick={() => setShowSaveMeal(true)} variant="muted" size="sm">Save as meal</Button>
                     <Button onClick={() => setMoveMenu(true)} variant="muted" size="sm">Move to…</Button>
                     {selectedIds.size === 1 && (
                       <Button onClick={() => { const e = entries.find(x => selectedIds.has(x.id)); exitSelect(); if (e) startEdit(e) }} variant="muted" size="sm">Edit</Button>
