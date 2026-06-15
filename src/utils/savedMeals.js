@@ -15,8 +15,10 @@ export function itemsFromEntries(entries = [], { savedMealId, userId }) {
   }))
 }
 
-// Expand a saved meal's items into nutrition_log insert rows for a day + meal slot.
-export function entriesFromItems(items = [], { userId, date, meal }) {
+// Expand a saved meal's items into nutrition_log insert rows for a day + meal
+// slot. When loggedMealId/Name are given, the rows form one logged container
+// (a meal logged as a single, expandable item).
+export function entriesFromItems(items = [], { userId, date, meal, loggedMealId = null, loggedMealName = null }) {
   return items.map((i) => ({
     food: i.food,
     calories: i.calories,
@@ -28,6 +30,8 @@ export function entriesFromItems(items = [], { userId, date, meal }) {
     meal,
     logged_date: date,
     user_id: userId,
+    logged_meal_id: loggedMealId,
+    logged_meal_name: loggedMealName,
   }))
 }
 

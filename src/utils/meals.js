@@ -19,6 +19,31 @@ export function mealForHour(hour) {
   return 'snack'
 }
 
+// Within a meal slot, fold entries that share a logged_meal_id into one
+// container (a meal logged as a single expandable item); loose entries stay as
+// they are. Order is preserved (a container appears where its first item is).
+// Returns a list of { type:'food', entry } | { type:'meal', id, name, entries, calories }.
+export function groupLoggedMeals(entries = []) {
+  const out = []
+  const at = new Map()
+  for (const e of entries) {
+    if (e.logged_meal_id) {
+      if (!at.has(e.logged_meal_id)) {
+        at.set(e.logged_meal_id, out.length)
+        out.push({ type: 'meal', id: e.logged_meal_id, name: e.logged_meal_name || 'Meal', entries: [e] })
+      } else {
+        out[at.get(e.logged_meal_id)].entries.push(e)
+      }
+    } else {
+      out.push({ type: 'food', entry: e })
+    }
+  }
+  for (const item of out) {
+    if (item.type === 'meal') item.calories = item.entries.reduce((s, e) => s + (e.calories || 0), 0)
+  }
+  return out
+}
+
 // Group a day's entries into ordered meal sections (only the non-empty ones),
 // each with a calorie subtotal. Rows with no/unknown meal fall into a trailing
 // "Other" bucket so legacy entries still show.
