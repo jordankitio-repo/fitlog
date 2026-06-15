@@ -329,8 +329,9 @@ function CoachDashboard({ profile }) {
           />
         ) : (
           <>
-            {clients.length > 1 && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              {clients.length > 1 && (
+                <>
                 <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', alignSelf: 'center', marginRight: 4 }}>
                   Sort:
                 </p>
@@ -357,11 +358,12 @@ function CoachDashboard({ profile }) {
                     {label}
                   </button>
                 ))}
+                </>
+              )}
                 <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
                   <InfoTip text="Status pill = the most pressing reason a client needs you (no check-in, or days without a log); green means on track. Compliance pills = days on target out of 7 per metric — dimmer means fewer." />
                 </span>
               </div>
-            )}
             {sortedClients.map((c) => {
               const s = clientStats[c.client_id]
               const triage = attentionLevel(s)
