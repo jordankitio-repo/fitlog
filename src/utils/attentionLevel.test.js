@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { attentionLevel, compareByAttention } from './attentionLevel'
+import { attentionLevel, compareByAttention, summarizeRoster } from './attentionLevel'
 
 // Minimal stats factory — only the fields attentionLevel reads.
 function stats(over = {}) {
@@ -93,5 +93,33 @@ describe('compareByAttention', () => {
     const red = stats({ daysSinceLog: 9 })
     const sorted = [null, red].sort(compareByAttention)
     expect(sorted).toEqual([red, null])
+  })
+})
+
+describe('summarizeRoster', () => {
+  it('counts levels and the data-quality facts the per-client triage cannot', () => {
+    const s = summarizeRoster({
+      a: stats({ daysSinceLog: 5 }),                          // red, no targets, not logging
+      b: stats({ checkIn: null }),                            // yellow, no targets
+      c: stats({ complianceItems: [comp('Calories', 6)] }),  // green, has targets
+    })
+    expect(s.total).toBe(3)
+    expect(s.atRisk).toBe(1)
+    expect(s.review).toBe(1)
+    expect(s.onTrack).toBe(1)
+    expect(s.noTargets).toBe(2)
+    expect(s.notLogging).toBe(1)
+  })
+
+  it('surfaces "no targets" even for an otherwise on-track client (the blind spot)', () => {
+    const s = summarizeRoster({ a: stats() }) // healthy but complianceItems []
+    expect(s.onTrack).toBe(1)
+    expect(s.noTargets).toBe(1)
+  })
+
+  it('handles an empty roster', () => {
+    expect(summarizeRoster({})).toMatchObject({
+      total: 0, atRisk: 0, review: 0, onTrack: 0, noTargets: 0, notLogging: 0,
+    })
   })
 })
