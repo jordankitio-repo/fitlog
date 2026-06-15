@@ -61,6 +61,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [saveMealName, setSaveMealName] = useState('')
   const [savingMeal, setSavingMeal] = useState(false)
   const [loggingMealId, setLoggingMealId] = useState(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [moveMenu, setMoveMenu] = useState(false)
   const [foodResults, setFoodResults] = useState([])
   const [foodSearching, setFoodSearching] = useState(false)
   const [showFoodResults, setShowFoodResults] = useState(false)
@@ -221,19 +224,50 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   // Snapshot the current day's logged foods into a reusable saved meal.
-  async function saveCurrentDayAsMeal() {
+  function toggleSelect(id) {
+    setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function selectAllInDay() {
+    setSelectedIds(prev => prev.size === entries.length ? new Set() : new Set(entries.map(e => e.id)))
+  }
+  function exitSelect() {
+    setSelectMode(false); setSelectedIds(new Set()); setShowSaveMeal(false); setMoveMenu(false); setSaveMealName('')
+  }
+
+  // Save the SELECTED entries as a reusable meal.
+  async function saveSelectedAsMeal() {
     const name = saveMealName.trim()
-    if (!name || entries.length === 0) return
+    const chosen = entries.filter(e => selectedIds.has(e.id))
+    if (!name || chosen.length === 0) return
     setSavingMeal(true)
     const { data: { session: cs } } = await supabase.auth.getSession()
     const { data: created, error } = await supabase
       .from('saved_meals').insert({ user_id: cs.user.id, name }).select('id').single()
     if (error) { console.error('Error saving meal:', error); setSavingMeal(false); return }
     const { error: itemsErr } = await supabase
-      .from('saved_meal_items').insert(itemsFromEntries(entries, { savedMealId: created.id, userId: cs.user.id }))
+      .from('saved_meal_items').insert(itemsFromEntries(chosen, { savedMealId: created.id, userId: cs.user.id }))
     if (itemsErr) console.error('Error saving meal items:', itemsErr)
-    setSaveMealName(''); setShowSaveMeal(false); setSavingMeal(false)
-    fetchSavedMeals()
+    setSavingMeal(false); exitSelect(); fetchSavedMeals()
+  }
+
+  // Bulk re-categorize the selected entries to a meal slot ('other' clears the tag).
+  async function moveSelectedToMeal(mealKey) {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    const { error } = await supabase.from('nutrition_log')
+      .update({ meal: mealKey === 'other' ? null : mealKey }).in('id', ids)
+    if (error) console.error('Error moving entries:', error)
+    else { fetchEntries(); refreshNotifications() }
+    exitSelect()
+  }
+
+  async function deleteSelected() {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    const { error } = await supabase.from('nutrition_log').delete().in('id', ids)
+    if (error) console.error('Error deleting entries:', error)
+    else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
+    exitSelect()
   }
 
   // One-tap log: drop a saved meal's foods into the selected day + meal slot.
@@ -647,6 +681,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
     padding: '4px 6px', fontSize: '0.875rem', color: 'var(--color-muted)'
   }
 
+  const selectLinkStyle = {
+    background: 'transparent', border: 'none', color: 'var(--color-primary)',
+    fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '2px 0',
+  }
+  const pillBtnStyle = {
+    background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)',
+    borderRadius: 'var(--radius)', padding: '4px 10px', fontSize: 'var(--text-xs)', fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit',
+  }
+
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
@@ -749,18 +793,42 @@ function Log({ session, profile, hasSoloPremium = true }) {
           {dayComplete ? '✓ Day marked complete — tap to undo' : 'Mark day complete'}
         </button>
 
-        {/* Food entries, grouped by meal */}
+        {/* Food entries, grouped by meal (with multi-select) */}
         {entries.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--color-border)', paddingTop: '4px' }}>
+            {!nutritionExpanded && !showCopyPanel && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0 2px' }}>
+                {selectMode ? (
+                  <>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{selectedIds.size} selected</span>
+                    <div style={{ display: 'flex', gap: '14px' }}>
+                      <button onClick={selectAllInDay} style={selectLinkStyle}>{selectedIds.size === entries.length ? 'Clear' : 'Select all'}</button>
+                      <button onClick={exitSelect} style={selectLinkStyle}>Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <button onClick={() => setSelectMode(true)} style={{ ...selectLinkStyle, marginLeft: 'auto' }}>Select</button>
+                )}
+              </div>
+            )}
             {groupEntriesByMeal(entries).map(group => (
               <div key={group.key}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
                   <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
                   {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
                 </div>
-                {group.entries.map(entry => (
-                  <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
-                    <div style={{ flex: 1, minWidth: 0, marginRight: '8px' }}>
+                {group.entries.map(entry => {
+                  const checked = selectedIds.has(entry.id)
+                  return (
+                  <div
+                    key={entry.id}
+                    onClick={selectMode ? () => toggleSelect(entry.id) : undefined}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid var(--color-border)', cursor: selectMode ? 'pointer' : 'default' }}
+                  >
+                    {selectMode && (
+                      <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>{checked ? '✓' : ''}</span>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9rem' }}>{entry.food}</p>
                       <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
                         {entry.serving_size}{entry.serving_unit}
@@ -768,33 +836,66 @@ function Log({ session, profile, hasSoloPremium = true }) {
                         {entry.protein > 0 && ` · ${entry.protein}g protein`}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                      <button
-                        onClick={() => {
-                          setFood(entry.food)
-                          setCalories(entry.calories.toString())
-                          setProtein(entry.protein.toString())
-                          setCarbs(entry.carbs.toString())
-                          setFat(entry.fat.toString())
-                          setServingSize(entry.serving_size.toString())
-                          setServingUnit(entry.serving_unit || 'g')
-                          setMeal(entry.meal || mealForHour(new Date().getHours()))
-                          setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
-                          setBaseServingSize(null)
-                          setBaseServingLabel('')
-                          setEditingEntry(null)
-                          setNutritionExpanded(true)
-                        }}
-                        style={{ ...iconBtnStyle, fontSize: '1rem' }}
-                        title="Re-log"
-                      >↻</button>
-                      <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
-                      <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
-                    </div>
+                    {!selectMode && (
+                      <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                        <button
+                          onClick={() => {
+                            setFood(entry.food)
+                            setCalories(entry.calories.toString())
+                            setProtein(entry.protein.toString())
+                            setCarbs(entry.carbs.toString())
+                            setFat(entry.fat.toString())
+                            setServingSize(entry.serving_size.toString())
+                            setServingUnit(entry.serving_unit || 'g')
+                            setMeal(entry.meal || mealForHour(new Date().getHours()))
+                            setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
+                            setBaseServingSize(null)
+                            setBaseServingLabel('')
+                            setEditingEntry(null)
+                            setNutritionExpanded(true)
+                          }}
+                          style={{ ...iconBtnStyle, fontSize: '1rem' }}
+                          title="Re-log"
+                        >↻</button>
+                        <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
+                        <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
+                      </div>
+                    )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             ))}
+
+            {/* Bulk action bar */}
+            {selectMode && selectedIds.size > 0 && (
+              <div style={{ paddingTop: '10px' }}>
+                {showSaveMeal ? (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <input type="text" placeholder="Name this meal" value={saveMealName} onChange={e => setSaveMealName(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '160px' }} />
+                    <Button onClick={saveSelectedAsMeal} variant="primary" size="sm" loading={savingMeal} disabled={!saveMealName.trim()}>Save meal</Button>
+                    <Button onClick={() => setShowSaveMeal(false)} variant="muted" size="sm">Back</Button>
+                  </div>
+                ) : moveMenu ? (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Move to:</span>
+                    {[...MEALS, { key: 'other', label: 'Other' }].map(m => (
+                      <button key={m.key} onClick={() => moveSelectedToMeal(m.key)} style={pillBtnStyle}>{m.label}</button>
+                    ))}
+                    <button onClick={() => setMoveMenu(false)} style={selectLinkStyle}>Back</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <Button onClick={() => setShowSaveMeal(true)} variant="primary" size="sm">Save as meal</Button>
+                    <Button onClick={() => setMoveMenu(true)} variant="muted" size="sm">Move to…</Button>
+                    {selectedIds.size === 1 && (
+                      <Button onClick={() => { const e = entries.find(x => selectedIds.has(x.id)); exitSelect(); if (e) startEdit(e) }} variant="muted" size="sm">Edit</Button>
+                    )}
+                    <Button onClick={deleteSelected} variant="muted" size="sm">Delete</Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1037,47 +1138,26 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         )}
 
-        {/* Saved meals — one-tap log of a saved combo, or save today's foods */}
-        {!nutritionExpanded && !showCopyPanel && (savedMeals.length > 0 || entries.length > 0) && (
+        {/* Saved meals — one-tap log of a saved combo (create via Select → Save as meal) */}
+        {!nutritionExpanded && !showCopyPanel && savedMeals.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {savedMeals.length > 0 && (
-              <>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Saved meals</p>
-                {savedMeals.map(m => {
-                  const t = mealTotals(m.items)
-                  const pending = loggingMealId === m.id
-                  return (
-                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '7px 10px' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
-                        <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', margin: '1px 0 0' }}>
-                          {m.items.length} item{m.items.length === 1 ? '' : 's'}{!hideCalories ? ` · ${t.calories} cal` : ''}{t.protein > 0 ? ` · ${t.protein}g P` : ''}
-                        </p>
-                      </div>
-                      <button onClick={() => logSavedMeal(m)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>+ Log</button>
-                      <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete saved meal">✕</button>
-                    </div>
-                  )
-                })}
-              </>
-            )}
-            {entries.length > 0 && (
-              showSaveMeal ? (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <input
-                    type="text"
-                    placeholder="Name this meal (e.g. My breakfast)"
-                    value={saveMealName}
-                    onChange={e => setSaveMealName(e.target.value)}
-                    style={{ ...inputStyle, flex: 1, minWidth: '160px' }}
-                  />
-                  <Button onClick={saveCurrentDayAsMeal} variant="primary" size="sm" loading={savingMeal} disabled={!saveMealName.trim()}>Save</Button>
-                  <Button onClick={() => { setShowSaveMeal(false); setSaveMealName('') }} variant="muted" size="sm">Cancel</Button>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Saved meals</p>
+            {savedMeals.map(m => {
+              const t = mealTotals(m.items)
+              const pending = loggingMealId === m.id
+              return (
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '7px 10px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', margin: '1px 0 0' }}>
+                      {m.items.length} item{m.items.length === 1 ? '' : 's'}{!hideCalories ? ` · ${t.calories} cal` : ''}{t.protein > 0 ? ` · ${t.protein}g P` : ''}
+                    </p>
+                  </div>
+                  <button onClick={() => logSavedMeal(m)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>+ Log</button>
+                  <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete saved meal">✕</button>
                 </div>
-              ) : (
-                <button onClick={() => setShowSaveMeal(true)} style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', color: 'var(--color-primary)', fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '2px 0' }}>+ Save today's foods as a meal</button>
               )
-            )}
+            })}
           </div>
         )}
 
