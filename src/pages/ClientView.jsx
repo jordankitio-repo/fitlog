@@ -31,6 +31,7 @@ import {
   toLocalDateString
 } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
+import { groupEntriesByMeal } from '../utils/meals'
 import { Line, Bar, Chart } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -1541,24 +1542,32 @@ async function sendMessage(text) {
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {entries.map((entry) => (
-                <div key={entry.id} style={{
-                  backgroundColor: 'var(--color-bg)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius)',
-                  padding: '14px 20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <span>{entry.food}</span>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem' }}>
-                    <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
-                    <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
-                    <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
-                    <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
-                    <span style={{ color: 'var(--color-muted)' }}>{entry.serving_size}{entry.serving_unit}</span>
+              {groupEntriesByMeal(entries).map((group) => (
+                <div key={group.key} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>{group.calories} cal</span>
                   </div>
+                  {group.entries.map((entry) => (
+                    <div key={entry.id} style={{
+                      backgroundColor: 'var(--color-bg)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius)',
+                      padding: '14px 20px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span>{entry.food}</span>
+                      <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem' }}>
+                        <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
+                        <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
+                        <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
+                        <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
+                        <span style={{ color: 'var(--color-muted)' }}>{entry.serving_size}{entry.serving_unit}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
