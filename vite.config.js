@@ -65,5 +65,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // RLS integration tests run against a live local Supabase stack via their
+    // own config (npm run test:rls); keep them out of the fast unit run.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/tests/rls/**'],
   },
 })

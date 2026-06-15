@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 .env
 .vercel
+
+# Supabase local-dev artifacts (created by `supabase start`)
+supabase/.branches
+supabase/.temp
