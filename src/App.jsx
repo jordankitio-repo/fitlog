@@ -33,12 +33,11 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   const path = location.pathname
   const isLanding = !session && path === '/'
 
-  // Data-dense screens (every role's dashboard at `/`, and a client's full
-  // record at /client/:id) get room so the stat/chart grids spread out and the
-  // page scrolls less. Reading/form pages (profile, log, auth) stay at a
-  // readable 800px.
+  // App screens (every role's dashboard at `/`, the daily log at /log, the
+  // profile, and a client's full record at /client/:id) get the full width so
+  // they're visually consistent. Only the auth/standalone pages stay narrow.
   const isWideScreen =
-    path === '/' || path.startsWith('/client/')
+    path === '/' || path === '/log' || path === '/profile' || path.startsWith('/client/')
 
   const mainStyle = isLanding
     ? { width: '100%' }
