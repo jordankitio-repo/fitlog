@@ -58,3 +58,22 @@ export function compareByAttention(sa, sb) {
   if (byLevel !== 0) return byLevel
   return b.reasons.length - a.reasons.length
 }
+
+// Portfolio rollup — the "100 clients with the attention of 20" headline.
+// Built ON attentionLevel so per-client badges and these counts can never
+// disagree. Also surfaces two data-quality facts the per-client triage can't:
+// how many clients have no targets set (a coach to-do that blocks compliance
+// scoring) and how many have effectively stopped logging.
+// statsMap: { [clientId]: stat } as produced by computeClientStats.
+export function summarizeRoster(statsMap = {}) {
+  const stats = Object.values(statsMap)
+  const levelCount = (lvl) => stats.filter((s) => attentionLevel(s).level === lvl).length
+  return {
+    total: stats.length,
+    atRisk: levelCount('red'),
+    review: levelCount('yellow'),
+    onTrack: levelCount('green'),
+    noTargets: stats.filter((s) => !(s?.complianceItems?.length)).length,
+    notLogging: stats.filter((s) => s?.daysSinceLog === null || s?.daysSinceLog >= STALE_LOG_DAYS).length,
+  }
+}

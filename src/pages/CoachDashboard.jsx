@@ -7,7 +7,7 @@ import Toast from '../components/Toast'
 import InfoTip from '../components/InfoTip'
 import { computeClientStats } from '../utils/clientStats'
 import { getInviteBlockReason } from '../utils/inviteValidation'
-import { attentionLevel, compareByAttention } from '../utils/attentionLevel'
+import { attentionLevel, compareByAttention, summarizeRoster } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
 import { cardStyle } from '../utils/styles'
 
@@ -21,6 +21,35 @@ const summaryLabelStyle = {
   lineHeight: 1.3, minHeight: '2.6em', display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
 const summaryNumStyle = { fontSize: '2rem', fontWeight: 700, margin: 0, lineHeight: 1 }
+
+// Portfolio triage headline — "who needs attention today" across the whole
+// roster (the "100 clients with the attention of 20" view). Counts come from
+// summarizeRoster, which is built on the same attentionLevel the per-client
+// badges use, so the banner and the badges can never disagree.
+function RosterBanner({ roster }) {
+  const seg = (color, n, label) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+      <span style={{ fontWeight: 700 }}>{n}</span>
+      <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-xs)' }}>{label}</span>
+    </span>
+  )
+  return (
+    <div style={{ ...cardStyle, padding: '14px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '18px' }}>
+      <span style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', fontWeight: 600 }}>
+        Roster
+      </span>
+      {seg(attentionColors.red, roster.atRisk, 'at risk')}
+      {seg(attentionColors.yellow, roster.review, 'to review')}
+      {seg(attentionColors.green, roster.onTrack, 'on track')}
+      {roster.noTargets > 0 && (
+        <span style={{ marginLeft: 'auto', fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
+          {roster.noTargets} need targets set
+        </span>
+      )}
+    </div>
+  )
+}
 
 function scoreClient(s) {
   if (!s) return -1
@@ -254,6 +283,11 @@ function CoachDashboard({ profile }) {
         <h1>Coach Dashboard</h1>
         <p style={{ marginTop: '4px', color: 'var(--color-muted)' }}>Welcome, {profile.full_name}</p>
       </div>
+
+      {/* Roster triage headline */}
+      {clients.length > 0 && !loading && (
+        <RosterBanner roster={summarizeRoster(clientStats)} />
+      )}
 
       {/* Summary bar */}
       {clients.length > 0 && !loading && (
