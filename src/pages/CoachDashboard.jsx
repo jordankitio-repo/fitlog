@@ -40,13 +40,20 @@ function RosterBanner({ roster }) {
         Roster
       </span>
       {seg(attentionColors.red, roster.atRisk, 'at risk')}
-      {seg(attentionColors.yellow, roster.review, 'to review')}
+      {seg(attentionColors.yellow, roster.review, 'needs review')}
       {seg(attentionColors.green, roster.onTrack, 'on track')}
-      {roster.noTargets > 0 && (
-        <span style={{ marginLeft: 'auto', fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
-          {roster.noTargets} need targets set
-        </span>
-      )}
+      <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '14px', flexWrap: 'wrap' }}>
+        {roster.checkInsToReview > 0 && (
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-primary)', fontWeight: 600 }}>
+            {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
+          </span>
+        )}
+        {roster.noTargets > 0 && (
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
+            {roster.noTargets} need targets set
+          </span>
+        )}
+      </span>
     </div>
   )
 }

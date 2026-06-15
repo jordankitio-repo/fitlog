@@ -215,6 +215,36 @@ describe('day_complete (owner + active-coach read)', () => {
   })
 })
 
+describe('check-in review (coach-only, via RPC)', () => {
+  let checkInId
+  beforeAll(async () => {
+    const { data } = await admin.from('check_ins').select('id').eq('client_id', clientA1.id).limit(1).single()
+    checkInId = data.id
+  })
+
+  it('the active coach can review via review_checkin RPC', async () => {
+    const { error } = await coachA.client.rpc('review_checkin', { p_id: checkInId, p_comment: 'great week' })
+    expect(error).toBeNull()
+    const { data } = await admin.from('check_ins').select('reviewed_at, coach_comment').eq('id', checkInId).single()
+    expect(data.reviewed_at).not.toBeNull()
+    expect(data.coach_comment).toBe('great week')
+  })
+
+  it('a client CANNOT set reviewed_at on their own check-in directly (guard trigger)', async () => {
+    const { error } = await clientA1.client.from('check_ins')
+      .update({ reviewed_at: new Date().toISOString(), coach_comment: 'self-review' }).eq('id', checkInId)
+    expect(error).not.toBeNull()
+  })
+
+  it('a coach from another tenant CANNOT review it (RPC no-op)', async () => {
+    await admin.from('check_ins').update({ reviewed_at: null, coach_comment: null }).eq('id', checkInId)
+    const { error } = await coachB.client.rpc('review_checkin', { p_id: checkInId, p_comment: 'sneaky' })
+    expect(error).toBeNull() // RPC returns void
+    const { data } = await admin.from('check_ins').select('reviewed_at').eq('id', checkInId).single()
+    expect(data.reviewed_at).toBeNull() // but the active-coach guard matched nothing
+  })
+})
+
 describe('saved_meals (owner-only, private)', () => {
   it('the owner can read their saved meals + items', async () => {
     const { rows } = await readAs(clientA1, 'saved_meals', 'user_id', clientA1.id)
