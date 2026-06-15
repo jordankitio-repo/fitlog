@@ -31,7 +31,7 @@ import {
   toLocalDateString
 } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
-import { groupEntriesByMeal } from '../utils/meals'
+import { groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
 import { Line, Bar, Chart } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -1589,8 +1589,21 @@ async function sendMessage(text) {
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>{group.calories} cal</span>
                   </div>
-                  {group.entries.map((entry) => (
-                    <div key={entry.id} style={{
+                  {groupLoggedMeals(group.entries).map((item) => item.type === 'meal' ? (
+                    <div key={item.id} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 700 }}>🍽 {item.name}</span>
+                        <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.875rem' }}>{item.calories} cal</span>
+                      </div>
+                      {item.entries.map((entry) => (
+                        <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontSize: '0.8rem', color: 'var(--color-muted)' }}>
+                          <span>{entry.food}</span>
+                          <span>{entry.calories} cal · P {entry.protein}g · {entry.serving_size}{entry.serving_unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div key={item.entry.id} style={{
                       backgroundColor: 'var(--color-bg)',
                       border: '1px solid var(--color-border)',
                       borderRadius: 'var(--radius)',
@@ -1599,13 +1612,13 @@ async function sendMessage(text) {
                       justifyContent: 'space-between',
                       alignItems: 'center'
                     }}>
-                      <span>{entry.food}</span>
+                      <span>{item.entry.food}</span>
                       <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem' }}>
-                        <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{entry.calories} cal</span>
-                        <span style={{ color: 'var(--color-muted)' }}>P: {entry.protein}g</span>
-                        <span style={{ color: 'var(--color-muted)' }}>C: {entry.carbs}g</span>
-                        <span style={{ color: 'var(--color-muted)' }}>F: {entry.fat}g</span>
-                        <span style={{ color: 'var(--color-muted)' }}>{entry.serving_size}{entry.serving_unit}</span>
+                        <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{item.entry.calories} cal</span>
+                        <span style={{ color: 'var(--color-muted)' }}>P: {item.entry.protein}g</span>
+                        <span style={{ color: 'var(--color-muted)' }}>C: {item.entry.carbs}g</span>
+                        <span style={{ color: 'var(--color-muted)' }}>F: {item.entry.fat}g</span>
+                        <span style={{ color: 'var(--color-muted)' }}>{item.entry.serving_size}{item.entry.serving_unit}</span>
                       </div>
                     </div>
                   ))}

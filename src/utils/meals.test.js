@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mealForHour, groupEntriesByMeal } from './meals'
+import { mealForHour, groupEntriesByMeal, groupLoggedMeals } from './meals'
 
 describe('mealForHour', () => {
   it('maps the day into meal slots', () => {
@@ -35,5 +35,24 @@ describe('groupEntriesByMeal', () => {
 
   it('handles an empty day', () => {
     expect(groupEntriesByMeal([])).toEqual([])
+  })
+})
+
+describe('groupLoggedMeals', () => {
+  it('folds shared logged_meal_id into one container, keeps loose foods, preserves order', () => {
+    const out = groupLoggedMeals([
+      { id: 'a', food: 'Apple', calories: 95 },
+      { id: 'b', food: 'Oats', calories: 300, logged_meal_id: 'm1', logged_meal_name: 'Breakfast combo' },
+      { id: 'c', food: 'Egg', calories: 70, logged_meal_id: 'm1', logged_meal_name: 'Breakfast combo' },
+      { id: 'd', food: 'Coffee', calories: 5 },
+    ])
+    expect(out.map(i => i.type)).toEqual(['food', 'meal', 'food'])
+    expect(out[1]).toMatchObject({ id: 'm1', name: 'Breakfast combo', calories: 370 })
+    expect(out[1].entries).toHaveLength(2)
+    expect(out[0].entry.food).toBe('Apple')
+  })
+  it('returns all loose foods when none are containers', () => {
+    const out = groupLoggedMeals([{ id: 'a', food: 'Apple', calories: 95 }])
+    expect(out).toEqual([{ type: 'food', entry: { id: 'a', food: 'Apple', calories: 95 } }])
   })
 })

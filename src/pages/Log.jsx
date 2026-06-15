@@ -6,7 +6,7 @@ import SoloUpgrade from '../components/SoloUpgrade'
 import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
-import { MEALS, mealForHour, groupEntriesByMeal } from '../utils/meals'
+import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
 import { itemsFromEntries, entriesFromItems, mealTotals } from '../utils/savedMeals'
 
 const unitConversions = {
@@ -64,6 +64,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [moveMenu, setMoveMenu] = useState(false)
+  const [expandedMeals, setExpandedMeals] = useState(new Set())
+  const [addingToMeal, setAddingToMeal] = useState(null) // { id, name, meal } when adding a food into a logged meal
   const [foodResults, setFoodResults] = useState([])
   const [foodSearching, setFoodSearching] = useState(false)
   const [showFoodResults, setShowFoodResults] = useState(false)
@@ -270,15 +272,55 @@ function Log({ session, profile, hasSoloPremium = true }) {
     exitSelect()
   }
 
-  // One-tap log: drop a saved meal's foods into the selected day + meal slot.
+  // One-tap log: drop a saved meal's foods into the selected day + meal slot as
+  // one expandable container (a logged meal).
   async function logSavedMeal(m) {
     setLoggingMealId(m.id)
     const { data: { session: cs } } = await supabase.auth.getSession()
-    const { error } = await supabase
-      .from('nutrition_log').insert(entriesFromItems(m.items, { userId: cs.user.id, date: selectedDate, meal }))
+    const { error } = await supabase.from('nutrition_log').insert(
+      entriesFromItems(m.items, {
+        userId: cs.user.id, date: selectedDate, meal,
+        loggedMealId: crypto.randomUUID(), loggedMealName: m.name,
+      }),
+    )
     if (error) console.error('Error logging saved meal:', error)
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
     setLoggingMealId(null)
+  }
+
+  // --- Logged meal containers (a meal logged into the diary as one item) ---
+  function toggleMealExpand(id) {
+    setExpandedMeals(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+
+  // Repeat: re-log a container's current foods as a fresh instance today.
+  async function repeatLoggedMeal(item) {
+    const { data: { session: cs } } = await supabase.auth.getSession()
+    const newId = crypto.randomUUID()
+    const rows = item.entries.map(e => ({
+      food: e.food, calories: e.calories, protein: e.protein || 0, carbs: e.carbs || 0, fat: e.fat || 0,
+      serving_size: e.serving_size, serving_unit: e.serving_unit, meal: e.meal,
+      logged_date: selectedDate, user_id: cs.user.id,
+      logged_meal_id: newId, logged_meal_name: item.name,
+    }))
+    const { error } = await supabase.from('nutrition_log').insert(rows)
+    if (error) console.error('Error repeating meal:', error)
+    else { fetchEntries(); refreshNotifications() }
+  }
+
+  async function deleteLoggedMeal(id) {
+    const { error } = await supabase.from('nutrition_log').delete().eq('logged_meal_id', id)
+    if (error) console.error('Error deleting logged meal:', error)
+    else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
+  }
+
+  // Open the add-food form to add a new food into an existing logged meal.
+  function addToMeal(item) {
+    clearNutritionForm()
+    setEditingEntry(null)
+    setAddingToMeal({ id: item.id, name: item.name, meal: item.entries[0]?.meal ?? null })
+    setMeal(item.entries[0]?.meal || mealForHour(new Date().getHours()))
+    setNutritionExpanded(true)
   }
 
   async function deleteSavedMeal(id) {
@@ -431,7 +473,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
         food, calories: parseInt(calories), protein: parseInt(protein) || 0,
         carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
         serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal,
-        logged_date: selectedDate, user_id: currentSession.user.id
+        logged_date: selectedDate, user_id: currentSession.user.id,
+        ...(addingToMeal ? { logged_meal_id: addingToMeal.id, logged_meal_name: addingToMeal.name } : {}),
       }])
       if (error) console.error('Error saving:', error)
       else { clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
@@ -444,6 +487,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setServingUnit('g'); setBaseNutrients(null)
     setBaseServingSize(null); setBaseServingLabel('')
     setMeal(mealForHour(new Date().getHours()))
+    setAddingToMeal(null)
     setNutritionErrors({})
     setShowFoodResults(false); setFoodResults([])
   }
@@ -691,6 +735,77 @@ function Log({ session, profile, hasSoloPremium = true }) {
     cursor: 'pointer', fontFamily: 'inherit',
   }
 
+  // A single food entry row — selectable in select mode, with re-log/edit/delete
+  // otherwise. Reused for loose foods and for the children inside a meal.
+  function renderFoodEntry(entry) {
+    const checked = selectedIds.has(entry.id)
+    return (
+      <div
+        key={entry.id}
+        onClick={selectMode ? () => toggleSelect(entry.id) : undefined}
+        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid var(--color-border)', cursor: selectMode ? 'pointer' : 'default' }}
+      >
+        {selectMode && (
+          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>{checked ? '✓' : ''}</span>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9rem' }}>{entry.food}</p>
+          <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
+            {entry.serving_size}{entry.serving_unit}
+            {!hideCalories && ` · ${entry.calories} kcal`}
+            {entry.protein > 0 && ` · ${entry.protein}g protein`}
+          </p>
+        </div>
+        {!selectMode && (
+          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+            <button
+              onClick={() => {
+                setFood(entry.food); setCalories(entry.calories.toString())
+                setProtein(entry.protein.toString()); setCarbs(entry.carbs.toString()); setFat(entry.fat.toString())
+                setServingSize(entry.serving_size.toString()); setServingUnit(entry.serving_unit || 'g')
+                setMeal(entry.meal || mealForHour(new Date().getHours()))
+                setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
+                setBaseServingSize(null); setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
+              }}
+              style={{ ...iconBtnStyle, fontSize: '1rem' }}
+              title="Re-log"
+            >↻</button>
+            <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
+            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // A logged meal rendered as one collapsible container item.
+  function renderLoggedMeal(item) {
+    const open = expandedMeals.has(item.id)
+    return (
+      <div key={item.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <div onClick={() => toggleMealExpand(item.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: 'pointer' }}>
+          <span style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: '0.75rem', width: 12 }}>{open ? '▾' : '▸'}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: '0.9rem' }}>🍽 {item.name}</p>
+            <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--color-muted)' }}>
+              {item.entries.length} item{item.entries.length === 1 ? '' : 's'}{!hideCalories ? ` · ${item.calories} kcal` : ''}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal">↻</button>
+            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete meal">✕</button>
+          </div>
+        </div>
+        {open && (
+          <div style={{ paddingLeft: '22px' }}>
+            {item.entries.map(e => renderFoodEntry(e))}
+            <button onClick={() => addToMeal(item)} style={{ ...selectLinkStyle, padding: '8px 0' }}>+ Add food to this meal</button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
@@ -817,53 +932,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
                   <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
                   {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
                 </div>
-                {group.entries.map(entry => {
-                  const checked = selectedIds.has(entry.id)
-                  return (
-                  <div
-                    key={entry.id}
-                    onClick={selectMode ? () => toggleSelect(entry.id) : undefined}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid var(--color-border)', cursor: selectMode ? 'pointer' : 'default' }}
-                  >
-                    {selectMode && (
-                      <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>{checked ? '✓' : ''}</span>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9rem' }}>{entry.food}</p>
-                      <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
-                        {entry.serving_size}{entry.serving_unit}
-                        {!hideCalories && ` · ${entry.calories} kcal`}
-                        {entry.protein > 0 && ` · ${entry.protein}g protein`}
-                      </p>
-                    </div>
-                    {!selectMode && (
-                      <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                        <button
-                          onClick={() => {
-                            setFood(entry.food)
-                            setCalories(entry.calories.toString())
-                            setProtein(entry.protein.toString())
-                            setCarbs(entry.carbs.toString())
-                            setFat(entry.fat.toString())
-                            setServingSize(entry.serving_size.toString())
-                            setServingUnit(entry.serving_unit || 'g')
-                            setMeal(entry.meal || mealForHour(new Date().getHours()))
-                            setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
-                            setBaseServingSize(null)
-                            setBaseServingLabel('')
-                            setEditingEntry(null)
-                            setNutritionExpanded(true)
-                          }}
-                          style={{ ...iconBtnStyle, fontSize: '1rem' }}
-                          title="Re-log"
-                        >↻</button>
-                        <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
-                        <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
-                      </div>
-                    )}
-                  </div>
-                  )
-                })}
+                {selectMode
+                  ? group.entries.map(entry => renderFoodEntry(entry))
+                  : groupLoggedMeals(group.entries).map(item => item.type === 'meal' ? renderLoggedMeal(item) : renderFoodEntry(item.entry))}
               </div>
             ))}
 
@@ -902,7 +973,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {/* Add Food Form */}
         {nutritionExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: entries.length > 0 ? '4px' : '0' }}>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {addingToMeal && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
+                <span>Adding to <strong style={{ color: 'var(--color-text)' }}>🍽 {addingToMeal.name}</strong></span>
+                <button onClick={() => { clearNutritionForm(); setNutritionExpanded(false) }} style={selectLinkStyle}>Cancel</button>
+              </div>
+            )}
+            <div style={{ display: addingToMeal ? 'none' : 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {MEALS.map(m => (
                 <button
                   key={m.key}

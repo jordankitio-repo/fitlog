@@ -23,8 +23,17 @@ describe('entriesFromItems', () => {
     expect(rows[0]).toMatchObject({
       food: 'Oats', calories: 300, protein: 10, carbs: 0, fat: 0,
       meal: 'breakfast', logged_date: '2026-06-15', user_id: 'u1',
+      logged_meal_id: null, logged_meal_name: null,
     })
     expect(rows[0]).not.toHaveProperty('saved_meal_id')
+  })
+
+  it('stamps a container id/name when logged as a meal', () => {
+    const rows = entriesFromItems(
+      [{ food: 'Oats', calories: 300 }, { food: 'Egg', calories: 70 }],
+      { userId: 'u1', date: '2026-06-15', meal: 'breakfast', loggedMealId: 'lm1', loggedMealName: 'My breakfast' },
+    )
+    expect(rows.every(r => r.logged_meal_id === 'lm1' && r.logged_meal_name === 'My breakfast')).toBe(true)
   })
 })
 
