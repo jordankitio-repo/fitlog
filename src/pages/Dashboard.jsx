@@ -1027,6 +1027,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               >
                 {existingCheckIn ? 'Edit' : 'Fill out'}
               </Button>
+              {existingCheckIn?.coach_comment && (
+                <div style={{ marginTop: '12px', padding: '12px 14px', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
+                  <p style={{ fontSize: '0.7rem', color: '#34d399', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Coach's note</p>
+                  <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{existingCheckIn.coach_comment}</p>
+                </div>
+              )}
               {showCheckIn && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
                   <div>

@@ -487,12 +487,21 @@ async function fetchStepsHistory() {
   async function reviewCheckIn() {
     if (!clientCheckIn?.id) return
     setReviewing(true)
-    const { error } = await supabase.rpc('review_checkin', {
-      p_id: clientCheckIn.id,
-      p_comment: reviewComment.trim() || null,
-    })
+    const comment = reviewComment.trim() || null
+    const { error } = await supabase.rpc('review_checkin', { p_id: clientCheckIn.id, p_comment: comment })
     if (error) console.error('Error reviewing check-in:', error)
-    else { setReviewComment(''); fetchClientCheckIn() }
+    else {
+      setReviewComment(''); fetchClientCheckIn()
+      // Notify the client by email; their bell derives the event from check_ins.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-checkin-review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ clientId, comment }),
+        }).catch(() => {})
+      }
+    }
     setReviewing(false)
   }
 

@@ -101,12 +101,14 @@ export default function NotificationCenter({ profile }) {
       }
     } else if (profile?.role === 'client') {
       // Events
-      const [rep, msg] = await Promise.all([
+      const [rep, msg, rev] = await Promise.all([
         supabase.from('reports').select('id, created_at').eq('client_id', uid).order('created_at', { ascending: false }).limit(15),
         supabase.from('messages').select('id, content, created_at').eq('client_id', uid).neq('sender_id', uid).order('created_at', { ascending: false }).limit(15),
+        supabase.from('check_ins').select('id, coach_comment, reviewed_at').eq('client_id', uid).not('reviewed_at', 'is', null).order('reviewed_at', { ascending: false }).limit(15),
       ])
       ;(rep.data || []).forEach((r) => ev.push({ id: 'r' + r.id, kind: 'report', title: 'New weekly report', sub: 'From your coach', time: +new Date(r.created_at), href: '/?focus=reports' }))
       ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: 'Message from your coach', sub: trim(m.content), time: +new Date(m.created_at), href: '/?focus=chat' }))
+      ;(rev.data || []).forEach((c) => ev.push({ id: 'rev' + c.id, kind: 'review', title: 'Your coach reviewed your check-in', sub: c.coach_comment ? trim(c.coach_comment) : 'From your coach', time: +new Date(c.reviewed_at), href: '/?focus=checkin' }))
 
       // Alerts — the client's own action-items (lock, due check-in, coach nudge).
       const act = await computeClientAlerts(uid)
