@@ -55,12 +55,13 @@ function Join() {
   }, [])
 
   async function fetchInvitation(activeToken) {
+    // Token-gated SECURITY DEFINER lookup. The invitations table is no longer
+    // world-readable (it exposed every invitee email + join token); this RPC
+    // returns the single pending invite only to a caller who already holds the
+    // secret token. See migration 20260615000000_invitations_token_rpc.
     const { data, error: inviteError } = await supabase
-      .from('invitations')
-      .select('*')
-      .eq('token', activeToken)
-      .eq('status', 'pending')
-      .single()
+      .rpc('get_invitation_by_token', { p_token: activeToken })
+      .maybeSingle()
 
     if (inviteError || !data) {
       setError('This invite link is invalid or has already been used.')
