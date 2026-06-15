@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import { DndContext, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
@@ -18,6 +20,38 @@ const EXERCISE_TYPES = [
   'Rowing', 'Jump Rope', 'Stair Climber', 'Walking',
   'HIIT', 'Other'
 ]
+
+// A diary item (food row or meal container) draggable by its grip handle into
+// another meal section. Render-prop so the existing row markup stays in Log:
+// the wrapper supplies the node ref, a drag transform style, and the handle
+// props (spread onto the ⠿ grip). Stable module-scope component → no remounts.
+function DraggableItem({ id, item, children }) {
+  const { listeners, attributes, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({ id, data: { item } })
+  const dragStyle = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 50 : 'auto',
+  }
+  const handleProps = { ref: setActivatorNodeRef, ...listeners, ...attributes }
+  return children({ setNodeRef, dragStyle, handleProps })
+}
+
+// A meal section that accepts dropped items; highlights while hovered.
+function DroppableMeal({ slot, children }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `slot:${slot}`, data: { slot } })
+  return (
+    <div ref={setNodeRef} style={{
+      borderRadius: 'var(--radius)',
+      outline: isOver ? '2px dashed var(--color-primary)' : '2px dashed transparent',
+      outlineOffset: 2,
+      background: isOver ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)' : 'transparent',
+      transition: 'outline-color 120ms, background 120ms',
+    }}>
+      {children}
+    </div>
+  )
+}
 
 function Log({ session, profile, hasSoloPremium = true }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
@@ -66,6 +100,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [moveMenu, setMoveMenu] = useState(false)
   const [groupMenu, setGroupMenu] = useState(false)
   const [moveItemId, setMoveItemId] = useState(null) // id of the row/meal whose per-item "move to" menu is open
+  // Mouse drags after a few px; touch needs a short hold so a tap still opens
+  // the menu and a scroll-drag never gets hijacked.
+  const dndSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 6 } }),
+  )
   const [expandedMeals, setExpandedMeals] = useState(new Set())
   const [addingToMeal, setAddingToMeal] = useState(null) // { id, name, meal } when adding a food into a logged meal
   const [foodResults, setFoodResults] = useState([])
@@ -281,6 +321,19 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) console.error('Error moving meal:', error)
     else { fetchEntries(); refreshNotifications() }
     setMoveItemId(null)
+  }
+
+  // Drop a dragged diary item onto a meal section → move it to that slot.
+  function handleDiaryDragEnd({ active, over }) {
+    setMoveItemId(null)
+    if (!over) return
+    const targetSlot = over.data.current?.slot
+    const item = active.data.current?.item
+    if (!targetSlot || !item) return
+    const currentSlot = item.type === 'meal' ? (item.entries[0]?.meal || 'other') : (item.entry.meal || 'other')
+    if (targetSlot === currentSlot) return
+    if (item.type === 'meal') moveLoggedMealToMeal(item, targetSlot)
+    else moveEntryToMeal(item.entry.id, targetSlot)
   }
 
   // Group the selected (already-logged) entries into a NEW container in place —
@@ -792,13 +845,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // otherwise. Reused for loose foods and for the children inside a meal.
   // inMeal: a child of a logged-meal container — no per-row move (the whole
   // container moves together).
-  function renderFoodEntry(entry, inMeal = false) {
+  function renderFoodEntry(entry, inMeal = false, drag = null) {
     const checked = selectedIds.has(entry.id)
     const currentSlot = entry.meal || 'other'
     const moveTargets = inMeal ? [] : presentMealSlots.filter(k => k !== currentSlot)
     const moveOpen = moveItemId === entry.id
     return (
-      <div key={entry.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <div key={entry.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
        <div
         onClick={selectMode ? () => toggleSelect(entry.id) : undefined}
         style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: selectMode ? 'pointer' : 'default' }}
@@ -829,7 +882,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               title="Re-log"
             >↻</button>
             {moveTargets.length > 0 && (
-              <button onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Move to another meal">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Drag to a meal, or tap for options">⠿</button>
             )}
             <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
             <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
@@ -849,13 +902,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   // A logged meal rendered as one collapsible container item.
-  function renderLoggedMeal(item) {
+  function renderLoggedMeal(item, drag = null) {
     const open = expandedMeals.has(item.id)
     const currentSlot = item.entries[0]?.meal || 'other'
     const moveTargets = presentMealSlots.filter(k => k !== currentSlot)
     const moveOpen = moveItemId === item.id
     return (
-      <div key={item.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <div key={item.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
         <div onClick={() => toggleMealExpand(item.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: 'pointer' }}>
           <span style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: '0.75rem', width: 12 }}>{open ? '▾' : '▸'}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -867,7 +920,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal">↻</button>
             {moveTargets.length > 0 && (
-              <button onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Move meal to another slot">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Drag to a meal, or tap for options">⠿</button>
             )}
             <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete meal">✕</button>
           </div>
@@ -1010,17 +1063,32 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 )}
               </div>
             )}
-            {groupEntriesByMeal(entries).map(group => (
-              <div key={group.key}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
-                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
-                  {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
+            {selectMode ? (
+              groupEntriesByMeal(entries).map(group => (
+                <div key={group.key}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
+                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
+                    {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
+                  </div>
+                  {group.entries.map(entry => renderFoodEntry(entry))}
                 </div>
-                {selectMode
-                  ? group.entries.map(entry => renderFoodEntry(entry))
-                  : groupLoggedMeals(group.entries).map(item => item.type === 'meal' ? renderLoggedMeal(item) : renderFoodEntry(item.entry))}
-              </div>
-            ))}
+              ))
+            ) : (
+              <DndContext sensors={dndSensors} collisionDetection={pointerWithin} onDragEnd={handleDiaryDragEnd}>
+                {groupEntriesByMeal(entries).map(group => (
+                  <DroppableMeal key={group.key} slot={group.key}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
+                      {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
+                    </div>
+                    {groupLoggedMeals(group.entries).map(item => item.type === 'meal'
+                      ? <DraggableItem key={item.id} id={item.id} item={item}>{d => renderLoggedMeal(item, d)}</DraggableItem>
+                      : <DraggableItem key={item.entry.id} id={item.entry.id} item={item}>{d => renderFoodEntry(item.entry, false, d)}</DraggableItem>
+                    )}
+                  </DroppableMeal>
+                ))}
+              </DndContext>
+            )}
 
             {/* Bulk action bar */}
             {selectMode && selectedIds.size > 0 && (
