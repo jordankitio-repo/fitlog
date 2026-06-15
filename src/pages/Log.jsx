@@ -7,6 +7,7 @@ import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import { MEALS, mealForHour, groupEntriesByMeal } from '../utils/meals'
+import { itemsFromEntries, entriesFromItems, mealTotals } from '../utils/savedMeals'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -53,6 +54,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [baseServingLabel, setBaseServingLabel] = useState('')
   const [frequentFoods, setFrequentFoods] = useState([])
   const [quickAddKey, setQuickAddKey] = useState(null)
+  const [savedMeals, setSavedMeals] = useState([])
+  const [showSaveMeal, setShowSaveMeal] = useState(false)
+  const [saveMealName, setSaveMealName] = useState('')
+  const [savingMeal, setSavingMeal] = useState(false)
+  const [loggingMealId, setLoggingMealId] = useState(null)
   const [foodResults, setFoodResults] = useState([])
   const [foodSearching, setFoodSearching] = useState(false)
   const [showFoodResults, setShowFoodResults] = useState(false)
@@ -90,6 +96,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   useEffect(() => {
     fetchEntries()
     fetchFrequentFoods()
+    fetchSavedMeals()
     fetchWeight()
     fetchCardioEntries()
     fetchSteps()
@@ -197,6 +204,50 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) console.error('Error quick-adding food:', error)
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
     setQuickAddKey(null)
+  }
+
+  async function fetchSavedMeals() {
+    if (!session?.user?.id) return
+    const { data, error } = await supabase
+      .from('saved_meals')
+      .select('id, name, saved_meal_items(food, calories, protein, carbs, fat, serving_size, serving_unit)')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+    if (error) { console.error('Error fetching saved meals:', error); return }
+    setSavedMeals((data || []).map(m => ({ id: m.id, name: m.name, items: m.saved_meal_items || [] })))
+  }
+
+  // Snapshot the current day's logged foods into a reusable saved meal.
+  async function saveCurrentDayAsMeal() {
+    const name = saveMealName.trim()
+    if (!name || entries.length === 0) return
+    setSavingMeal(true)
+    const { data: { session: cs } } = await supabase.auth.getSession()
+    const { data: created, error } = await supabase
+      .from('saved_meals').insert({ user_id: cs.user.id, name }).select('id').single()
+    if (error) { console.error('Error saving meal:', error); setSavingMeal(false); return }
+    const { error: itemsErr } = await supabase
+      .from('saved_meal_items').insert(itemsFromEntries(entries, { savedMealId: created.id, userId: cs.user.id }))
+    if (itemsErr) console.error('Error saving meal items:', itemsErr)
+    setSaveMealName(''); setShowSaveMeal(false); setSavingMeal(false)
+    fetchSavedMeals()
+  }
+
+  // One-tap log: drop a saved meal's foods into the selected day + meal slot.
+  async function logSavedMeal(m) {
+    setLoggingMealId(m.id)
+    const { data: { session: cs } } = await supabase.auth.getSession()
+    const { error } = await supabase
+      .from('nutrition_log').insert(entriesFromItems(m.items, { userId: cs.user.id, date: selectedDate, meal }))
+    if (error) console.error('Error logging saved meal:', error)
+    else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
+    setLoggingMealId(null)
+  }
+
+  async function deleteSavedMeal(id) {
+    const { error } = await supabase.from('saved_meals').delete().eq('id', id)
+    if (error) console.error('Error deleting saved meal:', error)
+    else fetchSavedMeals()
   }
 
   // Food name search (USDA FDC via the food-search edge fn), debounced. Selecting
@@ -936,6 +987,50 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 )
               })}
             </div>
+          </div>
+        )}
+
+        {/* Saved meals — one-tap log of a saved combo, or save today's foods */}
+        {!nutritionExpanded && !showCopyPanel && (savedMeals.length > 0 || entries.length > 0) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {savedMeals.length > 0 && (
+              <>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Saved meals</p>
+                {savedMeals.map(m => {
+                  const t = mealTotals(m.items)
+                  const pending = loggingMealId === m.id
+                  return (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '7px 10px' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
+                        <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', margin: '1px 0 0' }}>
+                          {m.items.length} item{m.items.length === 1 ? '' : 's'}{!hideCalories ? ` · ${t.calories} cal` : ''}{t.protein > 0 ? ` · ${t.protein}g P` : ''}
+                        </p>
+                      </div>
+                      <button onClick={() => logSavedMeal(m)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>+ Log</button>
+                      <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete saved meal">✕</button>
+                    </div>
+                  )
+                })}
+              </>
+            )}
+            {entries.length > 0 && (
+              showSaveMeal ? (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    placeholder="Name this meal (e.g. My breakfast)"
+                    value={saveMealName}
+                    onChange={e => setSaveMealName(e.target.value)}
+                    style={{ ...inputStyle, flex: 1, minWidth: '160px' }}
+                  />
+                  <Button onClick={saveCurrentDayAsMeal} variant="primary" size="sm" loading={savingMeal} disabled={!saveMealName.trim()}>Save</Button>
+                  <Button onClick={() => { setShowSaveMeal(false); setSaveMealName('') }} variant="muted" size="sm">Cancel</Button>
+                </div>
+              ) : (
+                <button onClick={() => setShowSaveMeal(true)} style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', color: 'var(--color-primary)', fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '2px 0' }}>+ Save today's foods as a meal</button>
+              )
+            )}
           </div>
         )}
 
