@@ -84,6 +84,8 @@ function ClientView({ profile }) {
   })
   const [targetsSaved, setTargetsSaved] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewing, setReviewing] = useState(false)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [daysSinceLog, setDaysSinceLog] = useState(null)
   const [hideCaloriesToggle, setHideCaloriesToggle] = useState(false)
@@ -481,6 +483,18 @@ async function fetchStepsHistory() {
   if (error) console.error(error)
   else setClientCheckIn(data)
 }
+
+  async function reviewCheckIn() {
+    if (!clientCheckIn?.id) return
+    setReviewing(true)
+    const { error } = await supabase.rpc('review_checkin', {
+      p_id: clientCheckIn.id,
+      p_comment: reviewComment.trim() || null,
+    })
+    if (error) console.error('Error reviewing check-in:', error)
+    else { setReviewComment(''); fetchClientCheckIn() }
+    setReviewing(false)
+  }
 
   async function fetchCoachNotes() {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
@@ -1623,6 +1637,27 @@ async function sendMessage(text) {
                   <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
                 </div>
               )}
+              <div style={{ paddingTop: '12px', marginTop: '4px', borderTop: '1px solid var(--color-border)' }}>
+                {clientCheckIn.reviewed_at ? (
+                  <>
+                    <p style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 600 }}>✓ Reviewed</p>
+                    {clientCheckIn.coach_comment && (
+                      <p style={{ fontSize: '0.875rem', lineHeight: '1.6', marginTop: '6px' }}>{clientCheckIn.coach_comment}</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder="Optional comment for the client…"
+                      rows={2}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'inherit', fontSize: '0.875rem', resize: 'vertical' }}
+                    />
+                    <Button onClick={reviewCheckIn} variant="primary" size="sm" loading={reviewing} style={{ marginTop: '8px' }}>Mark reviewed</Button>
+                  </>
+                )}
+              </div>
             </>
           )}
         </SectionHeader>

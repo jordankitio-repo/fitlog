@@ -75,5 +75,7 @@ export function summarizeRoster(statsMap = {}) {
     onTrack: levelCount('green'),
     noTargets: stats.filter((s) => !(s?.complianceItems?.length)).length,
     notLogging: stats.filter((s) => s?.daysSinceLog === null || s?.daysSinceLog >= STALE_LOG_DAYS).length,
+    // Coverage: this week's check-ins the coach hasn't reviewed yet.
+    checkInsToReview: stats.filter((s) => s?.checkIn && !s.checkIn.reviewed_at).length,
   }
 }

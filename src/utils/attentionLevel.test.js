@@ -117,6 +117,15 @@ describe('summarizeRoster', () => {
     expect(s.noTargets).toBe(1)
   })
 
+  it('counts unreviewed check-ins as "to review" (coverage)', () => {
+    const s = summarizeRoster({
+      a: stats({ checkIn: { adherence_rating: 8 } }),                          // submitted, not reviewed
+      b: stats({ checkIn: { adherence_rating: 7, reviewed_at: '2026-06-15' } }), // reviewed
+      c: stats({ checkIn: null }),                                             // none submitted
+    })
+    expect(s.checkInsToReview).toBe(1)
+  })
+
   it('handles an empty roster', () => {
     expect(summarizeRoster({})).toMatchObject({
       total: 0, atRisk: 0, review: 0, onTrack: 0, noTargets: 0, notLogging: 0,
