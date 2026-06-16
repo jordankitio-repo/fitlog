@@ -451,9 +451,12 @@ button, a, input, select, textarea {
 
 /* ClientView section rail — desktop in-page nav (mobile = unchanged stack) */
 .cv-main { display: flex; flex-direction: column; gap: 24px; }
+/* Title row mirrors the rail grid on desktop so "← Back" sits over the rail and
+   the client name lines up with the content column; plain flex on mobile. */
+.cv-titlerow { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .cv-rail { display: none; }
 @media (min-width: 1024px) {
-  .cv-shell { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: 28px; align-items: start; }
+  .cv-shell, .cv-titlerow { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: 28px; align-items: start; }
   .cv-rail {
     display: block; position: sticky; top: 88px; align-self: start;
     max-height: calc(100vh - 104px); overflow-y: auto;
