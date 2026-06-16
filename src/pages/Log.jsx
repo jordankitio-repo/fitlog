@@ -887,7 +887,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   const iconBtnStyle = {
     background: 'none', border: 'none', cursor: 'pointer',
-    padding: '4px 6px', fontSize: '0.875rem', color: 'var(--color-muted)'
+    padding: '4px 6px', fontSize: 'var(--text-base)', color: 'var(--color-muted)'
   }
 
   const selectLinkStyle = {
@@ -921,7 +921,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: selectMode ? 'pointer' : 'default' }}
       >
         {selectMode && (
-          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>{checked ? '✓' : ''}</span>
+          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: 'var(--color-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>{checked ? '✓' : ''}</span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9rem' }}>{entry.food}</p>
@@ -949,7 +949,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Drag to a meal, or tap for options">⠿</button>
             )}
             <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
-            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
+            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }}>✕</button>
           </div>
         )}
        </div>
@@ -999,7 +999,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             {moveTargets.length > 0 && (
               <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Drag to a meal, or tap for options">⠿</button>
             )}
-            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete meal">✕</button>
+            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete meal">✕</button>
           </div>
         </div>
         {moveOpen && moveTargets.length > 0 && (
@@ -1029,7 +1029,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
           <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: '1rem', lineHeight: 1 }}>←</button>
           <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.875rem', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
+            <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
             <input
               type="date"
               value={selectedDate}
@@ -1048,7 +1048,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ borderLeft: '3px solid var(--color-weight)', paddingLeft: '10px' }}>Weight</h2>
           {savedWeight && !weightExpanded && (
-            <button onClick={() => setWeightExpanded(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', padding: '4px 8px' }}>Edit</button>
+            <button onClick={() => setWeightExpanded(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', padding: '4px 8px' }}>Edit</button>
           )}
         </div>
 
@@ -1114,7 +1114,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             borderRadius: 'var(--radius)',
             border: `1px solid ${dayComplete ? 'var(--color-primary)' : 'var(--color-border)'}`,
             background: dayComplete ? 'var(--color-primary)' : 'transparent',
-            color: dayComplete ? '#fff' : 'var(--color-muted)',
+            color: dayComplete ? 'var(--color-on-accent)' : 'var(--color-muted)',
             fontSize: 'var(--text-xs)', fontWeight: 600, fontFamily: 'inherit',
             cursor: dayCompleteSaving ? 'default' : 'pointer', opacity: dayCompleteSaving ? 0.6 : 1,
           }}
@@ -1199,7 +1199,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {selectedContainerIds().size > 1 ? (
                       <>
-                        <p style={{ fontSize: 'var(--text-xs)', color: '#f87171', margin: 0 }}>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-error)', margin: 0 }}>
                           Selected items belong to different meals. Group items from a single meal (or loose items) at a time.
                         </p>
                         <div><Button onClick={() => setGroupMenu(false)} variant="muted" size="sm">Back</Button></div>
@@ -1259,7 +1259,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                   style={{
                     flex: '1 1 0', minWidth: 0,
                     background: meal === m.key ? 'var(--color-primary)' : 'var(--color-surface)',
-                    color: meal === m.key ? '#fff' : 'var(--color-muted)',
+                    color: meal === m.key ? 'var(--color-on-accent)' : 'var(--color-muted)',
                     border: `1px solid ${meal === m.key ? 'var(--color-primary)' : 'var(--color-border)'}`,
                     borderRadius: 'var(--radius)', padding: '7px 4px',
                     fontSize: 'var(--text-xs)', fontWeight: meal === m.key ? 600 : 400, cursor: 'pointer',
@@ -1272,9 +1272,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
               placeholder="Search or enter a food"
               value={food}
               onChange={(e) => handleFoodInput(e.target.value)}
-              style={{ ...inputStyle, borderColor: nutritionErrors.food ? '#f87171' : 'var(--color-border)' }}
+              style={{ ...inputStyle, borderColor: nutritionErrors.food ? 'var(--color-error)' : 'var(--color-border)' }}
             />
-            {nutritionErrors.food && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-6px' }}>{nutritionErrors.food}</p>}
+            {nutritionErrors.food && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '-6px' }}>{nutritionErrors.food}</p>}
 
             {/* Food search results (USDA FDC) */}
             {showFoodResults && (
@@ -1335,9 +1335,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 <Button onClick={() => lookupBarcode(barcodeInput)} variant="primary" size="sm" disabled={!barcodeInput}>Lookup</Button>
               </div>
             )}
-            {lookupError && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{lookupError}</p>}
+            {lookupError && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)' }}>{lookupError}</p>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-              <input type="number" placeholder="Calories" value={calories} onChange={(e) => { setCalories(e.target.value); setNutritionErrors(p => ({ ...p, calories: '' })) }} style={{ ...inputStyle, borderColor: nutritionErrors.calories ? '#f87171' : 'var(--color-border)', minWidth: 0 }} />
+              <input type="number" placeholder="Calories" value={calories} onChange={(e) => { setCalories(e.target.value); setNutritionErrors(p => ({ ...p, calories: '' })) }} style={{ ...inputStyle, borderColor: nutritionErrors.calories ? 'var(--color-error)' : 'var(--color-border)', minWidth: 0 }} />
               <input type="number" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
               <input type="number" placeholder="Carbs (g)" value={carbs} onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
               <input type="number" placeholder="Fat (g)" value={fat} onChange={(e) => setFat(e.target.value)} style={inputStyle} />
@@ -1362,7 +1362,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               )}
             </div>
             {baseServingLabel && <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>1 serving = {baseServingLabel}</p>}
-            {nutritionErrors.calories && <p style={{ color: '#f87171', fontSize: '0.75rem' }}>{nutritionErrors.calories}</p>}
+            {nutritionErrors.calories && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem' }}>{nutritionErrors.calories}</p>}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <Button onClick={() => { setNutritionExpanded(false); setEditingEntry(null); clearNutritionForm() }} variant="ghost" size="sm">Cancel</Button>
               <Button onClick={handleSubmit} variant="primary" size="sm">{editingEntry ? 'Update entry' : 'Add entry'}</Button>
@@ -1419,7 +1419,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               >
                 <input type="checkbox" checked={selectedCopyIds.has(e.id)} onChange={() => {}} style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text)' }}>{e.food}</p>
+                  <p style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{e.food}</p>
                   <p style={{ fontSize: '0.75rem' }}>
                     {!hideCalories && <>{e.calories} cal · </>}P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g
                   </p>
@@ -1495,7 +1495,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         <Modal open={showSavedMeals} title="Saved meals" onClose={() => { setShowSavedMeals(false); setLogPickId(null); setEditingSavedMealId(null) }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {savedMeals.length === 0 ? (
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>No saved meals yet. Save one from a logged meal (🔖), or via Select → Save as meal.</p>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>No saved meals yet. Save one from a logged meal (🔖), or via Select → Save as meal.</p>
             ) : savedMeals.map(m => {
               const t = mealTotals(m.items)
               const pending = loggingMealId === m.id
@@ -1524,8 +1524,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     {!editing && (
                       <button onClick={() => { setEditingSavedMealId(m.id); setSavedMealDraft(m.name) }} style={iconBtnStyle} title="Rename saved meal">✎</button>
                     )}
-                    <button onClick={() => setLogPickId(picking ? null : m.id)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: picking ? 'var(--color-surface)' : 'var(--color-primary)', color: picking ? 'var(--color-text)' : '#fff', border: picking ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>{picking ? 'Cancel' : '+ Log'}</button>
-                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete saved meal">✕</button>
+                    <button onClick={() => setLogPickId(picking ? null : m.id)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: picking ? 'var(--color-surface)' : 'var(--color-primary)', color: picking ? 'var(--color-text)' : 'var(--color-on-accent)', border: picking ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>{picking ? 'Cancel' : '+ Log'}</button>
+                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete saved meal">✕</button>
                   </div>
                   {picking && (
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '2px' }}>
@@ -1600,14 +1600,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {cardioEntries.map(e => (
           <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
             <div>
-              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9375rem' }}>{e.exercise_type}</p>
+              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-md)' }}>{e.exercise_type}</p>
               <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
                 {e.duration} min{e.calories_burned ? ` · ${e.calories_burned} kcal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm avg` : ''}
               </p>
             </div>
             <div style={{ display: 'flex', gap: '2px' }}>
               <button onClick={() => startEditCardio(e)} style={iconBtnStyle}>✎</button>
-              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: '#f87171' }}>✕</button>
+              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }}>✕</button>
             </div>
           </div>
         ))}
@@ -1652,8 +1652,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {savedSteps && !stepsExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div>
-              <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--color-text)' }}>{savedSteps.steps.toLocaleString()}</span>
-              <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginLeft: '8px' }}>
+              <span style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--color-text)' }}>{savedSteps.steps.toLocaleString()}</span>
+              <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginLeft: '8px' }}>
                 steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}
               </span>
             </div>

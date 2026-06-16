@@ -11,7 +11,7 @@ import { attentionLevel, compareByAttention, summarizeRoster } from '../utils/at
 import { nudgeReason } from '../utils/nudgeReason'
 import { cardStyle } from '../utils/styles'
 
-const attentionColors = { red: '#f87171', yellow: '#fbbf24', green: '#34d399' }
+const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
 // Summary-card styles. The label reserves a fixed two-line height so the big
 // numbers line up across all three cards even when a label wraps.
@@ -53,7 +53,7 @@ function RosterBanner({ roster, onReviewClick }) {
             title="Review the oldest waiting check-in"
             style={{
               fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
-              color: reviewHover ? '#fff' : 'var(--color-primary)',
+              color: reviewHover ? 'var(--color-on-accent)' : 'var(--color-primary)',
               background: reviewHover ? 'var(--color-primary)' : 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
               border: '1px solid color-mix(in srgb, var(--color-primary) 35%, transparent)',
               borderRadius: '999px', padding: '5px 12px',
@@ -271,10 +271,10 @@ function CoachDashboard({ profile }) {
     .map(c => c.client_id)
 
   const metricColors = {
-    Calories: '#22c55e',
-    Protein: '#f87171',
-    Cardio: '#3b82f6',
-    Steps: '#a855f7',
+    Calories: 'var(--color-calories)',
+    Protein: 'var(--color-protein)',
+    Cardio: 'var(--color-cardio)',
+    Steps: 'var(--color-steps)',
   }
 
   const sortedClients = [...clients].sort((a, b) => {
@@ -334,14 +334,14 @@ function CoachDashboard({ profile }) {
           </div>
           <div style={{ ...cardStyle, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
             <p style={summaryLabelStyle}>Checked in this week</p>
-            <p style={{ ...summaryNumStyle, color: '#34d399' }}>
+            <p style={{ ...summaryNumStyle, color: 'var(--color-success)' }}>
               {clients.filter(c => clientStats[c.client_id]?.checkIn).length}
-              <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{clients.length}</span>
+              <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{clients.length}</span>
             </p>
           </div>
-          <div style={{ ...cardStyle, border: `1px solid ${needsAttention > 0 ? '#f87171' : 'var(--color-border)'}`, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+          <div style={{ ...cardStyle, border: `1px solid ${needsAttention > 0 ? 'var(--color-error)' : 'var(--color-border)'}`, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
             <p style={summaryLabelStyle}>Need attention</p>
-            <p style={{ ...summaryNumStyle, color: needsAttention > 0 ? '#f87171' : '#34d399' }}>{needsAttention}</p>
+            <p style={{ ...summaryNumStyle, color: needsAttention > 0 ? 'var(--color-error)' : 'var(--color-success)' }}>{needsAttention}</p>
           </div>
         </div>
       )}
@@ -349,7 +349,7 @@ function CoachDashboard({ profile }) {
       {/* Client list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading ? (
-          <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>Loading...</p>
+          <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>Loading...</p>
         ) : clients.length === 0 ? (
           <EmptyState
             icon={null}
@@ -375,7 +375,7 @@ function CoachDashboard({ profile }) {
                     onClick={() => setSortBy(key)}
                     style={{
                       background: sortBy === key ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: sortBy === key ? '#fff' : 'var(--color-muted)',
+                      color: sortBy === key ? 'var(--color-on-accent)' : 'var(--color-muted)',
                       border: `1px solid ${sortBy === key ? 'var(--color-primary)' : 'var(--color-border)'}`,
                       borderRadius: 'var(--radius)',
                       padding: '4px 12px',
@@ -409,7 +409,7 @@ function CoachDashboard({ profile }) {
               return (
                 <div key={c.id} style={{
                   ...cardStyle,
-                  border: `1px solid ${hasAlert ? '#f87171' : 'var(--color-border)'}`,
+                  border: `1px solid ${hasAlert ? 'var(--color-error)' : 'var(--color-border)'}`,
                   padding: '16px 20px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -454,7 +454,7 @@ function CoachDashboard({ profile }) {
                       style={{
                         fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
                         borderRadius: '999px',
-                        backgroundColor: triage.level === 'green' ? 'var(--color-bg)' : `${attentionColors[triage.level]}26`,
+                        backgroundColor: triage.level === 'green' ? 'var(--color-bg)' : `color-mix(in srgb, ${attentionColors[triage.level]} 15%, transparent)`,
                         border: `1px solid ${attentionColors[triage.level]}`,
                         color: attentionColors[triage.level],
                         display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -471,7 +471,7 @@ function CoachDashboard({ profile }) {
                         style={{
                           fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px',
                           borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                          border: '1px solid #34d399', color: '#34d399'
+                          border: '1px solid var(--color-success)', color: 'var(--color-success)'
                         }}
                       >
                         {s.checkIn.adherence_rating}/10 adherence · {s.checkIn.energy_level}/10 energy
@@ -499,7 +499,7 @@ function CoachDashboard({ profile }) {
                         <span style={{
                           fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px',
                           borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                          border: '1px solid #f87171', color: '#f87171'
+                          border: '1px solid var(--color-error)', color: 'var(--color-error)'
                         }}>
                           Locked
                         </span>
@@ -512,7 +512,7 @@ function CoachDashboard({ profile }) {
                           <span key={label} style={{
                             fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px',
                             borderRadius: '999px',
-                            backgroundColor: value < 3 ? `${metricColor}26` : 'var(--color-bg)',
+                            backgroundColor: value < 3 ? `color-mix(in srgb, ${metricColor} 15%, transparent)` : 'var(--color-bg)',
                             border: `1px solid ${metricColor}`,
                             color: metricColor,
                             opacity,
@@ -559,7 +559,7 @@ function CoachDashboard({ profile }) {
 	            flexDirection: 'column',
 	            gap: '10px'
 	          }}>
-	            <p style={{ fontSize: '0.875rem', margin: 0 }}>
+	            <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
 	              <strong>{pendingInviteEmail}</strong> already has a Gardnr account. Send them an invite to connect as your client? Their existing data will be preserved.
 	            </p>
 	            <div style={{ display: 'flex', gap: '8px' }}>
@@ -581,11 +581,11 @@ function CoachDashboard({ profile }) {
 	          </div>
 	        )}
 	        {inviteError && (
-          <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{inviteError}</p>
+          <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)' }}>{inviteError}</p>
         )}
         {inviteLink && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', wordBreak: 'break-all' }}>{inviteLink}</p>
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', wordBreak: 'break-all' }}>{inviteLink}</p>
             <button
               onClick={() => navigator.clipboard.writeText(inviteLink)}
               style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-text)', whiteSpace: 'nowrap' }}
