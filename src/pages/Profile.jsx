@@ -238,7 +238,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </Button>
           </div>
           {profile?.role === 'client' && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: '6px 0 0' }}>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '6px 0 0' }}>
               This is the name your coach sees.
             </p>
           )}
@@ -273,7 +273,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         gap: '12px'
       }}>
         <h2>Appearance</h2>
-        <p style={{ fontSize: '0.875rem', marginTop: '-6px', color: 'var(--color-muted)' }}>
+        <p style={{ fontSize: 'var(--text-base)', marginTop: '-6px', color: 'var(--color-muted)' }}>
           Auto follows your device's day/night setting.
         </p>
         <ThemeToggle />
@@ -288,7 +288,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         gap: '16px'
       }}>
         <h2>Daily targets</h2>
-        <p style={{ fontSize: '0.875rem', marginTop: '-8px' }}>
+        <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px' }}>
           {profile?.role === 'client'
             ? 'These targets were set by your coach.'
             : 'Set your daily goals. Leave blank to skip tracking that metric.'}
@@ -296,7 +296,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           <div>
-            <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Calories</p>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Calories</p>
             <input
               type="number"
               placeholder="e.g. 2000"
@@ -307,7 +307,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             />
           </div>
           <div>
-            <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Protein (g)</p>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Protein (g)</p>
             <input
               type="number"
               placeholder="e.g. 150"
@@ -318,7 +318,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             />
           </div>
           <div>
-            <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Carbs (g)</p>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Carbs (g)</p>
             <input
               type="number"
               placeholder="e.g. 200"
@@ -329,7 +329,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             />
           </div>
           <div>
-            <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Fat (g)</p>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Fat (g)</p>
             <input
               type="number"
               placeholder="e.g. 65"
@@ -340,7 +340,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             />
           </div>
           <div>
-            <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Cardio (min/day)</p>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Cardio (min/day)</p>
             <input
               type="number"
               placeholder="e.g. 30"
@@ -351,7 +351,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             />
           </div>
           <div>
-            <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Steps/day</p>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Steps/day</p>
             <input
               type="number"
               placeholder="e.g. 10000"
@@ -364,7 +364,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </div>
 
         <div>
-          <p style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Weight goal</p>
+          <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Weight goal</p>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
               type="number"
@@ -487,8 +487,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         />
         {passwordStatus && (
           <p style={{
-            fontSize: '0.875rem',
-            color: passwordStatus.includes('successfully') ? '#34d399' : '#f87171'
+            fontSize: 'var(--text-base)',
+            color: passwordStatus.includes('successfully') ? 'var(--color-success)' : 'var(--color-error)'
           }}>
             {passwordStatus}
           </p>
@@ -517,7 +517,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: '#f87171', margin: 0 }}>Delete account</p>
+          <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-error)', margin: 0 }}>Delete account</p>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
             Permanently delete your account and all associated data. This cannot be undone.
           </p>
@@ -529,7 +529,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: '#f87171', fontWeight: 600, margin: 0 }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', fontWeight: 600, margin: 0 }}>
                 Are you sure? This will delete all your data permanently.
               </p>
               <div style={{ display: 'flex', gap: '12px' }}>

@@ -22,9 +22,9 @@ import { checkinPeriod, toLocalDateString, parseLocalDateString } from '../utils
 import { cadenceLabel } from '../utils/cadence'
 import { blankValue, validateAnswers, buildAnswers, formatAnswer } from '../utils/checkinQuestions'
 
-const checkinInputStyle = { backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem', width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }
-const checkinPillStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '999px', padding: '6px 16px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
-const checkinPillActive = { background: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: '#fff' }
+const checkinInputStyle = { backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-base)', width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }
+const checkinPillStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '999px', padding: '6px 16px', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+const checkinPillActive = { background: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: 'var(--color-on-accent)' }
 import { cardStyle as baseCardStyle } from '../utils/styles'
 import { Line, Bar } from 'react-chartjs-2'
 import {
@@ -777,7 +777,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	      {milestone && (
 	        <div style={{
 	          background: 'linear-gradient(135deg, var(--color-surface-2) 0%, #1f2a1f 100%)',
-	          border: '1px solid #34d399',
+	          border: '1px solid var(--color-success)',
 	          borderRadius: 'var(--radius)',
 	          padding: '16px 20px',
 	          display: 'flex',
@@ -788,7 +788,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
 	            <span style={{ fontSize: '1.5rem' }}>🔥</span>
 	            <div>
-	              <p style={{ fontWeight: 700, color: '#34d399', margin: 0, fontSize: 'var(--text-md)' }}>
+	              <p style={{ fontWeight: 700, color: 'var(--color-success)', margin: 0, fontSize: 'var(--text-md)' }}>
 	                {milestone}-day streak!
 	              </p>
 	              <p style={{ color: 'var(--color-muted)', margin: 0, fontSize: 'var(--text-xs)' }}>
@@ -813,7 +813,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	        <div style={{
 	          padding: '14px 16px',
 	          border: '1px solid var(--color-border)',
-	          borderLeft: '4px solid #f87171',
+	          borderLeft: '4px solid var(--color-error)',
 	          borderRadius: 'var(--radius)',
 	          backgroundColor: 'rgba(248,113,113,0.05)',
 	          display: 'flex',
@@ -821,7 +821,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	          alignItems: 'flex-start',
 	          gap: '12px'
 	        }}>
-	          <p style={{ fontSize: '0.875rem', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
+	          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
 	            {offboardReason === 'coach_deleted'
 	              ? "Your coach's account was closed. Your data is preserved — you're now on a solo plan and can keep tracking on your own."
 	              : "Your coach ended the coaching relationship. Your data is preserved — you're now on a solo plan and can keep tracking on your own."
@@ -858,7 +858,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	          alignItems: 'flex-start',
 	          gap: '12px'
 	        }}>
-	          <p style={{ fontSize: '0.875rem', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
+	          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
 	            Your coach checked in on you. Log your nutrition today to keep your progress on track.
 	          </p>
 	          <button
@@ -884,12 +884,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#86efac', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Logging streak</p>
+              <p style={{ fontSize: 'var(--text-sm)', color: '#86efac', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Logging streak</p>
               <p style={{ fontWeight: 800, fontSize: '2rem', color: 'var(--color-primary)', lineHeight: 1 }}>
                 {streak} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{streak === 1 ? 'day' : 'days'}</span>
               </p>
-              {streak >= 7 && loggedToday && <p style={{ fontSize: '0.75rem', color: '#6ee7b7', marginTop: '4px' }}>Keep it going — you're on a roll!</p>}
-              {!loggedToday && <p style={{ fontSize: '0.75rem', color: '#fbbf24', marginTop: '4px' }}>Log today to keep your streak!</p>}
+              {streak >= 7 && loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: '#6ee7b7', marginTop: '4px' }}>Keep it going — you're on a roll!</p>}
+              {!loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-warning)', marginTop: '4px' }}>Log today to keep your streak!</p>}
             </div>
             <span style={{ fontSize: streak >= 7 ? '2.5rem' : '2rem' }}>
               {streak >= 30 ? '🏆' : streak >= 14 ? '🔥' : streak >= 7 ? '⭐' : '💪'}
@@ -901,7 +901,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
           <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
           <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
-          {isToday && <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
+          {isToday && <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
           {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
 	        </div>
 	      </div>
@@ -909,21 +909,21 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	      {profile?.role === 'client' && (lockInfo.locked || lockInfo.reason === 'coach-unlocked') && (
 	        <div style={{
 	          ...cardStyle,
-	          borderColor: '#f87171',
+	          borderColor: 'var(--color-error)',
 	          borderLeftWidth: '4px',
 	          backgroundColor: 'rgba(248, 113, 113, 0.05)',
 	        }}>
 	          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 	            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-	              <span style={{ fontSize: '1.25rem' }}>🔒</span>
+	              <span style={{ fontSize: 'var(--text-lg)' }}>🔒</span>
 	              <h2 style={{ margin: 0 }}>Progress view paused</h2>
 	            </div>
-		            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', lineHeight: '1.6', margin: 0 }}>
+		            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', lineHeight: '1.6', margin: 0 }}>
 		              {lockInfo.reason === 'coach-unlocked'
 		                ? 'Your coach unlocked your account. You have 48 hours to log your nutrition before it locks again.'
 		                : `No nutrition logged for ${lockInfo.days} ${lockInfo.days === 1 ? 'day' : 'days'}. Log today to bring your progress view back, or ask your coach to unlock it.`}
 		            </p>
-	            <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: 0 }}>
+	            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
 	              Your logging form is still fully available — keep adding entries any time.
 	            </p>
 	          </div>
@@ -956,30 +956,30 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', backgroundColor: 'var(--color-bg)' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Week of {week}</span>
-                    <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                    <span style={{ fontWeight: 600, fontSize: 'var(--text-base)' }}>Week of {week}</span>
+                    <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
                       {weekReports.length} {weekReports.length === 1 ? 'message' : 'messages'}
                     </span>
                     {weekUnread > 0 && (
-                      <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                      <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
                         {weekUnread} unread
                       </span>
                     )}
                   </div>
-                  <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{isWeekCollapsed ? '▶' : '▼'}</span>
+                  <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{isWeekCollapsed ? '▶' : '▼'}</span>
                 </div>
                 {!isWeekCollapsed && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
                     {weekReports.map((r) => (
                       <div key={r.id} style={{ borderLeft: '3px solid var(--color-primary)', backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                             Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </p>
                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            {!r.read_at && <span style={{ backgroundColor: 'var(--color-primary)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '2px 6px', borderRadius: '999px' }}>NEW</span>}
+                            {!r.read_at && <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 6px', borderRadius: '999px' }}>NEW</span>}
                             {r.read_at && (
-                              <button onClick={() => archiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: '0.7rem' }}>
+                              <button onClick={() => archiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>
                                 Archive
                               </button>
                             )}
@@ -1000,7 +1000,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           {/* Archived section */}
           {archivedReports.length > 0 && (
             <div>
-              <button onClick={() => setShowArchived(!showArchived)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: '0.8rem', padding: '4px 0' }}>
+              <button onClick={() => setShowArchived(!showArchived)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-sm)', padding: '4px 0' }}>
                 {showArchived ? '▼' : '▶'} Archived ({archivedReports.length})
               </button>
               {showArchived && groupByWeek(archivedReports).map(([week, weekReports]) => {
@@ -1012,22 +1012,22 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', backgroundColor: 'var(--color-bg)' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-muted)' }}>Week of {week}</span>
-                        <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                        <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>Week of {week}</span>
+                        <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
                           {weekReports.length} {weekReports.length === 1 ? 'message' : 'messages'}
                         </span>
                       </div>
-                      <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{isArchivedWeekCollapsed ? '▶' : '▼'}</span>
+                      <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{isArchivedWeekCollapsed ? '▶' : '▼'}</span>
                     </div>
                     {!isArchivedWeekCollapsed && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
                         {weekReports.map((r) => (
                           <div key={r.id} style={{ borderLeft: '3px solid var(--color-border)', backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                                 Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </p>
-                              <button onClick={() => unarchiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: '0.7rem' }}>
+                              <button onClick={() => unarchiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>
                                 Unarchive
                               </button>
                             </div>
@@ -1057,9 +1057,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             collapsed={sectionsCollapsed.checkin}
             onToggle={() => toggleSection('checkin')}
             badge={!existingCheckIn ? 'To do' : null}
-            badgeColor="#f87171"
+            badgeColor="var(--color-error)"
           >
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '8px', marginBottom: '8px' }}>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: '8px', marginBottom: '8px' }}>
                 {existingCheckIn
                   ? (checkinInterval > 1 ? '✓ Submitted this period' : '✓ Submitted this week')
                   : 'Let your coach know how your week went.'}
@@ -1073,8 +1073,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               </Button>
               {existingCheckIn?.coach_comment && (
                 <div style={{ marginTop: '12px', padding: '12px 14px', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
-                  <p style={{ fontSize: '0.7rem', color: '#34d399', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Coach's note</p>
-                  <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{existingCheckIn.coach_comment}</p>
+                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-success)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Coach's note</p>
+                  <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{existingCheckIn.coach_comment}</p>
                 </div>
               )}
               {showCheckIn && (
@@ -1086,8 +1086,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                       const ratingMax = q.config?.max || 10
                       return (
                         <div key={q.id}>
-                          <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>
-                            {q.prompt}{q.required && <span style={{ color: '#f87171' }}> *</span>}
+                          <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>
+                            {q.prompt}{q.required && <span style={{ color: 'var(--color-error)' }}> *</span>}
                             {q.type === 'rating' && <strong> {val ?? Math.ceil(ratingMax / 2)}/{ratingMax}</strong>}
                           </p>
                           {q.type === 'rating' && (
@@ -1103,7 +1103,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                           {q.type === 'number' && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <input type="number" value={val ?? ''} onChange={(e) => setAns(e.target.value)} style={{ ...checkinInputStyle, maxWidth: 160 }} />
-                              {q.config?.unit && <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>{q.config.unit}</span>}
+                              {q.config?.unit && <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>{q.config.unit}</span>}
                             </div>
                           )}
                           {q.type === 'text' && (
@@ -1122,19 +1122,19 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   ) : (
                     <>
                       <div>
-                        <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Adherence — how well did you follow the plan? <strong>{checkIn.adherence_rating}/10</strong></p>
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Adherence — how well did you follow the plan? <strong>{checkIn.adherence_rating}/10</strong></p>
                         <input type="range" min="1" max="10" value={checkIn.adherence_rating} onChange={(e) => setCheckIn({ ...checkIn, adherence_rating: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
                       </div>
                       <div>
-                        <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Energy levels this week <strong>{checkIn.energy_level}/10</strong></p>
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Energy levels this week <strong>{checkIn.energy_level}/10</strong></p>
                         <input type="range" min="1" max="10" value={checkIn.energy_level} onChange={(e) => setCheckIn({ ...checkIn, energy_level: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
                       </div>
                       <div>
-                        <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Any obstacles or challenges?</p>
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Any obstacles or challenges?</p>
                         <textarea value={checkIn.obstacles} onChange={(e) => setCheckIn({ ...checkIn, obstacles: e.target.value })} placeholder="Stress, travel, injury, time constraints..." rows={3} style={checkinInputStyle} />
                       </div>
                       <div>
-                        <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Notes for your coach</p>
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Notes for your coach</p>
                         <textarea value={checkIn.notes} onChange={(e) => setCheckIn({ ...checkIn, notes: e.target.value })} placeholder="Anything else you want your coach to know..." rows={3} style={checkinInputStyle} />
                       </div>
                     </>
@@ -1142,7 +1142,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   <Button onClick={saveCheckIn} variant="primary">Submit check-in</Button>
                 </div>
               )}
-              {checkInSaved && <p style={{ color: '#34d399', fontSize: '0.875rem' }}>✓ Check-in submitted successfully.</p>}
+              {checkInSaved && <p style={{ color: 'var(--color-success)', fontSize: 'var(--text-base)' }}>✓ Check-in submitted successfully.</p>}
           </SectionHeader>
         </div>
       )}
@@ -1181,7 +1181,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                 const pct = Math.min(Math.round((m.actual / m.target) * 100), 100)
                 return (
                   <div key={m.label} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
                       <span>{m.label}</span>
                       <span style={{ color: 'var(--color-muted)' }}>{m.actual} / {m.target}{m.unit} ({pct}%)</span>
                     </div>
@@ -1192,9 +1192,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                 )
               })}
               {targets.weight_goal && weightEntry && (
-                <div style={{ fontSize: '0.875rem', color: 'var(--color-muted)', paddingTop: '4px' }}>
+                <div style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', paddingTop: '4px' }}>
                   Weight goal: {targets.weight_goal} {targets.weight_goal_unit} · Current: {weightEntry.weight} {weightEntry.unit} ·{' '}
-                  <span style={{ color: Math.abs(weightEntry.weight - targets.weight_goal) < 1 ? '#34d399' : 'var(--color-primary)' }}>
+                  <span style={{ color: Math.abs(weightEntry.weight - targets.weight_goal) < 1 ? 'var(--color-success)' : 'var(--color-primary)' }}>
                     {weightEntry.weight > targets.weight_goal ? `${(weightEntry.weight - targets.weight_goal).toFixed(1)} to go` : weightEntry.weight < targets.weight_goal ? `${(targets.weight_goal - weightEntry.weight).toFixed(1)} below goal` : 'Goal reached! 🎉'}
                   </span>
                 </div>
@@ -1254,7 +1254,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {profile?.role !== 'client' && (
         <div key="consistency" style={cardStyle}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 4px' }}>Logging consistency</h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: '0 0 14px' }}>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 14px' }}>
             How steadily you've logged over the last 90 days.
           </p>
           {hasSoloPremium ? (
@@ -1263,22 +1263,22 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               {consistency && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon–Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
-                    <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? '#34d399' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon–Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
+                    <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                       {consistency.weekdayLogged}
-                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
+                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
                     </p>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
                       {consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}%
                     </p>
                   </div>
                   <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat–Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
-                    <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? '#34d399' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat–Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
+                    <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                       {consistency.weekendLogged}
-                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
+                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
                     </p>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
                       {consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}%
                     </p>
                   </div>
@@ -1297,8 +1297,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   justifyContent: 'space-between',
                 }}>
                   <div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Best week (last 90 days) <InfoTip text={CONSISTENCY_TIPS.bestWeek} /></p>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Best week (last 90 days) <InfoTip text={CONSISTENCY_TIPS.bestWeek} /></p>
+                    <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0 }}>
                       {bestWeek.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       {' – '}
                       {bestWeek.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -1308,14 +1308,14 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                     <p style={{
                       fontWeight: 700,
                       fontSize: '1.5rem',
-                      color: bestWeek.count === 7 ? '#34d399' : bestWeek.count >= 5 ? '#fbbf24' : 'var(--color-muted)',
+                      color: bestWeek.count === 7 ? 'var(--color-success)' : bestWeek.count >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
                       margin: 0,
                       lineHeight: 1,
                     }}>
                       {bestWeek.count}
-                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
                     </p>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>days logged</p>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>days logged</p>
                   </div>
                 </div>
               )}
@@ -1331,7 +1331,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               </div>
 
               {!bestWeek?.count && Object.keys(heatmapData).length === 0 && (
-                <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', margin: '12px 0 0' }}>
+                <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: '12px 0 0' }}>
                   Log a few more days and your consistency trends will show up here.
                 </p>
               )}
@@ -1380,7 +1380,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {profile?.role === 'client' && (
         <div style={cardStyle}>
           <h2>Coaching</h2>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', lineHeight: '1.6', margin: 0 }}>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', lineHeight: '1.6', margin: 0 }}>
             Leave your current coaching plan and return to an individual account. Your data is preserved.
           </p>
           {!showSelfOffboardConfirm ? (
@@ -1389,10 +1389,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             </Button>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <p style={{ fontSize: '0.875rem', margin: 0 }}>
+              <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
                 Are you sure? You'll return to a solo account.
               </p>
-              {selfOffboardError && <p style={{ color: '#f87171', fontSize: '0.875rem', margin: 0 }}>{selfOffboardError}</p>}
+              {selfOffboardError && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)', margin: 0 }}>{selfOffboardError}</p>}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <Button onClick={selfOffboard} variant="danger-solid" size="sm" loading={selfOffboarding}>
                   Confirm

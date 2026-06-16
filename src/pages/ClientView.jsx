@@ -1146,7 +1146,7 @@ async function sendMessage(text) {
       x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
       yWeight: {
         type: 'linear', position: 'left',
-        ticks: { color: '#34d399' }, grid: { color: CHART.grid },
+        ticks: { color: 'var(--color-success)' }, grid: { color: CHART.grid },
       },
       yPct: {
         type: 'linear', position: 'right', min: 0, max: 150,
@@ -1207,17 +1207,17 @@ async function sendMessage(text) {
         <Button onClick={() => navigate('/')} variant="ghost" size="sm">← Back</Button>
         <div style={{ flex: 1, minWidth: '180px' }}>
           <h1>{clientProfile?.full_name || 'Client'}</h1>
-          <p style={{ fontSize: '0.875rem', marginTop: '2px' }}>{clientProfile?.email}</p>
+          <p style={{ fontSize: 'var(--text-base)', marginTop: '2px' }}>{clientProfile?.email}</p>
           {lockInfo.locked && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
               <span style={{
-                fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
+                fontSize: 'var(--text-sm)', fontWeight: 700, padding: '3px 10px',
                 borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                border: '1px solid #f87171', color: '#f87171'
+                border: '1px solid var(--color-error)', color: 'var(--color-error)'
               }}>
                 Locked
               </span>
-              <span style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
+              <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>
                 No nutrition logged for {lockInfo.days} days
               </span>
               <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
@@ -1250,7 +1250,7 @@ async function sendMessage(text) {
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
         >
           <h2 style={{ margin: 0 }}>Groundwork</h2>
-          <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{aiToolsCollapsed ? '▶' : '▼'}</span>
+          <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{aiToolsCollapsed ? '▶' : '▼'}</span>
         </div>
 
         {!aiToolsCollapsed && (
@@ -1263,7 +1263,7 @@ async function sendMessage(text) {
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI brief to walk in prepared — just for you</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI brief to walk in prepared — just for you</span>
                 </span>
               </button>
 
@@ -1274,19 +1274,19 @@ async function sendMessage(text) {
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI draft to review and send the client</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI draft to review and send the client</span>
                 </span>
               </button>
             </div>
 
             {callBriefing && (
-              <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid #a78bfa', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-ai)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <p style={{ fontWeight: 600 }}>Meeting brief — {clientProfile?.full_name}</p>
                   <Button onClick={() => setCallBriefing('')} variant="ghost" size="sm">Dismiss</Button>
                 </div>
-                <p style={{ fontSize: '0.65rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Not visible to client</p>
-                <pre style={{ color: 'var(--color-text)', fontSize: '0.875rem', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{callBriefing}</pre>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ai)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Not visible to client</p>
+                <pre style={{ color: 'var(--color-text)', fontSize: 'var(--text-base)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{callBriefing}</pre>
               </div>
             )}
 
@@ -1297,7 +1297,7 @@ async function sendMessage(text) {
                   value={report}
                   onChange={(e) => setReport(e.target.value)}
                   rows={20}
-                  style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px', color: 'var(--color-text)', fontSize: '0.9rem', lineHeight: '1.7', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
+                  style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px', color: 'var(--color-text)', fontSize: 'var(--text-base)', lineHeight: '1.7', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
                 />
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <Button onClick={sendReport} variant="primary">Send to client</Button>
@@ -1329,10 +1329,10 @@ async function sendMessage(text) {
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
             <StatCard label="Calories" value={totals.calories} color="#fbbf24" />
-            <StatCard label="Protein" value={`${totals.protein}g`} color="#f87171" />
-            <StatCard label="Carbs" value={`${totals.carbs}g`} color="#e2d5b0" />
-            <StatCard label="Fat" value={`${totals.fat}g`} color="#fb923c" />
-            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="#34d399" />
+            <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
+            <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
+            <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
+            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
           </div>
         </SectionHeader>
       </div>
@@ -1343,43 +1343,43 @@ async function sendMessage(text) {
         <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Current streak <InfoTip text={CONSISTENCY_TIPS.streak} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.streak > 0 ? '#34d399' : 'var(--color-muted)' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Current streak <InfoTip text={CONSISTENCY_TIPS.streak} /></p>
+              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.streak > 0 ? 'var(--color-success)' : 'var(--color-muted)' }}>
                 {consistency.streak}
-                <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}> days</span>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}> days</span>
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 7 days <InfoTip text={CONSISTENCY_TIPS.last7} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days7 >= 5 ? '#34d399' : consistency.days7 >= 3 ? 'var(--color-primary)' : '#f87171' }}>
-                {consistency.days7}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 7 days <InfoTip text={CONSISTENCY_TIPS.last7} /></p>
+              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)' }}>
+                {consistency.days7}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 30 days <InfoTip text={CONSISTENCY_TIPS.last30} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days30 >= 20 ? '#34d399' : consistency.days30 >= 10 ? 'var(--color-primary)' : '#f87171' }}>
-                {consistency.days30}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 30 days <InfoTip text={CONSISTENCY_TIPS.last30} /></p>
+              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)' }}>
+                {consistency.days30}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
               </p>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon-Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? '#34d399' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon-Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
+              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                 {consistency.weekdayLogged}
-                <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
               </p>
-              <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
                 {consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}%
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat-Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? '#34d399' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? '#fbbf24' : '#f87171' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat-Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
+              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                 {consistency.weekendLogged}
-                <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
               </p>
-              <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
                 {consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}%
               </p>
             </div>
@@ -1395,10 +1395,10 @@ async function sendMessage(text) {
               justifyContent: 'space-between',
             }}>
               <div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>
                   Best week (last 90 days) <InfoTip text={CONSISTENCY_TIPS.bestWeek} />
                 </p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>
+                <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0 }}>
                   {consistency.bestWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   {' – '}
                   {consistency.bestWeekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -1408,14 +1408,14 @@ async function sendMessage(text) {
                 <p style={{
                   fontWeight: 700,
                   fontSize: '1.5rem',
-                  color: consistency.bestWeekCount === 7 ? '#34d399' : consistency.bestWeekCount >= 5 ? '#fbbf24' : 'var(--color-muted)',
+                  color: consistency.bestWeekCount === 7 ? 'var(--color-success)' : consistency.bestWeekCount >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
                   margin: 0,
                   lineHeight: 1,
                 }}>
                   {consistency.bestWeekCount}
-                  <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+                  <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
                 </p>
-                <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: '2px' }}>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
                   days logged
                 </p>
               </div>
@@ -1474,36 +1474,36 @@ async function sendMessage(text) {
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', backgroundColor: 'var(--color-bg)' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Week of {week}</span>
-                      <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                      <span style={{ fontWeight: 600, fontSize: 'var(--text-base)' }}>Week of {week}</span>
+                      <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
                         {weekReports.length} {weekReports.length === 1 ? 'report' : 'reports'}
                       </span>
                       {unreadCount > 0 && (
-                        <span style={{ backgroundColor: '#1e3a5f', color: '#93c5fd', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                        <span style={{ backgroundColor: '#1e3a5f', color: '#93c5fd', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
                           {unreadCount} unread
                         </span>
                       )}
                     </div>
-                    <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{isCollapsed ? '▶' : '▼'}</span>
+                    <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{isCollapsed ? '▶' : '▼'}</span>
                   </div>
                   {!isCollapsed && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
                       {weekReports.map(r => (
-                        <div key={r.id} style={{ borderLeft: `3px solid ${r.read_at ? '#34d399' : 'var(--color-primary)'}`, backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div key={r.id} style={{ borderLeft: `3px solid ${r.read_at ? 'var(--color-success)' : 'var(--color-primary)'}`, backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                               Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               {r.archived && (
-                                <span style={{ fontSize: '0.65rem', color: 'var(--color-muted)', backgroundColor: 'var(--color-border)', padding: '2px 7px', borderRadius: '999px' }}>Archived</span>
+                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', backgroundColor: 'var(--color-border)', padding: '2px 7px', borderRadius: '999px' }}>Archived</span>
                               )}
-                              <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', backgroundColor: r.read_at ? '#064e3b' : '#1e3a5f', color: r.read_at ? '#34d399' : '#93c5fd' }}>
+                              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', backgroundColor: r.read_at ? '#064e3b' : '#1e3a5f', color: r.read_at ? 'var(--color-success)' : '#93c5fd' }}>
                                 {r.read_at ? '✓ Read' : 'Unread'}
                               </span>
                             </div>
                           </div>
-                          <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{r.content}</p>
+                          <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: 'var(--text-base)' }}>{r.content}</p>
                         </div>
                       ))}
                     </div>
@@ -1517,13 +1517,13 @@ async function sendMessage(text) {
 
       <div key="targets" style={{ ...sectionCardStyle, gap: '16px' }}>
         <SectionHeader title="Client targets" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '8px' }}>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: '8px' }}>
             Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '14px 0', borderBottom: '1px solid var(--color-border)', marginBottom: '12px' }}>
             <div>
               <p style={{ fontWeight: 600, margin: 0 }}>Hide calories from client</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: 0 }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
                 For clients with a sensitive relationship with calorie tracking.
               </p>
             </div>
@@ -1543,14 +1543,14 @@ async function sendMessage(text) {
                 position: 'absolute', top: '2px',
                 left: hideCaloriesToggle ? '22px' : '2px',
                 width: '20px', height: '20px', borderRadius: '50%',
-                backgroundColor: '#fff', transition: 'left 0.2s',
+                backgroundColor: 'var(--color-on-accent)', transition: 'left 0.2s',
               }} />
             </button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', padding: '14px 0', borderBottom: '1px solid var(--color-border)', marginBottom: '12px' }}>
             <div>
               <p style={{ fontWeight: 600, margin: 0 }}>Check-in cadence</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: 0 }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
                 How often {clientProfile?.full_name || 'this client'} submits a check-in.
               </p>
             </div>
@@ -1566,7 +1566,7 @@ async function sendMessage(text) {
                     aria-pressed={active}
                     style={{
                       background: active ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: active ? '#fff' : 'var(--color-muted)',
+                      color: active ? 'var(--color-on-accent)' : 'var(--color-muted)',
                       border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
                       borderRadius: '999px', padding: '5px 12px', fontSize: 'var(--text-xs)',
                       fontWeight: 600, cursor: savingCadence ? 'default' : 'pointer', fontFamily: 'inherit',
@@ -1588,7 +1588,7 @@ async function sendMessage(text) {
               { label: 'Steps/day', key: 'steps', placeholder: 'e.g. 10000' },
             ].map(f => (
               <div key={f.key}>
-                <p style={{ fontSize: '0.75rem', marginBottom: '6px', color: 'var(--color-muted)' }}>{f.label}</p>
+                <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px', color: 'var(--color-muted)' }}>{f.label}</p>
                 <input
                   type="number"
                   placeholder={f.placeholder}
@@ -1600,7 +1600,7 @@ async function sendMessage(text) {
             ))}
           </div>
           <div style={{ marginTop: '4px' }}>
-            <p style={{ fontSize: '0.75rem', marginBottom: '6px', color: 'var(--color-muted)' }}>Weight goal</p>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px', color: 'var(--color-muted)' }}>Weight goal</p>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="number"
@@ -1632,9 +1632,9 @@ async function sendMessage(text) {
           <div style={{ marginBottom: '10px' }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
-              fontSize: '0.75rem', fontWeight: 600,
+              fontSize: 'var(--text-sm)', fontWeight: 600,
               padding: '4px 10px', borderRadius: 'var(--radius)',
-              color: dayComplete ? '#34d399' : 'var(--color-muted)',
+              color: dayComplete ? 'var(--color-success)' : 'var(--color-muted)',
               backgroundColor: dayComplete ? 'rgba(52,211,153,0.12)' : 'var(--color-bg)',
               border: `1px solid ${dayComplete ? 'rgba(52,211,153,0.4)' : 'var(--color-border)'}`,
             }}>
@@ -1652,17 +1652,17 @@ async function sendMessage(text) {
               {groupEntriesByMeal(entries).map((group) => (
                 <div key={group.key} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>{group.calories} cal</span>
+                    <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
+                    <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{group.calories} cal</span>
                   </div>
                   {groupLoggedMeals(group.entries).map((item) => item.type === 'meal' ? (
                     <div key={item.id} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px 16px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
                         <span style={{ fontWeight: 700 }}>🍽 {item.name}</span>
-                        <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.875rem' }}>{item.calories} cal</span>
+                        <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-base)' }}>{item.calories} cal</span>
                       </div>
                       {item.entries.map((entry) => (
-                        <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontSize: '0.8rem', color: 'var(--color-muted)' }}>
+                        <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                           <span>{entry.food}</span>
                           <span>{entry.calories} cal · P {entry.protein}g · {entry.serving_size}{entry.serving_unit}</span>
                         </div>
@@ -1679,7 +1679,7 @@ async function sendMessage(text) {
                       alignItems: 'center'
                     }}>
                       <span>{item.entry.food}</span>
-                      <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem' }}>
+                      <div style={{ display: 'flex', gap: '16px', fontSize: 'var(--text-base)' }}>
                         <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{item.entry.calories} cal</span>
                         <span style={{ color: 'var(--color-muted)' }}>P: {item.entry.protein}g</span>
                         <span style={{ color: 'var(--color-muted)' }}>C: {item.entry.carbs}g</span>
@@ -1699,7 +1699,7 @@ async function sendMessage(text) {
         <SectionHeader title={checkinInterval > 1 ? "This period's check-in" : "This week's check-in"} collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
           {!clientCheckIn ? (
             <div style={{ paddingTop: '8px' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'} ({cadenceLabel(checkinInterval).toLowerCase()}).</p>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'} ({cadenceLabel(checkinInterval).toLowerCase()}).</p>
             </div>
           ) : (
             <>
@@ -1707,9 +1707,9 @@ async function sendMessage(text) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {clientCheckIn.answers.map((a, i) => (
                     <div key={a.question_id || i}>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.prompt}</p>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.prompt}</p>
                       {a.type === 'text'
-                        ? <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{(a.value && String(a.value).trim()) ? a.value : '—'}</p>
+                        ? <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{(a.value && String(a.value).trim()) ? a.value : '—'}</p>
                         : <p style={{ fontWeight: 700, fontSize: '1.125rem' }}>{formatAnswer(a)}</p>}
                     </div>
                   ))}
@@ -1718,24 +1718,24 @@ async function sendMessage(text) {
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                     <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
-                      <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
+                      <p style={{ fontWeight: 700, fontSize: 'var(--text-lg)' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
                     </div>
                     <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Energy level</p>
-                      <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.energy_level}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Energy level</p>
+                      <p style={{ fontWeight: 700, fontSize: 'var(--text-lg)' }}>{clientCheckIn.energy_level}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
                     </div>
                   </div>
                   {clientCheckIn.obstacles && (
                     <div style={{ paddingTop: '4px' }}>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
-                      <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
+                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
                     </div>
                   )}
                   {clientCheckIn.notes && (
                     <div style={{ paddingTop: '4px' }}>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
-                      <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
+                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
                     </div>
                   )}
                 </>
@@ -1743,9 +1743,9 @@ async function sendMessage(text) {
               <div style={{ paddingTop: '12px', marginTop: '4px', borderTop: '1px solid var(--color-border)' }}>
                 {clientCheckIn.reviewed_at ? (
                   <>
-                    <p style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 600 }}>✓ Reviewed</p>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 600 }}>✓ Reviewed</p>
                     {clientCheckIn.coach_comment && (
-                      <p style={{ fontSize: '0.875rem', lineHeight: '1.6', marginTop: '6px' }}>{clientCheckIn.coach_comment}</p>
+                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6', marginTop: '6px' }}>{clientCheckIn.coach_comment}</p>
                     )}
                   </>
                 ) : (
@@ -1755,7 +1755,7 @@ async function sendMessage(text) {
                       onChange={(e) => setReviewComment(e.target.value)}
                       placeholder="Optional comment for the client…"
                       rows={2}
-                      style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'inherit', fontSize: '0.875rem', resize: 'vertical' }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'inherit', fontSize: 'var(--text-base)', resize: 'vertical' }}
                     />
                     <Button onClick={reviewCheckIn} variant="primary" size="sm" loading={reviewing} style={{ marginTop: '8px' }}>Mark reviewed</Button>
                   </>
@@ -1780,7 +1780,7 @@ async function sendMessage(text) {
                 borderRadius: 'var(--radius)',
                 padding: '12px 14px',
                 color: editingNotes ? 'var(--color-text)' : 'var(--color-muted)',
-                fontSize: '0.8rem',
+                fontSize: 'var(--text-sm)',
                 lineHeight: '1.8',
                 resize: editingNotes ? 'vertical' : 'none',
                 fontFamily: 'monospace',
@@ -1800,7 +1800,7 @@ async function sendMessage(text) {
                   borderRadius: 'var(--radius)',
                   padding: '10px 14px',
                   color: 'var(--color-text)',
-                  fontSize: '0.875rem',
+                  fontSize: 'var(--text-base)',
                   lineHeight: '1.6',
                   resize: 'vertical',
                   fontFamily: 'inherit',
@@ -1935,14 +1935,14 @@ async function sendMessage(text) {
         ) : (
           <div style={{
             padding: '14px 16px',
-            border: '1px solid #f87171',
+            border: '1px solid var(--color-error)',
             borderRadius: 'var(--radius)',
             backgroundColor: 'rgba(248,113,113,0.05)',
             display: 'flex',
             flexDirection: 'column',
             gap: '10px'
           }}>
-            <p style={{ fontSize: '0.875rem', margin: 0 }}>
+            <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
               This will end the coaching relationship and return <strong>{clientProfile?.full_name}</strong> to a solo account. Their data is preserved and they can continue tracking independently.
             </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
