@@ -390,7 +390,15 @@ function CoachDashboard({ profile }) {
                 </>
               )}
                 <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
-                  <InfoTip text="Status pill = the most pressing reason a client needs you (no check-in, or days without a log); green means on track. Compliance pills = days on target out of 7 per metric — dimmer means fewer." />
+                  <InfoTip text={`How to read a client card:
+
+▸ Top pill (with a dot) — the single most pressing thing to look at. Colour = urgency: green on track · yellow watch · red intervene now.
+
+▸ Green "6/10 adherence · 5/10 energy" — the client's latest check-in self-ratings (out of 10).
+
+▸ Obstacles — what the client typed in their check-in.
+
+▸ 7-day compliance — one pill per metric: days on target (≈90 %+ of goal) out of the last 7. Dimmer pill = fewer days hit.`} />
                 </span>
               </div>
             {sortedClients.map((c) => {

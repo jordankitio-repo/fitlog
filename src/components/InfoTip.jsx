@@ -12,9 +12,9 @@ export default function InfoTip({ text }) {
   function show() {
     const r = markRef.current?.getBoundingClientRect()
     if (!r) return
-    // The bubble is centered on the icon (translateX -50%, max-width 230). Clamp
+    // The bubble is centered on the icon (translateX -50%, max-width 300). Clamp
     // its center so it never runs off either edge of the viewport.
-    const HALF = 115
+    const HALF = 150
     const M = 8
     const center = r.left + r.width / 2
     const left = Math.max(HALF + M, Math.min(center, window.innerWidth - HALF - M))
