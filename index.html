@@ -53,7 +53,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: opacity 1.2s ease;
+        transition: opacity 3s ease;
       }
       #splash img {
         width: 132px;
@@ -67,12 +67,12 @@
       }
       #splash.splash-done { opacity: 0; pointer-events: none; }
       #splash.splash-done img {
-        animation: splashReveal 1.5s cubic-bezier(0.5, 0, 0.75, 0.2) forwards;
+        animation: splashReveal 3s cubic-bezier(0.45, 0, 0.75, 0.4) forwards;
       }
       @keyframes splashReveal {
         0% { transform: scale(1.08); opacity: 1; }
-        55% { opacity: 1; }
-        100% { transform: scale(4.2); opacity: 0; }
+        60% { opacity: 1; }
+        100% { transform: scale(7); opacity: 0; }
       }
       @media (prefers-reduced-motion: reduce) {
         #splash img, #splash.splash-done img { animation: none; }
@@ -91,7 +91,7 @@
           if (!s || s.classList.contains('splash-done')) return;
           clearTimeout(window.__splashTimer);
           s.classList.add('splash-done');
-          setTimeout(function () { if (s.parentNode) s.remove(); }, 1600);
+          setTimeout(function () { if (s.parentNode) s.remove(); }, 3100);
         }
         window.hideSplash = function () {
           setTimeout(reveal, Math.max(0, MIN - (Date.now() - start)));
