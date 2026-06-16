@@ -8,6 +8,8 @@ import {
   getWeeklyReportRange,
   getDatesInRange,
   formatDateRange,
+  checkinPeriod,
+  checkinPeriodStart,
 } from './dateHelpers'
 
 describe('toLocalDateString', () => {
@@ -135,5 +137,47 @@ describe('formatDateRange', () => {
 
   it('formats a range across years', () => {
     expect(formatDateRange(new Date(2025, 11, 28), new Date(2026, 0, 3))).toBe('December 28, 2025 - January 3, 2026')
+  })
+})
+
+describe('checkinPeriod / checkinPeriodStart', () => {
+  it('weekly (interval 1) == the current calendar week, backward compatible', () => {
+    const d = new Date(2026, 5, 17) // Wed Jun 17 2026
+    expect(checkinPeriod(1, d).weekOf).toBe(toLocalDateString(getCurrentWeekStart(d)))
+    expect(checkinPeriodStart(1, d).getDay()).toBe(0) // a Sunday
+  })
+
+  it('weekly due window opens Thursday (day 4), not before', () => {
+    const sunday = checkinPeriodStart(1, new Date(2026, 5, 17))
+    expect(checkinPeriod(1, sunday).dueWindow).toBe(false)            // Sun, day 0
+    expect(checkinPeriod(1, addDays(sunday, 3)).dueWindow).toBe(false) // Wed, day 3
+    expect(checkinPeriod(1, addDays(sunday, 4)).dueWindow).toBe(true)  // Thu, day 4
+  })
+
+  it('biweekly period starts on a Sunday and spans 14 days', () => {
+    const s = checkinPeriodStart(2, new Date(2026, 5, 17))
+    expect(s.getDay()).toBe(0)
+    const p = checkinPeriod(2, s)
+    expect(p.weekOf).toBe(toLocalDateString(s))
+    expect(p.end.getTime()).toBe(addDays(s, 13).getTime())
+  })
+
+  it('biweekly folds two weeks into one period, then advances', () => {
+    const s = checkinPeriodStart(2, new Date(2026, 5, 17))
+    expect(checkinPeriod(2, addDays(s, 7)).weekOf).toBe(toLocalDateString(s))   // week 2, same period
+    expect(checkinPeriod(2, addDays(s, 13)).weekOf).toBe(toLocalDateString(s))  // last day, same period
+    expect(checkinPeriod(2, addDays(s, 14)).weekOf).toBe(toLocalDateString(addDays(s, 14))) // next period
+  })
+
+  it('biweekly due window opens on day 11 (Thu of the final week)', () => {
+    const s = checkinPeriodStart(2, new Date(2026, 5, 17))
+    expect(checkinPeriod(2, addDays(s, 10)).dueWindow).toBe(false)
+    expect(checkinPeriod(2, addDays(s, 11)).dueWindow).toBe(true)
+  })
+
+  it('clamps junk intervals to weekly', () => {
+    const d = new Date(2026, 5, 17)
+    expect(checkinPeriod(0, d).weekOf).toBe(checkinPeriod(1, d).weekOf)
+    expect(checkinPeriod(undefined, d).weekOf).toBe(checkinPeriod(1, d).weekOf)
   })
 })
