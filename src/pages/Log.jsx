@@ -921,10 +921,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
         style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: selectMode ? 'pointer' : 'default' }}
       >
         {selectMode && (
-          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: 'var(--color-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>{checked ? '✓' : ''}</span>
+          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: 'var(--color-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-xs)' }}>{checked ? '✓' : ''}</span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.9rem' }}>{entry.food}</p>
+          <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{entry.food}</p>
           <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
             {entry.serving_size}{entry.serving_unit}
             {!hideCalories && ` · ${entry.calories} kcal`}
@@ -974,9 +974,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
     return (
       <div key={item.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
         <div onClick={() => toggleMealExpand(item.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: 'pointer' }}>
-          <span style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: '0.75rem', width: 12 }}>{open ? '▾' : '▸'}</span>
+          <span style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', width: 12 }}>{open ? '▾' : '▸'}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: '0.9rem' }}>🍽 {item.name}</p>
+            <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>🍽 {item.name}</p>
             <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--color-muted)' }}>
               {item.entries.length} item{item.entries.length === 1 ? '' : 's'}{!hideCalories ? ` · ${item.calories} kcal` : ''}
               {(() => {
@@ -1146,7 +1146,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                       fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                     }}
                   >
-                    <span aria-hidden="true" style={{ fontSize: '0.8rem', lineHeight: 1 }}>☑</span> Select
+                    <span aria-hidden="true" style={{ fontSize: 'var(--text-sm)', lineHeight: 1 }}>☑</span> Select
                   </button>
                 )}
               </div>
@@ -1274,16 +1274,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
               onChange={(e) => handleFoodInput(e.target.value)}
               style={{ ...inputStyle, borderColor: nutritionErrors.food ? 'var(--color-error)' : 'var(--color-border)' }}
             />
-            {nutritionErrors.food && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '-6px' }}>{nutritionErrors.food}</p>}
+            {nutritionErrors.food && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)', marginTop: '-6px' }}>{nutritionErrors.food}</p>}
 
             {/* Food search results (USDA FDC) */}
             {showFoodResults && (
               <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', backgroundColor: 'var(--color-bg)', maxHeight: '244px', overflowY: 'auto', marginTop: '-4px' }}>
                 {foodSearching && foodResults.length === 0 && (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>Searching…</p>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>Searching…</p>
                 )}
                 {!foodSearching && foodResults.length === 0 && (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>No matches — enter it manually below.</p>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>No matches — enter it manually below.</p>
                 )}
                 {foodResults.map((r, i) => {
                   const macros = [
@@ -1303,8 +1303,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
                         padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit',
                       }}
                     >
-                      <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text)', margin: 0 }}>{r.name}</p>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', margin: '2px 0 0' }}>
+                      <p style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0 }}>{r.name}</p>
+                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '2px 0 0' }}>
                         {macros} <span style={{ opacity: 0.7 }}>/ 100g</span>
                       </p>
                     </button>
@@ -1361,8 +1361,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 </select>
               )}
             </div>
-            {baseServingLabel && <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>1 serving = {baseServingLabel}</p>}
-            {nutritionErrors.calories && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem' }}>{nutritionErrors.calories}</p>}
+            {baseServingLabel && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>1 serving = {baseServingLabel}</p>}
+            {nutritionErrors.calories && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>{nutritionErrors.calories}</p>}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <Button onClick={() => { setNutritionExpanded(false); setEditingEntry(null); clearNutritionForm() }} variant="ghost" size="sm">Cancel</Button>
               <Button onClick={handleSubmit} variant="primary" size="sm">{editingEntry ? 'Update entry' : 'Add entry'}</Button>
@@ -1399,7 +1399,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </div>
 
             {copyFromDate && copyEntries.length === 0 && (
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>No entries for this day.</p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>No entries for this day.</p>
             )}
 
             {copyEntries.map(e => (
@@ -1420,7 +1420,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 <input type="checkbox" checked={selectedCopyIds.has(e.id)} onChange={() => {}} style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{e.food}</p>
-                  <p style={{ fontSize: '0.75rem' }}>
+                  <p style={{ fontSize: 'var(--text-sm)' }}>
                     {!hideCalories && <>{e.calories} cal · </>}P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g
                   </p>
                 </div>
@@ -1467,8 +1467,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.food}</p>
-                      {macroLine && <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', margin: '1px 0 0' }}>{macroLine}</p>}
+                      <p style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.food}</p>
+                      {macroLine && <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '1px 0 0' }}>{macroLine}</p>}
                     </div>
                     <span style={{
                       flexShrink: 0,
@@ -1477,7 +1477,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                       borderRadius: '50%',
                       backgroundColor: 'var(--color-primary-dim)',
                       color: 'var(--color-primary)',
-                      fontSize: '0.85rem', fontWeight: 700, lineHeight: 1,
+                      fontSize: 'var(--text-base)', fontWeight: 700, lineHeight: 1,
                     }}>+</span>
                   </button>
                 )
@@ -1512,26 +1512,26 @@ function Log({ session, profile, hasSoloPremium = true }) {
                           onChange={e => setSavedMealDraft(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') renameSavedMeal(m.id, savedMealDraft); if (e.key === 'Escape') setEditingSavedMealId(null) }}
                           onBlur={() => renameSavedMeal(m.id, savedMealDraft)}
-                          style={{ ...inputStyle, fontSize: '0.8rem', padding: '4px 8px' }}
+                          style={{ ...inputStyle, fontSize: 'var(--text-sm)', padding: '4px 8px' }}
                         />
                       ) : (
-                        <p style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
+                        <p style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
                       )}
-                      <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', margin: '1px 0 0' }}>
+                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '1px 0 0' }}>
                         {m.items.length} item{m.items.length === 1 ? '' : 's'}{!hideCalories ? ` · ${t.calories} cal` : ''} · {t.protein}g P · {t.carbs}g C · {t.fat}g F
                       </p>
                     </div>
                     {!editing && (
                       <button onClick={() => { setEditingSavedMealId(m.id); setSavedMealDraft(m.name) }} style={iconBtnStyle} title="Rename saved meal">✎</button>
                     )}
-                    <button onClick={() => setLogPickId(picking ? null : m.id)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: picking ? 'var(--color-surface)' : 'var(--color-primary)', color: picking ? 'var(--color-text)' : 'var(--color-on-accent)', border: picking ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>{picking ? 'Cancel' : '+ Log'}</button>
+                    <button onClick={() => setLogPickId(picking ? null : m.id)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: picking ? 'var(--color-surface)' : 'var(--color-primary)', color: picking ? 'var(--color-text)' : 'var(--color-on-accent)', border: picking ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>{picking ? 'Cancel' : '+ Log'}</button>
                     <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete saved meal">✕</button>
                   </div>
                   {picking && (
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '2px' }}>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--color-muted)' }}>Log to:</span>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Log to:</span>
                       {[...MEALS, { key: 'other', label: 'Other' }].map(s => (
-                        <button key={s.key} onClick={() => logSavedMeal(m, s.key)} style={{ ...pillBtnStyle, padding: '3px 9px', fontSize: '0.7rem' }}>{s.label}</button>
+                        <button key={s.key} onClick={() => logSavedMeal(m, s.key)} style={{ ...pillBtnStyle, padding: '3px 9px', fontSize: 'var(--text-xs)' }}>{s.label}</button>
                       ))}
                     </div>
                   )}

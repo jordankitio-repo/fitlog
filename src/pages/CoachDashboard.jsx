@@ -452,7 +452,7 @@ function CoachDashboard({ profile }) {
                     <span
                       title={triage.reasons.length ? triage.reasons.join(' · ') : logLabel(s.daysSinceLog)}
                       style={{
-                        fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
+                        fontSize: 'var(--text-sm)', fontWeight: 700, padding: '3px 10px',
                         borderRadius: '999px',
                         backgroundColor: triage.level === 'green' ? 'var(--color-bg)' : `color-mix(in srgb, ${attentionColors[triage.level]} 15%, transparent)`,
                         border: `1px solid ${attentionColors[triage.level]}`,
@@ -469,7 +469,7 @@ function CoachDashboard({ profile }) {
                       <span
                         title={`Check-in: ${s.checkIn.adherence_rating}/10 adherence · ${s.checkIn.energy_level}/10 energy`}
                         style={{
-                          fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px',
+                          fontSize: 'var(--text-sm)', fontWeight: 600, padding: '3px 10px',
                           borderRadius: '999px', backgroundColor: 'var(--color-bg)',
                           border: '1px solid var(--color-success)', color: 'var(--color-success)'
                         }}
@@ -491,13 +491,13 @@ function CoachDashboard({ profile }) {
                 {/* 7-day compliance pills */}
                 {(s?.complianceItems?.some(i => i.logged > 0) || s?.lockInfo?.locked) && (
                   <div style={{ paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                       7-day compliance
                     </p>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {s.lockInfo?.locked && (
                         <span style={{
-                          fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px',
+                          fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 10px',
                           borderRadius: '999px', backgroundColor: 'var(--color-bg)',
                           border: '1px solid var(--color-error)', color: 'var(--color-error)'
                         }}>
@@ -510,7 +510,7 @@ function CoachDashboard({ profile }) {
                         const opacity = value >= 5 ? 1 : value >= 3 ? 0.75 : 0.55
                         return (
                           <span key={label} style={{
-                            fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px',
+                            fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 10px',
                             borderRadius: '999px',
                             backgroundColor: value < 3 ? `color-mix(in srgb, ${metricColor} 15%, transparent)` : 'var(--color-bg)',
                             border: `1px solid ${metricColor}`,
@@ -588,7 +588,7 @@ function CoachDashboard({ profile }) {
             <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', wordBreak: 'break-all' }}>{inviteLink}</p>
             <button
               onClick={() => navigator.clipboard.writeText(inviteLink)}
-              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-text)', whiteSpace: 'nowrap' }}
+              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-sm)', color: 'var(--color-text)', whiteSpace: 'nowrap' }}
             >
               Copy
             </button>
