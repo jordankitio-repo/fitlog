@@ -4,6 +4,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Modal from '../components/Modal'
 import SoloUpgrade from '../components/SoloUpgrade'
 import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
@@ -98,6 +100,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [logPickId, setLogPickId] = useState(null)        // saved meal showing its meal-slot picker
   const [editingSavedMealId, setEditingSavedMealId] = useState(null)
   const [savedMealDraft, setSavedMealDraft] = useState('')
+  const [dialog, setDialog] = useState(null) // branded confirm/notice modal config, or null
+  const [showSavedMeals, setShowSavedMeals] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [moveMenu, setMoveMenu] = useState(false)
@@ -349,21 +353,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   // Group the selected (already-logged) entries into a NEW container in place —
   // no re-log. They cohere in one slot (the first selected item's).
-  async function groupSelectedAsMeal() {
-    const name = saveMealName.trim()
-    const ids = [...selectedIds]
-    if (!name || ids.length === 0) return
-    const containers = selectedContainerIds()
-    if (containers.size > 1) {
-      alert('These items already belong to different meals. Group items from a single meal (or loose items) at a time.')
-      return
-    }
-    // Grouping into a NEW meal pulls any already-grouped item out of its meal —
-    // confirm first (naming it) so we never silently take an existing meal apart.
-    if (containers.size === 1) {
-      const fromName = entries.find(e => selectedIds.has(e.id) && e.logged_meal_id)?.logged_meal_name || 'another meal'
-      if (!window.confirm(`This moves the selected item(s) out of "${fromName}" into the new meal. Continue?`)) return
-    }
+  // The DB write for "group as new meal", run after any needed confirmation.
+  async function performGroupAsMeal(name, ids) {
     setSavingMeal(true)
     const first = entries.find(e => selectedIds.has(e.id))
     const { error } = await supabase.from('nutrition_log')
@@ -374,12 +365,36 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setSavingMeal(false); exitSelect()
   }
 
+  async function groupSelectedAsMeal() {
+    const name = saveMealName.trim()
+    const ids = [...selectedIds]
+    if (!name || ids.length === 0) return
+    const containers = selectedContainerIds()
+    if (containers.size > 1) {
+      setDialog({ title: 'Items are in different meals', message: 'Group items from a single meal (or loose items) at a time.', confirmLabel: 'Got it' })
+      return
+    }
+    // Grouping into a NEW meal pulls any already-grouped item out of its meal —
+    // confirm first (naming it) so we never silently take an existing meal apart.
+    if (containers.size === 1) {
+      const fromName = entries.find(e => selectedIds.has(e.id) && e.logged_meal_id)?.logged_meal_name || 'another meal'
+      setDialog({
+        title: 'Move items out of a meal?',
+        message: `This moves the selected item(s) out of "${fromName}" into the new meal.`,
+        confirmLabel: 'Move', cancelLabel: 'Cancel',
+        onConfirm: () => performGroupAsMeal(name, ids),
+      })
+      return
+    }
+    performGroupAsMeal(name, ids)
+  }
+
   // Add the selected entries into an EXISTING logged meal container.
   async function groupSelectedIntoMeal(container) {
     const ids = [...selectedIds]
     if (ids.length === 0) return
     if (selectedContainerIds(container.id).size > 0) {
-      alert('Some selected items already belong to a different meal. Move those out first, or group within one meal.')
+      setDialog({ title: 'Items are in another meal', message: 'Some selected items already belong to a different meal. Move those out first, or group within one meal.', confirmLabel: 'Got it' })
       return
     }
     const { error } = await supabase.from('nutrition_log')
@@ -439,6 +454,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { error } = await supabase.from('nutrition_log').delete().eq('logged_meal_id', id)
     if (error) console.error('Error deleting logged meal:', error)
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
+  }
+
+  // Save a logged-meal container's foods as a reusable saved meal (named from
+  // the container; rename later in the Saved meals modal).
+  async function saveContainerAsMeal(item) {
+    const { data: { session: cs } } = await supabase.auth.getSession()
+    const { data: created, error } = await supabase
+      .from('saved_meals').insert({ user_id: cs.user.id, name: item.name }).select('id').single()
+    if (error) { console.error('Error saving meal:', error); return }
+    const { error: itemsErr } = await supabase
+      .from('saved_meal_items').insert(itemsFromEntries(item.entries, { savedMealId: created.id, userId: cs.user.id }))
+    if (itemsErr) console.error('Error saving meal items:', itemsErr)
+    else fetchSavedMeals()
+    setDialog({ title: 'Saved', message: `"${item.name}" was added to your saved meals.`, confirmLabel: 'OK' })
   }
 
   // Open the add-food form to add a new food into an existing logged meal.
@@ -960,6 +989,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal">↻</button>
+            <button onClick={() => saveContainerAsMeal(item)} style={iconBtnStyle} title="Save as a reusable meal">🔖</button>
             {moveTargets.length > 0 && (
               <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Drag to a meal, or tap for options">⠿</button>
             )}
@@ -1450,11 +1480,17 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         )}
 
-        {/* Saved meals — one-tap log of a saved combo (create via Select → Save as meal) */}
+        {/* Saved meals — opens a modal so a long list never stretches the page */}
         {!nutritionExpanded && !showCopyPanel && savedMeals.length > 0 && (
+          <button onClick={() => setShowSavedMeals(true)} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: 'var(--radius)', padding: '7px 12px', fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            🍽 Saved meals <span style={{ color: 'var(--color-muted)' }}>({savedMeals.length})</span>
+          </button>
+        )}
+        <Modal open={showSavedMeals} title="Saved meals" onClose={() => { setShowSavedMeals(false); setLogPickId(null); setEditingSavedMealId(null) }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Saved meals</p>
-            {savedMeals.map(m => {
+            {savedMeals.length === 0 ? (
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>No saved meals yet. Save one from a logged meal (🔖), or via Select → Save as meal.</p>
+            ) : savedMeals.map(m => {
               const t = mealTotals(m.items)
               const pending = loggingMealId === m.id
               const editing = editingSavedMealId === m.id
@@ -1497,7 +1533,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               )
             })}
           </div>
-        )}
+        </Modal>
 
         {/* Action buttons */}
         {!nutritionExpanded && (
@@ -1641,6 +1677,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
         )}
       </div>
 
+      <ConfirmDialog
+        open={!!dialog}
+        title={dialog?.title}
+        message={dialog?.message}
+        confirmLabel={dialog?.confirmLabel}
+        cancelLabel={dialog?.cancelLabel}
+        danger={dialog?.danger}
+        onConfirm={() => { const fn = dialog?.onConfirm; setDialog(null); fn?.() }}
+        onCancel={() => setDialog(null)}
+      />
     </div>
   )
 }
