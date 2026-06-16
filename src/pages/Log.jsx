@@ -1059,7 +1059,18 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     </div>
                   </>
                 ) : (
-                  <button onClick={() => setSelectMode(true)} style={{ ...selectLinkStyle, marginLeft: 'auto' }}>Select</button>
+                  <button
+                    onClick={() => setSelectMode(true)}
+                    title="Select entries to group, move, or save as a meal"
+                    style={{
+                      marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                      color: 'var(--color-muted)', borderRadius: '999px', padding: '4px 12px',
+                      fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    <span aria-hidden="true" style={{ fontSize: '0.8rem', lineHeight: 1 }}>☑</span> Select
+                  </button>
                 )}
               </div>
             )}
