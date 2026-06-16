@@ -18,6 +18,8 @@ import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
 import Reorderable from '../components/Reorderable'
+import SectionRail from '../components/SectionRail'
+import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
@@ -65,6 +67,17 @@ function computeRollingAverage(data, window = 7) {
 // Map a check-in row into the report/call-prep `checkIn` contract. A custom
 // questionnaire folds its rating answers into adherence/energy and the full
 // Q&A into notes, so the report edge functions need no changes.
+// Section-rail metadata. Labels keyed by the section key (matches the id
+// anchors + sectionsCollapsed keys). REORDERABLE_KEYS is the default order of
+// the drag-reorderable sections (stats is pinned above them) — used to resolve
+// the live order via mergeOrder(savedOrder, presentKeys), same as Reorderable.
+const SECTION_LABELS = {
+  stats: 'Stats', consistency: 'Consistency', sentReports: 'Reports', targets: 'Targets',
+  nutritionLog: 'Nutrition', checkIn: 'Check-in', privateNotes: 'Notes', correlatedChart: 'Progress',
+  weightChart: 'Weight', calorieChart: 'Calories', cardioChart: 'Cardio', stepsChart: 'Steps',
+}
+const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart']
+
 function checkInPayload(c) {
   if (!c) return null
   if (Array.isArray(c.answers) && c.answers.length > 0) {
@@ -130,6 +143,7 @@ function ClientView({ profile }) {
   const [energySeries, setEnergySeries] = useState({ calories: [], weights: [] })
   const [cardOrder, setCardOrder] = useState(profile?.layout?.clientView || [])
   const canReorder = profile?.role === 'coach'
+  const [activeSection, setActiveSection] = useState(null) // scroll-spy: section currently in view
 
   async function saveCardOrder(next) {
     setCardOrder(next)
@@ -173,30 +187,54 @@ function ClientView({ profile }) {
     return `${hour}:${minutes} ${ampm}`
   }
 
+  // Expand a section (if collapsed) and smooth-scroll to it. Shared by the
+  // section rail and the ?focus= notification deep-link, so they can't drift.
+  function goToSection(key) {
+    let tries = 0
+    const scroll = () => {
+      const el = document.getElementById('section-' + key)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      else if (tries++ < 20) setTimeout(scroll, 100)
+    }
+    // Expand + scroll deferred to a frame so calling this from the deep-link
+    // effect doesn't setState synchronously within the effect.
+    requestAnimationFrame(() => {
+      setSectionsCollapsed(prev => ({ ...prev, [key]: false }))
+      setTimeout(scroll, 80)
+    })
+  }
+
   // Deep-link from a notification (?focus=checkIn etc.): expand + scroll to it.
   // 'chat' is handled by ChatBubble; other values name a section here.
   useEffect(() => {
     const focus = searchParams.get('focus')
     if (!focus || focus === 'chat') return
-    let timer, tries = 0
-    const scrollWhenReady = () => {
-      const el = document.getElementById('section-' + focus)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      else if (tries++ < 20) timer = setTimeout(scrollWhenReady, 100)
-    }
-    const raf = requestAnimationFrame(() => {
-      setSectionsCollapsed(prev => ({ ...prev, [focus]: false }))
-      timer = setTimeout(scrollWhenReady, 80)
-    })
+    goToSection(focus)
     const sp = new URLSearchParams(searchParams)
     sp.delete('focus')
     setSearchParams(sp, { replace: true })
-    return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
   }, [searchParams, setSearchParams])
 
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
   }
+
+  // Scroll-spy: highlight the rail item for whichever section is near the top.
+  // Observes every rendered section anchor, so it tracks the live (reordered,
+  // present-only) set automatically. setState lives in the IO callback (async),
+  // so it never fires synchronously within the effect.
+  useEffect(() => {
+    const els = Array.from(document.querySelectorAll('[id^="section-"]'))
+    if (!els.length) return
+    const io = new IntersectionObserver((entries) => {
+      const vis = entries.filter(e => e.isIntersecting)
+      if (!vis.length) return
+      const top = vis.reduce((a, b) => (a.boundingClientRect.top <= b.boundingClientRect.top ? a : b))
+      setActiveSection(top.target.id.replace('section-', ''))
+    }, { rootMargin: '-88px 0px -65% 0px', threshold: 0 })
+    els.forEach(el => io.observe(el))
+    return () => io.disconnect()
+  }, [cardOrder, weightHistory, calorieHistory, cardioHistory, stepsHistory, sentReports])
 
   function showToast(message, type = 'success') {
     setToast({ message, type })
@@ -1170,6 +1208,19 @@ async function sendMessage(text) {
     display: 'flex', flexDirection: 'column', gap: '12px'
   }
 
+  // The section rail's items, in the same live order the page renders (stats
+  // pinned, then the coach's saved order via mergeOrder), present-only.
+  const presentReorderable = REORDERABLE_KEYS.filter(k => {
+    if (k === 'sentReports') return sentReports.length > 0
+    if (k === 'correlatedChart') return weightHistory.length > 0 || calorieHistory.length > 0
+    if (k === 'weightChart') return weightHistory.length > 1
+    if (k === 'calorieChart') return calorieHistory.length > 0
+    if (k === 'cardioChart') return cardioHistory.length > 0
+    if (k === 'stepsChart') return stepsHistory.length > 0
+    return true
+  })
+  const railSections = ['stats', ...mergeOrder(cardOrder, presentReorderable)].map(key => ({ key, label: SECTION_LABELS[key] }))
+
   const chartOptions = {
     responsive: true,
     animation: false,
@@ -1325,7 +1376,10 @@ async function sendMessage(text) {
         {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
       </div>
 
-      <div style={sectionCardStyle}>
+      <div className="cv-shell">
+        <SectionRail sections={railSections} activeKey={activeSection} onJump={goToSection} />
+        <div className="cv-main">
+      <div id="section-stats" style={sectionCardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
             <StatCard label="Calories" value={totals.calories} color="#fbbf24" />
@@ -1339,7 +1393,7 @@ async function sendMessage(text) {
 
       <Reorderable order={cardOrder} onReorder={saveCardOrder} enabled={canReorder}>
 
-      <div key="consistency" style={sectionCardStyle}>
+      <div key="consistency" id="section-consistency" style={sectionCardStyle}>
         <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
@@ -1462,7 +1516,7 @@ async function sendMessage(text) {
       </div>
 
       {sentReports.length > 0 && (
-        <div key="sentReports" style={sectionCardStyle}>
+        <div key="sentReports" id="section-sentReports" style={sectionCardStyle}>
           <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')}>
             {groupByWeek(sentReports).map(([week, weekReports]) => {
               const isCollapsed = collapsedSentWeeks[week] !== false
@@ -1517,7 +1571,7 @@ async function sendMessage(text) {
         </div>
       )}
 
-      <div key="targets" style={{ ...sectionCardStyle, gap: '16px' }}>
+      <div key="targets" id="section-targets" style={{ ...sectionCardStyle, gap: '16px' }}>
         <SectionHeader title="Client targets" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
           <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: '8px' }}>
             Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
@@ -1629,7 +1683,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div key="nutritionLog" style={sectionCardStyle}>
+      <div key="nutritionLog" id="section-nutritionLog" style={sectionCardStyle}>
         <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')}>
           <div style={{ marginBottom: '10px' }}>
             <span style={{
@@ -1768,7 +1822,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div key="privateNotes" style={sectionCardStyle}>
+      <div key="privateNotes" id="section-privateNotes" style={sectionCardStyle}>
         <SectionHeader title="Private notes" collapsed={sectionsCollapsed.privateNotes} onToggle={() => toggleSection('privateNotes')}>
             <textarea
               value={coachNotes}
@@ -1833,7 +1887,7 @@ async function sendMessage(text) {
       </div>
 
       {(weightHistory.length > 0 || calorieHistory.length > 0) && (
-        <div key="correlatedChart" style={sectionCardStyle}>
+        <div key="correlatedChart" id="section-correlatedChart" style={sectionCardStyle}>
           <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
             {!sectionsCollapsed.correlatedChart && (
               <div style={{ paddingTop: '8px' }}>
@@ -1852,7 +1906,7 @@ async function sendMessage(text) {
       )}
 
       {weightHistory.length > 1 && (
-        <div key="weightChart" style={sectionCardStyle}>
+        <div key="weightChart" id="section-weightChart" style={sectionCardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
               <Line
@@ -1888,7 +1942,7 @@ async function sendMessage(text) {
       )}
 
       {calorieHistory.length > 0 && (
-        <div key="calorieChart" style={sectionCardStyle}>
+        <div key="calorieChart" id="section-calorieChart" style={sectionCardStyle}>
           <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
               <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={chartOptions} />
@@ -1898,7 +1952,7 @@ async function sendMessage(text) {
       )}
 
       {cardioHistory.length > 0 && (
-        <div key="cardioChart" style={sectionCardStyle}>
+        <div key="cardioChart" id="section-cardioChart" style={sectionCardStyle}>
           <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
               <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={chartOptions} />
@@ -1908,7 +1962,7 @@ async function sendMessage(text) {
       )}
 
       {stepsHistory.length > 0 && (
-        <div key="stepsChart" style={sectionCardStyle}>
+        <div key="stepsChart" id="section-stepsChart" style={sectionCardStyle}>
           <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
@@ -1967,6 +2021,8 @@ async function sendMessage(text) {
             </div>
           </div>
         )}
+      </div>
+        </div>
       </div>
     </div>
     <ChatBubble
