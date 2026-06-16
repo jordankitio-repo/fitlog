@@ -394,7 +394,7 @@ function CoachDashboard({ profile }) {
 
 ▸ Top pill (with a dot) — the single most pressing thing to look at. Colour = urgency: green on track · yellow watch · red intervene now.
 
-▸ Green "6/10 adherence · 5/10 energy" — the client's latest check-in self-ratings (out of 10).
+▸ Green "adherence · energy" pill — the client's latest check-in self-ratings, each out of 10.
 
 ▸ Obstacles — what the client typed in their check-in.
 
