@@ -27,6 +27,7 @@ const summaryNumStyle = { fontSize: '2rem', fontWeight: 700, margin: 0, lineHeig
 // summarizeRoster, which is built on the same attentionLevel the per-client
 // badges use, so the banner and the badges can never disagree.
 function RosterBanner({ roster, onReviewClick }) {
+  const [reviewHover, setReviewHover] = useState(false)
   const seg = (color, n, label) => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
       <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
@@ -47,16 +48,22 @@ function RosterBanner({ roster, onReviewClick }) {
           <button
             onClick={onReviewClick}
             disabled={!onReviewClick}
+            onMouseEnter={() => setReviewHover(true)}
+            onMouseLeave={() => setReviewHover(false)}
             title="Review the oldest waiting check-in"
             style={{
-              background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit',
-              fontSize: 'var(--text-xs)', color: 'var(--color-primary)', fontWeight: 600,
-              cursor: onReviewClick ? 'pointer' : 'default', textDecoration: 'underline',
-              textUnderlineOffset: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px',
+              fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
+              color: reviewHover ? '#fff' : 'var(--color-primary)',
+              background: reviewHover ? 'var(--color-primary)' : 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--color-primary) 35%, transparent)',
+              borderRadius: '999px', padding: '5px 12px',
+              cursor: onReviewClick ? 'pointer' : 'default',
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              transition: 'background 120ms, color 120ms',
             }}
           >
             {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
-            <span aria-hidden="true">→</span>
+            <span aria-hidden="true" style={{ transform: reviewHover ? 'translateX(2px)' : 'none', transition: 'transform 120ms' }}>→</span>
           </button>
         )}
         {roster.noTargets > 0 && (
