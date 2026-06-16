@@ -18,7 +18,8 @@ import { refreshNotifications } from '../utils/notifyRefresh'
 import ReportBody from '../components/ReportBody'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
-import { getCurrentWeekSunday, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
+import { checkinPeriod, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
+import { cadenceLabel } from '../utils/cadence'
 import { cardStyle as baseCardStyle } from '../utils/styles'
 import { Line, Bar } from 'react-chartjs-2'
 import {
@@ -65,6 +66,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [checkIn, setCheckIn] = useState({ adherence_rating: 5, energy_level: 5, obstacles: '', notes: '' })
   const [checkInSaved, setCheckInSaved] = useState(false)
   const [existingCheckIn, setExistingCheckIn] = useState(null)
+  const [checkinInterval, setCheckinInterval] = useState(1)
   const [streak, setStreak] = useState(0)
   const [bestWeek, setBestWeek] = useState(null)
   const [consistency, setConsistency] = useState(null)
@@ -440,10 +442,16 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   // bubble is available on every page (not just the dashboard).
 
   async function fetchCheckIn() {
-    const weekOf = getCurrentWeekSunday()
+    const userId = (await supabase.auth.getSession()).data.session.user.id
+    const { data: rel } = await supabase
+      .from('coach_clients').select('checkin_interval_weeks')
+      .eq('client_id', userId).eq('status', 'active').maybeSingle()
+    const interval = rel?.checkin_interval_weeks || 1
+    setCheckinInterval(interval)
+    const weekOf = checkinPeriod(interval).weekOf
     const { data, error } = await supabase
       .from('check_ins').select('*')
-      .eq('client_id', (await supabase.auth.getSession()).data.session.user.id)
+      .eq('client_id', userId)
       .eq('week_of', weekOf).maybeSingle()
     if (error) console.error(error)
     else if (data) {
@@ -468,7 +476,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     }
 
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const weekOf = getCurrentWeekSunday()
+    const weekOf = checkinPeriod(checkinInterval).weekOf
 
     // Get coach info
     const { data: coachRelation } = await supabase
@@ -1011,14 +1019,16 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {profile?.role === 'client' && (
         <div id="section-checkin" style={cardStyle}>
           <SectionHeader
-            title="Weekly check-in"
+            title={`${cadenceLabel(checkinInterval)} check-in`}
             collapsed={sectionsCollapsed.checkin}
             onToggle={() => toggleSection('checkin')}
             badge={!existingCheckIn ? 'To do' : null}
             badgeColor="#f87171"
           >
               <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', marginTop: '8px', marginBottom: '8px' }}>
-                {existingCheckIn ? '✓ Submitted this week' : 'Let your coach know how your week went.'}
+                {existingCheckIn
+                  ? (checkinInterval > 1 ? '✓ Submitted this period' : '✓ Submitted this week')
+                  : 'Let your coach know how your week went.'}
               </p>
               <Button
                 onClick={() => setShowCheckIn(!showCheckIn)}

@@ -22,9 +22,10 @@ import { resolveLockState } from '../utils/lockState'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
+import { CADENCE_OPTIONS, cadenceLabel } from '../utils/cadence'
 import {
   addDays,
-  getCurrentWeekSunday,
+  checkinPeriod,
   getDatesInRange,
   getWeeklyReportRange,
   parseLocalDateString,
@@ -89,6 +90,8 @@ function ClientView({ profile }) {
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [daysSinceLog, setDaysSinceLog] = useState(null)
   const [hideCaloriesToggle, setHideCaloriesToggle] = useState(false)
+  const [checkinInterval, setCheckinInterval] = useState(1)
+  const [savingCadence, setSavingCadence] = useState(false)
   const [coachNotes, setCoachNotes] = useState('')
   const [newNoteEntry, setNewNoteEntry] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
@@ -246,7 +249,7 @@ function ClientView({ profile }) {
     const [{ data: relationship, error: relationshipError }, { data: latestLog, error: latestLogError }] = await Promise.all([
       supabase
         .from('coach_clients')
-        .select('created_at, lock_cleared_at, hide_calories')
+        .select('created_at, lock_cleared_at, hide_calories, checkin_interval_weeks')
         .eq('coach_id', profile.id)
         .eq('client_id', clientId)
         .eq('status', 'active')
@@ -274,6 +277,10 @@ function ClientView({ profile }) {
       setHideCaloriesToggle(false)
       return
     }
+
+    const interval = relationship.checkin_interval_weeks || 1
+    setCheckinInterval(interval)
+    fetchClientCheckIn(interval) // resolve the right period once cadence is known
 
     setDaysSinceLog(latestLog?.logged_date
       ? Math.floor((new Date() - new Date(`${latestLog.logged_date}T00:00:00`)) / 86400000)
@@ -472,8 +479,8 @@ async function fetchStepsHistory() {
   })).sort((a, b) => a.date.localeCompare(b.date)))
 }
 
-  async function fetchClientCheckIn() {
-  const weekOf = getCurrentWeekSunday()
+  async function fetchClientCheckIn(interval = checkinInterval) {
+  const weekOf = checkinPeriod(interval).weekOf
   const { data, error } = await supabase
     .from('check_ins')
     .select('*')
@@ -483,6 +490,26 @@ async function fetchStepsHistory() {
   if (error) console.error(error)
   else setClientCheckIn(data)
 }
+
+  async function updateCadence(weeks) {
+    if (!profile?.id) return
+    const prev = checkinInterval
+    setSavingCadence(true)
+    setCheckinInterval(weeks)
+    const { error } = await supabase
+      .from('coach_clients')
+      .update({ checkin_interval_weeks: weeks })
+      .eq('coach_id', profile.id)
+      .eq('client_id', clientId)
+    setSavingCadence(false)
+    if (error) {
+      console.error(error)
+      setCheckinInterval(prev)
+      showToast('Could not update check-in cadence. Try again.', 'error')
+    } else {
+      fetchClientCheckIn(weeks) // period changed → reload the relevant check-in
+    }
+  }
 
   async function reviewCheckIn() {
     if (!clientCheckIn?.id) return
@@ -867,7 +894,7 @@ async function addNoteEntry() {
       supabase.from('steps_log').select('*').eq('user_id', clientId).in('logged_date', days),
     ])
 
-    const weekOf = toLocalDateString(new Date(new Date().setDate(new Date().getDate() - new Date().getDay())))
+    const weekOf = checkinPeriod(checkinInterval).weekOf
     const { data: checkInData } = await supabase
       .from('check_ins').select('*').eq('client_id', clientId).eq('week_of', weekOf).maybeSingle()
 
@@ -1190,7 +1217,7 @@ async function sendMessage(text) {
           )}
         </div>
         {(() => {
-          const nudge = nudgeReason({ daysSinceLog, hasCheckIn: !!clientCheckIn })
+          const nudge = nudgeReason({ daysSinceLog, hasCheckIn: !!clientCheckIn, checkinDue: checkinPeriod(checkinInterval).dueWindow })
           if (!nudge) return null
           const label = nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log'
           return (
@@ -1512,6 +1539,37 @@ async function sendMessage(text) {
               }} />
             </button>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', padding: '14px 0', borderBottom: '1px solid var(--color-border)', marginBottom: '12px' }}>
+            <div>
+              <p style={{ fontWeight: 600, margin: 0 }}>Check-in cadence</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: 0 }}>
+                How often {clientProfile?.full_name || 'this client'} submits a check-in.
+              </p>
+            </div>
+            <div style={{ display: 'inline-flex', gap: '6px', flexWrap: 'wrap' }}>
+              {CADENCE_OPTIONS.map(opt => {
+                const active = checkinInterval === opt.weeks
+                return (
+                  <button
+                    key={opt.weeks}
+                    type="button"
+                    onClick={() => updateCadence(opt.weeks)}
+                    disabled={savingCadence}
+                    aria-pressed={active}
+                    style={{
+                      background: active ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: active ? '#fff' : 'var(--color-muted)',
+                      border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      borderRadius: '999px', padding: '5px 12px', fontSize: 'var(--text-xs)',
+                      fontWeight: 600, cursor: savingCadence ? 'default' : 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
             {[
               { label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
@@ -1630,10 +1688,10 @@ async function sendMessage(text) {
       </div>
 
       <div key="checkIn" id="section-checkIn" style={sectionCardStyle}>
-        <SectionHeader title="This week's check-in" collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
+        <SectionHeader title={checkinInterval > 1 ? "This period's check-in" : "This week's check-in"} collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
           {!clientCheckIn ? (
             <div style={{ paddingTop: '8px' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>No check-in submitted this week.</p>
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'} ({cadenceLabel(checkinInterval).toLowerCase()}).</p>
             </div>
           ) : (
             <>

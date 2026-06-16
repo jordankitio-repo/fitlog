@@ -4,20 +4,23 @@
 // drift. Pure data — returns the stats map, no React/setState.
 import { supabase } from '../supabase'
 import { resolveLockState } from './lockState'
-import { getCurrentWeekSunday, toLocalDateString } from './dateHelpers'
+import { toLocalDateString, checkinPeriod } from './dateHelpers'
 
-// relationships: [{ client_id, created_at, lock_cleared_at }] — needed for lock
-// state. Pass [] to skip lock resolution (stats still compute, lock = active).
+// relationships: [{ client_id, created_at, lock_cleared_at, checkin_interval_weeks }]
+// — needed for lock state + per-client check-in cadence. Pass [] to skip lock
+// resolution (stats still compute, lock = active, cadence = weekly).
 export async function computeClientStats(clientIds, relationships = []) {
   if (!clientIds || clientIds.length === 0) return {}
 
-  const weekOf = getCurrentWeekSunday()
   const sevenDaysAgo = toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
   const today = toLocalDateString(new Date())
+  // Each client's "current check-in" depends on their cadence, so fetch a
+  // window wide enough to cover the longest interval and match per client.
+  const checkInWindowStart = toLocalDateString(new Date(Date.now() - 8 * 7 * 24 * 60 * 60 * 1000))
 
   const [logsResult, checkInsResult, nutritionResult, cardioResult, stepsResult, targetsResult] = await Promise.all([
     supabase.from('nutrition_log').select('user_id, logged_date').in('user_id', clientIds).order('logged_date', { ascending: false }),
-    supabase.from('check_ins').select('*').in('client_id', clientIds).eq('week_of', weekOf),
+    supabase.from('check_ins').select('*').in('client_id', clientIds).gte('week_of', checkInWindowStart),
     supabase.from('nutrition_log').select('user_id, logged_date, calories, protein').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
     supabase.from('cardio_log').select('user_id, logged_date, duration').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
     supabase.from('steps_log').select('user_id, logged_date, steps').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
@@ -49,7 +52,10 @@ export async function computeClientStats(clientIds, relationships = []) {
     let daysSinceLog = null
     if (lastLogDate) daysSinceLog = Math.max(0, Math.floor((new Date(todayStr) - new Date(lastLogDate)) / 86400000))
 
-    const checkIn = checkIns.find(c => c.client_id === id) || null
+    // Resolve THIS client's current-period check-in from their cadence.
+    const interval = relationship?.checkin_interval_weeks || 1
+    const period = checkinPeriod(interval)
+    const checkIn = checkIns.find(c => c.client_id === id && c.week_of === period.weekOf) || null
     const clientTargets = targetsData.find(t => t.user_id === id)
 
     const complianceItems = []
@@ -98,7 +104,7 @@ export async function computeClientStats(clientIds, relationships = []) {
       complianceItems.push({ label: 'Steps', value: count, logged, hasData: logged > 0 })
     }
 
-    stats[id] = { lastLogDate, daysSinceLog, checkIn, complianceItems, lockInfo }
+    stats[id] = { lastLogDate, daysSinceLog, checkIn, complianceItems, lockInfo, checkinInterval: interval, checkinDue: period.dueWindow }
   })
 
   return stats
@@ -113,16 +119,17 @@ const NUDGE_WINDOW_MS = 48 * 60 * 60 * 1000
 export async function computeClientAlerts(userId) {
   const { data: connection } = await supabase
     .from('coach_clients')
-    .select('created_at, lock_cleared_at, last_nudged_at')
+    .select('created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks')
     .eq('client_id', userId)
     .eq('status', 'active')
     .maybeSingle()
   if (!connection) return { hasCoach: false, lock: null, checkInDue: false, nudged: false }
 
   const today = toLocalDateString(new Date())
+  const period = checkinPeriod(connection.checkin_interval_weeks || 1)
   const [lastLogRes, checkInRes] = await Promise.all([
     supabase.from('nutrition_log').select('logged_date').eq('user_id', userId).order('logged_date', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('check_ins').select('id').eq('client_id', userId).eq('week_of', getCurrentWeekSunday()).maybeSingle(),
+    supabase.from('check_ins').select('id').eq('client_id', userId).eq('week_of', period.weekOf).maybeSingle(),
   ])
 
   const lastLogDate = lastLogRes.data?.logged_date || null
@@ -134,9 +141,9 @@ export async function computeClientAlerts(userId) {
     lockClearedAt: connection.lock_cleared_at || null,
   })
 
-  // Only prompt for the check-in later in the week (Thu+, getDay() >= 4) — the
-  // same restraint as the coach's Nudge button, so we don't nag on a Sunday.
-  const checkInDue = !checkInRes.data && new Date().getDay() >= 4
+  // Only prompt in the period's due window (its last 3 days) — the same
+  // restraint as the coach's Nudge button, so we don't nag at the start.
+  const checkInDue = !checkInRes.data && period.dueWindow
   const nudgedRecently = connection.last_nudged_at &&
     (Date.now() - new Date(connection.last_nudged_at).getTime() < NUDGE_WINDOW_MS)
 

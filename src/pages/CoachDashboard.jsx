@@ -106,7 +106,7 @@ function CoachDashboard({ profile }) {
 
     const { data: relationships, error } = await supabase
       .from('coach_clients')
-      .select('id, coach_id, client_id, status, created_at, lock_cleared_at, last_nudged_at')
+      .select('id, coach_id, client_id, status, created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks')
       .eq('coach_id', profile.id)
       .eq('status', 'active')
 
@@ -397,7 +397,7 @@ function CoachDashboard({ profile }) {
               const s = clientStats[c.client_id]
               const triage = attentionLevel(s)
               const hasAlert = triage.level === 'red'
-              const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn })
+              const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn, checkinDue: s?.checkinDue })
               return (
                 <div key={c.id} style={{
                   ...cardStyle,

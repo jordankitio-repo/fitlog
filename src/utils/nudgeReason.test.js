@@ -28,4 +28,10 @@ describe('nudgeReason', () => {
   it('quiet outranks a missing check-in', () => {
     expect(nudgeReason({ daysSinceLog: 4, hasCheckIn: false, today: thursday })).toEqual({ key: 'log', days: 4 })
   })
+
+  it('honors an explicit cadence due-window over the weekday fallback', () => {
+    // Monday but the cadence says due → nudge; Thursday but not due → silent.
+    expect(nudgeReason({ daysSinceLog: 1, hasCheckIn: false, checkinDue: true, today: monday })).toEqual({ key: 'checkin' })
+    expect(nudgeReason({ daysSinceLog: 1, hasCheckIn: false, checkinDue: false, today: thursday })).toBeNull()
+  })
 })
