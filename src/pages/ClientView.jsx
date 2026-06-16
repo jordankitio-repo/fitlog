@@ -1479,6 +1479,7 @@ async function sendMessage(text) {
                         {weekReports.length} {weekReports.length === 1 ? 'report' : 'reports'}
                       </span>
                       {unreadCount > 0 && (
+                        /* eslint-disable-next-line no-restricted-syntax -- decorative "unread" badge palette */
                         <span style={{ backgroundColor: '#1e3a5f', color: '#93c5fd', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
                           {unreadCount} unread
                         </span>
@@ -1498,6 +1499,7 @@ async function sendMessage(text) {
                               {r.archived && (
                                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', backgroundColor: 'var(--color-border)', padding: '2px 7px', borderRadius: '999px' }}>Archived</span>
                               )}
+                              {/* eslint-disable-next-line no-restricted-syntax -- decorative read/unread report-status palette */}
                               <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', backgroundColor: r.read_at ? '#064e3b' : '#1e3a5f', color: r.read_at ? 'var(--color-success)' : '#93c5fd' }}>
                                 {r.read_at ? '✓ Read' : 'Unread'}
                               </span>

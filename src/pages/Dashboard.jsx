@@ -884,10 +884,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
             <div>
+              {/* eslint-disable-next-line no-restricted-syntax -- decorative streak palette (always-dark gradient card) */}
               <p style={{ fontSize: 'var(--text-sm)', color: '#86efac', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Logging streak</p>
               <p style={{ fontWeight: 800, fontSize: '2rem', color: 'var(--color-primary)', lineHeight: 1 }}>
                 {streak} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{streak === 1 ? 'day' : 'days'}</span>
               </p>
+              {/* eslint-disable-next-line no-restricted-syntax -- decorative streak palette (always-dark gradient card) */}
               {streak >= 7 && loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: '#6ee7b7', marginTop: '4px' }}>Keep it going — you're on a roll!</p>}
               {!loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-warning)', marginTop: '4px' }}>Log today to keep your streak!</p>}
             </div>
