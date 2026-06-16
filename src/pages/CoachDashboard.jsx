@@ -26,7 +26,7 @@ const summaryNumStyle = { fontSize: '2rem', fontWeight: 700, margin: 0, lineHeig
 // roster (the "100 clients with the attention of 20" view). Counts come from
 // summarizeRoster, which is built on the same attentionLevel the per-client
 // badges use, so the banner and the badges can never disagree.
-function RosterBanner({ roster }) {
+function RosterBanner({ roster, onReviewClick }) {
   const seg = (color, n, label) => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
       <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
@@ -44,9 +44,20 @@ function RosterBanner({ roster }) {
       {seg(attentionColors.green, roster.onTrack, 'on track')}
       <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '14px', flexWrap: 'wrap' }}>
         {roster.checkInsToReview > 0 && (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-primary)', fontWeight: 600 }}>
+          <button
+            onClick={onReviewClick}
+            disabled={!onReviewClick}
+            title="Review the oldest waiting check-in"
+            style={{
+              background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit',
+              fontSize: 'var(--text-xs)', color: 'var(--color-primary)', fontWeight: 600,
+              cursor: onReviewClick ? 'pointer' : 'default', textDecoration: 'underline',
+              textUnderlineOffset: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px',
+            }}
+          >
             {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
-          </span>
+            <span aria-hidden="true">→</span>
+          </button>
         )}
         {roster.noTargets > 0 && (
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
@@ -244,6 +255,14 @@ function CoachDashboard({ profile }) {
     attentionLevel(clientStats[c.client_id]).level === 'red'
   ).length
 
+  // Clients with a check-in the coach hasn't reviewed yet, oldest submission
+  // first — so the roster banner's "check-ins to review" can jump straight to
+  // the most-waiting one, and drain the queue one click at a time at any scale.
+  const reviewClientIds = clients
+    .filter(c => { const s = clientStats[c.client_id]; return s?.checkIn && !s.checkIn.reviewed_at })
+    .sort((a, b) => (clientStats[a.client_id].checkIn.created_at || '').localeCompare(clientStats[b.client_id].checkIn.created_at || ''))
+    .map(c => c.client_id)
+
   const metricColors = {
     Calories: '#22c55e',
     Protein: '#f87171',
@@ -293,7 +312,10 @@ function CoachDashboard({ profile }) {
 
       {/* Roster triage headline */}
       {clients.length > 0 && !loading && (
-        <RosterBanner roster={summarizeRoster(clientStats)} />
+        <RosterBanner
+          roster={summarizeRoster(clientStats)}
+          onReviewClick={reviewClientIds.length ? () => navigate(`/client/${reviewClientIds[0]}?focus=checkIn`) : undefined}
+        />
       )}
 
       {/* Summary bar */}
