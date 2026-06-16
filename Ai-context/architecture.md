@@ -125,6 +125,8 @@ supabase/
 **nutrition_log**
 - `id`, `user_id`, `food`, `calories`, `protein`, `carbs`, `fat`, `serving_size`, `serving_unit`, `logged_date`, `created_at`
 - `meal` ('breakfast'|'lunch'|'dinner'|'snack'|null) — diary grouping (migration `20260615010000`); null renders under "Other". Grouping logic in `utils/meals.js` (pure, tested).
+- `logged_meal_id` (uuid, nullable) + `logged_meal_name` (text, nullable) — **meal containers** (migration `20260615050000`): rows sharing a `logged_meal_id` fold into one expandable, repeatable diary item ("a meal is a food item that holds food items") while each child stays individually editable. Additive/nullable — loose foods (`logged_meal_id` null) are unaffected; new columns inherit the table's grants. `groupLoggedMeals()` in `utils/meals.js` folds rows → `{type:'meal'|'food', …}`. Containers are formed at log time (saved-meal "log as meal") or **in place** by restamping selected rows' `logged_meal_id` (diary "Group as meal" — no re-log/duplication).
+- **Diary organization (`Log.jsx`, frontend-only):** multi-select bulk actions (Save-as-meal / Move-to-slot / Delete); a per-row `⠿` grip that moves a food or whole container between meal slots — both via a "Move to:" chip menu (limited to slots already present that day) and via **drag-and-drop** onto another meal section (`@dnd-kit` `useDraggable`/`useDroppable`, touch-safe press-hold, disabled in select mode). Moves just update `meal`; grouping just updates `logged_meal_id`/`name`.
 
 **weight_log**
 - `id`, `user_id`, `weight`, `unit` ('lbs'|'kg'), `logged_date`, `weighed_at` (time, HH:MM:SS 24hr), `created_at`

@@ -10,11 +10,11 @@
 ---
 
 ## Current Commit
-`455ce65 Merge pull request #7 from .../feat/notify-checkin-review`
+`3c81173 Merge polish/review-pill: style check-ins-to-review as a real pill`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
-- **Build:** Passing (`npm run build`). **111 unit tests** + **71 RLS/integration tests** (`npm run test:rls`, runs against a local Supabase stack).
+- **Build:** Passing (`npm run build`). **114 unit tests** + **71 RLS/integration tests** (`npm run test:rls`, runs against a local Supabase stack).
 - **Lint:** 4 errors / warnings — all 4 errors are the pre-existing `react-hooks/set-state-in-effect` rule in load-bearing effects (Log.jsx, Dashboard.jsx); deferred as a manually-tested refactor.
 - **Deploy:** `npx vercel deploy --prod --project gardnr --yes`. Edge functions: `supabase functions deploy <name> --project-ref mlqaurxefttbqsrllbyj` (no Docker needed). **DB migrations from this machine** must use the IPv4 session pooler (direct host is IPv6-only) — see `architecture.md` Development Environment.
 - **Billing:** Live mode active. Solo is free (`SOLO_BILLING_ENABLED = false`). Coach billing unchanged.
@@ -23,6 +23,17 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Diary becomes a real meal manager (Jun 15, cont.)** — Turned the flat food list into something you can organize, building on meal grouping:
+- **Multi-select bulk actions** — a "Select" mode in the diary; check entries, then Save-as-meal / Move-to-slot / Delete in one go (`Log.jsx`). PR #8 (`9a67e6c`).
+- **Meal containers** — "a meal is a food item that holds food items": rows sharing a `logged_meal_id` fold into one expandable, repeatable container (each child still individually editable). `logged_meal_id`/`logged_meal_name` on `nutrition_log` (additive/nullable — loose foods unaffected), `groupLoggedMeals()` in `utils/meals.js`. Migration `20260615050000`. PR #9 (`a3f1d88`).
+- **Group as meal (in place)** — select already-logged items → group into a new or existing container by restamping their `logged_meal_id` (no re-log, no duplicate rows), then repeat via the container's repeat action. (`f77d38c`)
+- **Move an item between meal slots** — a `⠿` grip on each food row / container opens a "Move to:" chip menu, limited to slots already present that day (can't create a slot that was never logged). (`796e284`, glyph `00ebb95`)
+- **Drag-and-drop between meal sections** — the same `⠿` grip is a real drag handle (`@dnd-kit` `useDraggable`/`useDroppable`): drag a food or a whole container onto another meal section to move it; tap still opens the chip menu. Touch-safe (press-hold to drag so taps/scroll aren't hijacked), disabled in select mode, children inside a container don't drag. Frontend-only (drop updates `nutrition_log.meal`). (`00343d5`)
+
+**Coach roster banner — actionable + clearer (Jun 15, cont.)** — (1) The legend **"i" tooltip** was nested inside the Sort bar, which only renders with 2+ clients, so a single-client coach had no hover explanation; decoupled it so it shows for any roster (`b4a1b68`). (2) **"N check-ins to review" is now a button** — a tinted-green pill (fills solid on hover, arrow nudges) that deep-links to `/client/<id>?focus=checkIn` for the client whose check-in has waited longest (oldest `created_at` first), reusing the existing focus-scroll. Drains the queue one click at a time at any scale. (`e12e118`, polish `3c81173`)
+
+**Log + Profile pages widened to match the dashboard (Jun 15, cont.)** — `/log` and `/profile` were capped at 800px (centered "in the middle") while `/` and `/client/:id` use 1180px. Added both to `isWideScreen` in `App.jsx` so the app pages are visually consistent; only auth/standalone pages stay narrow. They're single-column, so they read wider/sparser now — the two-column reflow is a deferred option if it bothers. (`d6f7c2a`)
 
 **Notify client when coach reviews a check-in (Jun 15)** — Closes the review loop: a coach's review/comment reaches the client three ways — email (`notify-checkin-review` edge fn, cloned from `notify-report`: active-coach verified server-side, comment escaped), an in-app bell event (derived from `check_ins.reviewed_at`, no schema), and the coach's note shown on the client's check-in card (Dashboard). No migration. PR #7 (`455ce65`). Deliberately did NOT gate the coach's per-check-in email or add a digest — premature at ~1 client (see `decisions.md`).
 
@@ -280,6 +291,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 15 (cont.)** — Diary UX + coach-banner polish session (all frontend except the meal-container columns). Diary multi-select bulk actions (PR #8) and meal containers (`logged_meal_id`/`name`, migration `20260615050000`, PR #9), then in-place **group as meal**, a per-row **`⠿` move** chip menu, and **drag-and-drop between meal sections** (`@dnd-kit`, touch-safe). Coach roster banner: legend "i" now shows with one client; **"check-ins to review"** became an actionable pill deep-linking to the oldest waiting check-in. Widened `/log` + `/profile` to 1180px to match the dashboard. 9 merges to `main`, each deployed to prod. 114 unit tests. Shipped one-at-a-time on the user's "ship" cadence (branch → vercel prod → merge → delete branch).
 - **Jun 15** — Big session. (1) **Security/test foundation:** built a local-Supabase RLS+billing test harness (`tests/rls/`, Colima-backed), captured the prod schema baseline (`supabase/schema/prod_public.sql`), and fixed 3 live gaps it found — world-readable invitations (→ token-gated RPC), coach access to ex-clients' data (→ active-only policies), no unique on `subscriptions.solo_id`. (2) **Layer 1 (solo credibility):** coach roster triage rollup, meal grouping, saved meals, Complete Day. (3) **Layer 2:** check-in review queue (`review_checkin` RPC + guard trigger) and the client-notification loop (`notify-checkin-review`). 7 PRs (#1–#7), all merged + deployed to prod. Two recurring prod gotchas: pooler-created tables need explicit GRANTs; reload PostgREST schema cache after pooler DDL. Roadmap: Layer 1 done; Layer 2 review-queue done; remaining Layer-2 = check-in cadence + questionnaire builder. Constraint is still distribution (~1 active client) — features pursued as the solo on-ramp.
 - **Jun 14 (cont. 3)** — Invite flow now detects existing accounts (was RLS-blocked on both sides). SECURITY DEFINER RPC `invite_email_status` for the coach box + `invitations.account_exists` snapshot for the anon Join page (migration `20260614140000`); coach-role guard added to `acceptInvite`. Also fixed the notifications table missing GRANTs (`72fa3b1`, 42501). `dc3dca2`.
 - **Jun 14 (cont. 2)** — Coach now gets an in-app notification when a client leaves (self-leave or account deletion). New `notifications` table (`20260614120000`, applied to prod) because the departed client's name is unreadable to the coach post-leave (profiles RLS); `offboard-self`/`delete-account` snapshot the name + insert (both redeployed); bell reads it. `e863802`.

@@ -2,9 +2,11 @@ Gardnr — Master Feature & Implementation List
 Last updated: June 15, 2026
 
 SHIPPED since (live in prod, Jun 15) — do NOT re-propose:
-- Logging Consistency / Attention triage → coach **roster rollup** (`summarizeRoster`) + per-client badges.
+- Logging Consistency / Attention triage → coach **roster rollup** (`summarizeRoster`) + per-client badges. Roster banner's **"check-ins to review"** deep-links to the oldest waiting check-in.
 - **Meal grouping**, **Saved meals**, **Complete Day** (Layer 1 solo-completeness).
+- **Diary organization** (Layer 1, cont.): **meal containers** (`logged_meal_id` — a meal as an expandable, repeatable item that holds foods), multi-select **bulk actions**, **group-as-meal in place**, and **move/drag items between meal slots** (`⠿` grip → chip menu or `@dnd-kit` drag). Frontend + one additive migration.
 - **Check-in review queue** (`reviewed_at`/`coach_comment` + `review_checkin` RPC) + client notification on review.
+- **Layout:** `/log` + `/profile` widened to 1180px to match the dashboard (`isWideScreen`).
 - Also already existed (not gaps): copy-previous-day, frequent-foods quick-add, manual custom-food entry, USDA food search, barcode.
 REMAINING coach-cockpit (Layer 2/3): configurable **check-in cadence**, **questionnaire builder**, **habit tracking** (caveats: self-reported; only adds value for non-logged behaviors), progress photos, body measurements, weight rate/ETA, adaptive maintenance, diet-break detector. See current-state.md + decisions.md (solo-on-ramp; one-triage-brain; notifications-at-scale).
 

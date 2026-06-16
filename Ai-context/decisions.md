@@ -175,6 +175,10 @@
 **Reason:** Weight and steps are *measurements*, not re-enterable plan data. Copying them would falsify the record.
 **Consequences:** The copy-food feature in Log.jsx is scoped to nutrition entries only.
 
+### Meal containers are a grouping over `nutrition_log` rows, not a separate table (Jun 15 2026)
+**Reason:** A "meal" (Breakfast combo, "meal 1 diet") is just a set of food rows the user wants to see, repeat, and move as one — not a new entity. Two nullable columns (`logged_meal_id` + `logged_meal_name`) on `nutrition_log` express that with zero new tables, zero RLS surface, and no duplication: each child stays a normal, individually-editable, in-scope food row that the coach already reads.
+**Consequences:** Forming/regrouping a meal is an **in-place restamp** of `logged_meal_id` on the selected rows (the diary "Group as meal" and the per-row move never insert or duplicate); only logging a *saved* meal inserts new rows (with a shared id). Moving an item between meal slots updates `meal`; moving a whole container updates `meal` on all its rows. Rendering folds rows by `logged_meal_id` in `utils/meals.js` (`groupLoggedMeals`), so loose foods (null id) are unaffected and legacy rows keep working. Drag-and-drop and the `⠿` chip menu are two affordances over the same two updates — no new persistence.
+
 ### `weight_log` has no unique constraint; reads take the most recent
 **Reason:** Multiple weigh-ins per day are legitimate (morning vs evening).
 **Consequences:** `.maybeSingle()` would throw on multiple rows; reads use `order('created_at', desc).limit(1)` instead.
