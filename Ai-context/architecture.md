@@ -144,6 +144,7 @@ supabase/
 
 **coach_clients**
 - `id`, `coach_id`, `client_id`, `status` ('pending'|'active'|'offboarded'), `hide_calories` bool default false, `last_nudged_at` timestamptz, `lock_cleared_at` timestamptz, `offboarded_at` timestamptz, `created_at`
+- `checkin_interval_weeks` int not null default 1 (migration `20260615060000`) — **per-client check-in cadence** the coach sets (1=weekly, 2=biweekly, 3/4=custom; check 1–8). Drives `checkinPeriod(intervalWeeks)` in `dateHelpers.js` (pure, tested), which generalizes "current week" → "current cadence period" anchored to a fixed epoch Sunday; `interval=1` returns the current calendar week, so it's fully backward compatible. Coach sets it in ClientView; client reads their own row to render the right period.
 - A left relationship is `status='offboarded'` + `offboarded_at`. Client-initiated leave (`offboard-self`) sets no `profiles.offboard_reason`; coach-initiated (`offboard-client`) sets `coach_offboarded` — that's the discriminator.
 
 **messages** (unified — replaced old coach_messages + client_messages)
@@ -157,7 +158,12 @@ supabase/
 **check_ins**
 - `id`, `client_id`, `coach_id`, `week_of` (date), `adherence_rating`, `energy_level`, `obstacles`, `notes`, `created_at`
 - `reviewed_at` timestamptz, `coach_comment` text (migration `20260615040000`) — the coach's review. Set ONLY via the `review_checkin` RPC (active-coach-only); a `guard_checkin_review` BEFORE UPDATE trigger blocks anyone else (incl. the client on their own row) from changing these fields (service_role + the coach-running RPC exempt via `auth.role()`/`auth.uid()`). `summarizeRoster.checkInsToReview` counts unreviewed; client is notified via `notify-checkin-review`.
+- `answers` jsonb (migration `20260616000000`) — for a **custom questionnaire**, a snapshot array of `{question_id, prompt, type, config, value}` (null for legacy/default check-ins). Snapshotting prompt/type/config makes history immune to later question edits/archival. Review/history render `answers` when present, else the legacy `adherence`/`energy`/`obstacles`/`notes` fields. `week_of` is the cadence period start (see `checkin_interval_weeks`), not necessarily the calendar week.
 - Unique: `(client_id, week_of)`
+
+**checkin_questions** (migration `20260616000000`)
+- `id`, `coach_id`, `prompt`, `type` ∈ (rating|text|number|boolean|select), `config` jsonb (`rating:{max}` · `select:{options}` · `number:{unit}`), `required`, `position`, `archived`, `created_at`. **Per-coach** check-in questionnaire — applies to all the coach's clients. Empty → clients see the legacy 4-field form (no backfill).
+- RLS: coach **FOR ALL** on `coach_id = auth.uid()`; a client may **SELECT** only their **ACTIVE** coach's questions (`exists` against `coach_clients` active) to render the form. Explicit GRANTs to `authenticated`. Pure logic in `utils/checkinQuestions.js`; builder = `CheckinBuilder.jsx` on the coach Profile.
 
 **coach_notes**
 - `id`, `coach_id`, `client_id`, `content` (timestamped append log, prepended each save), `updated_at`

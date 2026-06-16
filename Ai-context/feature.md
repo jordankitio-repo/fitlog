@@ -7,8 +7,10 @@ SHIPPED since (live in prod, Jun 15) — do NOT re-propose:
 - **Diary organization** (Layer 1, cont.): **meal containers** (`logged_meal_id` — a meal as an expandable, repeatable item that holds foods), multi-select **bulk actions**, **group-as-meal in place**, and **move/drag items between meal slots** (`⠿` grip → chip menu or `@dnd-kit` drag). Frontend + one additive migration.
 - **Check-in review queue** (`reviewed_at`/`coach_comment` + `review_checkin` RPC) + client notification on review.
 - **Layout:** `/log` + `/profile` widened to 1180px to match the dashboard (`isWideScreen`).
+- **Configurable check-in cadence** (Layer 2): per-client weekly/biweekly/every-3/4 (`coach_clients.checkin_interval_weeks`, `checkinPeriod()`); generalizes every `week_of` read with zero triage-engine change.
+- **Questionnaire builder** (Layer 2): coach defines their own check-in questions (`checkin_questions` + `check_ins.answers`); per-coach, legacy fallback, RLS-isolated cross-tenant read.
 - Also already existed (not gaps): copy-previous-day, frequent-foods quick-add, manual custom-food entry, USDA food search, barcode.
-REMAINING coach-cockpit (Layer 2/3): configurable **check-in cadence**, **questionnaire builder**, **habit tracking** (caveats: self-reported; only adds value for non-logged behaviors), progress photos, body measurements, weight rate/ETA, adaptive maintenance, diet-break detector. See current-state.md + decisions.md (solo-on-ramp; one-triage-brain; notifications-at-scale).
+REMAINING coach-cockpit (Layer 3): **habit tracking** (caveats: self-reported; only adds value for non-logged behaviors), progress photos, body measurements, weight rate/ETA, adaptive maintenance, diet-break detector, per-client questionnaire override. See current-state.md + decisions.md (solo-on-ramp; one-triage-brain; notifications-at-scale).
 
 
 Note on feature numbers (#2, #5, #7, etc.): These reference the original tiered backlog from an earlier planning session. They are preserved as stable labels for cross-reference. The source list with full definitions of #1–#30 is not in current context — numbers are carried forward as-is, not independently re-verified.
