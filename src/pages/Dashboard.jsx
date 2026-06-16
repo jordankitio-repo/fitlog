@@ -20,6 +20,11 @@ import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { checkinPeriod, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cadenceLabel } from '../utils/cadence'
+import { blankValue, validateAnswers, buildAnswers, formatAnswer } from '../utils/checkinQuestions'
+
+const checkinInputStyle = { backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem', width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }
+const checkinPillStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '999px', padding: '6px 16px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+const checkinPillActive = { background: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: '#fff' }
 import { cardStyle as baseCardStyle } from '../utils/styles'
 import { Line, Bar } from 'react-chartjs-2'
 import {
@@ -67,6 +72,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [checkInSaved, setCheckInSaved] = useState(false)
   const [existingCheckIn, setExistingCheckIn] = useState(null)
   const [checkinInterval, setCheckinInterval] = useState(1)
+  const [questions, setQuestions] = useState([])      // coach's custom check-in questions (empty = legacy form)
+  const [answers, setAnswers] = useState({})          // { [questionId]: value }
   const [streak, setStreak] = useState(0)
   const [bestWeek, setBestWeek] = useState(null)
   const [consistency, setConsistency] = useState(null)
@@ -444,18 +451,35 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   async function fetchCheckIn() {
     const userId = (await supabase.auth.getSession()).data.session.user.id
     const { data: rel } = await supabase
-      .from('coach_clients').select('checkin_interval_weeks')
+      .from('coach_clients').select('coach_id, checkin_interval_weeks')
       .eq('client_id', userId).eq('status', 'active').maybeSingle()
     const interval = rel?.checkin_interval_weeks || 1
     setCheckinInterval(interval)
+
+    // The coach's custom questionnaire (empty → legacy 4-field form).
+    let qs = []
+    if (rel?.coach_id) {
+      const { data: qData } = await supabase
+        .from('checkin_questions').select('*')
+        .eq('coach_id', rel.coach_id).eq('archived', false).order('position')
+      qs = qData || []
+    }
+    setQuestions(qs)
+
     const weekOf = checkinPeriod(interval).weekOf
     const { data, error } = await supabase
       .from('check_ins').select('*')
       .eq('client_id', userId)
       .eq('week_of', weekOf).maybeSingle()
-    if (error) console.error(error)
-    else if (data) {
-      setExistingCheckIn(data)
+    if (error) { console.error(error); return }
+    setExistingCheckIn(data || null)
+
+    if (qs.length) {
+      const vals = {}
+      qs.forEach(q => { vals[q.id] = blankValue(q.type, q.config) })
+      if (Array.isArray(data?.answers)) data.answers.forEach(a => { if (a.question_id in vals) vals[a.question_id] = a.value })
+      setAnswers(vals)
+    } else if (data) {
       setCheckIn({
         adherence_rating: data.adherence_rating || 5,
         energy_level: data.energy_level || 5,
@@ -466,13 +490,21 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   async function saveCheckIn() {
-    if (!checkIn.obstacles.trim()) {
-      alert('Please fill in the obstacles field before submitting.')
-      return
-    }
-    if (!checkIn.notes.trim()) {
-      alert('Please fill in the notes for your coach before submitting.')
-      return
+    const custom = questions.length > 0
+    if (custom) {
+      if (validateAnswers(questions, answers).length > 0) {
+        alert('Please answer all required questions before submitting.')
+        return
+      }
+    } else {
+      if (!checkIn.obstacles.trim()) {
+        alert('Please fill in the obstacles field before submitting.')
+        return
+      }
+      if (!checkIn.notes.trim()) {
+        alert('Please fill in the notes for your coach before submitting.')
+        return
+      }
     }
 
     const { data: { session: currentSession } } = await supabase.auth.getSession()
@@ -498,28 +530,30 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       coachEmail = coachProfile?.email
     }
 
-    const { error } = await supabase.from('check_ins').upsert({
-      client_id: currentSession.user.id, week_of: weekOf,
-      adherence_rating: checkIn.adherence_rating, energy_level: checkIn.energy_level,
-      obstacles: checkIn.obstacles, notes: checkIn.notes
-    }, { onConflict: 'client_id,week_of' })
+    const answersSnapshot = custom ? buildAnswers(questions, answers) : null
+    const payload = custom
+      ? { client_id: currentSession.user.id, week_of: weekOf, answers: answersSnapshot }
+      : {
+          client_id: currentSession.user.id, week_of: weekOf,
+          adherence_rating: checkIn.adherence_rating, energy_level: checkIn.energy_level,
+          obstacles: checkIn.obstacles, notes: checkIn.notes,
+        }
+    const { error } = await supabase.from('check_ins').upsert(payload, { onConflict: 'client_id,week_of' })
     if (error) console.error(error)
     else {
       setCheckInSaved(true); setShowCheckIn(false); fetchCheckIn(); refreshNotifications(); setTimeout(() => setCheckInSaved(false), 3000)
       // Notify coach by email
       if (coachEmail) {
+        const body = custom
+          ? { answers: answersSnapshot.map(a => ({ prompt: a.prompt, text: formatAnswer(a) })) }
+          : { adherence: checkIn.adherence_rating, energy: checkIn.energy_level, obstacles: checkIn.obstacles, notes: checkIn.notes }
         fetch('https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/notify-checkin', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${currentSession.access_token}`,
           },
-          body: JSON.stringify({
-            adherence: checkIn.adherence_rating,
-            energy: checkIn.energy_level,
-            obstacles: checkIn.obstacles,
-            notes: checkIn.notes
-          }),
+          body: JSON.stringify(body),
         })
       }
     }
@@ -1045,22 +1079,66 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               )}
               {showCheckIn && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
-                  <div>
-                    <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Adherence — how well did you follow the plan? <strong>{checkIn.adherence_rating}/10</strong></p>
-                    <input type="range" min="1" max="10" value={checkIn.adherence_rating} onChange={(e) => setCheckIn({ ...checkIn, adherence_rating: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Energy levels this week <strong>{checkIn.energy_level}/10</strong></p>
-                    <input type="range" min="1" max="10" value={checkIn.energy_level} onChange={(e) => setCheckIn({ ...checkIn, energy_level: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Any obstacles or challenges?</p>
-                    <textarea value={checkIn.obstacles} onChange={(e) => setCheckIn({ ...checkIn, obstacles: e.target.value })} placeholder="Stress, travel, injury, time constraints..." rows={3} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Notes for your coach</p>
-                    <textarea value={checkIn.notes} onChange={(e) => setCheckIn({ ...checkIn, notes: e.target.value })} placeholder="Anything else you want your coach to know..." rows={3} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
-                  </div>
+                  {questions.length > 0 ? (
+                    questions.map(q => {
+                      const val = answers[q.id]
+                      const setAns = (v) => setAnswers(a => ({ ...a, [q.id]: v }))
+                      const ratingMax = q.config?.max || 10
+                      return (
+                        <div key={q.id}>
+                          <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>
+                            {q.prompt}{q.required && <span style={{ color: '#f87171' }}> *</span>}
+                            {q.type === 'rating' && <strong> {val ?? Math.ceil(ratingMax / 2)}/{ratingMax}</strong>}
+                          </p>
+                          {q.type === 'rating' && (
+                            <input type="range" min="1" max={ratingMax} value={val ?? Math.ceil(ratingMax / 2)} onChange={(e) => setAns(parseInt(e.target.value))} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
+                          )}
+                          {q.type === 'boolean' && (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              {[['Yes', true], ['No', false]].map(([label, bv]) => (
+                                <button key={label} type="button" onClick={() => setAns(bv)} style={{ ...checkinPillStyle, ...(val === bv ? checkinPillActive : {}) }}>{label}</button>
+                              ))}
+                            </div>
+                          )}
+                          {q.type === 'number' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input type="number" value={val ?? ''} onChange={(e) => setAns(e.target.value)} style={{ ...checkinInputStyle, maxWidth: 160 }} />
+                              {q.config?.unit && <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>{q.config.unit}</span>}
+                            </div>
+                          )}
+                          {q.type === 'text' && (
+                            <textarea value={val ?? ''} onChange={(e) => setAns(e.target.value)} rows={3} placeholder="Your answer…" style={checkinInputStyle} />
+                          )}
+                          {q.type === 'select' && (
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              {(q.config?.options || []).map(opt => (
+                                <button key={opt} type="button" onClick={() => setAns(opt)} style={{ ...checkinPillStyle, ...(val === opt ? checkinPillActive : {}) }}>{opt}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <>
+                      <div>
+                        <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Adherence — how well did you follow the plan? <strong>{checkIn.adherence_rating}/10</strong></p>
+                        <input type="range" min="1" max="10" value={checkIn.adherence_rating} onChange={(e) => setCheckIn({ ...checkIn, adherence_rating: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Energy levels this week <strong>{checkIn.energy_level}/10</strong></p>
+                        <input type="range" min="1" max="10" value={checkIn.energy_level} onChange={(e) => setCheckIn({ ...checkIn, energy_level: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Any obstacles or challenges?</p>
+                        <textarea value={checkIn.obstacles} onChange={(e) => setCheckIn({ ...checkIn, obstacles: e.target.value })} placeholder="Stress, travel, injury, time constraints..." rows={3} style={checkinInputStyle} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '0.875rem', marginBottom: '8px' }}>Notes for your coach</p>
+                        <textarea value={checkIn.notes} onChange={(e) => setCheckIn({ ...checkIn, notes: e.target.value })} placeholder="Anything else you want your coach to know..." rows={3} style={checkinInputStyle} />
+                      </div>
+                    </>
+                  )}
                   <Button onClick={saveCheckIn} variant="primary">Submit check-in</Button>
                 </div>
               )}
