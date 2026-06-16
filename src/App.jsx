@@ -38,10 +38,13 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   // they're visually consistent. Only the auth/standalone pages stay narrow.
   const isWideScreen =
     path === '/' || path === '/log' || path === '/profile' || path.startsWith('/client/')
+  // The client record carries the section rail (~210px) plus dense charts, so it
+  // gets extra room to fill the screen instead of sitting in a narrow column.
+  const isExtraWide = path.startsWith('/client/')
 
   const mainStyle = isLanding
     ? { width: '100%' }
-    : { maxWidth: isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: '24px 16px' }
+    : { maxWidth: isExtraWide ? '1560px' : isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: '24px 16px' }
 
   return (
     <>
