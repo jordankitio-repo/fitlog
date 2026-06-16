@@ -353,9 +353,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const name = saveMealName.trim()
     const ids = [...selectedIds]
     if (!name || ids.length === 0) return
-    if (selectedContainerIds().size > 1) {
+    const containers = selectedContainerIds()
+    if (containers.size > 1) {
       alert('These items already belong to different meals. Group items from a single meal (or loose items) at a time.')
       return
+    }
+    // Grouping into a NEW meal pulls any already-grouped item out of its meal —
+    // confirm first (naming it) so we never silently take an existing meal apart.
+    if (containers.size === 1) {
+      const fromName = entries.find(e => selectedIds.has(e.id) && e.logged_meal_id)?.logged_meal_name || 'another meal'
+      if (!window.confirm(`This moves the selected item(s) out of "${fromName}" into the new meal. Continue?`)) return
     }
     setSavingMeal(true)
     const first = entries.find(e => selectedIds.has(e.id))
