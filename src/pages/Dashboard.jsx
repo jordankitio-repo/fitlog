@@ -21,6 +21,7 @@ import { resolveLockState } from '../utils/lockState'
 import { checkinPeriod, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cadenceLabel } from '../utils/cadence'
 import { blankValue, validateAnswers, buildAnswers, formatAnswer } from '../utils/checkinQuestions'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 const checkinInputStyle = { backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-base)', width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }
 const checkinPillStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '999px', padding: '6px 16px', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
@@ -74,6 +75,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [checkinInterval, setCheckinInterval] = useState(1)
   const [questions, setQuestions] = useState([])      // coach's custom check-in questions (empty = legacy form)
   const [answers, setAnswers] = useState({})          // { [questionId]: value }
+  const [notice, setNotice] = useState(null)          // branded one-button notice message, or null
   const [streak, setStreak] = useState(0)
   const [bestWeek, setBestWeek] = useState(null)
   const [consistency, setConsistency] = useState(null)
@@ -493,16 +495,16 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     const custom = questions.length > 0
     if (custom) {
       if (validateAnswers(questions, answers).length > 0) {
-        alert('Please answer all required questions before submitting.')
+        setNotice('Please answer all required questions before submitting.')
         return
       }
     } else {
       if (!checkIn.obstacles.trim()) {
-        alert('Please fill in the obstacles field before submitting.')
+        setNotice('Please fill in the obstacles field before submitting.')
         return
       }
       if (!checkIn.notes.trim()) {
-        alert('Please fill in the notes for your coach before submitting.')
+        setNotice('Please fill in the notes for your coach before submitting.')
         return
       }
     }
@@ -1409,6 +1411,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       )}
       </>
       )}
+      <ConfirmDialog
+        open={notice !== null}
+        message={notice}
+        confirmLabel="OK"
+        onConfirm={() => setNotice(null)}
+      />
     </div>
   )
 }

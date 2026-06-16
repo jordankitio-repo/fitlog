@@ -9,6 +9,7 @@ import ThemeToggle from '../components/ThemeToggle'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 import { SOLO_BILLING_ENABLED } from '../App'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -40,6 +41,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
+  const [notice, setNotice] = useState(null)
 
   useEffect(() => {
     async function loadTargets() {
@@ -169,7 +171,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     if (data.success) {
       await supabase.auth.signOut()
     } else {
-      alert('Error deleting account: ' + data.error)
+      setNotice('Error deleting account: ' + data.error)
       setDeleteLoading(false)
     }
   }
@@ -553,6 +555,12 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       <p style={{ textAlign: 'center', padding: '0 0 16px', color: 'var(--color-border)', fontSize: 'var(--text-xs)' }}>
         Build {BUILD_TIME}
       </p>
+      <ConfirmDialog
+        open={notice !== null}
+        message={notice}
+        confirmLabel="OK"
+        onConfirm={() => setNotice(null)}
+      />
     </div>
   )
 }

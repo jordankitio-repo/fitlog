@@ -4,6 +4,7 @@ import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } 
 import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../supabase'
 import Button from './Button'
+import ConfirmDialog from './ConfirmDialog'
 import { QUESTION_TYPES, DEFAULT_QUESTIONS, MAX_QUESTIONS, parseOptions } from '../utils/checkinQuestions'
 
 // A drag-reorderable question row. Render-prop so the row markup (with all its
@@ -27,6 +28,7 @@ export default function CheckinBuilder({ coachId }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [confirmId, setConfirmId] = useState(null) // question pending delete confirmation
   const savedTimer = useRef(null)
 
   const sensors = useSensors(
@@ -95,8 +97,7 @@ export default function CheckinBuilder({ coachId }) {
     patch(q.id, { type: newType, config: { ...defaults, ...(q.config || {}) } })
   }
 
-  async function remove(id) {
-    if (!window.confirm('Remove this question? Past check-ins keep the answers they were given.')) return
+  async function performRemove(id) {
     setQuestions(qs => qs.filter(q => q.id !== id))
     const { error } = await supabase.from('checkin_questions').update({ archived: true }).eq('id', id)
     if (!error) flashSaved()
@@ -156,7 +157,7 @@ export default function CheckinBuilder({ coachId }) {
                           onBlur={(e) => patch(q.id, { prompt: e.target.value })}
                           style={{ ...inputStyle, flex: 1 }}
                         />
-                        <button onClick={() => remove(q.id)} style={{ ...iconBtn, color: '#f87171', marginLeft: '6px' }} title="Remove question">✕</button>
+                        <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} title="Remove question">✕</button>
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', paddingLeft: 30 }}>
                         <select value={q.type} onChange={(e) => changeType(q, e.target.value)} style={{ ...inputStyle, width: 'auto' }}>
@@ -197,6 +198,16 @@ export default function CheckinBuilder({ coachId }) {
           </div>
         </>
       )}
+      <ConfirmDialog
+        open={confirmId !== null}
+        title="Remove question?"
+        message="Past check-ins keep the answers they were given."
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={() => { const id = confirmId; setConfirmId(null); performRemove(id) }}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   )
 }
