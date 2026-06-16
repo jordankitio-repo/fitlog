@@ -37,6 +37,12 @@
   --color-steps: #a855f7;
   --color-error: #f87171;
   --color-ai: #a78bfa;
+  /* Semantic status + on-accent text. Tokenized from hardcoded literals that
+     were scattered across the app (success green 38x, warning yellow 14x,
+     white-on-fill 25x) so they flip cleanly and stay consistent. */
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-on-accent: #ffffff; /* text/icons on a filled accent (primary/error/…) */
 
   --radius: 8px;
   --space: 16px;
@@ -49,6 +55,7 @@
   --text-xl: 1.75rem;
   --text-lg: 1.25rem;
   --text-md: 0.9375rem;
+  --text-base: 0.875rem;  /* body default — the single most common size (91x) */
   --text-sm: 0.8125rem;
   --text-xs: 0.6875rem;
 }
@@ -70,6 +77,9 @@
   --color-muted: #5f6469;
   --color-faint: #8a9097;
   --color-carbs: #b3933f;
+  /* Bright dark-mode green/amber are low-contrast on white — darken for light. */
+  --color-success: #16a34a;
+  --color-warning: #b45309;
   --color-control-border: rgba(0, 0, 0, 0.18);
   /* Softer, cooler shadow so white cards lift gently instead of looking smudged. */
   --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);

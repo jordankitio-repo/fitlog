@@ -52,7 +52,7 @@ function Button({
   const variants = {
     primary: {
       backgroundColor: 'var(--color-primary)',
-      color: '#fff',
+      color: 'var(--color-on-accent)',
       border: 'none',
     },
     ghost: {
@@ -62,12 +62,12 @@ function Button({
     },
     danger: {
       backgroundColor: 'transparent',
-      color: '#f87171',
-      border: '1px solid #f87171',
+      color: 'var(--color-error)',
+      border: '1px solid var(--color-error)',
     },
     'danger-solid': {
-      backgroundColor: '#f87171',
-      color: '#fff',
+      backgroundColor: 'var(--color-error)',
+      color: 'var(--color-on-accent)',
       border: 'none',
     },
     outline: {
