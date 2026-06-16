@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import Button from './Button'
 import { QUESTION_TYPES, DEFAULT_QUESTIONS, MAX_QUESTIONS, parseOptions } from '../utils/checkinQuestions'
@@ -10,6 +10,8 @@ export default function CheckinBuilder({ coachId }) {
   const [questions, setQuestions] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const savedTimer = useRef(null)
 
   // Initial load. setState lives inside the async IIFE (after await), so it's
   // never synchronous within the effect.
@@ -25,6 +27,16 @@ export default function CheckinBuilder({ coachId }) {
     return () => { active = false }
   }, [coachId])
 
+  useEffect(() => () => clearTimeout(savedTimer.current), [])
+
+  // Quiet confirmation after any successful write — edits persist silently
+  // otherwise, leaving the coach unsure anything stuck.
+  function flashSaved() {
+    setSaved(true)
+    clearTimeout(savedTimer.current)
+    savedTimer.current = setTimeout(() => setSaved(false), 1600)
+  }
+
   async function addQuestion(seed) {
     if (questions.length >= MAX_QUESTIONS) return
     setBusy(true)
@@ -32,7 +44,7 @@ export default function CheckinBuilder({ coachId }) {
     const { data, error } = await supabase.from('checkin_questions')
       .insert({ coach_id: coachId, prompt: row.prompt, type: row.type, config: row.config, required: row.required, position: questions.length })
       .select().single()
-    if (!error && data) setQuestions(qs => [...qs, data])
+    if (!error && data) { setQuestions(qs => [...qs, data]); flashSaved() }
     setBusy(false)
   }
 
@@ -40,7 +52,7 @@ export default function CheckinBuilder({ coachId }) {
     setBusy(true)
     const rows = DEFAULT_QUESTIONS.map((q, i) => ({ coach_id: coachId, prompt: q.prompt, type: q.type, config: q.config, required: q.required, position: i }))
     const { data, error } = await supabase.from('checkin_questions').insert(rows).select()
-    if (!error && data) setQuestions([...data].sort((a, b) => a.position - b.position))
+    if (!error && data) { setQuestions([...data].sort((a, b) => a.position - b.position)); flashSaved() }
     setBusy(false)
   }
 
@@ -48,15 +60,18 @@ export default function CheckinBuilder({ coachId }) {
   function patchLocal(id, patch) {
     setQuestions(qs => qs.map(q => (q.id === id ? { ...q, ...patch } : q)))
   }
-  // State + DB patch (used for type/required/config changes).
+  // State + DB patch (type/required/config/prompt). Flashes "Saved" on success.
   async function patch(id, p) {
     patchLocal(id, p)
-    await supabase.from('checkin_questions').update(p).eq('id', id)
+    const { error } = await supabase.from('checkin_questions').update(p).eq('id', id)
+    if (!error) flashSaved()
   }
 
   async function remove(id) {
+    if (!window.confirm('Remove this question? Past check-ins keep the answers they were given.')) return
     setQuestions(qs => qs.filter(q => q.id !== id))
-    await supabase.from('checkin_questions').update({ archived: true }).eq('id', id)
+    const { error } = await supabase.from('checkin_questions').update({ archived: true }).eq('id', id)
+    if (!error) flashSaved()
   }
 
   async function move(id, dir) {
@@ -67,10 +82,11 @@ export default function CheckinBuilder({ coachId }) {
     const reordered = [...questions]
     reordered[idx] = b; reordered[swapIdx] = a
     setQuestions(reordered.map((q, i) => ({ ...q, position: i })))
-    await Promise.all([
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
       supabase.from('checkin_questions').update({ position: swapIdx }).eq('id', a.id),
       supabase.from('checkin_questions').update({ position: idx }).eq('id', b.id),
     ])
+    if (!e1 && !e2) flashSaved()
   }
 
   const inputStyle = {
@@ -82,11 +98,14 @@ export default function CheckinBuilder({ coachId }) {
   if (loading) return <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Loading…</p>
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>
-        These questions replace the default check-in for every client. Leave it empty to keep the standard
-        Adherence / Energy / Obstacles / Notes form.
-      </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: 640, width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>
+          These questions replace the default check-in for every client. Leave it empty to keep the standard
+          Adherence / Energy / Obstacles / Notes form.
+        </p>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#34d399', opacity: saved ? 1 : 0, transition: 'opacity 200ms', whiteSpace: 'nowrap' }}>✓ Saved</span>
+      </div>
 
       {questions.length === 0 ? (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -96,31 +115,31 @@ export default function CheckinBuilder({ coachId }) {
       ) : (
         <>
           {questions.map((q, i) => (
-            <div key={q.id} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: 'var(--color-surface)' }}>
+            <div key={q.id} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--color-surface)' }}>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)', fontWeight: 700, width: 18 }}>{i + 1}.</span>
                 <input
                   value={q.prompt}
                   placeholder="Question prompt"
                   onChange={(e) => patchLocal(q.id, { prompt: e.target.value })}
-                  onBlur={(e) => supabase.from('checkin_questions').update({ prompt: e.target.value }).eq('id', q.id)}
+                  onBlur={(e) => patch(q.id, { prompt: e.target.value })}
                   style={{ ...inputStyle, flex: 1 }}
                 />
                 <button onClick={() => move(q.id, -1)} disabled={i === 0} style={{ ...iconBtn, opacity: i === 0 ? 0.4 : 1 }} title="Move up">↑</button>
                 <button onClick={() => move(q.id, 1)} disabled={i === questions.length - 1} style={{ ...iconBtn, opacity: i === questions.length - 1 ? 0.4 : 1 }} title="Move down">↓</button>
-                <button onClick={() => remove(q.id)} style={{ ...iconBtn, color: '#f87171' }} title="Remove">✕</button>
+                <button onClick={() => remove(q.id)} style={{ ...iconBtn, color: '#f87171', marginLeft: '10px' }} title="Remove question">✕</button>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', paddingLeft: 26 }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', paddingLeft: 26 }}>
                 <select value={q.type} onChange={(e) => patch(q.id, { type: e.target.value, config: QUESTION_TYPES.find(t => t.type === e.target.value)?.defaultConfig || {} })} style={{ ...inputStyle, width: 'auto' }}>
                   {QUESTION_TYPES.map(t => <option key={t.type} value={t.type}>{t.label}</option>)}
                 </select>
 
                 {q.type === 'rating' && (
-                  <label style={{ fontSize: '0.8rem', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    Scale 1–
+                  <label style={{ fontSize: '0.8rem', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    Scale
                     <select value={q.config?.max || 10} onChange={(e) => patch(q.id, { config: { ...q.config, max: Number(e.target.value) } })} style={{ ...inputStyle, width: 'auto' }}>
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
+                      <option value={5}>1–5</option>
+                      <option value={10}>1–10</option>
                     </select>
                   </label>
                 )}
