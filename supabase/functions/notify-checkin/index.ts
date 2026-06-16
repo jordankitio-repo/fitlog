@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { adherence, energy, obstacles, notes } = await req.json()
+    const { adherence, energy, obstacles, notes, answers } = await req.json()
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return jsonResponse({ error: 'Missing authorization header' }, 401)
@@ -68,10 +68,16 @@ Deno.serve(async (req) => {
 
     const safeCoachName = escapeHtml(coachRows?.[0]?.full_name || 'Coach')
     const safeClientName = escapeHtml(clientRows?.[0]?.full_name || 'Your client')
-    const safeAdherence = escapeHtml(adherence)
-    const safeEnergy = escapeHtml(energy)
-    const safeObstacles = escapeHtml(obstacles || 'None reported')
-    const safeNotes = escapeHtml(notes || 'None')
+
+    // Custom questionnaire: the client sends pre-formatted { prompt, text }
+    // answers. Fall back to the fixed adherence/energy/obstacles/notes fields.
+    const detailsHtml = Array.isArray(answers) && answers.length > 0
+      ? answers.map((a: { prompt?: string; text?: string }) =>
+          `<p><strong>${escapeHtml(a?.prompt || '')}:</strong><br>${escapeHtml(a?.text || '—')}</p>`).join('')
+      : `<p><strong>Adherence:</strong> ${escapeHtml(adherence)}/10</p>
+              <p><strong>Energy:</strong> ${escapeHtml(energy)}/10</p>
+              <p><strong>Obstacles:</strong><br>${escapeHtml(obstacles || 'None reported')}</p>
+              <p><strong>Notes:</strong><br>${escapeHtml(notes || 'None')}</p>`
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -89,10 +95,7 @@ Deno.serve(async (req) => {
             <p>Hi ${safeCoachName},</p>
             <p><strong>${safeClientName}</strong> submitted a weekly check-in.</p>
             <div style="margin: 20px 0; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <p><strong>Adherence:</strong> ${safeAdherence}/10</p>
-              <p><strong>Energy:</strong> ${safeEnergy}/10</p>
-              <p><strong>Obstacles:</strong><br>${safeObstacles}</p>
-              <p><strong>Notes:</strong><br>${safeNotes}</p>
+              ${detailsHtml}
             </div>
             <a href="https://www.gardnr.fit/login" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #4f8ef7; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
               View client

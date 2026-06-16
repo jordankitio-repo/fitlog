@@ -49,6 +49,10 @@ beforeAll(async () => {
     { user_id: clientA1.id, logged_date: today },
     { user_id: clientLeft.id, logged_date: today },
   ])
+
+  await admin.from('checkin_questions').insert({
+    coach_id: coachA.id, prompt: 'How was your sleep?', type: 'rating', config: { max: 10 }, position: 0,
+  })
 }, 60000)
 
 afterAll(async () => {
@@ -261,6 +265,44 @@ describe('saved_meals (owner-only, private)', () => {
   it('even the coach CANNOT read a client\'s saved meals (personal, not coaching data)', async () => {
     const { rows } = await readAs(coachA, 'saved_meals', 'user_id', clientA1.id)
     expect(rows).toHaveLength(0)
+  })
+})
+
+describe('checkin_questions (coach-owned, active client read)', () => {
+  it('the owning coach can read their own questions', async () => {
+    const { rows } = await readAs(coachA, 'checkin_questions', 'coach_id', coachA.id)
+    expect(rows.length).toBeGreaterThan(0)
+  })
+  it('the active client can read their coach\'s questions (to render the form)', async () => {
+    const { rows } = await readAs(clientA1, 'checkin_questions', 'coach_id', coachA.id)
+    expect(rows.length).toBeGreaterThan(0)
+  })
+  it('another tenant\'s client CANNOT read them', async () => {
+    const { rows } = await readAs(clientB1, 'checkin_questions', 'coach_id', coachA.id)
+    expect(rows).toHaveLength(0)
+  })
+  it('an OFFBOARDED client CANNOT read them (active-only)', async () => {
+    const { rows } = await readAs(clientLeft, 'checkin_questions', 'coach_id', coachA.id)
+    expect(rows).toHaveLength(0)
+  })
+  it('another coach CANNOT read them', async () => {
+    const { rows } = await readAs(coachB, 'checkin_questions', 'coach_id', coachA.id)
+    expect(rows).toHaveLength(0)
+  })
+  it('the owning coach can insert their own question', async () => {
+    const { error } = await coachA.client.from('checkin_questions')
+      .insert({ coach_id: coachA.id, prompt: 'Energy?', type: 'rating', config: { max: 10 }, position: 1 })
+    expect(error).toBeNull()
+  })
+  it('a coach CANNOT create a question owned by another coach', async () => {
+    const { error } = await coachB.client.from('checkin_questions')
+      .insert({ coach_id: coachA.id, prompt: 'sneaky', type: 'text', position: 9 })
+    expect(error).not.toBeNull()
+  })
+  it('a client CANNOT write questions', async () => {
+    const { error } = await clientA1.client.from('checkin_questions')
+      .insert({ coach_id: coachA.id, prompt: 'client-made', type: 'text', position: 9 })
+    expect(error).not.toBeNull()
   })
 })
 

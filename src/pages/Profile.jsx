@@ -4,6 +4,7 @@ import Button from '../components/Button'
 import PasswordInput from '../components/PasswordInput'
 import SoloUpgrade from '../components/SoloUpgrade'
 import SubscriptionManager from '../components/SubscriptionManager'
+import CheckinBuilder from '../components/CheckinBuilder'
 import ThemeToggle from '../components/ThemeToggle'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
@@ -391,6 +392,13 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           </Button>
         )}
       </div>
+      )}
+
+      {profile?.role === 'coach' && (
+        <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h2>Check-in questionnaire</h2>
+          <CheckinBuilder coachId={profile.id} />
+        </div>
       )}
 
       {profile?.role === 'coach' && (

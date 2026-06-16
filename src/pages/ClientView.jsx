@@ -23,6 +23,7 @@ import { energyBalanceRead } from '../utils/energyBalanceRead'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
 import { CADENCE_OPTIONS, cadenceLabel } from '../utils/cadence'
+import { formatAnswer } from '../utils/checkinQuestions'
 import {
   addDays,
   checkinPeriod,
@@ -59,6 +60,23 @@ function computeRollingAverage(data, window = 7) {
     const avg = slice.reduce((sum, d) => sum + d.weight, 0) / slice.length
     return Math.round(avg * 10) / 10
   })
+}
+
+// Map a check-in row into the report/call-prep `checkIn` contract. A custom
+// questionnaire folds its rating answers into adherence/energy and the full
+// Q&A into notes, so the report edge functions need no changes.
+function checkInPayload(c) {
+  if (!c) return null
+  if (Array.isArray(c.answers) && c.answers.length > 0) {
+    const ratings = c.answers.filter(a => a.type === 'rating')
+    return {
+      adherence: ratings[0]?.value ?? null,
+      energy: ratings[1]?.value ?? null,
+      obstacles: null,
+      notes: c.answers.map(a => `${a.prompt}: ${formatAnswer(a)}`).join('\n'),
+    }
+  }
+  return { adherence: c.adherence_rating, energy: c.energy_level, obstacles: c.obstacles, notes: c.notes }
 }
 
 function ClientView({ profile }) {
@@ -813,12 +831,7 @@ async function addNoteEntry() {
             label: weekRange.label
           },
           weekData,
-          checkIn: checkInData ? {
-            adherence: checkInData.adherence_rating,
-            energy: checkInData.energy_level,
-            obstacles: checkInData.obstacles,
-            notes: checkInData.notes
-          } : null
+          checkIn: checkInPayload(checkInData)
         }),
       }
     )
@@ -951,12 +964,7 @@ async function addNoteEntry() {
           clientId,
           clientName: clientProfile?.full_name || 'Client',
           weekData,
-          checkIn: checkInData ? {
-            adherence: checkInData.adherence_rating,
-            energy: checkInData.energy_level,
-            obstacles: checkInData.obstacles,
-            notes: checkInData.notes
-          } : null,
+          checkIn: checkInPayload(checkInData),
           privateNotes: coachNotes,
           recentMessages: messagesData || [],
           signals
@@ -1695,27 +1703,42 @@ async function sendMessage(text) {
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-                <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
-                  <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+              {Array.isArray(clientCheckIn.answers) && clientCheckIn.answers.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {clientCheckIn.answers.map((a, i) => (
+                    <div key={a.question_id || i}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.prompt}</p>
+                      {a.type === 'text'
+                        ? <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{(a.value && String(a.value).trim()) ? a.value : '—'}</p>
+                        : <p style={{ fontWeight: 700, fontSize: '1.125rem' }}>{formatAnswer(a)}</p>}
+                    </div>
+                  ))}
                 </div>
-                <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Energy level</p>
-                  <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.energy_level}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
-                </div>
-              </div>
-              {clientCheckIn.obstacles && (
-                <div style={{ paddingTop: '4px' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
-                  <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
-                </div>
-              )}
-              {clientCheckIn.notes && (
-                <div style={{ paddingTop: '4px' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
-                  <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
-                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
+                      <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+                    </div>
+                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: '4px' }}>Energy level</p>
+                      <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{clientCheckIn.energy_level}<span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>/10</span></p>
+                    </div>
+                  </div>
+                  {clientCheckIn.obstacles && (
+                    <div style={{ paddingTop: '4px' }}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
+                      <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
+                    </div>
+                  )}
+                  {clientCheckIn.notes && (
+                    <div style={{ paddingTop: '4px' }}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
+                      <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
+                    </div>
+                  )}
+                </>
               )}
               <div style={{ paddingTop: '12px', marginTop: '4px', borderTop: '1px solid var(--color-border)' }}>
                 {clientCheckIn.reviewed_at ? (
