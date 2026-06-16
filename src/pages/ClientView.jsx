@@ -1294,6 +1294,10 @@ async function sendMessage(text) {
         })()}
       </div>
 
+      <div className="cv-shell">
+        <SectionRail sections={railSections} activeKey={activeSection} onJump={goToSection} />
+        <div className="cv-main">
+
       {/* AI Tools */}
       <div style={{ ...sectionCardStyle, gap: '16px' }}>
         <div
@@ -1376,9 +1380,6 @@ async function sendMessage(text) {
         {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
       </div>
 
-      <div className="cv-shell">
-        <SectionRail sections={railSections} activeKey={activeSection} onJump={goToSection} />
-        <div className="cv-main">
       <div id="section-stats" style={sectionCardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
