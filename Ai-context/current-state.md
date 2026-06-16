@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`3c6fba2 Merge polish/builder-drag: drag-grip reorder + config-preserving type switch`
+`510d220 feat(ui): design-system guardrail — block raw-hex color: on migrated pages`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,22 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Design-system layer — tokens + primitives + guardrail (Jun 16)** — Consolidated the styling debt (~340 ad-hoc font sizes across 20 sizes, ~160 raw hex, 13 duplicated style-objects in 9 files) onto a real token + primitive layer. **Mostly invisible (near-zero visual shift) — a maintainability + theme-safety win, not a redesign.**
+- **Tokens** (`index.css`): added `--color-success`/`--color-warning`/`--color-on-accent` (with light overrides) + `--text-base` (0.875rem). The existing token ramp is now the source of truth.
+- **Primitives** (`src/components/ui/`, barrel `ui/index.js`): `Card`, `Field`/`Textarea`/`Select`, `Pill`, `IconButton`, `Badge` (+ existing `Button`, `Modal`, `ConfirmDialog`, `StatCard`, `SectionHeader`, `Toast`, `EmptyState`). `Button` refactored onto tokens.
+- **All 5 main pages token-ized** (Log, CoachDashboard, Dashboard, ClientView, Profile): raw hex → semantic/metric tokens, small-text sizes → the `--text-xs/sm/base` ramp. **Deliberately LEFT literal** (can't resolve a CSS var): chart.js dataset colors, SVG `stroke=`/`fill=`, `--gw-accent` props, the streak gradient, the decorative blue check-in badge — those carry inline `eslint-disable` with reasons.
+- **Guardrail:** an ESLint `no-restricted-syntax` rule (error) scoped to the 5 pages — a raw hex as a `color:` value now fails lint (→ use a token). Extend its `files` list as more screens migrate. Remaining (optional): opinionated visual polish (uniform pills, density) — do with the user eyeballing. See `[[design-system]]` memory.
+
+**Diary + saved-meals polish, branded dialogs (Jun 16)** — A run of nutrition-UX fixes on `Log.jsx`:
+- **Saved meals** are now a **modal** (`Modal.jsx`, blurred backdrop tile, scrolls inside) opened by a "🍽 Saved meals (N)" button — no longer stretches the page. Inside: **rename** (✎ inline), **full macros** (P·C·F, not just cals/protein), **log into a chosen meal slot** (+Log → slot chips), delete.
+- **Save a logged meal as a saved meal** straight from the diary (a monochrome floppy/save SVG on each container).
+- **Full macros** (P·C·F) now show on every food row and meal container too.
+- **Group-as-meal guards:** blocked grouping items that already belong to **different** meals (no DB dup — pure in-place restamp); and grouping that would **pull an item out of an existing meal** now asks first via a branded **`ConfirmDialog`** (replaced raw `window.confirm`/`alert`).
+
+**Coach roster legend + actionable pill polish (Jun 16)** — The roster "i" tooltip is now a full "how to read a client card" guide (wider 300px bubble, `white-space: pre-line`); the "N check-ins to review" pill deep-links to the oldest waiting check-in (tinted-green CTA). Generic (non-example) wording for the check-in pill.
+
+**Landing page refreshed to match shipped features (Jun 16)** — Added 3 capability cards (Check-in cadence, Custom check-ins, 90-day adherence map → clean 3×3 grid) and updated the contrast row to "Check-ins you design — your cadence, your questions." `Landing.jsx` (always-dark `.lp`, excluded from tokenization).
 
 **Check-in questionnaire builder — Layer 2 (Jun 15, cont.)** — Coaches define their own check-in questions instead of the fixed adherence/energy/obstacles/notes form. **Per-coach** (applies to all their clients); backward compatible (no questions → clients see the exact legacy 4-field form).
 - New table **`checkin_questions`** (coach-owned: `prompt`, `type` ∈ rating/text/number/boolean/select, `config` jsonb, `required`, `position`, `archived`). RLS: coach full CRUD on own rows; a client may SELECT **only their ACTIVE coach's** questions (mirrors the active-only read pattern). New **`check_ins.answers` jsonb** snapshots `{question_id, prompt, type, config, value}` per answer so editing/archiving a question never corrupts past check-ins. Migration `20260616000000`. Explicit GRANTs.
@@ -297,6 +313,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 16** — Design + craft session (all frontend, all pushed straight to `main` → Vercel git-integration auto-deploys). (1) **Nutrition UX:** saved meals → modal, full P·C·F macros everywhere, log-into-slot, rename, save-meal-from-diary, group guards + branded `ConfirmDialog`/`Modal`. (2) **Design system:** Phase 1 (tokens + `ui/` primitives) + Phase 2 (all 5 pages token-ized) + an ESLint guardrail blocking raw-hex `color:`. Near-zero visual shift; charts/SVG/decorative kept literal. (3) **Landing** refreshed to advertise cadence + custom check-ins. **Key ops lesson (saved to `[[deploy-targets]]`):** Vercel auto-deploys on push to `main` — manual `vercel deploy` was triple-deploying and hit the **100-deploys/day** free-tier cap. Direct push to main works; stop running manual deploys.
 - **Jun 15 (cont. 2)** — Layer 2 coach cockpit: **configurable per-client check-in cadence** (`coach_clients.checkin_interval_weeks`, `checkinPeriod()` helper, migration `20260615060000`) and the **check-in questionnaire builder** (`checkin_questions` table + `check_ins.answers`, `CheckinBuilder` on Profile, dynamic client form + legacy fallback, migration `20260616000000`, `notify-checkin` redeployed). Both migrations applied to prod via a one-off `postgres:16` container bridged through the colima VM (the sandboxed host can't reach the pooler; the `@` in the DB password URL-encodes to `%40`). RLS harness run for the questionnaire (cross-tenant read) — 79 green. Plus builder polish (✓Saved, 640px cap, delete confirm, ⠿ drag-reorder, config-preserving type switch). 133 unit tests. This closes the two coach-cockpit items that were "remaining Layer 2."
 - **Jun 15 (cont.)** — Diary UX + coach-banner polish session (all frontend except the meal-container columns). Diary multi-select bulk actions (PR #8) and meal containers (`logged_meal_id`/`name`, migration `20260615050000`, PR #9), then in-place **group as meal**, a per-row **`⠿` move** chip menu, and **drag-and-drop between meal sections** (`@dnd-kit`, touch-safe). Coach roster banner: legend "i" now shows with one client; **"check-ins to review"** became an actionable pill deep-linking to the oldest waiting check-in. Widened `/log` + `/profile` to 1180px to match the dashboard. 9 merges to `main`, each deployed to prod. 114 unit tests. Shipped one-at-a-time on the user's "ship" cadence (branch → vercel prod → merge → delete branch).
 - **Jun 15** — Big session. (1) **Security/test foundation:** built a local-Supabase RLS+billing test harness (`tests/rls/`, Colima-backed), captured the prod schema baseline (`supabase/schema/prod_public.sql`), and fixed 3 live gaps it found — world-readable invitations (→ token-gated RPC), coach access to ex-clients' data (→ active-only policies), no unique on `subscriptions.solo_id`. (2) **Layer 1 (solo credibility):** coach roster triage rollup, meal grouping, saved meals, Complete Day. (3) **Layer 2:** check-in review queue (`review_checkin` RPC + guard trigger) and the client-notification loop (`notify-checkin-review`). 7 PRs (#1–#7), all merged + deployed to prod. Two recurring prod gotchas: pooler-created tables need explicit GRANTs; reload PostgREST schema cache after pooler DDL. Roadmap: Layer 1 done; Layer 2 review-queue done; remaining Layer-2 = check-in cadence + questionnaire builder. Constraint is still distribution (~1 active client) — features pursued as the solo on-ramp.

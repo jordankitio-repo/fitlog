@@ -44,11 +44,11 @@ Role is set on first login via RolePicker. New users (including OAuth) see RoleP
 - **React 19 + Vite** (JSX, no TypeScript)
 - **react-router-dom** for routing
 - **Chart.js** via react-chartjs-2 (Line, Bar, mixed Chart); `Filler` plugin registered in Dashboard.jsx and ClientView.jsx
-- Styling: **inline styles + CSS variables in `index.css`** (no Tailwind)
+- Styling: **inline styles + a CSS-variable design-system layer** (no Tailwind). Tokens in `index.css` (`--color-*` semantic + per-metric, `--space-*`, `--text-xs…xl` incl. `--text-base`, `--radius`, `--shadow-card`); primitives in **`src/components/ui/`** (`Card`, `Field`/`Textarea`/`Select`, `Pill`, `IconButton`, `Badge` + barrel) alongside `Button`/`Modal`/`ConfirmDialog`/`StatCard`/`SectionHeader`/`Toast`/`EmptyState`. All 5 main pages reference tokens (Jun 16). **Guardrail:** an ESLint `no-restricted-syntax` rule (scoped to those pages in `eslint.config.js`) errors on a raw hex used as a `color:` value. **Never tokenize** chart.js dataset colors / SVG `stroke`/`fill` / `--gw-accent` (canvas + SVG attrs can't read CSS vars) — those stay literal with an inline `eslint-disable`. (See `decisions.md` + `[[design-system]]` memory.)
 - **Theming:** dark default + light mode via tokenized CSS-variable ramp. `utils/theme.js` owns the `gardnr-theme` preference (`auto`|`light`|`dark`); resolved value on `<html data-theme>`; `:root[data-theme="light"]` flips the ramp; pre-paint inline script in `index.html`. Chart chrome uses theme-agnostic literals (`utils/chartTheme.js`) because canvas can't read CSS vars. (Full rationale in `decisions.md` → Design & UX.)
 - **Inter** font from Google Fonts; type scale via CSS vars (`--text-xl` … `--text-xs`)
 - **PWA:** `vite-plugin-pwa` (`registerType:'prompt'`, `injectRegister:false`) + service worker; `PWAUpdatePrompt` surfaces updates; build stamp (`__BUILD_TIME__` via Vite `define`) shown in Profile for cache diagnosis. Scrollbar chrome hidden in the installed app via `@media (display-mode: standalone)` (`index.css`).
-- Deployed on **Vercel** (project `gardnr`; `npx vercel --prod --project gardnr --yes` — direct deploy reliable, push hook intermittently no-ops)
+- Deployed on **Vercel** (project `gardnr`), **Git-integrated: push to `main` auto-deploys to Production** (branch push → Preview). **Don't run `vercel deploy` manually** — it stacks on top of the auto-deploy (triple-deploys per change) and burned the free-tier **100 deploys/day** cap on Jun 16. Just push to `main`. (Details in `[[deploy-targets]]`.)
 
 ### Backend
 - **Supabase** (Postgres + Auth + Edge Functions + Storage)

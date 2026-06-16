@@ -56,7 +56,7 @@ const pains = [
 const contrast = [
   { before: 'Screenshots and text threads', after: 'Daily nutrition, weight, cardio, and steps — all tied to the client' },
   { before: 'Manual weekly averages',       after: '7-day compliance across calories, protein, cardio, and steps' },
-  { before: 'Generic check-in questions',   after: "Reports and meeting prep grounded in the client's actual data" },
+  { before: 'Generic check-in questions',   after: 'Check-ins you design — your cadence, your questions, answered against real data' },
   { before: 'Guessing who needs attention', after: 'Dashboard sorted by compliance and last log' },
 ]
 
@@ -80,6 +80,9 @@ const capabilities = [
   { title: 'Meeting prep',         copy: 'A private brief of what changed since you last talked, so you walk into every check-in already up to speed.' },
   { title: 'Smart nudges',         copy: 'One tap sends a contextual email — a log reminder or a check-in — tailored to why they went quiet.' },
   { title: 'Weekly reports',       copy: "Drafted from the week's data in your voice. Review, edit, and send in a minute." },
+  { title: 'Check-in cadence',     copy: 'Set each client to weekly, biweekly, or a custom rhythm — the right pace for their phase, not one fixed schedule.' },
+  { title: 'Custom check-ins',     copy: 'Build the exact check-in questions you want answered — ratings, scales, free-text — instead of a one-size-fits-all form.' },
+  { title: '90-day adherence map', copy: 'Three months of compliance at a glance — every day, every metric, colored by target. Spot the drift before it becomes a plateau.' },
 ]
 
 const badgeLabels = { ready: 'Ready', watch: 'Watch', nudge: 'Nudge' }

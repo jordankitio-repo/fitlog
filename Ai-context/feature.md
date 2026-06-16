@@ -1,7 +1,12 @@
 Gardnr — Master Feature & Implementation List
-Last updated: June 15, 2026
+Last updated: June 16, 2026
 
-SHIPPED since (live in prod, Jun 15) — do NOT re-propose:
+SHIPPED since (live in prod, Jun 16) — do NOT re-propose:
+- **Design-system layer:** tokens + `src/components/ui/` primitives (Card/Field/Pill/IconButton/Badge) + an ESLint guardrail on raw-hex `color:`. All 5 main pages token-ized. (Remaining = optional opinionated visual polish.)
+- **Saved-meals modal** + **rename** + **full P·C·F macros** (rows/containers/saved meals) + **log-into-slot** + **save-meal-from-diary**; **branded ConfirmDialog/Modal** replacing window.confirm/alert; group-as-meal cross-meal + pull-out guards.
+- **Landing page** advertises cadence + custom check-ins (3×3 capability grid).
+
+SHIPPED earlier (live in prod, Jun 15) — do NOT re-propose:
 - Logging Consistency / Attention triage → coach **roster rollup** (`summarizeRoster`) + per-client badges. Roster banner's **"check-ins to review"** deep-links to the oldest waiting check-in.
 - **Meal grouping**, **Saved meals**, **Complete Day** (Layer 1 solo-completeness).
 - **Diary organization** (Layer 1, cont.): **meal containers** (`logged_meal_id` — a meal as an expandable, repeatable item that holds foods), multi-select **bulk actions**, **group-as-meal in place**, and **move/drag items between meal slots** (`⠿` grip → chip menu or `@dnd-kit` drag). Frontend + one additive migration.
