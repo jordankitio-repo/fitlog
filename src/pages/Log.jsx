@@ -95,6 +95,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [saveMealName, setSaveMealName] = useState('')
   const [savingMeal, setSavingMeal] = useState(false)
   const [loggingMealId, setLoggingMealId] = useState(null)
+  const [logPickId, setLogPickId] = useState(null)        // saved meal showing its meal-slot picker
+  const [editingSavedMealId, setEditingSavedMealId] = useState(null)
+  const [savedMealDraft, setSavedMealDraft] = useState('')
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [moveMenu, setMoveMenu] = useState(false)
@@ -336,12 +339,24 @@ function Log({ session, profile, hasSoloPremium = true }) {
     else moveEntryToMeal(item.entry.id, targetSlot)
   }
 
+  // How many distinct existing meal containers the selection spans (null ids =
+  // loose foods, ignored). >1 means the user picked items already belonging to
+  // different meals — grouping those would tear two meals apart, so we block it.
+  function selectedContainerIds(excludeId = null) {
+    const selected = entries.filter(e => selectedIds.has(e.id))
+    return new Set(selected.map(e => e.logged_meal_id).filter(id => id && id !== excludeId))
+  }
+
   // Group the selected (already-logged) entries into a NEW container in place —
   // no re-log. They cohere in one slot (the first selected item's).
   async function groupSelectedAsMeal() {
     const name = saveMealName.trim()
     const ids = [...selectedIds]
     if (!name || ids.length === 0) return
+    if (selectedContainerIds().size > 1) {
+      alert('These items already belong to different meals. Group items from a single meal (or loose items) at a time.')
+      return
+    }
     setSavingMeal(true)
     const first = entries.find(e => selectedIds.has(e.id))
     const { error } = await supabase.from('nutrition_log')
@@ -356,6 +371,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
   async function groupSelectedIntoMeal(container) {
     const ids = [...selectedIds]
     if (ids.length === 0) return
+    if (selectedContainerIds(container.id).size > 0) {
+      alert('Some selected items already belong to a different meal. Move those out first, or group within one meal.')
+      return
+    }
     const { error } = await supabase.from('nutrition_log')
       .update({ logged_meal_id: container.id, logged_meal_name: container.name, meal: container.entries[0]?.meal ?? null })
       .in('id', ids)
@@ -375,18 +394,18 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   // One-tap log: drop a saved meal's foods into the selected day + meal slot as
   // one expandable container (a logged meal).
-  async function logSavedMeal(m) {
+  async function logSavedMeal(m, mealKey) {
     setLoggingMealId(m.id)
     const { data: { session: cs } } = await supabase.auth.getSession()
     const { error } = await supabase.from('nutrition_log').insert(
       entriesFromItems(m.items, {
-        userId: cs.user.id, date: selectedDate, meal,
+        userId: cs.user.id, date: selectedDate, meal: mealKey === 'other' ? null : (mealKey || meal),
         loggedMealId: crypto.randomUUID(), loggedMealName: m.name,
       }),
     )
     if (error) console.error('Error logging saved meal:', error)
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
-    setLoggingMealId(null)
+    setLoggingMealId(null); setLogPickId(null)
   }
 
   // --- Logged meal containers (a meal logged into the diary as one item) ---
@@ -427,6 +446,15 @@ function Log({ session, profile, hasSoloPremium = true }) {
   async function deleteSavedMeal(id) {
     const { error } = await supabase.from('saved_meals').delete().eq('id', id)
     if (error) console.error('Error deleting saved meal:', error)
+    else fetchSavedMeals()
+  }
+
+  async function renameSavedMeal(id, name) {
+    const trimmed = name.trim()
+    setEditingSavedMealId(null)
+    if (!trimmed) return
+    const { error } = await supabase.from('saved_meals').update({ name: trimmed }).eq('id', id)
+    if (error) console.error('Error renaming saved meal:', error)
     else fetchSavedMeals()
   }
 
@@ -864,7 +892,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
             {entry.serving_size}{entry.serving_unit}
             {!hideCalories && ` · ${entry.calories} kcal`}
-            {entry.protein > 0 && ` · ${entry.protein}g protein`}
+            {` · ${entry.protein || 0}g P · ${entry.carbs || 0}g C · ${entry.fat || 0}g F`}
           </p>
         </div>
         {!selectMode && (
@@ -915,6 +943,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: '0.9rem' }}>🍽 {item.name}</p>
             <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--color-muted)' }}>
               {item.entries.length} item{item.entries.length === 1 ? '' : 's'}{!hideCalories ? ` · ${item.calories} kcal` : ''}
+              {(() => {
+                const p = item.entries.reduce((s, e) => s + (e.protein || 0), 0)
+                const c = item.entries.reduce((s, e) => s + (e.carbs || 0), 0)
+                const f = item.entries.reduce((s, e) => s + (e.fat || 0), 0)
+                return ` · ${p}g P · ${c}g C · ${f}g F`
+              })()}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
@@ -1120,22 +1154,33 @@ function Log({ session, profile, hasSoloPremium = true }) {
                   </div>
                 ) : groupMenu ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <input type="text" placeholder="New meal name" value={saveMealName} onChange={e => setSaveMealName(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '160px' }} />
-                      <Button onClick={groupSelectedAsMeal} variant="primary" size="sm" loading={savingMeal} disabled={!saveMealName.trim()}>Group as new meal</Button>
-                      <Button onClick={() => setGroupMenu(false)} variant="muted" size="sm">Back</Button>
-                    </div>
-                    {(() => {
-                      const containers = groupLoggedMeals(entries).filter(i => i.type === 'meal')
-                      return containers.length > 0 ? (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>or into:</span>
-                          {containers.map(c => (
-                            <button key={c.id} onClick={() => groupSelectedIntoMeal(c)} style={pillBtnStyle}>🍽 {c.name}</button>
-                          ))}
+                    {selectedContainerIds().size > 1 ? (
+                      <>
+                        <p style={{ fontSize: 'var(--text-xs)', color: '#f87171', margin: 0 }}>
+                          Selected items belong to different meals. Group items from a single meal (or loose items) at a time.
+                        </p>
+                        <div><Button onClick={() => setGroupMenu(false)} variant="muted" size="sm">Back</Button></div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <input type="text" placeholder="New meal name" value={saveMealName} onChange={e => setSaveMealName(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '160px' }} />
+                          <Button onClick={groupSelectedAsMeal} variant="primary" size="sm" loading={savingMeal} disabled={!saveMealName.trim()}>Group as new meal</Button>
+                          <Button onClick={() => setGroupMenu(false)} variant="muted" size="sm">Back</Button>
                         </div>
-                      ) : null
-                    })()}
+                        {(() => {
+                          const containers = groupLoggedMeals(entries).filter(i => i.type === 'meal')
+                          return containers.length > 0 ? (
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>or into:</span>
+                              {containers.map(c => (
+                                <button key={c.id} onClick={() => groupSelectedIntoMeal(c)} style={pillBtnStyle}>🍽 {c.name}</button>
+                              ))}
+                            </div>
+                          ) : null
+                        })()}
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1405,16 +1450,42 @@ function Log({ session, profile, hasSoloPremium = true }) {
             {savedMeals.map(m => {
               const t = mealTotals(m.items)
               const pending = loggingMealId === m.id
+              const editing = editingSavedMealId === m.id
+              const picking = logPickId === m.id
               return (
-                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '7px 10px' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', margin: '1px 0 0' }}>
-                      {m.items.length} item{m.items.length === 1 ? '' : 's'}{!hideCalories ? ` · ${t.calories} cal` : ''}{t.protein > 0 ? ` · ${t.protein}g P` : ''}
-                    </p>
+                <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '7px 10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {editing ? (
+                        <input
+                          autoFocus
+                          value={savedMealDraft}
+                          onChange={e => setSavedMealDraft(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') renameSavedMeal(m.id, savedMealDraft); if (e.key === 'Escape') setEditingSavedMealId(null) }}
+                          onBlur={() => renameSavedMeal(m.id, savedMealDraft)}
+                          style={{ ...inputStyle, fontSize: '0.8rem', padding: '4px 8px' }}
+                        />
+                      ) : (
+                        <p style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
+                      )}
+                      <p style={{ fontSize: '0.65rem', color: 'var(--color-muted)', margin: '1px 0 0' }}>
+                        {m.items.length} item{m.items.length === 1 ? '' : 's'}{!hideCalories ? ` · ${t.calories} cal` : ''} · {t.protein}g P · {t.carbs}g C · {t.fat}g F
+                      </p>
+                    </div>
+                    {!editing && (
+                      <button onClick={() => { setEditingSavedMealId(m.id); setSavedMealDraft(m.name) }} style={iconBtnStyle} title="Rename saved meal">✎</button>
+                    )}
+                    <button onClick={() => setLogPickId(picking ? null : m.id)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: picking ? 'var(--color-surface)' : 'var(--color-primary)', color: picking ? 'var(--color-text)' : '#fff', border: picking ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>{picking ? 'Cancel' : '+ Log'}</button>
+                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete saved meal">✕</button>
                   </div>
-                  <button onClick={() => logSavedMeal(m)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>+ Log</button>
-                  <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: '#f87171' }} title="Delete saved meal">✕</button>
+                  {picking && (
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '2px' }}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--color-muted)' }}>Log to:</span>
+                      {[...MEALS, { key: 'other', label: 'Other' }].map(s => (
+                        <button key={s.key} onClick={() => logSavedMeal(m, s.key)} style={{ ...pillBtnStyle, padding: '3px 9px', fontSize: '0.7rem' }}>{s.label}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
