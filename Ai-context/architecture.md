@@ -340,10 +340,19 @@ In-app: nudge banner (client Dashboard, dismissible per nudge timestamp); milest
 
 ### Notification center (`NotificationCenter.jsx`, in NavBar)
 A bell + dropdown, all **derived from existing tables — no notifications schema**. Carries two kinds of entry (model rationale in `decisions.md` → Design & UX):
-- **Recent (events)** — one-off: new check-in / client message (coach), new report / coach message (client), plus role-agnostic rows from the `notifications` table (e.g. `client_left`). Tracked by last-seen timestamp (`gardnr-notif-seen`), drop off once seen. Click deep-links via `?focus=` (`reports`/`chat`/`checkIn`/`checkin`) consumed by Dashboard/ClientView section-scroll effects + `ChatBubble`.
+- **Recent (events)** — one-off: new check-in / client message (coach), new report / coach message (client), plus role-agnostic rows from the `notifications` table (e.g. `client_left`). Tracked by last-seen timestamp (`gardnr-notif-seen`), drop off once seen. Click deep-links via `?focus=` (`reports`/`chat`/`checkIn`/`checkin`/`questionnaire`/…) consumed by the section-scroll effects on Dashboard/ClientView/**Profile** + `ChatBubble` (which owns `chat`). The same `?focus=` channel is what the section rails and the "Messages" rail item emit — see **Section rail** below.
 - **Needs attention (alerts)** — ongoing conditions that persist until they clear. Coach: per off-track client via `attentionLevel` (`utils/clientStats.js` → `computeClientStats`). Client: own action-items via `computeClientAlerts` (lock / coach-unlock / check-in due, Thu+ / coach-nudge until logged today). Badge counts *new* alerts + unseen events, clears on open; seen alert ids in `gardnr-notif-seen-alerts`.
 - **Freshness:** recomputes on mount, tab-refocus, and a `gardnr-notif-refresh` window event (`utils/notifyRefresh.js`) fired by nutrition saves/edits/deletes + check-in submit, so a same-page action clears the alert it resolves.
 - **`utils/clientStats.js`** is the single source of truth for per-client facts (days-since-log, this-week check-in, 7-day compliance, lock state), shared by the bell and `CoachDashboard` so they can't drift.
+
+### Section rail (`SectionRail.jsx` — ClientView + Profile)
+Sticky, **desktop-only** (`.cv-rail`, shown ≥1024px via the `.cv-shell` grid `200px minmax(0,1fr)`) in-page nav for the long, section-heavy pages. One presentational component, driven by props:
+- **Sections + order:** the page passes `sections=[{key,label}]` in **live render order**. ClientView builds it from `['stats', ...mergeOrder(cardOrder, presentReorderable)]` (present-only; mirrors the coach's saved `Reorderable` order so the rail never drifts from the page). Profile builds a static, **role-filtered** list (`show` flags). A leading `{key:'messages'}` item is prepended on both.
+- **Anchors:** every section's outer card has `id="section-<key>"`. The rail jumps by `getElementById('section-'+key).scrollIntoView` (a small retry loop covers async-mounted cards like `CheckinBuilder`); ClientView's `goToSection` also un-collapses the target first (Profile cards aren't collapsible).
+- **Scroll-spy:** an `IntersectionObserver` over `[id^="section-"]` (rootMargin `-88px 0px -65% 0px`) sets `activeSection`; the matching rail item gets `.is-active`. Re-runs when the rendered set changes (role/data deps).
+- **Messages item:** doesn't scroll — its jump handler sets `?focus=chat`, which the page's `ChatBubble` consumes (opens + clears the param). Shown only where a bubble exists (always on ClientView; Profile only for `role==='client'`).
+- **Icons:** a shared `ICONS` map (feather-style, keyed by section key) so the same concept reads the same on both rails; item is a flex row with a fixed 15px icon slot.
+- **Layout note:** `.cv-main` has a left divider + padding (Stripe/Vercel feel); ClientView's record is widened to **1560px** (`isExtraWide` in `App.jsx`) to fit rail + dense charts. Below 1024px the rail is hidden and content is a single column.
 
 ---
 
