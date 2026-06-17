@@ -290,9 +290,9 @@ All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsec
 ## Coach–Client System
 
 ### Invite flow
-1. Coach enters client email in CoachDashboard → sends invite (creates `invitations` row, Resend email)
-2. Client clicks link → `/join?token=xxx`
-3. Client signs up or logs in → `Join.jsx` sets `profiles.role = client`, creates `coach_clients` row
+1. Coach enters client email in CoachDashboard → creates `invitations` row, then `notify-invite` **emails the join link to that address** (Resend). The copyable link stays on screen as a fallback; a failed/unconfigured send never blocks inviting (Jun 16).
+2. Client clicks link → `/join?token=xxx`. `Join.jsx` validates via `get_invitation_by_token` (RPC) and personalizes with the inviting coach's name via `invite-info` ("<Coach> invited you to Gardnr").
+3. Client signs up or logs in → `Join.jsx` sets `profiles.role = client`, creates `coach_clients` row, then lands on `/` (the client first-run card guides the first log).
 4. Existing users see contextual "you're already a Gardnr user" messaging; existing data preserved
 
 ### Relationship
@@ -423,6 +423,8 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 | `notify-report` | coach + owns `clientId` | Email client when report sent. Recipient email derived server-side from `clientId` (not client-supplied). |
 | `notify-checkin` | client (caller) | Email coach on check-in. Coach + recipient derived server-side from caller's active relationship. |
 | `notify-checkin-review` | coach + owns `clientId` (Jun 15) | Email client when coach reviews their check-in (with the coach's comment). Clone of `notify-report`: active-coach verified, client email derived server-side, comment escaped. Called from `ClientView.reviewCheckIn`. |
+| `notify-invite` | coach + owns invitation (Jun 16) | Email the invite link to the entered address (Resend, on-brand). Caller passes `invitationId`; recipient + link derived from the row; caller must be the coach who owns it (no open relay). **Reads `invitations` as the *caller*, not service_role** — service_role lacks a SELECT grant on that table (`42501`); the row is world-readable by token (RLS `USING(true)`) and the ownership check gates the send. Called from `CoachDashboard.sendInvite` (best-effort; the copyable link is the fallback). |
+| `invite-info` | none (token is the credential) (Jun 16) | Public-safe invite details for the anon Join page: the inviting coach's name (profiles RLS hides it from anon), client email, account_exists. Validates the token via `get_invitation_by_token` (RPC, granted to anon), then reads the coach name via service_role. Best-effort — Join never blocks on it. |
 | `call-prep` | coach + owns `clientId` | AI call briefing (coach). Client passes `clientId`; fn verifies active coach↔client. |
 | `nudge-client` | coach | Nudge inactive client, 48hr cooldown |
 | `create-checkout-session` | user | Stripe checkout, 30-day trial, coach+solo branching |

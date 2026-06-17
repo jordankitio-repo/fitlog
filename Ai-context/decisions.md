@@ -87,6 +87,10 @@
 
 ## Pricing & Billing
 
+### Coach paywall OFF while pre-public (Jun 16 2026)
+**Reason:** Pre-public, the paywall is a stopper, not a revenue source — it blocks building and clean end-to-end testing (a coach without a subscription can't even reach the dashboard, which also made the coach views un-screenshottable for QA). At ~1 active coach there's nothing to protect yet; the priority is shipping and dogfooding, not charging.
+**Consequences:** `BILLING_ENABLED = false` in `App.jsx` no-ops both paywall gates (the `subLoading` guard + the no-subscription → `CoachPaywall` redirect), so any coach reaches the dashboard. **Subscriptions are still fetched and shown** (the Profile billing card, `SubscriptionManager`) — billing plumbing is intact and dormant, exactly like `SOLO_BILLING_ENABLED`. Stripe stays in live mode. **Flip back to `true` at public launch** to re-enable the paywall + trial gating. This mirrors the solo-billing-off pattern: gate flags, not deleted code, so it's a one-line revert.
+
 ### Founding coach rate locked forever at $19/mo
 **Reason:** Reward and retain the first coaches who validate the product; create urgency for early adoption.
 **Consequences:** Two live price IDs maintained (founding $19, standard $29). Founding price stays honored even after standard launches.
