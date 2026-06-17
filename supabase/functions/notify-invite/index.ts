@@ -53,10 +53,13 @@ Deno.serve(async (req) => {
     const user = await userRes.json()
     if (!user.id) return jsonResponse({ error: 'Unauthorized' }, 401)
 
-    // Load the invitation server-side and verify the caller owns it.
+    // Load the invitation and verify the caller owns it. Read as the caller
+    // (authenticated role) — invitations are world-readable by token and the
+    // `service_role` lacks a SELECT grant on this table; the ownership check
+    // below is what actually gates the send.
     const invRes = await fetch(
       `${supabaseUrl}/rest/v1/invitations?id=eq.${invitationId}&select=coach_id,client_email,token,account_exists`,
-      { headers: restHeaders },
+      { headers: { Authorization: `Bearer ${token}`, apikey: anonKey } },
     )
     const invRows = await invRes.json().catch(() => [])
     const invite = Array.isArray(invRows) ? invRows[0] : null
