@@ -1242,7 +1242,11 @@ async function sendMessage(text) {
 
   // The section rail's items, in the same live order the page renders (stats
   // pinned, then the coach's saved order via mergeOrder), present-only.
+  // Coach's per-chart visibility prefs (Profile → Charts). Stored on the coach's
+  // own profile.layout; hides the listed chart sections from every client view.
+  const hiddenCharts = profile?.layout?.hiddenCharts || []
   const presentReorderable = REORDERABLE_KEYS.filter(k => {
+    if (hiddenCharts.includes(k)) return false
     if (k === 'sentReports') return sentReports.length > 0
     if (k === 'correlatedChart') return weightHistory.length > 0 || calorieHistory.length > 0
     if (k === 'weightChart') return weightHistory.length > 1
@@ -1297,6 +1301,18 @@ async function sendMessage(text) {
       x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
       y: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } }
     }
+  }
+
+  // Compact options for the measurement small-multiples (no legend, short).
+  const miniChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    plugins: { legend: { display: false }, tooltip: chartOptions.plugins.tooltip },
+    scales: {
+      x: { ticks: { color: CHART.tick, maxTicksLimit: 4, font: { size: 9 } }, grid: { display: false } },
+      y: { ticks: { color: CHART.tick, maxTicksLimit: 4, font: { size: 9 } }, grid: { color: CHART.grid } },
+    },
   }
 
   return (
@@ -1988,7 +2004,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      {(weightHistory.length > 0 || calorieHistory.length > 0) && (
+      {!hiddenCharts.includes('correlatedChart') && (weightHistory.length > 0 || calorieHistory.length > 0) && (
         <div key="correlatedChart" id="section-correlatedChart" style={sectionCardStyle}>
           <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
             {!sectionsCollapsed.correlatedChart && (
@@ -2007,7 +2023,7 @@ async function sendMessage(text) {
         </div>
       )}
 
-      {weightHistory.length > 1 && (
+      {!hiddenCharts.includes('weightChart') && weightHistory.length > 1 && (
         <div key="weightChart" id="section-weightChart" style={sectionCardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
             {!sectionsCollapsed.weightChart && (
@@ -2043,7 +2059,7 @@ async function sendMessage(text) {
         </div>
       )}
 
-      {calorieHistory.length > 0 && (
+      {!hiddenCharts.includes('calorieChart') && calorieHistory.length > 0 && (
         <div key="calorieChart" id="section-calorieChart" style={sectionCardStyle}>
           <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
@@ -2053,7 +2069,7 @@ async function sendMessage(text) {
         </div>
       )}
 
-      {cardioHistory.length > 0 && (
+      {!hiddenCharts.includes('cardioChart') && cardioHistory.length > 0 && (
         <div key="cardioChart" id="section-cardioChart" style={sectionCardStyle}>
           <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
@@ -2063,7 +2079,7 @@ async function sendMessage(text) {
         </div>
       )}
 
-      {stepsHistory.length > 0 && (
+      {!hiddenCharts.includes('stepsChart') && stepsHistory.length > 0 && (
         <div key="stepsChart" id="section-stepsChart" style={sectionCardStyle}>
           <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
@@ -2073,7 +2089,7 @@ async function sendMessage(text) {
         </div>
       )}
 
-      {measHistory.length > 0 && (
+      {!hiddenCharts.includes('measurements') && measHistory.length > 0 && (
         <div key="measurements" id="section-measurements" style={sectionCardStyle}>
           <SectionHeader title="Body measurements" collapsed={sectionsCollapsed.measurements} onToggle={() => toggleSection('measurements')}>
             {(() => {
@@ -2105,6 +2121,30 @@ async function sendMessage(text) {
                       )
                     })}
                   </div>
+                  {/* Trend small-multiples: one line chart per site (≥2 points),
+                      all equal-sized in one responsive grid. */}
+                  {(() => {
+                    const trendSites = MEASUREMENT_SITES.filter(s => measHistory.filter(r => r[s.key] != null).length >= 2)
+                    if (!trendSites.length) return null
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                        {trendSites.map(s => {
+                          const pts = measHistory.filter(r => r[s.key] != null)
+                          return (
+                            <div key={s.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px' }}>
+                              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 6px' }}>{s.label} <span style={{ color: 'var(--color-faint)' }}>({unit})</span></p>
+                              <div style={{ height: '150px' }}>
+                                <Line
+                                  data={{ labels: pts.map(r => r.logged_date.slice(5)), datasets: [{ label: s.label, data: pts.map(r => r[s.key]), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.12)', pointRadius: 3, tension: 0.3, fill: true }] }}
+                                  options={miniChartOptions}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
                 </>
               )
             })()}

@@ -17,6 +17,17 @@ import TargetCalculator from '../components/TargetCalculator'
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
 
+// Coach-controlled chart visibility on the client record (keys match ClientView
+// REORDERABLE_KEYS). Stored as profiles.layout.hiddenCharts; absent = all shown.
+const CHART_TOGGLES = [
+  { key: 'correlatedChart', label: 'Progress overview' },
+  { key: 'weightChart', label: 'Weight trend' },
+  { key: 'calorieChart', label: 'Calories' },
+  { key: 'cardioChart', label: 'Cardio' },
+  { key: 'stepsChart', label: 'Steps' },
+  { key: 'measurements', label: 'Body measurements' },
+]
+
 function Profile({ session, profile, subscription, soloSubscription, onProfileUpdate }) {
   const soloSubActive =
     !!soloSubscription &&
@@ -43,6 +54,20 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [passwordStatus, setPasswordStatus] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showTargetCalc, setShowTargetCalc] = useState(false)
+  const [hiddenCharts, setHiddenCharts] = useState(profile?.layout?.hiddenCharts || [])
+
+  // Coach toggles which charts show on their clients' records (persisted to
+  // profiles.layout.hiddenCharts; ClientView reads it). All shown by default.
+  async function toggleChart(key) {
+    const next = hiddenCharts.includes(key) ? hiddenCharts.filter(k => k !== key) : [...hiddenCharts, key]
+    setHiddenCharts(next)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ layout: { ...(profile?.layout || {}), hiddenCharts: next } })
+      .eq('id', session.user.id)
+    if (error) { console.error('Error saving chart prefs:', error); return }
+    onProfileUpdate?.()
+  }
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [notice, setNotice] = useState(null)
@@ -226,6 +251,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     { key: 'appearance', label: 'Appearance', show: true },
     { key: 'targets', label: 'Daily targets', show: profile?.role !== 'coach' },
     { key: 'questionnaire', label: 'Check-in questions', show: profile?.role === 'coach' },
+    { key: 'charts', label: 'Charts', show: profile?.role === 'coach' },
     { key: 'billing', label: 'Billing', show: profile?.role === 'coach' },
     { key: 'soloBilling', label: 'Solo Premium', show: profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) },
     { key: 'security', label: 'Security', show: true },
@@ -505,6 +531,32 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         <div id="section-questionnaire" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2>Check-in questionnaire</h2>
           <CheckinBuilder coachId={profile.id} />
+        </div>
+      )}
+
+      {profile?.role === 'coach' && (
+        <div id="section-charts" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <h2>Charts</h2>
+          <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px', color: 'var(--color-muted)' }}>
+            Choose which charts appear on your clients' records. All shown by default.
+          </p>
+          {CHART_TOGGLES.map(c => {
+            const shown = !hiddenCharts.includes(c.key)
+            return (
+              <div key={c.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{c.label}</span>
+                <button
+                  type="button"
+                  onClick={() => toggleChart(c.key)}
+                  aria-pressed={shown}
+                  aria-label={`${c.label} chart`}
+                  style={{ width: '44px', height: '24px', borderRadius: '999px', border: 'none', backgroundColor: shown ? 'var(--color-primary)' : 'var(--color-border)', cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}
+                >
+                  <span style={{ position: 'absolute', top: '2px', left: shown ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'var(--color-on-accent)', transition: 'left 0.2s' }} />
+                </button>
+              </div>
+            )
+          })}
         </div>
       )}
 
