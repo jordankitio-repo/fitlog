@@ -473,12 +473,15 @@ button, a, input, select, textarea {
    so the selected item keeps its highlight while hovered. */
 .cv-rail-item {
   width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; gap: 10px;
   background: transparent; border: none; border-left: 2px solid transparent;
   color: var(--color-muted); padding: 8px 12px;
   border-radius: 0 var(--radius) var(--radius) 0;
   font-size: var(--text-sm); font-weight: 500;
   transition: color 0.12s ease, background-color 0.12s ease;
 }
+.cv-rail-item svg { flex-shrink: 0; opacity: 0.85; }
+.cv-rail-item.is-active svg { opacity: 1; }
 .cv-rail-item:hover { background: var(--color-surface-2); color: var(--color-text); }
 .cv-rail-item.is-active {
   background: var(--color-primary-dim); border-left-color: var(--color-primary);
