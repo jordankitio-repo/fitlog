@@ -1289,6 +1289,28 @@ async function sendMessage(text) {
         <div style={{ flex: 1, minWidth: '180px' }}>
           <h1>{clientProfile?.full_name || 'Client'}</h1>
           <p style={{ fontSize: 'var(--text-base)', marginTop: '2px' }}>{clientProfile?.email}</p>
+          {/* At-a-glance triage status (same engine as the roster), as a tinted
+              status pill — matches the Locked pill + roster treatment. Lock is
+              filtered out here since it has its own detailed pill below. */}
+          {statusStats && (() => {
+            const status = attentionLevel({ ...statusStats, lockInfo })
+            const reasons = status.reasons.filter(r => r !== 'Locked')
+            if (status.level !== 'green' && reasons.length === 0) return null
+            const tone = status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)'
+            return (
+              <div style={{ marginTop: '10px' }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '7px',
+                  fontSize: 'var(--text-sm)', fontWeight: 600, padding: '4px 12px', borderRadius: '999px',
+                  backgroundColor: status.level === 'green' ? 'var(--color-bg)' : `color-mix(in srgb, ${tone} 15%, transparent)`,
+                  border: `1px solid ${tone}`, color: tone,
+                }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '999px', backgroundColor: tone }} />
+                  {status.level === 'green' ? 'On track' : reasons.join(' · ')}
+                </span>
+              </div>
+            )
+          })()}
           {lockInfo.locked && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
               <span style={{
@@ -1328,24 +1350,6 @@ async function sendMessage(text) {
       <div className="cv-shell">
         <SectionRail sections={railSections} activeKey={activeSection} onJump={handleRailJump} />
         <div className="cv-main">
-
-      {/* At-a-glance status — the roster's triage verdict (one brain) surfaced on
-          the client page, so the coach sees where they stand on open. Lock state
-          layered in from ClientView's own lockInfo. */}
-      {statusStats && (() => {
-        const status = attentionLevel({ ...statusStats, lockInfo })
-        const tone = status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)'
-        const heading = status.level === 'red' ? 'Needs attention' : status.level === 'yellow' ? 'Worth a look' : 'On track'
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderLeft: `4px solid ${tone}`, borderRadius: 'var(--radius)', padding: '14px 18px' }}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', backgroundColor: tone, flexShrink: 0 }} />
-            <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{heading}</span>
-            {status.reasons.length > 0 && (
-              <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>· {status.reasons.join(' · ')}</span>
-            )}
-          </div>
-        )
-      })()}
 
       {/* AI Tools */}
       <div style={{ ...sectionCardStyle, gap: '16px' }}>
