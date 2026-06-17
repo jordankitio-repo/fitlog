@@ -1219,7 +1219,22 @@ async function sendMessage(text) {
     if (k === 'stepsChart') return stepsHistory.length > 0
     return true
   })
-  const railSections = ['stats', ...mergeOrder(cardOrder, presentReorderable)].map(key => ({ key, label: SECTION_LABELS[key] }))
+  const railSections = [
+    { key: 'messages', label: 'Messages' },
+    ...['stats', ...mergeOrder(cardOrder, presentReorderable)].map(key => ({ key, label: SECTION_LABELS[key] })),
+  ]
+
+  // Rail clicks: the "Messages" item opens the chat bubble (which listens for
+  // ?focus=chat); everything else scrolls to its section.
+  function handleRailJump(key) {
+    if (key === 'messages') {
+      const sp = new URLSearchParams(searchParams)
+      sp.set('focus', 'chat')
+      setSearchParams(sp, { replace: true })
+      return
+    }
+    goToSection(key)
+  }
 
   const chartOptions = {
     responsive: true,
@@ -1297,7 +1312,7 @@ async function sendMessage(text) {
       </div>
 
       <div className="cv-shell">
-        <SectionRail sections={railSections} activeKey={activeSection} onJump={goToSection} />
+        <SectionRail sections={railSections} activeKey={activeSection} onJump={handleRailJump} />
         <div className="cv-main">
 
       {/* AI Tools */}

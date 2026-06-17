@@ -217,6 +217,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // The rail mirrors which cards actually render for this role, in order. Other
   // pages deep-link here with ?focus=<key> (e.g. ClientView → questionnaire).
   const railSections = [
+    // Clients can message their coach via the app-level chat bubble; coaches and
+    // solo users have no bubble on this page, so no Messages entry for them.
+    { key: 'messages', label: 'Messages', show: profile?.role === 'client' },
     { key: 'account', label: 'Account', show: true },
     { key: 'appearance', label: 'Appearance', show: true },
     { key: 'targets', label: 'Daily targets', show: profile?.role !== 'coach' },
@@ -239,11 +242,24 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     requestAnimationFrame(() => setTimeout(scroll, 80))
   }
 
+  // Rail clicks: "Messages" opens the client's chat bubble (it listens for
+  // ?focus=chat); everything else scrolls to its section.
+  function handleRailJump(key) {
+    if (key === 'messages') {
+      const sp = new URLSearchParams(searchParams)
+      sp.set('focus', 'chat')
+      setSearchParams(sp, { replace: true })
+      return
+    }
+    goToSection(key)
+  }
+
   // Deep-link from another page (?focus=questionnaire etc.): scroll to it once,
-  // then strip the param so a refresh doesn't re-jump.
+  // then strip the param so a refresh doesn't re-jump. 'chat' is owned by the
+  // ClientChat bubble (it opens + clears the param), so leave it alone here.
   useEffect(() => {
     const focus = searchParams.get('focus')
-    if (!focus) return
+    if (!focus || focus === 'chat') return
     goToSection(focus)
     const sp = new URLSearchParams(searchParams)
     sp.delete('focus')
@@ -268,7 +284,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div className="cv-shell">
-        <SectionRail sections={railSections} activeKey={activeSection} onJump={goToSection} label="Settings" />
+        <SectionRail sections={railSections} activeKey={activeSection} onJump={handleRailJump} label="Settings" />
         <div className="cv-main">
       <h1 style={{ margin: 0 }}>Profile</h1>
 
