@@ -92,6 +92,7 @@ function CoachDashboard({ profile }) {
   const [inviteError, setInviteError] = useState('')
   const [soloAccountDetected, setSoloAccountDetected] = useState(false)
   const [pendingInviteEmail, setPendingInviteEmail] = useState('')
+  const [inviteEmailedTo, setInviteEmailedTo] = useState('') // address the invite email reached, or ''
   const inviteInputRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [nudgeLoadingIds, setNudgeLoadingIds] = useState({})
@@ -189,6 +190,7 @@ function CoachDashboard({ profile }) {
     setInviteError('')
     setSoloAccountDetected(false)
     setPendingInviteEmail('')
+    setInviteEmailedTo('')
 
     // Check if the email already has an account via a SECURITY DEFINER RPC —
     // profiles RLS hides other users' rows from the coach, so a direct read
@@ -263,6 +265,21 @@ function CoachDashboard({ profile }) {
       setInviteEmail('')
       setSoloAccountDetected(false)
       setPendingInviteEmail('')
+
+      // Email the link straight to the client. The link stays on screen as a
+      // fallback, so a failed/unconfigured email never blocks inviting.
+      try {
+        const { data: res, error: fnError } = await supabase.functions.invoke('notify-invite', {
+          body: { invitationId: data.id },
+        })
+        if (fnError || !res?.success) throw fnError || new Error('send failed')
+        setInviteEmailedTo(email)
+        setToast({ message: `Invite emailed to ${email}`, type: 'success' })
+      } catch (err) {
+        console.error('notify-invite failed:', err)
+        setInviteEmailedTo('')
+        setToast({ message: "Couldn't email the invite — copy the link below to share it.", type: 'error' })
+      }
     }
   }
 
@@ -613,14 +630,24 @@ function CoachDashboard({ profile }) {
           <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)' }}>{inviteError}</p>
         )}
         {inviteLink && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', wordBreak: 'break-all' }}>{inviteLink}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {inviteEmailedTo && (
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 600, margin: 0 }}>
+                ✓ Invite emailed to {inviteEmailedTo}
+              </p>
+            )}
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>
+              {inviteEmailedTo ? 'Or share this link directly:' : 'Share this invite link:'}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', wordBreak: 'break-all', margin: 0 }}>{inviteLink}</p>
             <button
               onClick={() => navigator.clipboard.writeText(inviteLink)}
               style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-sm)', color: 'var(--color-text)', whiteSpace: 'nowrap' }}
             >
               Copy
             </button>
+            </div>
           </div>
         )}
       </div>
