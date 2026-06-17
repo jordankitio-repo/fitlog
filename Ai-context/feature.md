@@ -1,6 +1,11 @@
 Gardnr — Master Feature & Implementation List
 Last updated: June 16, 2026
 
+SHIPPED since (live in prod, Jun 17) — do NOT re-propose:
+- **Onboarding target calculator (#30)** + **body measurements (#27)** + **measurement trend charts** + **Profile→Charts visibility toggles** + chart **empty-state hints** + ClientView **status pill**. (See Tier 2 table + current-state.md.)
+- **Funnel/activation (Jun 16):** first-run/empty states, surfaced silent write errors (Toast), **invite email** (`notify-invite`) + **Join names the coach** (`invite-info`), roster skeleton, modal focus-trap a11y. Coach **paywall OFF** pre-public (`BILLING_ENABLED=false`).
+- **IA pass (Jun 16):** section rails (ClientView + Profile) + cross-page `?focus=` deep-linking + shared rail icons.
+
 SHIPPED since (live in prod, Jun 16) — do NOT re-propose:
 - **Design-system layer:** tokens + `src/components/ui/` primitives (Card/Field/Pill/IconButton/Badge) + an ESLint guardrail on raw-hex `color:`. All 5 main pages token-ized. (Remaining = optional opinionated visual polish.)
 - **Saved-meals modal** + **rename** + **full P·C·F macros** (rows/containers/saved meals) + **log-into-slot** + **save-meal-from-diary**; **branded ConfirmDialog/Modal** replacing window.confirm/alert; group-as-meal cross-meal + pull-out guards.
@@ -273,16 +278,16 @@ Feature
 Notes
 30
 Structured client onboarding assessment
-Form → pre-populated targets. Reduces new coach-client friction
+✅ SHIPPED (Jun 17) — TargetCalculator + utils/targetEstimate (Mifflin–St Jeor / optional Katch–McArdle, goal weight + pace, honest timeline). On ClientView Targets (coach) + Profile Daily targets (solo)
 27
 Body measurements tracking
-New table. Waist/hips/arms. High value for body recomp clients
+✅ SHIPPED (Jun 17) — body_measurements table (neck/chest/waist/hips/arm/thigh), Log entry section, ClientView card (latest + change + per-site trend charts in one tile), Profile→Charts visibility toggle
 2
 Rate of weight change alerts
-Weekly pace calculation. Alert if outside safe range. Edge function
+Largely covered by coach-side energyBalanceRead (weight-rate + trajectory, goal-aware); only a roster-level alert is net-new
 29
 Auto-generated shareable PDF report card
-PDF generation. High marketing value — clients share results
+PDF generation. High marketing value — clients share results. Ships without a DB migration — strongest remaining no-infra candidate
 
 
 🔵 Tier 3 — High impact, higher effort or new infrastructure

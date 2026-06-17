@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`be77e2b test(harness): add shoot-clientview for coach-view QA on the local stack`
+`0fd63c3 feat(ClientView): enhance empty state messages for chart sections`
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -23,6 +23,14 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Body composition + charts — Layer 3 (Jun 17)** — Rounded out the "nutrition + body composition" positioning.
+- **Target calculator / onboarding assessment (Tier 2 #30)** — `TargetCalculator.jsx` + pure `utils/targetEstimate.js` (13 tests): stats → suggested daily macros via **Mifflin–St Jeor** BMR × activity × a **goal-weight + pace** deficit/surplus (rate-based, ~7700 kcal/kg — not a flat %), protein on **goal weight** (or **lean mass** if an optional **body-fat % → Katch–McArdle** is given), fat 25%/floor, carbs remainder. Floors at BMR; surfaces maintenance + weekly rate + **honest weeks-to-goal** ("at this rate; slows as you lighten"). Wired into ClientView Targets (coach) + Profile Daily targets (solo). Standard intake math on self-reported stats — distinct from the logged-data `energyBalanceRead` (see decisions.md). `9921771`→`b7171d5`.
+- **Body measurements (Tier 2 #27)** — `body_measurements` table (one row/date; neck/chest/waist/hips/arm/thigh; in/cm; owner-manages + coach-read-active RLS + grants, mirrors `day_complete`; migration `20260617000000`, applied to prod). **Log** has a Measurements section (date-keyed upsert, matches Weight/Steps); **ClientView** has a "Body measurements" card = latest per site + **neutral change-since-first** (no good/bad coloring) + a one-tile grid of per-site **trend line charts**. `2cbcc7b`, `53122b5`.
+- **Per-chart visibility toggles** — **Profile → Charts** (coach) toggles every client-record chart (Progress/Weight/Calories/Cardio/Steps/Measurements), all on by default, persisted to **`profiles.layout.hiddenCharts`** (no migration). ClientView hides both the section + rail entry for toggled-off charts. `53122b5`.
+- **Charts always render w/ empty-state hints** — chart tiles no longer vanish when a client has no data (coach couldn't tell features existed); they show a "No X yet" hint and stay collapsible + draggable + rail-listed. `fe1a7cc`, `0fd63c3`.
+- **At-a-glance client status** — a tinted **status pill** under the client's name on ClientView (reuses `computeClientStats` + `attentionLevel` — the roster's one brain). `4a2f042`, `5c922b9`.
+- **Polish:** Profile widened to ClientView's 1560px; rail glyphs for Charts + Measurements; rail label "Settings"→"Profile"; **Enter submits the login form**; first-run welcome + coach-nudge cards de-AI'd → clean cards with a subtle uniform `--color-primary-dim` tint (never a colored left-edge — see `[[design-system]]`). `0a6958d`, `9c31192`→`39bdd71`.
 
 **Coach paywall OFF — pre-public (Jun 16, cont. 2)** — `BILLING_ENABLED = false` in `App.jsx`: both paywall gates (the `subLoading` guard + the no-subscription redirect to `CoachPaywall`) no-op, so a coach without a subscription reaches the dashboard. Build-without-stoppers + clean testing while pre-public; subscriptions are still fetched/shown but don't gate access. Re-enable (`true`) at public launch. `b451ce6`.
 
@@ -316,12 +324,13 @@ Parts 2–4 coach offboarding — tested end-to-end after full function redeploy
 ## Next Planned Features (Tier 2)
 
 Source of truth is `features.md`. Top of the Tier 2 queue:
-1. Structured client onboarding assessment (form → pre-populated targets)
-2. Body measurements tracking (new table: waist/hips/arms)
-3. Rate-of-weight-change alerts (weekly pace, safe-range edge fn)
-4. Auto-generated shareable PDF report card
+1. ~~Structured client onboarding assessment~~ ✅ SHIPPED Jun 17 (the target calculator).
+2. ~~Body measurements tracking~~ ✅ SHIPPED Jun 17 (`body_measurements` + Log entry + ClientView card/charts).
+3. Rate-of-weight-change alerts (weekly pace, safe-range) — **largely covered already** by the coach-facing `energyBalanceRead` (weight-rate + trajectory, goal-aware); only a roster-level *alert* would be net-new.
+4. Auto-generated shareable PDF report card — **ships without a DB migration; distribution-relevant** (clients share results). Strongest remaining no-infra candidate.
+5. Progress photos (#26) — needs Supabase **Storage** + a table (migration).
 
-Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score** — logging consistency, target deviation, weight-trend reliability, check-in status → Ready / Needs review / At risk.
+Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score** — but note the per-client triage (`attentionLevel`) + roster rollup (`summarizeRoster`) + the new ClientView status pill already deliver a Ready/Watch/At-risk read; a fuller scored package is mostly synthesis of existing signals (no fabricated numbers — see decisions.md).
 
 ---
 
@@ -334,6 +343,7 @@ Strong candidate package (from metrics roadmap): **Client Readiness + Risk Score
 
 ## Session Log (brief — newest first)
 
+- **Jun 17** — Layer-3 body-composition + charts session (mostly frontend; one DB migration). Built the **target calculator** (Mifflin–St Jeor → macros) and iterated the math hard against the user's review — added **goal weight + pace** (rate-based deficit, not flat %), **goal-weight/lean-mass protein**, and an **honest weeks-to-goal**, plus optional **body-fat → Katch–McArdle**. Then **body measurements** (new `body_measurements` table — migration applied to **prod** via the colima+docker+psql path using a one-shot `.db-url.local` the user provided, then deleted; verified end-to-end on prod with throwaway accounts), **measurement trend graphs** (one tile), a **Profile → Charts** visibility-toggle panel (`profiles.layout.hiddenCharts`), and **empty-state hints** so chart tiles are discoverable. Plus a per-client **status pill** on ClientView (reuses the roster triage brain). Several **design corrections from the user**: emoji→SVG glyph, status banner→tinted pill, missing rail glyphs (Charts, Measurements), "Settings"→"Profile" rail label, Enter-to-login, and the **colored-left-edge "AI look"** on the welcome/nudge cards → clean cards with a subtle uniform tint. **Sharpened `[[design-system]]` memory** with the left-edge anti-pattern (it recurred 3×). Commits `9921771`→`0fd63c3`.
 - **Jun 16 (cont. 2)** — "What am I missing on FE/design/org?" → grounded audit, then a prioritized list tackled one-by-one (the high-value tier). Shipped: **first-run/empty states** (Dashboard welcome, Log empty-diary, coach roster "Add your first client"), **surfaced ~20 silent write failures** via Toast (the trust win on the core loop), **roster skeleton**, **chat-FAB clearance**, **`useFocusTrap`** a11y for modals, and a **rhythm pass** (2 solo nits; verified coach views clean via the seeded local stack). Then **invite email** (`notify-invite` Resend fn — debugged a `42501` service_role grant gap on `invitations`, fixed by reading as the caller) and **Join page names the coach** (`invite-info` fn) to close the funnel. Finally **turned the coach paywall OFF** (`BILLING_ENABLED=false`) to build without stoppers + test cleanly pre-public. Brought up the local seeded stack (colima + supabase + `seed-demo-roster`, dev repointed via a gitignored `.env.local`) to screenshot the populated coach views — then tore it back down. New QA harnesses: `shoot-join`, `shoot-rhythm`, `shoot-clientview`, `shoot-mobile-coach`. Commits `4530171`→`be77e2b`. Parked: coach consolidated inbox (premature at ~1 client).
 - **Jun 16 (cont.)** — IA pass (all frontend, pushed straight to `main`). User showed Vercel/Stripe layouts, said the app "seems a little disorganised" → built a sticky **section rail** (`SectionRail.jsx`) on **ClientView** (live-ordered, scroll-spy, click-to-jump, full-height divider, record widened to 1560px) and then on **Profile** (`label="Settings"`, role-aware). Added **cross-page section deep-linking** (`/profile?focus=<key>`) and wired the check-in **"Customize questions →"** to jump to the questionnaire. Consolidated check-in config (cadence moved out of "Targets" into the **Check-in** section). Added a **"Messages"** rail item that opens the chat bubble via `?focus=chat`. Then, per user ("if you're gonna add a glyph to Messages, add glyphs to the rest — I need consistency"), gave **every rail item a shared feather-style icon**. Alignment was iterated several times against the user's eye (shared left edge, name alignment, negative space → 1560px, vertical divider, hover highlight). Commits `067bcb6`→`f8e4662`. No schema, no tests (frontend). Reaffirmed: push-to-main auto-deploys, no manual `vercel deploy`.
 - **Jun 16** — Design + craft session (all frontend, all pushed straight to `main` → Vercel git-integration auto-deploys). (1) **Nutrition UX:** saved meals → modal, full P·C·F macros everywhere, log-into-slot, rename, save-meal-from-diary, group guards + branded `ConfirmDialog`/`Modal`. (2) **Design system:** Phase 1 (tokens + `ui/` primitives) + Phase 2 (all 5 pages token-ized) + an ESLint guardrail blocking raw-hex `color:`. Near-zero visual shift; charts/SVG/decorative kept literal. (3) **Landing** refreshed to advertise cadence + custom check-ins. **Key ops lesson (saved to `[[deploy-targets]]`):** Vercel auto-deploys on push to `main` — manual `vercel deploy` was triple-deploying and hit the **100-deploys/day** free-tier cap. Direct push to main works; stop running manual deploys.

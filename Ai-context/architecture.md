@@ -197,6 +197,11 @@ supabase/
 - `(user_id, logged_date)` PK, `completed_at`. A present row = the client marked that day's logging complete (coach trust signal: real low day vs under-reporting).
 - RLS: owner manages (FOR ALL); coach SELECT for **active** clients only (mirrors the per-client data tables). GRANT CRUD to anon+authenticated.
 
+**body_measurements** (migration `20260617000000`, Jun 17)
+- `(user_id, logged_date)` PK, `unit` ('in'/'cm'), nullable site columns `neck/chest/waist/hips/arm/thigh`, `created_at`. One row per date (upsert), like steps. Tape measurements for the body-composition layer; neck/waist/hips also set up a future Navy body-fat estimate.
+- RLS: owner manages (FOR ALL); coach SELECT for **active** clients only. GRANT CRUD to anon+authenticated. (Mirrors `day_complete` exactly.)
+- UI: Log "Measurements" section (client/solo entry); ClientView "Body measurements" card = latest per site + change-since-first + a one-tile grid of per-site trend Line charts. Sites list duplicated as `MEASUREMENT_SITES` in Log.jsx + ClientView.jsx (keep in sync with the columns).
+
 **RPC `review_checkin(p_id uuid, p_comment text)`** (SECURITY DEFINER, migration `20260615040000`)
 - Sets `check_ins.reviewed_at`/`coach_comment`, only when `auth.uid()` is the check-in client's **active** coach; granted to `authenticated`. The only sanctioned way to review — the `guard_checkin_review` trigger blocks direct writes to those fields.
 
@@ -351,8 +356,14 @@ Sticky, **desktop-only** (`.cv-rail`, shown ≥1024px via the `.cv-shell` grid `
 - **Anchors:** every section's outer card has `id="section-<key>"`. The rail jumps by `getElementById('section-'+key).scrollIntoView` (a small retry loop covers async-mounted cards like `CheckinBuilder`); ClientView's `goToSection` also un-collapses the target first (Profile cards aren't collapsible).
 - **Scroll-spy:** an `IntersectionObserver` over `[id^="section-"]` (rootMargin `-88px 0px -65% 0px`) sets `activeSection`; the matching rail item gets `.is-active`. Re-runs when the rendered set changes (role/data deps).
 - **Messages item:** doesn't scroll — its jump handler sets `?focus=chat`, which the page's `ChatBubble` consumes (opens + clears the param). Shown only where a bubble exists (always on ClientView; Profile only for `role==='client'`).
-- **Icons:** a shared `ICONS` map (feather-style, keyed by section key) so the same concept reads the same on both rails; item is a flex row with a fixed 15px icon slot.
-- **Layout note:** `.cv-main` has a left divider + padding (Stripe/Vercel feel); ClientView's record is widened to **1560px** (`isExtraWide` in `App.jsx`) to fit rail + dense charts. Below 1024px the rail is hidden and content is a single column.
+- **Icons:** a shared `ICONS` map (feather-style, keyed by section key — incl. `charts`, `measurements`) so the same concept reads the same on both rails; item is a flex row with a fixed 15px icon slot. (Rail heading `label` prop: "On this client" on ClientView, "Profile" on Profile.)
+- **Layout note:** `.cv-main` has a left divider + padding (Stripe/Vercel feel); ClientView's record is widened to **1560px** (`isExtraWide` in `App.jsx`, incl. `/profile`) to fit rail + dense charts. Below 1024px the rail is hidden and content is a single column.
+
+### Chart visibility prefs (coach)
+**Profile → Charts** lets a coach toggle which charts show on every client's record (Progress/Weight/Calories/Cardio/Steps/Measurements). Stored as **`profiles.layout.hiddenCharts`** (array of hidden keys; absent = all shown — same `profiles.layout` JSON that holds `clientView`/`dashboard` card order, so no migration). ClientView reads it and drops both the section render and the rail entry for hidden keys. Chart sections otherwise **always render** (with a "No X yet" empty-state hint) so they're discoverable; they're only removed by this toggle (sentReports, a list not a chart, still hides when empty).
+
+### Target estimator (`utils/targetEstimate.js` + `TargetCalculator.jsx`)
+Stats → suggested daily macros, the coach's by-hand workflow: **Mifflin–St Jeor** BMR (or **Katch–McArdle** off an optional body-fat %) × activity multiplier → TDEE; a deficit/surplus from a **target rate** (current vs goal weight + a pace, via ~7700 kcal/kg) — not a flat %; protein on **goal weight** (or lean mass if BF% given), fat 25%/≥0.8 g·kg floor, carbs remainder; floors calories at BMR; returns maintenance + weekly rate + weeks-to-goal. Pure + 13 tests. Used in ClientView Targets (coach sets client) + Profile Daily targets (solo). **Intake math on self-reported stats** — explicitly distinct from `energyBalanceRead` (empirical maintenance mined from logged data); rationale in decisions.md.
 
 ---
 
