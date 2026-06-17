@@ -6,10 +6,10 @@ export default function SectionRail({ sections, activeKey, onJump }) {
   if (!sections.length) return null
   return (
     <nav className="cv-rail" aria-label="Sections">
-      <p style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-faint)', fontWeight: 600, margin: '0 0 8px 10px' }}>
+      <p style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-faint)', fontWeight: 600, margin: '0 0 12px 10px' }}>
         On this client
       </p>
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '1px' }}>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
         {sections.map((s) => {
           const active = s.key === activeKey
           return (
@@ -21,7 +21,7 @@ export default function SectionRail({ sections, activeKey, onJump }) {
                   background: active ? 'var(--color-primary-dim)' : 'transparent',
                   border: 'none', borderLeft: `2px solid ${active ? 'var(--color-primary)' : 'transparent'}`,
                   color: active ? 'var(--color-text)' : 'var(--color-muted)',
-                  padding: '6px 10px', borderRadius: '0 var(--radius) var(--radius) 0',
+                  padding: '8px 12px', borderRadius: '0 var(--radius) var(--radius) 0',
                   fontSize: 'var(--text-sm)', fontWeight: active ? 600 : 500,
                   transition: 'color 0.12s, background 0.12s',
                 }}
