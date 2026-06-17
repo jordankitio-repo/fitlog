@@ -42,9 +42,10 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   // they're visually consistent. Only the auth/standalone pages stay narrow.
   const isWideScreen =
     path === '/' || path === '/log' || path === '/profile' || path.startsWith('/client/')
-  // The client record carries the section rail (~210px) plus dense charts, so it
-  // gets extra room to fill the screen instead of sitting in a narrow column.
-  const isExtraWide = path.startsWith('/client/')
+  // The rail + content pages (a client's full record and the coach/settings
+  // Profile) get extra room so they span the same width instead of one sitting
+  // in a narrower column than the other.
+  const isExtraWide = path.startsWith('/client/') || path === '/profile'
 
   // Clients carry the floating chat bubble (FAB, bottom-right) on every page;
   // give the content extra bottom clearance so it never sits on a control
