@@ -16,15 +16,7 @@ export default function SectionRail({ sections, activeKey, onJump }) {
             <li key={s.key}>
               <button
                 onClick={() => onJump(s.key)}
-                style={{
-                  width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-                  background: active ? 'var(--color-primary-dim)' : 'transparent',
-                  border: 'none', borderLeft: `2px solid ${active ? 'var(--color-primary)' : 'transparent'}`,
-                  color: active ? 'var(--color-text)' : 'var(--color-muted)',
-                  padding: '8px 12px', borderRadius: '0 var(--radius) var(--radius) 0',
-                  fontSize: 'var(--text-sm)', fontWeight: active ? 600 : 500,
-                  transition: 'color 0.12s, background 0.12s',
-                }}
+                className={`cv-rail-item${active ? ' is-active' : ''}`}
               >
                 {s.label}
               </button>
