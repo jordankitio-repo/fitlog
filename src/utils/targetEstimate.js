@@ -44,7 +44,7 @@ const toCm = (h, unit) => (unit === 'cm' ? h : h * 2.54)
 // goalWeight is optional — blank ⇒ maintenance.
 export function estimateTargets({
   sex = 'male', age, weight, goalWeight, weightUnit = 'lbs',
-  height, heightUnit = 'in', activity = 'moderate', pace = 'moderate',
+  height, heightUnit = 'in', activity = 'moderate', pace = 'moderate', bodyFat,
 }) {
   const a = Number(age)
   const isKg = weightUnit === 'kg'
@@ -55,10 +55,17 @@ export function estimateTargets({
   const goalRaw = Number(goalWeight)
   const goalKg = goalRaw > 0 ? toKg(goalRaw, isKg ? 'kg' : 'lb') : kg
 
-  // 1–2. BMR (Mifflin–St Jeor) → TDEE.
-  const bmr = sex === 'female'
-    ? 10 * kg + 6.25 * cm - 5 * a - 161
-    : 10 * kg + 6.25 * cm - 5 * a + 5
+  // 1–2. BMR → TDEE. If a body-fat % is given, use Katch–McArdle (lean-mass
+  // based — more accurate, and what physique coaches use); else Mifflin–St Jeor.
+  const bf = Number(bodyFat)
+  const hasBF = bf >= 3 && bf <= 60
+  const lbmKg = hasBF ? kg * (1 - bf / 100) : null
+  const method = hasBF ? 'katch' : 'mifflin'
+  const bmr = hasBF
+    ? 370 + 21.6 * lbmKg
+    : (sex === 'female'
+        ? 10 * kg + 6.25 * cm - 5 * a - 161
+        : 10 * kg + 6.25 * cm - 5 * a + 5)
   const mult = (ACTIVITY_LEVELS.find((l) => l.key === activity) || { mult: 1.55 }).mult
   const tdee = bmr * mult
   const maintenanceCalories = Math.round(tdee / 10) * 10
@@ -83,8 +90,11 @@ export function estimateTargets({
   // 4. Macros. Protein on GOAL weight (avoids overprescribing for higher-fat
   // clients); push it up in a deficit to protect lean mass. Fat 25% kcal with a
   // ~0.8 g/kg hormonal-health floor; carbs are the remainder.
-  const proteinPerKg = direction === 'lose' ? 2.2 : 1.8
-  const protein = Math.round(proteinPerKg * goalKg)
+  // With body-fat known, base protein on LEAN mass (the gold standard); else on
+  // goal weight. Higher in a deficit either way, to protect lean mass.
+  const protein = hasBF
+    ? Math.round((direction === 'lose' ? 2.4 : 2.0) * lbmKg)
+    : Math.round((direction === 'lose' ? 2.2 : 1.8) * goalKg)
   const fat = Math.round(Math.max((calories * 0.25) / 9, 0.8 * goalKg))
   const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4))
 
@@ -99,5 +109,5 @@ export function estimateTargets({
   }
   const weeklyChange = Math.round((isKg ? weeklyChangeKg : weeklyChangeKg / LB_TO_KG) * 100) / 100
 
-  return { calories, protein, carbs, fat, maintenanceCalories, direction, weeklyChange, weeksToGoal }
+  return { calories, protein, carbs, fat, maintenanceCalories, direction, weeklyChange, weeksToGoal, method }
 }

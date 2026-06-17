@@ -70,6 +70,22 @@ describe('estimateTargets', () => {
     expect(estimateTargets({})).toBeNull()
   })
 
+  it('switches to Katch-McArdle when body fat % is given, protein on lean mass', () => {
+    const common = { sex: 'male', age: 30, height: 180, heightUnit: 'cm', weight: 90, goalWeight: 80, weightUnit: 'kg', activity: 'moderate', pace: 'moderate' }
+    const mifflin = estimateTargets(common)
+    const katch = estimateTargets({ ...common, bodyFat: 25 })
+    expect(mifflin.method).toBe('mifflin')
+    expect(katch.method).toBe('katch')
+    // 90kg @ 25% BF → 67.5kg LBM; protein 2.4 g/kg LBM ≈ 162 g.
+    expect(katch.protein).toBeGreaterThan(150)
+    expect(katch.protein).toBeLessThan(175)
+  })
+
+  it('ignores an out-of-range body fat % (falls back to Mifflin)', () => {
+    const t = estimateTargets({ sex: 'male', age: 30, height: 180, heightUnit: 'cm', weight: 90, goalWeight: 80, weightUnit: 'kg', bodyFat: 0 })
+    expect(t.method).toBe('mifflin')
+  })
+
   it('exposes activity + pace option lists', () => {
     expect(ACTIVITY_LEVELS.length).toBe(5)
     expect(PACES.map((p) => p.key)).toEqual(['gentle', 'moderate', 'aggressive'])

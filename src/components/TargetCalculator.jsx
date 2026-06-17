@@ -17,6 +17,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply })
   const [heightCm, setHeightCm] = useState('')
   const [heightFt, setHeightFt] = useState('')
   const [heightIn, setHeightIn] = useState('')
+  const [bodyFat, setBodyFat] = useState('')
   const [activity, setActivity] = useState('moderate')
   const [pace, setPace] = useState('moderate')
   const [result, setResult] = useState(null)
@@ -37,7 +38,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply })
       sex, age, weight, goalWeight,
       weightUnit: metric ? 'kg' : 'lbs',
       height, heightUnit: metric ? 'cm' : 'in',
-      activity, pace,
+      activity, pace, bodyFat,
     })
     if (!r) { setError('Enter age, height, and current weight.'); setResult(null); return }
     setError(''); setResult(r)
@@ -104,6 +105,11 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply })
         )}
       </div>
 
+      <div>
+        <label style={labelStyle}>Body fat % <span style={{ color: 'var(--color-faint)' }}>— optional, more accurate</span></label>
+        <input type="number" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="e.g. 20" style={inputStyle} />
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <div>
           <label style={labelStyle}>Activity</label>
@@ -135,11 +141,11 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply })
             Maintenance ≈ <strong style={{ color: 'var(--color-text)' }}>{result.maintenanceCalories}</strong> cal.{' '}
             {result.direction === 'maintain'
               ? 'Set to maintain / recomp.'
-              : `${result.direction === 'lose' ? 'Lose' : 'Gain'} ~${result.weeklyChange} ${wUnit}/wk` +
-                (result.weeksToGoal ? ` · about ${result.weeksToGoal} weeks to goal.` : '.')}
+              : `${result.direction === 'lose' ? 'Lose' : 'Gain'} ~${result.weeklyChange} ${wUnit}/wk to start` +
+                (result.weeksToGoal ? ` · ~${result.weeksToGoal} wks at this rate.` : '.')}
           </p>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)', margin: 0, lineHeight: 1.5 }}>
-            A starting point from the stats — review and adjust as needed.
+            Based on {result.method === 'katch' ? 'Katch–McArdle (lean mass)' : 'Mifflin–St Jeor'}. A starting point — review and adjust{result.direction === 'lose' ? '; the rate slows as you get lighter' : ''}.
           </p>
           <Button onClick={() => onApply(result)} variant="primary" size="sm">Use these targets</Button>
         </div>
