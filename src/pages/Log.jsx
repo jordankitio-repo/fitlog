@@ -24,6 +24,16 @@ const EXERCISE_TYPES = [
   'HIIT', 'Other'
 ]
 
+// Tape-measurement sites (body composition). Order = display order.
+const MEASUREMENT_SITES = [
+  { key: 'neck', label: 'Neck' },
+  { key: 'chest', label: 'Chest' },
+  { key: 'waist', label: 'Waist' },
+  { key: 'hips', label: 'Hips' },
+  { key: 'arm', label: 'Arm' },
+  { key: 'thigh', label: 'Thigh' },
+]
+
 // A diary item (food row or meal container) draggable by its grip handle into
 // another meal section. Render-prop so the existing row markup stays in Log:
 // the wrapper supplies the node ref, a drag transform style, and the handle
@@ -153,6 +163,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [distance, setDistance] = useState('')
   const [savedSteps, setSavedSteps] = useState(null)
 
+  // Body-measurement state (one row per date; sites in MEASUREMENT_SITES)
+  const [meas, setMeas] = useState({ unit: 'in', neck: '', chest: '', waist: '', hips: '', arm: '', thigh: '' })
+  const [savedMeas, setSavedMeas] = useState(null)
+  const [measExpanded, setMeasExpanded] = useState(false)
+
   useEffect(() => {
     fetchEntries()
     fetchFrequentFoods()
@@ -161,6 +176,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchWeight()
     fetchCardioEntries()
     fetchSteps()
+    fetchMeasurements()
     setFeedback('')
   }, [selectedDate])
 
@@ -865,6 +881,39 @@ function Log({ session, profile, hasSoloPremium = true }) {
       return
     }
     fetchSteps()
+  }
+
+  async function fetchMeasurements() {
+    if (!session?.user?.id) return
+    const { data, error } = await supabase.from('body_measurements').select('*')
+      .eq('user_id', session.user.id).eq('logged_date', selectedDate).maybeSingle()
+    if (error) { console.error(error); return }
+    if (data) {
+      setSavedMeas(data)
+      setMeas({
+        unit: data.unit || 'in',
+        neck: data.neck?.toString() || '', chest: data.chest?.toString() || '',
+        waist: data.waist?.toString() || '', hips: data.hips?.toString() || '',
+        arm: data.arm?.toString() || '', thigh: data.thigh?.toString() || '',
+      })
+      setMeasExpanded(false)
+    } else {
+      setSavedMeas(null)
+      setMeas({ unit: meas.unit, neck: '', chest: '', waist: '', hips: '', arm: '', thigh: '' })
+      setMeasExpanded(false)
+    }
+  }
+
+  async function saveMeasurements() {
+    const sites = MEASUREMENT_SITES.map(s => s.key)
+    if (!sites.some(k => meas[k] !== '')) return // nothing entered
+    const { data: { session: cs } } = await supabase.auth.getSession()
+    const row = { user_id: cs.user.id, logged_date: selectedDate, unit: meas.unit }
+    sites.forEach(k => { row[k] = meas[k] === '' ? null : parseFloat(meas[k]) })
+    const { error } = await supabase.from('body_measurements').upsert(row, { onConflict: 'user_id,logged_date' })
+    if (error) { console.error(error); showToast('Couldn\'t save measurements — try again.', 'error'); return }
+    setMeasExpanded(false)
+    fetchMeasurements()
   }
 
   // Nav functions
@@ -1707,6 +1756,56 @@ function Log({ session, profile, hasSoloPremium = true }) {
             size="sm"
             style={{ alignSelf: 'flex-start', borderColor: 'var(--color-steps)', color: 'var(--color-steps)' }}
           >+ Log Steps</Button>
+        )}
+      </div>
+
+      {/* Body measurements */}
+      <div style={sectionStyle}>
+        <h2 style={{ borderLeft: '3px solid var(--color-weight)', paddingLeft: '10px' }}>Measurements</h2>
+
+        {savedMeas && !measExpanded && (
+          MEASUREMENT_SITES.some(s => savedMeas[s.key] != null) ? (
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              {MEASUREMENT_SITES.filter(s => savedMeas[s.key] != null).map(s => (
+                <div key={s.key}>
+                  <span style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-text)' }}>{savedMeas[s.key]}</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginLeft: '3px' }}>{savedMeas.unit}</span>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>No measurements recorded for this day.</span>
+          )
+        )}
+
+        {measExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginRight: '2px' }}>Unit:</span>
+              {['in', 'cm'].map(u => (
+                <button key={u} type="button" onClick={() => setMeas({ ...meas, unit: u })} style={{ ...pillBtnStyle, ...(meas.unit === u ? { backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: 'var(--color-on-accent)' } : {}) }}>{u}</button>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+              {MEASUREMENT_SITES.map(s => (
+                <div key={s.key}>
+                  <p style={{ fontSize: 'var(--text-sm)', marginBottom: '4px' }}>{s.label} ({meas.unit})</p>
+                  <input type="number" value={meas[s.key]} onChange={e => setMeas({ ...meas, [s.key]: e.target.value })} placeholder="—" style={inputStyle} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              {savedMeas && <Button onClick={() => { setMeasExpanded(false); fetchMeasurements() }} variant="ghost" size="sm">Cancel</Button>}
+              <Button onClick={saveMeasurements} variant="primary" size="sm">{savedMeas ? 'Update' : 'Log measurements'}</Button>
+            </div>
+          </div>
+        )}
+
+        {!measExpanded && (
+          <Button onClick={() => setMeasExpanded(true)} variant="primary" size="sm" style={{ alignSelf: 'flex-start' }}>
+            {savedMeas ? 'Edit measurements' : '+ Log measurements'}
+          </Button>
         )}
       </div>
 

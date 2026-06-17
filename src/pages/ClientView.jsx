@@ -78,8 +78,15 @@ const SECTION_LABELS = {
   stats: 'Stats', consistency: 'Consistency', sentReports: 'Reports', targets: 'Targets',
   nutritionLog: 'Nutrition', checkIn: 'Check-in', privateNotes: 'Notes', correlatedChart: 'Progress',
   weightChart: 'Weight', calorieChart: 'Calories', cardioChart: 'Cardio', stepsChart: 'Steps',
+  measurements: 'Measurements',
 }
-const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart']
+const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'measurements']
+
+// Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
+const MEASUREMENT_SITES = [
+  { key: 'neck', label: 'Neck' }, { key: 'chest', label: 'Chest' }, { key: 'waist', label: 'Waist' },
+  { key: 'hips', label: 'Hips' }, { key: 'arm', label: 'Arm' }, { key: 'thigh', label: 'Thigh' },
+]
 
 function checkInPayload(c) {
   if (!c) return null
@@ -109,6 +116,7 @@ function ClientView({ profile }) {
   const [reportWeekRange, setReportWeekRange] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [weightHistory, setWeightHistory] = useState([])
+  const [measHistory, setMeasHistory] = useState([])
   const [plainCharts, togglePlain] = usePlainCharts()
   const [calorieHistory, setCalorieHistory] = useState([])
   const [cardioHistory, setCardioHistory] = useState([])
@@ -181,6 +189,7 @@ function ClientView({ profile }) {
     calorieChart: true,
     cardioChart: true,
     stepsChart: true,
+    measurements: false,
   })
 
   function formatTime(timeStr) {
@@ -239,7 +248,7 @@ function ClientView({ profile }) {
     }, { rootMargin: '-88px 0px -65% 0px', threshold: 0 })
     els.forEach(el => io.observe(el))
     return () => io.disconnect()
-  }, [cardOrder, weightHistory, calorieHistory, cardioHistory, stepsHistory, sentReports])
+  }, [cardOrder, weightHistory, calorieHistory, cardioHistory, stepsHistory, sentReports, measHistory])
 
   function showToast(message, type = 'success') {
     setToast({ message, type })
@@ -288,6 +297,7 @@ function ClientView({ profile }) {
   fetchSentReports()
   fetchMessages()
   fetchClientStatus()
+  fetchClientMeasurements()
 }, [clientId])
 
   useEffect(() => {
@@ -722,6 +732,14 @@ async function fetchHeatmapData() {
 async function fetchClientStatus() {
   const map = await computeClientStats([clientId])
   setStatusStats(map[clientId] || null)
+}
+
+async function fetchClientMeasurements() {
+  const { data, error } = await supabase
+    .from('body_measurements').select('*')
+    .eq('user_id', clientId).order('logged_date', { ascending: true })
+  if (error) { console.error(error); return }
+  setMeasHistory(data || [])
 }
 
 // Dedicated 45-day pull for the Energy Balance Read — full dates + weight unit,
@@ -1231,6 +1249,7 @@ async function sendMessage(text) {
     if (k === 'calorieChart') return calorieHistory.length > 0
     if (k === 'cardioChart') return cardioHistory.length > 0
     if (k === 'stepsChart') return stepsHistory.length > 0
+    if (k === 'measurements') return measHistory.length > 0
     return true
   })
   const railSections = [
@@ -2050,6 +2069,45 @@ async function sendMessage(text) {
             {!sectionsCollapsed.stepsChart && (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
             )}
+          </SectionHeader>
+        </div>
+      )}
+
+      {measHistory.length > 0 && (
+        <div key="measurements" id="section-measurements" style={sectionCardStyle}>
+          <SectionHeader title="Body measurements" collapsed={sectionsCollapsed.measurements} onToggle={() => toggleSection('measurements')}>
+            {(() => {
+              const latest = measHistory[measHistory.length - 1]
+              const unit = latest.unit || 'in'
+              const sites = MEASUREMENT_SITES.filter(s => latest[s.key] != null)
+              if (sites.length === 0) return <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>No measurements recorded yet.</p>
+              return (
+                <>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '12px' }}>
+                    Latest {new Date(latest.logged_date + 'T00:00:00').toLocaleDateString()}{measHistory.length > 1 ? ' · change since first recorded' : ''}
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                    {sites.map(s => {
+                      const firstRow = measHistory.find(r => r[s.key] != null)
+                      const delta = firstRow && firstRow.logged_date !== latest.logged_date ? +(latest[s.key] - firstRow[s.key]).toFixed(1) : null
+                      return (
+                        <div key={s.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
+                          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>{s.label}</p>
+                          <p style={{ fontWeight: 700, fontSize: '1.5rem', color: 'var(--color-text)' }}>
+                            {latest[s.key]}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}> {unit}</span>
+                          </p>
+                          {delta != null && delta !== 0 && (
+                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', fontWeight: 600, margin: 0 }}>
+                              {delta > 0 ? '+' : ''}{delta} {unit}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )
+            })()}
           </SectionHeader>
         </div>
       )}
