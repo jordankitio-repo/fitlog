@@ -295,6 +295,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         flexDirection: 'column',
         gap: '16px'
       }}>
+        <h2 style={{ margin: 0 }}>Account</h2>
         <div>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '6px' }}>Name</p>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

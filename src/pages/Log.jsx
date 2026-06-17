@@ -1665,9 +1665,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {!cardioExpanded && (
           <Button
             onClick={() => setCardioExpanded(true)}
-            variant="outline"
+            variant="primary"
             size="sm"
-            style={{ alignSelf: 'flex-start', borderColor: 'var(--color-cardio)', color: 'var(--color-cardio)' }}
+            style={{ alignSelf: 'flex-start' }}
           >+ Log Cardio</Button>
         )}
       </div>
