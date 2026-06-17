@@ -1,26 +1,29 @@
 import { useState } from 'react'
 import Button from './Button'
-import { estimateTargets, ACTIVITY_LEVELS, GOALS } from '../utils/targetEstimate'
+import { estimateTargets, ACTIVITY_LEVELS, PACES } from '../utils/targetEstimate'
 
-// A compact onboarding assessment → suggested daily macros. Collects
-// sex/age/height/weight/activity/goal, computes starting targets, and hands them
+// A compact onboarding assessment → suggested daily macros. Collects sex/age/
+// height/current+goal weight/activity/pace, computes starting targets (the same
+// flow a coach uses by hand — see utils/targetEstimate.js), and hands the macros
 // to onApply for the parent to drop into its target inputs (coach on ClientView,
 // solo on Profile). The numbers are a starting point to review, not a precision
-// prescription — see utils/targetEstimate.js.
+// prescription.
 export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply }) {
   const [sex, setSex] = useState('male')
   const [age, setAge] = useState('')
   const [units, setUnits] = useState(defaultWeightUnit === 'kg' ? 'metric' : 'imperial')
   const [weight, setWeight] = useState('')
+  const [goalWeight, setGoalWeight] = useState('')
   const [heightCm, setHeightCm] = useState('')
   const [heightFt, setHeightFt] = useState('')
   const [heightIn, setHeightIn] = useState('')
   const [activity, setActivity] = useState('moderate')
-  const [goal, setGoal] = useState('maintain')
+  const [pace, setPace] = useState('moderate')
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
 
   const metric = units === 'metric'
+  const wUnit = metric ? 'kg' : 'lb'
   const inputStyle = {
     backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius)', padding: '9px 12px', color: 'var(--color-text)',
@@ -31,12 +34,12 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply })
   function compute() {
     const height = metric ? Number(heightCm) : (Number(heightFt) * 12 + Number(heightIn || 0))
     const r = estimateTargets({
-      sex, age, weight,
+      sex, age, weight, goalWeight,
       weightUnit: metric ? 'kg' : 'lbs',
       height, heightUnit: metric ? 'cm' : 'in',
-      activity, goal,
+      activity, pace,
     })
-    if (!r) { setError('Enter age, height, and weight.'); setResult(null); return }
+    if (!r) { setError('Enter age, height, and current weight.'); setResult(null); return }
     setError(''); setResult(r)
   }
 
@@ -69,7 +72,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply })
           {['imperial', 'metric'].map((u) => (
             <button key={u} type="button" onClick={() => setUnits(u)} style={{
               flex: 1, padding: '7px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 'var(--text-sm)', fontWeight: 600, textTransform: 'capitalize',
+              fontSize: 'var(--text-sm)', fontWeight: 600,
               border: `1px solid ${units === u ? 'var(--color-primary)' : 'var(--color-border)'}`,
               background: units === u ? 'var(--color-primary)' : 'var(--color-surface)',
               color: units === u ? 'var(--color-on-accent)' : 'var(--color-muted)',
@@ -78,36 +81,42 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply })
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', alignItems: 'end' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <div>
-          <label style={labelStyle}>Weight ({metric ? 'kg' : 'lb'})</label>
-          <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={metric ? 'e.g. 75' : 'e.g. 165'} style={inputStyle} />
+          <label style={labelStyle}>Current weight ({wUnit})</label>
+          <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={metric ? 'e.g. 80' : 'e.g. 176'} style={inputStyle} />
         </div>
         <div>
-          <label style={labelStyle}>Height</label>
-          {metric ? (
-            <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="cm" style={inputStyle} />
-          ) : (
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <input type="number" value={heightFt} onChange={(e) => setHeightFt(e.target.value)} placeholder="ft" style={inputStyle} />
-              <input type="number" value={heightIn} onChange={(e) => setHeightIn(e.target.value)} placeholder="in" style={inputStyle} />
-            </div>
-          )}
+          <label style={labelStyle}>Goal weight ({wUnit})</label>
+          <input type="number" value={goalWeight} onChange={(e) => setGoalWeight(e.target.value)} placeholder="optional" style={inputStyle} />
         </div>
       </div>
 
       <div>
-        <label style={labelStyle}>Activity</label>
-        <select value={activity} onChange={(e) => setActivity(e.target.value)} style={inputStyle}>
-          {ACTIVITY_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
-        </select>
+        <label style={labelStyle}>Height</label>
+        {metric ? (
+          <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="cm" style={inputStyle} />
+        ) : (
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <input type="number" value={heightFt} onChange={(e) => setHeightFt(e.target.value)} placeholder="ft" style={inputStyle} />
+            <input type="number" value={heightIn} onChange={(e) => setHeightIn(e.target.value)} placeholder="in" style={inputStyle} />
+          </div>
+        )}
       </div>
 
-      <div>
-        <label style={labelStyle}>Goal</label>
-        <select value={goal} onChange={(e) => setGoal(e.target.value)} style={inputStyle}>
-          {GOALS.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
-        </select>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div>
+          <label style={labelStyle}>Activity</label>
+          <select value={activity} onChange={(e) => setActivity(e.target.value)} style={inputStyle}>
+            {ACTIVITY_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Pace</label>
+          <select value={pace} onChange={(e) => setPace(e.target.value)} style={inputStyle}>
+            {PACES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+        </div>
       </div>
 
       {error && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)', margin: 0 }}>{error}</p>}
@@ -122,8 +131,15 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply })
             {macro('Carbs', result.carbs, 'g', 'var(--color-carbs)')}
             {macro('Fat', result.fat, 'g', 'var(--color-fat)')}
           </div>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.5 }}>
-            A starting point from your stats — review and adjust as needed.
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.5 }}>
+            Maintenance ≈ <strong style={{ color: 'var(--color-text)' }}>{result.maintenanceCalories}</strong> cal.{' '}
+            {result.direction === 'maintain'
+              ? 'Set to maintain / recomp.'
+              : `${result.direction === 'lose' ? 'Lose' : 'Gain'} ~${result.weeklyChange} ${wUnit}/wk` +
+                (result.weeksToGoal ? ` · about ${result.weeksToGoal} weeks to goal.` : '.')}
+          </p>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)', margin: 0, lineHeight: 1.5 }}>
+            A starting point from the stats — review and adjust as needed.
           </p>
           <Button onClick={() => onApply(result)} variant="primary" size="sm">Use these targets</Button>
         </div>

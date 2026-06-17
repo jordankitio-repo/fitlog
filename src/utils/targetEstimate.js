@@ -1,9 +1,16 @@
-// Starting-point daily targets from a short onboarding assessment. Mifflin–St
-// Jeor BMR × activity multiplier → TDEE, a goal-based calorie factor, protein
-// from bodyweight, and a fat/carb split. These are STARTING targets a coach (or
-// a solo user) reviews and refines — standard intake math on self-reported
-// stats, NOT a precision estimate mined from logged data (see decisions.md
-// "no fabricated-confidence numbers"; that rule is about logged-data TDEE).
+// Starting-point daily targets from a short onboarding assessment — the same
+// flow a coach uses by hand:
+//   1. BMR via Mifflin–St Jeor (most-validated predictive equation for the
+//      general population; uses total weight, no body-fat % required).
+//   2. TDEE = BMR × activity multiplier.
+//   3. A deficit/surplus from a target RATE of weight change (% bodyweight/week
+//      → kcal via ~7700 kcal/kg), derived from current vs goal weight + a pace —
+//      NOT a flat % of TDEE.
+//   4. Protein on GOAL weight (higher in a deficit to preserve lean mass), fat
+//      with a hormonal-health floor, carbs the remainder.
+// These are STARTING targets a coach (or solo user) reviews and refines — intake
+// math on self-reported stats, not a precision estimate mined from logged data
+// (the no-fabricated-confidence rule in decisions.md is about logged-data TDEE).
 
 export const ACTIVITY_LEVELS = [
   { key: 'sedentary', label: 'Sedentary — little/no exercise', mult: 1.2 },
@@ -13,35 +20,84 @@ export const ACTIVITY_LEVELS = [
   { key: 'athlete', label: 'Athlete — hard training 2×/day', mult: 1.9 },
 ]
 
-export const GOALS = [
-  { key: 'lose', label: 'Lose fat', factor: 0.8 },      // ~20% deficit
-  { key: 'maintain', label: 'Maintain', factor: 1.0 },
-  { key: 'gain', label: 'Build muscle', factor: 1.1 },  // ~10% surplus
+// Pace = target rate of weight change as a fraction of bodyweight per week.
+// Fat loss tolerates a faster rate than lean gain (gaining faster = more fat).
+export const PACES = [
+  { key: 'gentle', label: 'Gentle' },
+  { key: 'moderate', label: 'Moderate' },
+  { key: 'aggressive', label: 'Aggressive' },
 ]
+const RATE = {
+  lose: { gentle: 0.005, moderate: 0.0075, aggressive: 0.01 }, // 0.5–1%/wk
+  gain: { gentle: 0.0020, moderate: 0.0035, aggressive: 0.005 }, // 0.2–0.5%/wk
+}
 
-const toKg = (w, unit) => (unit === 'kg' ? w : w * 0.45359237)
+const KCAL_PER_KG = 7700          // ~energy in 1 kg of body mass (≈3500 kcal/lb)
+const MAINTAIN_THRESHOLD_KG = 1   // |goal − current| under this ⇒ maintain/recomp
+
+const LB_TO_KG = 0.45359237
+const toKg = (w, unit) => (unit === 'kg' ? w : w * LB_TO_KG)
 const toCm = (h, unit) => (unit === 'cm' ? h : h * 2.54)
 
-// Returns { calories, protein, carbs, fat } or null if inputs are incomplete.
+// Returns { calories, protein, carbs, fat, maintenanceCalories, direction,
+// weeklyChange, weeksToGoal } or null if core inputs are incomplete.
+// goalWeight is optional — blank ⇒ maintenance.
 export function estimateTargets({
-  sex = 'male', age, weight, weightUnit = 'lbs', height, heightUnit = 'in',
-  activity = 'moderate', goal = 'maintain',
+  sex = 'male', age, weight, goalWeight, weightUnit = 'lbs',
+  height, heightUnit = 'in', activity = 'moderate', pace = 'moderate',
 }) {
   const a = Number(age)
-  const kg = toKg(Number(weight), weightUnit === 'kg' ? 'kg' : 'lb')
+  const isKg = weightUnit === 'kg'
+  const kg = toKg(Number(weight), isKg ? 'kg' : 'lb')
   const cm = toCm(Number(height), heightUnit === 'cm' ? 'cm' : 'in')
   if (!a || a <= 0 || !kg || kg <= 0 || !cm || cm <= 0) return null
 
+  const goalRaw = Number(goalWeight)
+  const goalKg = goalRaw > 0 ? toKg(goalRaw, isKg ? 'kg' : 'lb') : kg
+
+  // 1–2. BMR (Mifflin–St Jeor) → TDEE.
   const bmr = sex === 'female'
     ? 10 * kg + 6.25 * cm - 5 * a - 161
     : 10 * kg + 6.25 * cm - 5 * a + 5
   const mult = (ACTIVITY_LEVELS.find((l) => l.key === activity) || { mult: 1.55 }).mult
-  const factor = (GOALS.find((g) => g.key === goal) || { factor: 1 }).factor
+  const tdee = bmr * mult
+  const maintenanceCalories = Math.round(tdee / 10) * 10
 
-  const calories = Math.max(1200, Math.round((bmr * mult * factor) / 10) * 10)
-  const protein = Math.round(1.8 * kg)                      // 1.8 g/kg
-  const fat = Math.round((calories * 0.25) / 9)             // 25% of calories
-  const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4)) // remainder
+  // 3. Direction + rate-based deficit/surplus.
+  const diffKg = goalKg - kg // negative = lose, positive = gain
+  let direction = 'maintain'
+  if (diffKg <= -MAINTAIN_THRESHOLD_KG) direction = 'lose'
+  else if (diffKg >= MAINTAIN_THRESHOLD_KG) direction = 'gain'
 
-  return { calories, protein, carbs, fat }
+  let calories = tdee
+  if (direction !== 'maintain') {
+    const ratePct = (RATE[direction][pace] ?? RATE[direction].moderate)
+    const weeklyKg = ratePct * kg
+    const dailyAdjust = (weeklyKg * KCAL_PER_KG) / 7
+    calories = direction === 'lose' ? tdee - dailyAdjust : tdee + dailyAdjust
+  }
+  // Never default below BMR (or an absolute floor).
+  calories = Math.max(1200, Math.round(bmr), calories)
+  calories = Math.round(calories / 10) * 10
+
+  // 4. Macros. Protein on GOAL weight (avoids overprescribing for higher-fat
+  // clients); push it up in a deficit to protect lean mass. Fat 25% kcal with a
+  // ~0.8 g/kg hormonal-health floor; carbs are the remainder.
+  const proteinPerKg = direction === 'lose' ? 2.2 : 1.8
+  const protein = Math.round(proteinPerKg * goalKg)
+  const fat = Math.round(Math.max((calories * 0.25) / 9, 0.8 * goalKg))
+  const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4))
+
+  // Timeline from the ACTUAL (possibly floored) deficit/surplus, so it stays
+  // honest when the calorie floor slows the requested pace.
+  let weeklyChangeKg = 0
+  let weeksToGoal = null
+  if (direction !== 'maintain') {
+    const actualDaily = Math.abs(tdee - calories)
+    weeklyChangeKg = (actualDaily * 7) / KCAL_PER_KG
+    weeksToGoal = weeklyChangeKg > 0 ? Math.round(Math.abs(diffKg) / weeklyChangeKg) : null
+  }
+  const weeklyChange = Math.round((isKg ? weeklyChangeKg : weeklyChangeKg / LB_TO_KG) * 100) / 100
+
+  return { calories, protein, carbs, fat, maintenanceCalories, direction, weeklyChange, weeksToGoal }
 }
