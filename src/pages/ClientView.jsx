@@ -1606,37 +1606,6 @@ async function sendMessage(text) {
               }} />
             </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', padding: '14px 0', borderBottom: '1px solid var(--color-border)', marginBottom: '12px' }}>
-            <div>
-              <p style={{ fontWeight: 600, margin: 0 }}>Check-in cadence</p>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-                How often {clientProfile?.full_name || 'this client'} submits a check-in.
-              </p>
-            </div>
-            <div style={{ display: 'inline-flex', gap: '6px', flexWrap: 'wrap' }}>
-              {CADENCE_OPTIONS.map(opt => {
-                const active = checkinInterval === opt.weeks
-                return (
-                  <button
-                    key={opt.weeks}
-                    type="button"
-                    onClick={() => updateCadence(opt.weeks)}
-                    disabled={savingCadence}
-                    aria-pressed={active}
-                    style={{
-                      background: active ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: active ? 'var(--color-on-accent)' : 'var(--color-muted)',
-                      border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                      borderRadius: '999px', padding: '5px 12px', fontSize: 'var(--text-xs)',
-                      fontWeight: 600, cursor: savingCadence ? 'default' : 'pointer', fontFamily: 'inherit',
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
             {[
               { label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
@@ -1756,6 +1725,41 @@ async function sendMessage(text) {
 
       <div key="checkIn" id="section-checkIn" style={sectionCardStyle}>
         <SectionHeader title={checkinInterval > 1 ? "This period's check-in" : "This week's check-in"} collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
+          {/* Check-in config: this client's cadence + a pointer to the shared
+              questionnaire (which is per-coach, so it lives on Profile). */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', paddingBottom: '12px', marginBottom: '4px', borderBottom: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Cadence:</span>
+              {CADENCE_OPTIONS.map(opt => {
+                const active = checkinInterval === opt.weeks
+                return (
+                  <button
+                    key={opt.weeks}
+                    type="button"
+                    onClick={() => updateCadence(opt.weeks)}
+                    disabled={savingCadence}
+                    aria-pressed={active}
+                    style={{
+                      background: active ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: active ? 'var(--color-on-accent)' : 'var(--color-muted)',
+                      border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      borderRadius: '999px', padding: '4px 10px', fontSize: 'var(--text-xs)',
+                      fontWeight: 600, cursor: savingCadence ? 'default' : 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              onClick={() => navigate('/profile')}
+              title="Check-in questions apply to all your clients — edit them on your Profile"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-primary)', padding: 0 }}
+            >
+              Customize questions →
+            </button>
+          </div>
           {!clientCheckIn ? (
             <div style={{ paddingTop: '8px' }}>
               <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'} ({cadenceLabel(checkinInterval).toLowerCase()}).</p>
