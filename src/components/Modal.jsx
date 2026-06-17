@@ -1,19 +1,21 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { cardStyle } from '../utils/styles'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 // Branded content modal: a centered tile over a dimmed, blurred backdrop, with
 // a header (title + ✕) and a scrollable body. Dismiss via backdrop, ✕, or Esc.
 // Keeps long content (e.g. saved meals) off the page so it never stretches it.
 export default function Modal({ open, title, onClose, children, maxWidth = 520 }) {
+  // Focus trap + Esc + focus restore (a11y); the hook owns Esc now.
+  const dialogRef = useFocusTrap(open, onClose)
+
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
-  }, [open, onClose])
+    return () => { document.body.style.overflow = prev }
+  }, [open])
 
   if (!open) return null
   return createPortal(
@@ -27,8 +29,10 @@ export default function Modal({ open, title, onClose, children, maxWidth = 520 }
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-label={title}
         onClick={(e) => e.stopPropagation()}
         style={{ ...cardStyle, maxWidth, width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, boxShadow: '0 16px 48px rgba(0, 0, 0, 0.5)' }}
       >

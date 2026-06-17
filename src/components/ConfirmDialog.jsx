@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { cardStyle } from '../utils/styles'
 import Button from './Button'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 // Branded confirm / notice modal — the on-brand replacement for window.confirm
 // and window.alert. Centered card over a dimmed, blurred backdrop.
@@ -10,8 +11,11 @@ export default function ConfirmDialog({
   open, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
   danger = false, onConfirm, onCancel,
 }) {
-  if (!open) return null
   const isConfirm = Boolean(cancelLabel && onCancel)
+  // Focus trap + Esc + focus restore (a11y). Esc dismisses: cancel a confirm,
+  // acknowledge a notice. Called before the early return (rules of hooks).
+  const dialogRef = useFocusTrap(open, isConfirm ? onCancel : onConfirm)
+  if (!open) return null
   return createPortal(
     <div
       onClick={isConfirm ? onCancel : onConfirm}
@@ -23,8 +27,10 @@ export default function ConfirmDialog({
       }}
     >
       <div
-        role="dialog"
+        ref={dialogRef}
+        role={isConfirm ? 'alertdialog' : 'dialog'}
         aria-modal="true"
+        aria-label={title || message}
         onClick={(e) => e.stopPropagation()}
         style={{ ...cardStyle, maxWidth: 380, width: '100%', padding: 20, display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 16px 48px rgba(0, 0, 0, 0.5)' }}
       >

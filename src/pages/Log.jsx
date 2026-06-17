@@ -951,7 +951,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               title="Re-log"
             >↻</button>
             {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Drag to a meal, or tap for options">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
             )}
             <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
             <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }}>✕</button>
@@ -1002,7 +1002,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               </svg>
             </button>
             {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} title="Drag to a meal, or tap for options">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
             )}
             <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete meal">✕</button>
           </div>
