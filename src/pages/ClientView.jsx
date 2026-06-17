@@ -1753,7 +1753,7 @@ async function sendMessage(text) {
               })}
             </div>
             <button
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/profile?focus=questionnaire')}
               title="Check-in questions apply to all your clients — edit them on your Profile"
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-primary)', padding: 0 }}
             >

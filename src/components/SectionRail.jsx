@@ -2,12 +2,12 @@
 // ClientView). Lists the page's sections in their live order; clicking jumps
 // (and expands) the section, and the active one is highlighted via scroll-spy.
 // Hidden on narrow viewports (see .cv-rail in index.css) — desktop-only.
-export default function SectionRail({ sections, activeKey, onJump }) {
+export default function SectionRail({ sections, activeKey, onJump, label = 'On this client' }) {
   if (!sections.length) return null
   return (
     <nav className="cv-rail" aria-label="Sections">
       <p style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-faint)', fontWeight: 600, margin: '0 0 12px 10px' }}>
-        On this client
+        {label}
       </p>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
         {sections.map((s) => {

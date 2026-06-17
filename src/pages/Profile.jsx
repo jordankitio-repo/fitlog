@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
+import SectionRail from '../components/SectionRail'
 import Button from '../components/Button'
 import PasswordInput from '../components/PasswordInput'
 import SoloUpgrade from '../components/SoloUpgrade'
@@ -42,6 +44,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [notice, setNotice] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeSection, setActiveSection] = useState(null) // scroll-spy: section in view
 
   useEffect(() => {
     async function loadTargets() {
@@ -209,11 +213,66 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     width: '100%'
   }
 
+  // --- In-page section rail (desktop) + deep-link scroll ---
+  // The rail mirrors which cards actually render for this role, in order. Other
+  // pages deep-link here with ?focus=<key> (e.g. ClientView → questionnaire).
+  const railSections = [
+    { key: 'account', label: 'Account', show: true },
+    { key: 'appearance', label: 'Appearance', show: true },
+    { key: 'targets', label: 'Daily targets', show: profile?.role !== 'coach' },
+    { key: 'questionnaire', label: 'Check-in questions', show: profile?.role === 'coach' },
+    { key: 'billing', label: 'Billing', show: profile?.role === 'coach' },
+    { key: 'soloBilling', label: 'Solo Premium', show: profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) },
+    { key: 'security', label: 'Security', show: true },
+    { key: 'data', label: 'Data', show: true },
+  ].filter(s => s.show).map(({ key, label }) => ({ key, label }))
+
+  // Smooth-scroll to a section. Profile cards aren't collapsible, so this only
+  // scrolls (the retry loop covers a card whose async content hasn't mounted).
+  function goToSection(key) {
+    let tries = 0
+    const scroll = () => {
+      const el = document.getElementById('section-' + key)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      else if (tries++ < 20) setTimeout(scroll, 100)
+    }
+    requestAnimationFrame(() => setTimeout(scroll, 80))
+  }
+
+  // Deep-link from another page (?focus=questionnaire etc.): scroll to it once,
+  // then strip the param so a refresh doesn't re-jump.
+  useEffect(() => {
+    const focus = searchParams.get('focus')
+    if (!focus) return
+    goToSection(focus)
+    const sp = new URLSearchParams(searchParams)
+    sp.delete('focus')
+    setSearchParams(sp, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  // Scroll-spy: highlight the rail item for whichever section is near the top.
+  // Re-runs when the rendered set changes (role/billing) so new anchors get observed.
+  useEffect(() => {
+    const els = Array.from(document.querySelectorAll('[id^="section-"]'))
+    if (!els.length) return
+    const io = new IntersectionObserver((entries) => {
+      const vis = entries.filter(e => e.isIntersecting)
+      if (!vis.length) return
+      const top = vis.reduce((a, b) => (a.boundingClientRect.top <= b.boundingClientRect.top ? a : b))
+      setActiveSection(top.target.id.replace('section-', ''))
+    }, { rootMargin: '-88px 0px -65% 0px', threshold: 0 })
+    els.forEach(el => io.observe(el))
+    return () => io.disconnect()
+  }, [profile, soloSubActive])
+
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <h1>Profile</h1>
+      <div className="cv-shell">
+        <SectionRail sections={railSections} activeKey={activeSection} onJump={goToSection} label="Settings" />
+        <div className="cv-main">
+      <h1 style={{ margin: 0 }}>Profile</h1>
 
-      <div style={{
+      <div id="section-account" style={{
         ...cardStyle,
         padding: '24px',
         display: 'flex',
@@ -267,7 +326,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         )}
       </div>
 
-      <div style={{
+      <div id="section-appearance" style={{
         ...cardStyle,
         padding: '24px',
         display: 'flex',
@@ -282,7 +341,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       </div>
 
       {profile?.role !== 'coach' && (
-      <div style={{
+      <div id="section-targets" style={{
         ...cardStyle,
         padding: '24px',
         display: 'flex',
@@ -397,14 +456,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       )}
 
       {profile?.role === 'coach' && (
-        <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div id="section-questionnaire" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2>Check-in questionnaire</h2>
           <CheckinBuilder coachId={profile.id} />
         </div>
       )}
 
       {profile?.role === 'coach' && (
-        <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div id="section-billing" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2>Billing</h2>
           {subscription ? (
             <div>
@@ -432,7 +491,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           still has a legacy active sub to manage, OR billing is re-enabled.
           When billing is off and there's nothing to manage, no dead paywall. */}
       {profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) && (
-        <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div id="section-soloBilling" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2>Solo Premium</h2>
           {soloSubActive ? (
             <div>
@@ -461,7 +520,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </div>
       )}
 
-      <div style={{
+      <div id="section-security" style={{
         ...cardStyle,
         padding: '24px',
         display: 'flex',
@@ -501,7 +560,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       </div>
 
       {/* Data */}
-      <div style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div id="section-data" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <h2>Data</h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -555,6 +614,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       <p style={{ textAlign: 'center', padding: '0 0 16px', color: 'var(--color-border)', fontSize: 'var(--text-xs)' }}>
         Build {BUILD_TIME}
       </p>
+        </div>
+      </div>
       <ConfirmDialog
         open={notice !== null}
         message={notice}
