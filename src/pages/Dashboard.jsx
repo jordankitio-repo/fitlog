@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
@@ -127,6 +127,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   // Deep-link from a notification (?focus=reports): expand + scroll to it.
   // 'chat' is handled by ChatBubble.
   useEffect(() => {
@@ -732,6 +733,18 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]))
   }
 
+  // First-run: a brand-new account with nothing logged yet (no nutrition,
+  // weight, cardio or steps history, and nothing today). Drives a getting-
+  // started card instead of a screen full of zeroed cards. Clears the moment
+  // they log anything.
+  const isEmptyAccount =
+    !pageLoading &&
+    calorieHistory.length === 0 &&
+    weightHistory.length === 0 &&
+    cardioHistory.length === 0 &&
+    stepsHistory.length === 0 &&
+    !loggedToday
+
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {pageLoading ? (
@@ -909,6 +922,38 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
 	        </div>
 	      </div>
+
+      {isEmptyAccount && (
+        <div style={{
+          ...cardStyle,
+          borderColor: 'var(--color-primary)',
+          borderLeftWidth: '4px',
+          background: 'var(--color-primary-dim)',
+          gap: '14px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 21V9" />
+              <path d="M12 13C12 8.5 8.5 5.5 3.5 5.5 3.5 10 7 13 12 13z" />
+              <path d="M12 11c0-3.5 3.2-6.5 8-6.5 0 4-3.2 6.5-8 6.5z" />
+            </svg>
+            <h2 style={{ margin: 0 }}>
+              {profile?.role === 'client' ? "Let's get your first day in" : 'Welcome to Gardnr'}
+            </h2>
+          </div>
+          <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-base)', lineHeight: 1.6, maxWidth: '54ch' }}>
+            {profile?.role === 'client'
+              ? 'Your coach is all set up. Log your first meal to start your streak and share your progress — your targets are already set for you.'
+              : 'Nothing logged yet. Log your first meal to start your charts and streak, then set your daily targets so we can track how you’re trending.'}
+          </p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal →</Button>
+            {profile?.role !== 'client' && (
+              <Button variant="outline" onClick={() => navigate('/profile?focus=targets')}>Set your targets</Button>
+            )}
+          </div>
+        </div>
+      )}
 
 	      {profile?.role === 'client' && (lockInfo.locked || lockInfo.reason === 'coach-unlocked') && (
 	        <div style={{
