@@ -1104,7 +1104,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         </div>
 
-        {/* Day complete — one-tap "I'm done logging today" (coach trust signal) */}
+        {/* Day complete — one-tap "I'm done logging today" (coach trust signal).
+            Hidden on an empty day: there's nothing to mark complete yet. */}
+        {entries.length > 0 && (
         <button
           onClick={toggleDayComplete}
           disabled={dayCompleteSaving}
@@ -1121,6 +1123,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         >
           {dayComplete ? '✓ Day marked complete — tap to undo' : 'Mark day complete'}
         </button>
+        )}
 
         {/* Food entries, grouped by meal (with multi-select) */}
         {entries.length > 0 && (
@@ -1238,6 +1241,25 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Empty diary — an inviting prompt instead of a blank gap. The action
+            lives in the toolbar just below (+ Add Food). */}
+        {entries.length === 0 && !nutritionExpanded && !showCopyPanel && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+            gap: '8px', padding: '28px 16px 24px',
+            border: '1px dashed var(--color-border)', borderRadius: 'var(--radius)',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-faint)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <circle cx="12" cy="12" r="3.5" />
+            </svg>
+            <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>Nothing logged yet today</p>
+            <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', maxWidth: '36ch', lineHeight: 1.5 }}>
+              Add your first item below to start today's diary — search a food or scan a barcode.
+            </p>
           </div>
         )}
 
