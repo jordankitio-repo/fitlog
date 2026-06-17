@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
@@ -91,6 +91,7 @@ function CoachDashboard({ profile }) {
   const [inviteError, setInviteError] = useState('')
   const [soloAccountDetected, setSoloAccountDetected] = useState(false)
   const [pendingInviteEmail, setPendingInviteEmail] = useState('')
+  const inviteInputRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [nudgeLoadingIds, setNudgeLoadingIds] = useState({})
   const [toast, setToast] = useState({ message: '', type: 'success' })
@@ -172,6 +173,12 @@ function CoachDashboard({ profile }) {
     }
 
     setNudgeLoadingIds(prev => ({ ...prev, [client.client_id]: false }))
+  }
+
+  // Jump the new coach straight to the invite field from the empty-roster CTA.
+  function focusInvite() {
+    inviteInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setTimeout(() => inviteInputRef.current?.focus(), 350)
   }
 
   async function checkAndInvite() {
@@ -352,9 +359,17 @@ function CoachDashboard({ profile }) {
           <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>Loading...</p>
         ) : clients.length === 0 ? (
           <EmptyState
-            icon={null}
-            title="No clients yet"
-            description="Send an invite below to add your first client."
+            icon={(
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            )}
+            title="Add your first client"
+            description="Invite someone you coach by email. They get a link to join, and their logging shows up here for you to track."
+            action={<Button variant="primary" onClick={focusInvite}>Invite your first client →</Button>}
           />
         ) : (
           <>
@@ -537,6 +552,7 @@ function CoachDashboard({ profile }) {
         <h2>Invite a client</h2>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input
+            ref={inviteInputRef}
             type="email"
             placeholder="Client email"
             value={inviteEmail}

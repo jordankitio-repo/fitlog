@@ -1,4 +1,4 @@
-function EmptyState({ icon, title, description }) {
+function EmptyState({ icon, title, description, action }) {
   return (
     <div style={{
       display: 'flex',
@@ -12,10 +12,11 @@ function EmptyState({ icon, title, description }) {
       {icon && <span style={{ fontSize: '2rem', marginBottom: '4px' }}>{icon}</span>}
       <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.875rem' }}>{title}</p>
       {description && (
-        <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', maxWidth: '240px', lineHeight: '1.5' }}>
+        <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', maxWidth: '260px', lineHeight: '1.5' }}>
           {description}
         </p>
       )}
+      {action && <div style={{ marginTop: '10px' }}>{action}</div>}
     </div>
   )
 }
