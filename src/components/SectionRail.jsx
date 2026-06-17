@@ -28,6 +28,7 @@ const ICONS = {
   security: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>,
   data: <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></>,
   charts: <><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></>,
+  measurements: <><rect x="2" y="9" width="20" height="6" rx="1" /><line x1="6" y1="9" x2="6" y2="12" /><line x1="10" y1="9" x2="10" y2="12" /><line x1="14" y1="9" x2="14" y2="12" /><line x1="18" y1="9" x2="18" y2="12" /></>,
 }
 
 export default function SectionRail({ sections, activeKey, onJump, label = 'On this client' }) {
