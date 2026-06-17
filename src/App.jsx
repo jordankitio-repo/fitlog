@@ -20,7 +20,11 @@ import BillingSuccess from './pages/BillingSuccess'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 
-export const BILLING_ENABLED = true
+// Coach paywall is OFF for now — coaches use the app free while we're
+// pre-public. Flip back to `true` to re-enable the paywall + trial gating when
+// it's time to go public and charge. (Subscriptions are still fetched/shown;
+// they just no longer gate access to the dashboard.)
+export const BILLING_ENABLED = false
 // Solo is free: the paid Solo tier is retired so all self-serve analytics are
 // free (Solo is the funnel, coaches are the business). Flipping this back to
 // true re-enables solo billing and the upgrade prompts. `hasSoloPremium`
