@@ -1314,9 +1314,17 @@ async function sendMessage(text) {
   }
 
   // Shown inside a chart section when the client hasn't logged that data yet —
-  // keeps the tile discoverable instead of hiding it.
-  const chartEmpty = (msg) => (
-    <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)', textAlign: 'center', padding: '28px 0', margin: 0 }}>{msg}</p>
+  // uses the app's EmptyState (icon + title + hint), not bare text.
+  const chartEmpty = (title, description) => (
+    <EmptyState
+      icon={(
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-faint)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" />
+        </svg>
+      )}
+      title={title}
+      description={description}
+    />
   )
 
   return (
@@ -2023,7 +2031,7 @@ async function sendMessage(text) {
                     weightGoalUnit={clientTargets.weight_goal_unit}
                   />
                 </div>
-              ) : chartEmpty('No progress data yet — appears once weight or nutrition is logged.')
+              ) : chartEmpty('No progress data yet', 'Appears once weight or nutrition is logged.')
             )}
           </SectionHeader>
         </div>
@@ -2060,7 +2068,7 @@ async function sendMessage(text) {
                 }}
                 options={chartOptions}
               />
-            ) : chartEmpty('No weight logged yet.'))}
+            ) : chartEmpty('No weight logged yet', 'Appears once your client logs weight.'))}
           </SectionHeader>
         </div>
       )}
@@ -2070,7 +2078,7 @@ async function sendMessage(text) {
           <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (calorieHistory.length > 0 ? (
               <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={chartOptions} />
-            ) : chartEmpty('No nutrition logged yet.'))}
+            ) : chartEmpty('No nutrition logged yet', 'Appears once your client logs food.'))}
           </SectionHeader>
         </div>
       )}
@@ -2080,7 +2088,7 @@ async function sendMessage(text) {
           <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (cardioHistory.length > 0 ? (
               <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={chartOptions} />
-            ) : chartEmpty('No cardio logged yet.'))}
+            ) : chartEmpty('No cardio logged yet', 'Appears once your client logs cardio.'))}
           </SectionHeader>
         </div>
       )}
@@ -2090,7 +2098,7 @@ async function sendMessage(text) {
           <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (stepsHistory.length > 0 ? (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
-            ) : chartEmpty('No steps logged yet.'))}
+            ) : chartEmpty('No steps logged yet', 'Appears once your client logs steps.'))}
           </SectionHeader>
         </div>
       )}
