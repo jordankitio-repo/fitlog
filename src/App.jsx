@@ -42,9 +42,13 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   // gets extra room to fill the screen instead of sitting in a narrow column.
   const isExtraWide = path.startsWith('/client/')
 
+  // Clients carry the floating chat bubble (FAB, bottom-right) on every page;
+  // give the content extra bottom clearance so it never sits on a control
+  // (e.g. the "Log Steps" button) when scrolled to the end.
+  const hasChatFab = profile?.role === 'client'
   const mainStyle = isLanding
     ? { width: '100%' }
-    : { maxWidth: isExtraWide ? '1560px' : isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: '24px 16px' }
+    : { maxWidth: isExtraWide ? '1560px' : isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: hasChatFab ? '24px 16px 96px' : '24px 16px' }
 
   return (
     <>
