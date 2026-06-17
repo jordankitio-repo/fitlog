@@ -12,6 +12,7 @@ import { getPasswordValidationError } from '../utils/passwordValidation'
 import { cardStyle } from '../utils/styles'
 import { SOLO_BILLING_ENABLED } from '../App'
 import ConfirmDialog from '../components/ConfirmDialog'
+import TargetCalculator from '../components/TargetCalculator'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -41,6 +42,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordStatus, setPasswordStatus] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showTargetCalc, setShowTargetCalc] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [notice, setNotice] = useState(null)
@@ -371,6 +373,30 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             ? 'These targets were set by your coach.'
             : 'Set your daily goals. Leave blank to skip tracking that metric.'}
         </p>
+
+        {/* Solo: an assessment to seed starting macros instead of guessing. */}
+        {profile?.role === 'solo' && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowTargetCalc(v => !v)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-primary)', padding: 0 }}
+            >
+              {showTargetCalc ? 'Hide calculator' : '🧮 Calculate my targets'}
+            </button>
+            {showTargetCalc && (
+              <div style={{ marginTop: '12px' }}>
+                <TargetCalculator
+                  defaultWeightUnit={targets.weight_goal_unit}
+                  onApply={(t) => {
+                    setTargets(prev => ({ ...prev, calories: String(t.calories), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) }))
+                    setShowTargetCalc(false)
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           <div>
