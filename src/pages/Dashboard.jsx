@@ -862,7 +862,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	      )}
 
 	      {showNudgeNotice && (
-	        <div style={{ ...cardStyle, flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '14px 18px' }}>
+	        <div style={{ ...cardStyle, background: 'var(--color-primary-dim)', flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '14px 18px' }}>
 	          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
 	            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
 	            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -918,7 +918,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	      </div>
 
       {isEmptyAccount && (
-        <div style={{ ...cardStyle, gap: '14px' }}>
+        <div style={{ ...cardStyle, background: 'var(--color-primary-dim)', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 21V9" />
