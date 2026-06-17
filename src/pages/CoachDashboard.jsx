@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import Toast from '../components/Toast'
+import Skeleton from '../components/Skeleton'
 import InfoTip from '../components/InfoTip'
 import { computeClientStats } from '../utils/clientStats'
 import { getInviteBlockReason } from '../utils/inviteValidation'
@@ -356,7 +357,19 @@ function CoachDashboard({ profile }) {
       {/* Client list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading ? (
-          <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>Loading...</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} style={{ ...cardStyle, padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Skeleton width="38%" height="18px" />
+                  <Skeleton width="64px" height="22px" borderRadius="999px" />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[...Array(4)].map((_, j) => <Skeleton key={j} width="66px" height="22px" borderRadius="999px" />)}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : clients.length === 0 ? (
           <EmptyState
             icon={(
