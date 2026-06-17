@@ -23,6 +23,8 @@ import TargetCalculator from '../components/TargetCalculator'
 import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
+import { computeClientStats } from '../utils/clientStats'
+import { attentionLevel } from '../utils/attentionLevel'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
 import { CADENCE_OPTIONS, cadenceLabel } from '../utils/cadence'
@@ -122,6 +124,7 @@ function ClientView({ profile }) {
   const [reviewing, setReviewing] = useState(false)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [daysSinceLog, setDaysSinceLog] = useState(null)
+  const [statusStats, setStatusStats] = useState(null) // this client's triage facts (computeClientStats)
   const [hideCaloriesToggle, setHideCaloriesToggle] = useState(false)
   const [checkinInterval, setCheckinInterval] = useState(1)
   const [savingCadence, setSavingCadence] = useState(false)
@@ -284,6 +287,7 @@ function ClientView({ profile }) {
   fetchEnergyBalance()
   fetchSentReports()
   fetchMessages()
+  fetchClientStatus()
 }, [clientId])
 
   useEffect(() => {
@@ -710,6 +714,14 @@ async function fetchHeatmapData() {
   })
 
   setHeatmapData(byDate)
+}
+
+// This client's triage facts via the SAME engine the roster uses (one brain),
+// so the at-a-glance status banner can't drift from the roster's verdict. Lock
+// state is layered in from ClientView's own lockInfo at render time.
+async function fetchClientStatus() {
+  const map = await computeClientStats([clientId])
+  setStatusStats(map[clientId] || null)
 }
 
 // Dedicated 45-day pull for the Energy Balance Read — full dates + weight unit,
@@ -1316,6 +1328,24 @@ async function sendMessage(text) {
       <div className="cv-shell">
         <SectionRail sections={railSections} activeKey={activeSection} onJump={handleRailJump} />
         <div className="cv-main">
+
+      {/* At-a-glance status — the roster's triage verdict (one brain) surfaced on
+          the client page, so the coach sees where they stand on open. Lock state
+          layered in from ClientView's own lockInfo. */}
+      {statusStats && (() => {
+        const status = attentionLevel({ ...statusStats, lockInfo })
+        const tone = status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)'
+        const heading = status.level === 'red' ? 'Needs attention' : status.level === 'yellow' ? 'Worth a look' : 'On track'
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderLeft: `4px solid ${tone}`, borderRadius: 'var(--radius)', padding: '14px 18px' }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', backgroundColor: tone, flexShrink: 0 }} />
+            <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{heading}</span>
+            {status.reasons.length > 0 && (
+              <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>· {status.reasons.join(' · ')}</span>
+            )}
+          </div>
+        )
+      })()}
 
       {/* AI Tools */}
       <div style={{ ...sectionCardStyle, gap: '16px' }}>
