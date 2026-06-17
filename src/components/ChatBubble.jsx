@@ -21,6 +21,7 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState(false)
   const endRef = useRef(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -50,7 +51,9 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
     const t = text.trim()
     if (!t || sending) return
     setSending(true)
-    try { await onSend(t); setText('') } catch { /* keep text on failure */ } finally { setSending(false) }
+    setSendError(false)
+    // Keep the text on failure AND show why, so a message never silently fails.
+    try { await onSend(t); setText('') } catch { setSendError(true) } finally { setSending(false) }
   }
 
   if (!open) {
@@ -101,10 +104,17 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
         <div ref={endRef} />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, padding: 12, borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)' }}>
-        <input type="text" placeholder={`Message ${recipientName}...`} value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()}
-          style={{ flex: 1, minWidth: 0, backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }} />
-        <Button onClick={handleSend} disabled={sending} loading={sending} variant="primary">Send</Button>
+      <div style={{ padding: 12, borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)' }}>
+        {sendError && (
+          <p style={{ margin: '0 0 8px', fontSize: '0.8rem', color: 'var(--color-error)' }}>
+            Couldn&apos;t send — check your connection and try again.
+          </p>
+        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input type="text" placeholder={`Message ${recipientName}...`} value={text} onChange={e => { setText(e.target.value); if (sendError) setSendError(false) }} onKeyDown={e => e.key === 'Enter' && handleSend()}
+            style={{ flex: 1, minWidth: 0, backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }} />
+          <Button onClick={handleSend} disabled={sending} loading={sending} variant="primary">Send</Button>
+        </div>
       </div>
     </div>
   ), document.body)

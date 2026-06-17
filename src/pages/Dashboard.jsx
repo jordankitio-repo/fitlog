@@ -542,7 +542,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           obstacles: checkIn.obstacles, notes: checkIn.notes,
         }
     const { error } = await supabase.from('check_ins').upsert(payload, { onConflict: 'client_id,week_of' })
-    if (error) console.error(error)
+    if (error) { console.error(error); setNotice('Could not submit your check-in — please try again.') }
     else {
       setCheckInSaved(true); setShowCheckIn(false); fetchCheckIn(); refreshNotifications(); setTimeout(() => setCheckInSaved(false), 3000)
       // Notify coach by email
