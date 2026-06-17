@@ -1245,15 +1245,13 @@ async function sendMessage(text) {
   // Coach's per-chart visibility prefs (Profile → Charts). Stored on the coach's
   // own profile.layout; hides the listed chart sections from every client view.
   const hiddenCharts = profile?.layout?.hiddenCharts || []
+  // Chart sections always render (with an empty-state hint when there's no data
+  // yet) so the coach can discover them; they're only removed when the coach
+  // toggles them off (hiddenCharts) or, for sentReports (a list, not a chart),
+  // when there's nothing to show.
   const presentReorderable = REORDERABLE_KEYS.filter(k => {
     if (hiddenCharts.includes(k)) return false
     if (k === 'sentReports') return sentReports.length > 0
-    if (k === 'correlatedChart') return weightHistory.length > 0 || calorieHistory.length > 0
-    if (k === 'weightChart') return weightHistory.length > 1
-    if (k === 'calorieChart') return calorieHistory.length > 0
-    if (k === 'cardioChart') return cardioHistory.length > 0
-    if (k === 'stepsChart') return stepsHistory.length > 0
-    if (k === 'measurements') return measHistory.length > 0
     return true
   })
   const railSections = [
@@ -1314,6 +1312,12 @@ async function sendMessage(text) {
       y: { ticks: { color: CHART.tick, maxTicksLimit: 4, font: { size: 9 } }, grid: { color: CHART.grid } },
     },
   }
+
+  // Shown inside a chart section when the client hasn't logged that data yet —
+  // keeps the tile discoverable instead of hiding it.
+  const chartEmpty = (msg) => (
+    <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)', textAlign: 'center', padding: '28px 0', margin: 0 }}>{msg}</p>
+  )
 
   return (
     <>
@@ -2004,29 +2008,31 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      {!hiddenCharts.includes('correlatedChart') && (weightHistory.length > 0 || calorieHistory.length > 0) && (
+      {!hiddenCharts.includes('correlatedChart') && (
         <div key="correlatedChart" id="section-correlatedChart" style={sectionCardStyle}>
           <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
             {!sectionsCollapsed.correlatedChart && (
-              <div style={{ paddingTop: '8px' }}>
-                <Chart type="bar" data={getCorrelatedChartData()} options={correlatedChartOptions} />
-                <EnergyBalanceRead
-                  calorieSeries={energySeries.calories}
-                  weightSeries={energySeries.weights}
-                  calorieTarget={clientTargets.calories}
-                  weightGoal={clientTargets.weight_goal}
-                  weightGoalUnit={clientTargets.weight_goal_unit}
-                />
-              </div>
+              (weightHistory.length > 0 || calorieHistory.length > 0) ? (
+                <div style={{ paddingTop: '8px' }}>
+                  <Chart type="bar" data={getCorrelatedChartData()} options={correlatedChartOptions} />
+                  <EnergyBalanceRead
+                    calorieSeries={energySeries.calories}
+                    weightSeries={energySeries.weights}
+                    calorieTarget={clientTargets.calories}
+                    weightGoal={clientTargets.weight_goal}
+                    weightGoalUnit={clientTargets.weight_goal_unit}
+                  />
+                </div>
+              ) : chartEmpty('No progress data yet — appears once weight or nutrition is logged.')
             )}
           </SectionHeader>
         </div>
       )}
 
-      {!hiddenCharts.includes('weightChart') && weightHistory.length > 1 && (
+      {!hiddenCharts.includes('weightChart') && (
         <div key="weightChart" id="section-weightChart" style={sectionCardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
-            {!sectionsCollapsed.weightChart && (
+            {!sectionsCollapsed.weightChart && (weightHistory.length > 1 ? (
               <Line
                 data={{
                   labels: weightHistory.map(d => d.date),
@@ -2054,45 +2060,47 @@ async function sendMessage(text) {
                 }}
                 options={chartOptions}
               />
-            )}
+            ) : chartEmpty('No weight logged yet.'))}
           </SectionHeader>
         </div>
       )}
 
-      {!hiddenCharts.includes('calorieChart') && calorieHistory.length > 0 && (
+      {!hiddenCharts.includes('calorieChart') && (
         <div key="calorieChart" id="section-calorieChart" style={sectionCardStyle}>
           <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
-            {!sectionsCollapsed.calorieChart && (
+            {!sectionsCollapsed.calorieChart && (calorieHistory.length > 0 ? (
               <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={chartOptions} />
-            )}
+            ) : chartEmpty('No nutrition logged yet.'))}
           </SectionHeader>
         </div>
       )}
 
-      {!hiddenCharts.includes('cardioChart') && cardioHistory.length > 0 && (
+      {!hiddenCharts.includes('cardioChart') && (
         <div key="cardioChart" id="section-cardioChart" style={sectionCardStyle}>
           <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
-            {!sectionsCollapsed.cardioChart && (
+            {!sectionsCollapsed.cardioChart && (cardioHistory.length > 0 ? (
               <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={chartOptions} />
-            )}
+            ) : chartEmpty('No cardio logged yet.'))}
           </SectionHeader>
         </div>
       )}
 
-      {!hiddenCharts.includes('stepsChart') && stepsHistory.length > 0 && (
+      {!hiddenCharts.includes('stepsChart') && (
         <div key="stepsChart" id="section-stepsChart" style={sectionCardStyle}>
           <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
-            {!sectionsCollapsed.stepsChart && (
+            {!sectionsCollapsed.stepsChart && (stepsHistory.length > 0 ? (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
-            )}
+            ) : chartEmpty('No steps logged yet.'))}
           </SectionHeader>
         </div>
       )}
 
-      {!hiddenCharts.includes('measurements') && measHistory.length > 0 && (
+      {!hiddenCharts.includes('measurements') && (
         <div key="measurements" id="section-measurements" style={sectionCardStyle}>
           <SectionHeader title="Body measurements" collapsed={sectionsCollapsed.measurements} onToggle={() => toggleSection('measurements')}>
-            {(() => {
+            {!sectionsCollapsed.measurements && (measHistory.length === 0
+              ? chartEmpty("No measurements yet — added on the client's Log page.")
+              : (() => {
               const latest = measHistory[measHistory.length - 1]
               const unit = latest.unit || 'in'
               const sites = MEASUREMENT_SITES.filter(s => latest[s.key] != null)
@@ -2147,7 +2155,7 @@ async function sendMessage(text) {
                   })()}
                 </>
               )
-            })()}
+            })())}
           </SectionHeader>
         </div>
       )}
