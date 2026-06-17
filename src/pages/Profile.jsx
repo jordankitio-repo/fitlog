@@ -312,7 +312,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div className="cv-shell">
-        <SectionRail sections={railSections} activeKey={activeSection} onJump={handleRailJump} label="Settings" />
+        <SectionRail sections={railSections} activeKey={activeSection} onJump={handleRailJump} label="Profile" />
         <div className="cv-main">
       <h1 style={{ margin: 0 }}>Profile</h1>
 

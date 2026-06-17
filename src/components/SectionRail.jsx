@@ -27,6 +27,7 @@ const ICONS = {
   soloBilling: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />,
   security: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>,
   data: <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></>,
+  charts: <><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></>,
 }
 
 export default function SectionRail({ sections, activeKey, onJump, label = 'On this client' }) {

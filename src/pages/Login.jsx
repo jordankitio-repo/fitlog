@@ -124,6 +124,7 @@ function Login() {
       <Link to="/" aria-label="Gardnr home"><Logo size={40} /></Link>
       <h1>{isSignUp ? 'Create account' : 'Sign in'}</h1>
 
+      <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {isSignUp && (
         <>
           <input
@@ -188,9 +189,10 @@ function Login() {
 
       {error && <p style={{ color: '#f87171' }}>{error}</p>}
 
-      <Button onClick={handleSubmit} variant="primary" fullWidth>
+      <Button type="submit" variant="primary" fullWidth>
         {isSignUp ? 'Create account' : 'Sign in'}
       </Button>
+      </form>
 
       {!isSignUp && (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
