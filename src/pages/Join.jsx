@@ -14,6 +14,7 @@ function Join() {
 
   const [inviteToken, setInviteToken] = useState(urlToken || '')
   const [invitation, setInvitation] = useState(null)
+  const [coachName, setCoachName] = useState('')
   const [existingAccount, setExistingAccount] = useState(null)
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
@@ -70,6 +71,13 @@ function Join() {
     }
 
     setInvitation(data)
+
+    // Best-effort: personalize with the inviting coach's name. profiles RLS
+    // hides it from this anonymous visitor, so an edge function returns it.
+    // Fire-and-forget — never blocks accepting the invite.
+    supabase.functions.invoke('invite-info', { body: { token: activeToken } })
+      .then(({ data: info }) => { if (info?.coachName) setCoachName(info.coachName) })
+      .catch(() => {})
 
     // Show "sign in to accept" vs "create account" from the flag the coach
     // snapshotted at invite time — profiles RLS hides the row from this
@@ -278,7 +286,7 @@ function Join() {
 
   if (error && !invitation) return (
     <div style={{ maxWidth: '400px', margin: '80px auto' }}>
-      <p style={{ color: '#f87171' }}>{error}</p>
+      <p style={{ color: 'var(--color-error)' }}>{error}</p>
     </div>
   )
 
@@ -291,14 +299,19 @@ function Join() {
       gap: '16px',
     }}>
       <Logo size={40} />
-      <h1>Accept invitation</h1>
-      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
-        You've been invited to join Gardnr as a coached client.
+      <h1 style={{ margin: 0 }}>
+        {coachName ? `${coachName} invited you to Gardnr` : "You're invited to Gardnr"}
+      </h1>
+      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem', lineHeight: 1.6, margin: 0 }}>
+        Log your meals and progress here, and {coachName || 'your coach'} sees it and guides you week to week.
+        It's free for you — your coach covers it.
+      </p>
+      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem', margin: 0 }}>
         Your email: <strong style={{ color: 'var(--color-text)' }}>{invitation?.client_email}</strong>
       </p>
 
       {existingAccount?.role === 'coach' ? (
-        <p style={{ color: '#f87171', fontSize: '0.875rem' }}>
+        <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>
           This email belongs to a coach account and cannot accept a client invite.
         </p>
       ) : existingSession ? (
@@ -306,7 +319,7 @@ function Join() {
           <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
             You're logged in as <strong>{existingSession.user.email}</strong>. Accepting this invite will connect you to your coach as a client. Your existing data is preserved.
           </p>
-          {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
+          {error && <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>{error}</p>}
           <Button onClick={handleConnect} variant="primary" loading={connecting}>
             Accept invite
           </Button>
@@ -325,7 +338,7 @@ function Join() {
             onChange={(e) => setPassword(e.target.value)}
             style={inputStyle}
           />
-          {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
+          {error && <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>{error}</p>}
           <Button onClick={handleLoginToAccept} variant="primary" fullWidth loading={authLoading || connecting}>
             Log in and accept
           </Button>
@@ -349,7 +362,7 @@ function Join() {
             style={inputStyle}
           />
 
-          {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
+          {error && <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>{error}</p>}
 
           <Button onClick={handleSignUp} variant="primary" fullWidth loading={authLoading || connecting}>
             Create account
