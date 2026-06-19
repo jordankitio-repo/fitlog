@@ -89,7 +89,9 @@ function NavBar({ profile }) {
                 className={`gnav-tab${active ? ' active' : ''}`}
                 aria-current={active ? 'page' : undefined}
               >
-                <NavIcon label={l.label} size={23} />
+                <span className="gnav-tab-pill">
+                  <NavIcon label={l.label} size={22} />
+                </span>
                 <span className="gnav-tab-label">{l.label}</span>
               </Link>
             )

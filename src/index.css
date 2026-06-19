@@ -202,7 +202,9 @@ nav a:hover {
 }
 
 /* Mobile bottom tab bar (Cronometer-style): primary nav pinned to the bottom
-   edge, within thumb reach. Only rendered at <=600px (see NavBar). */
+   edge, within thumb reach. Only rendered at <=600px (see NavBar). The active
+   tab lifts its icon into a Material-3-style "pill" so the current page reads
+   at a glance without crowding the label. */
 .gnav-bottom {
   position: fixed;
   left: 0;
@@ -213,7 +215,7 @@ nav a:hover {
   align-items: stretch;
   background-color: var(--color-surface);
   border-top: 1px solid var(--color-border);
-  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5), 0 -6px 18px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 -0.5px 0 var(--color-border), 0 -8px 24px rgba(0, 0, 0, 0.16);
   /* Sit above the iOS home indicator in the standalone PWA. */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -223,37 +225,48 @@ nav a:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  min-height: 56px;
+  gap: 5px;
+  min-height: 60px;
   padding: 8px 4px;
   color: var(--color-muted);
   text-decoration: none;
-  border-top: 2px solid transparent;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color 0.18s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.gnav-tab:active { background-color: rgba(255, 255, 255, 0.04); }
-.gnav-tab.active { color: var(--color-primary); }
 .gnav-tab .gnav-mitem-icon { color: currentColor; flex: 0 0 auto; }
+.gnav-tab-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 30px;
+  border-radius: 999px;
+  background-color: transparent;
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gnav-tab:active .gnav-tab-pill { transform: scale(0.9); }
+.gnav-tab.active { color: var(--color-primary); }
+.gnav-tab.active .gnav-tab-pill { background-color: var(--color-primary-dim); }
 .gnav-tab-label {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;
 }
-.gnav-tab.active .gnav-tab-label { font-weight: 600; }
+.gnav-tab.active .gnav-tab-label { font-weight: 650; }
 
 /* Pad trailing content clear of the fixed bottom bar (and lift the client
    chat FAB above it) whenever the bar is on screen. */
 @media (max-width: 600px) {
   body.has-bottom-nav main {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
   }
   body.has-bottom-nav.has-chat-fab main {
-    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px)) !important;
   }
   body.has-bottom-nav .chat-launcher {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 }
 
