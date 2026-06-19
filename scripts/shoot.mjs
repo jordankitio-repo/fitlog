@@ -24,6 +24,11 @@ const page = await ctx.newPage()
 
 async function shot(name) { await page.screenshot({ path: `${OUT}/${name}.png` }); console.log('shot', name) }
 
+// --- logged-out home on mobile: the sign-in form is the landing page ---
+await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+await page.waitForSelector('text=Sign in', { timeout: 10000 })
+await shot('m-login-home')
+
 // --- sign up (solo) ---
 await page.goto(`${BASE}/login?mode=signup&role=solo`, { waitUntil: 'networkidle' })
 await page.getByPlaceholder('Full name').fill('Shoot Tester')
@@ -53,12 +58,13 @@ await shot('m-log-top')
 await page.evaluate(() => window.scrollTo(0, 320))
 await page.waitForTimeout(400)
 await shot('m-log-scrolled')
-// open the mobile menu
-await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
-await page.waitForSelector('text=Today\'s stats')
-await page.getByRole('button', { name: 'Open menu' }).click()
-await page.waitForTimeout(300)
-await shot('m-menu-open')
+// Profile tab — reached via the bottom tab bar; carries the mobile sign-out.
+await page.goto(`${BASE}/profile`, { waitUntil: 'networkidle' })
+await page.waitForTimeout(400)
+await shot('m-profile-top')
+await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+await page.waitForTimeout(400)
+await shot('m-profile-bottom')
 
 // --- desktop shots (resize same page so nav media query flips) ---
 await page.setViewportSize({ width: 1366, height: 900 })

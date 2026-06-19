@@ -8,6 +8,7 @@ import Login from './pages/Login'
 import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
 import LoadingScreen from './components/LoadingScreen'
+import { useMediaQuery } from './hooks/useMediaQuery'
 import ClientChat from './components/ClientChat'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CoachPaywall from './components/CoachPaywall'
@@ -35,7 +36,12 @@ const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
 function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium, onProfileUpdate }) {
   const location = useLocation()
   const path = location.pathname
-  const isLanding = !session && path === '/'
+  const isMobile = useMediaQuery('(max-width: 600px)')
+  // On phones the marketing landing (built for hover/desktop) is replaced by the
+  // sign-in form as the home screen — login IS the landing on mobile. The
+  // full-bleed landing treatment then only applies to the desktop marketing page.
+  const showLoginAsHome = !session && path === '/' && isMobile
+  const isLanding = !session && path === '/' && !isMobile
 
   // App screens (every role's dashboard at `/`, the daily log at /log, the
   // profile, and a client's full record at /client/:id) get the full width so
@@ -65,7 +71,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
             profile?.role === 'coach'
               ? <CoachDashboard profile={profile} />
               : <Dashboard profile={profile} hasSoloPremium={hasSoloPremium} />
-          ) : <Landing />} />
+          ) : (showLoginAsHome ? <Login /> : <Landing />)} />
           <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
           <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
           <Route path="/join" element={<Join />} />

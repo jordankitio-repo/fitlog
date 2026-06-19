@@ -201,56 +201,61 @@ nav a:hover {
   font-weight: 600;
 }
 
-/* Hamburger */
-.gnav-burger {
+/* Mobile bottom tab bar (Cronometer-style): primary nav pinned to the bottom
+   edge, within thumb reach. Only rendered at <=600px (see NavBar). */
+.gnav-bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
   display: flex;
+  align-items: stretch;
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5), 0 -6px 18px rgba(0, 0, 0, 0.22);
+  /* Sit above the iOS home indicator in the standalone PWA. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.gnav-tab {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text);
-  transition: background-color 0.15s ease;
-}
-.gnav-burger:hover { background-color: rgba(255, 255, 255, 0.06); }
-
-/* Mobile dropdown + backdrop */
-@keyframes gnavMenuIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes gnavFadeIn { from { opacity: 0; } to { opacity: 1; } }
-.gnav-panel { animation: gnavMenuIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards; transform-origin: top; }
-.gnav-backdrop { animation: gnavFadeIn 0.18s ease forwards; }
-
-.gnav-mitem {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 20px;
+  gap: 4px;
+  min-height: 56px;
+  padding: 8px 4px;
   color: var(--color-muted);
   text-decoration: none;
-  font-size: var(--text-md);
+  border-top: 2px solid transparent;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.gnav-tab:active { background-color: rgba(255, 255, 255, 0.04); }
+.gnav-tab.active { color: var(--color-primary); }
+.gnav-tab .gnav-mitem-icon { color: currentColor; flex: 0 0 auto; }
+.gnav-tab-label {
+  font-size: 0.7rem;
   font-weight: 500;
-  border-left: 3px solid transparent;
-  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  letter-spacing: 0.01em;
+  line-height: 1;
 }
-.gnav-mitem:hover {
-  color: var(--color-text) !important;
-  opacity: 1;
-  background-color: rgba(255, 255, 255, 0.03);
+.gnav-tab.active .gnav-tab-label { font-weight: 600; }
+
+/* Pad trailing content clear of the fixed bottom bar (and lift the client
+   chat FAB above it) whenever the bar is on screen. */
+@media (max-width: 600px) {
+  body.has-bottom-nav main {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  body.has-bottom-nav.has-chat-fab main {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  body.has-bottom-nav .chat-launcher {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
 }
-.gnav-mitem.active {
-  color: var(--color-text) !important;
-  background-color: var(--color-primary-dim);
-  border-left-color: var(--color-primary);
-  font-weight: 600;
-}
-.gnav-mitem .gnav-mitem-icon { color: var(--color-muted); flex: 0 0 auto; transition: color 0.15s ease; }
-.gnav-mitem.active .gnav-mitem-icon { color: var(--color-primary); }
 
 /* Smooth transitions on all interactive elements */
 button, a, input, select, textarea {

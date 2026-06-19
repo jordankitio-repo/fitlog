@@ -25,6 +25,13 @@ export default function ClientChat({ profile }) {
     load()
   }, [fetchMessages])
 
+  // Tell the layout the bottom-right chat FAB is present so the mobile bottom
+  // tab bar gives trailing content extra clearance (FAB sits above the bar).
+  useEffect(() => {
+    document.body.classList.add('has-chat-fab')
+    return () => document.body.classList.remove('has-chat-fab')
+  }, [])
+
   // Mark-read happens when the bubble opens, so the unread badge survives until
   // the client actually opens the thread.
   async function markMessagesRead() {

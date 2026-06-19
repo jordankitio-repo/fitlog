@@ -13,6 +13,7 @@ import { cardStyle } from '../utils/styles'
 import { SOLO_BILLING_ENABLED } from '../App'
 import ConfirmDialog from '../components/ConfirmDialog'
 import TargetCalculator from '../components/TargetCalculator'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -29,6 +30,9 @@ const CHART_TOGGLES = [
 ]
 
 function Profile({ session, profile, subscription, soloSubscription, onProfileUpdate }) {
+  // The mobile bottom tab bar has no sign-out (the old hamburger did), so surface
+  // it here on the Profile tab; desktop keeps sign-out in the top nav.
+  const isMobile = useMediaQuery('(max-width: 600px)')
   const soloSubActive =
     !!soloSubscription &&
     ['trialing', 'active', 'past_due'].includes(soloSubscription.status) &&
@@ -703,6 +707,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           )}
         </div>
       </div>
+
+      {isMobile && (
+        <div style={{ padding: '20px 0 0' }}>
+          <Button onClick={() => supabase.auth.signOut()} variant="muted" fullWidth>
+            Sign out
+          </Button>
+        </div>
+      )}
 
       <div style={{ textAlign: 'center', padding: '24px 0 8px', display: 'flex', gap: '16px', justifyContent: 'center' }}>
         <a href="/terms" style={{ color: 'var(--color-muted)', fontSize: 'var(--text-xs)', textDecoration: 'none' }}>Terms</a>

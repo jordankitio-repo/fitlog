@@ -1,46 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from './Button'
 import Logo from './Logo'
 import FeedbackButton from './FeedbackButton'
 import NotificationCenter from './NotificationCenter'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 
-function useMediaQuery(query) {
-  const [matches, setMatches] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia(query).matches : false
-  )
-  useEffect(() => {
-    const mql = window.matchMedia(query)
-    const handler = (e) => setMatches(e.matches)
-    mql.addEventListener('change', handler)
-    return () => mql.removeEventListener('change', handler)
-  }, [query])
-  return matches
-}
-
-function BurgerIcon({ open }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {open ? (
-        <>
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </>
-      ) : (
-        <>
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </>
-      )}
-    </svg>
-  )
-}
-
-function NavIcon({ label }) {
-  const p = { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className: 'gnav-mitem-icon' }
+function NavIcon({ label, size = 19 }) {
+  const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className: 'gnav-mitem-icon' }
   switch (label) {
     case 'Dashboard':
       return (<svg {...p}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /></svg>)
@@ -57,7 +25,15 @@ function NavIcon({ label }) {
 function NavBar({ profile }) {
   const location = useLocation()
   const isMobile = useMediaQuery('(max-width: 600px)')
-  const [menuOpen, setMenuOpen] = useState(false)
+
+  // Flag the body while the fixed bottom tab bar is on screen so the app shell
+  // can pad trailing content (and lift the chat FAB) clear of it. CSS owns the
+  // sizing; this just announces the bar exists.
+  useEffect(() => {
+    if (!isMobile) return undefined
+    document.body.classList.add('has-bottom-nav')
+    return () => document.body.classList.remove('has-bottom-nav')
+  }, [isMobile])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -68,7 +44,7 @@ function NavBar({ profile }) {
     : [{ to: '/', label: 'Dashboard' }, { to: '/log', label: 'Log' }, { to: '/profile', label: 'Profile' }]
 
   const brand = (
-    <Link to="/" aria-label="Gardnr home" onClick={() => setMenuOpen(false)} style={{
+    <Link to="/" aria-label="Gardnr home" style={{
       display: 'inline-flex', alignItems: 'center', gap: '9px', textDecoration: 'none',
     }}>
       <Logo size={26} />
@@ -91,69 +67,35 @@ function NavBar({ profile }) {
     zIndex: 100,
   }
 
-  // ---- Mobile: brand + hamburger, animated dropdown ----
+  // ---- Mobile: slim top bar (brand + alerts) + fixed bottom tab bar ----
+  // Cronometer-style: primary navigation lives in a thumb-reachable bar pinned
+  // to the bottom edge. Sign out / feedback move into the Profile tab.
   if (isMobile) {
     return (
-      <nav className="gnav" style={{ ...navBase, justifyContent: 'space-between' }}>
-        {brand}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+      <>
+        <nav className="gnav" style={{ ...navBase, justifyContent: 'space-between' }}>
+          {brand}
           <NotificationCenter profile={profile} />
-          <button
-            type="button"
-            className="gnav-burger"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
-          >
-            <BurgerIcon open={menuOpen} />
-          </button>
-        </div>
-
-        {menuOpen && (
-          <>
-            <div
-              className="gnav-backdrop"
-              onClick={() => setMenuOpen(false)}
-              style={{
-                position: 'fixed', inset: '56px 0 0 0', zIndex: 90,
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
-              }}
-            />
-            <div
-              className="gnav-panel"
-              style={{
-                position: 'absolute', top: '100%', left: 0, right: 0,
-                backgroundColor: 'var(--color-surface)',
-                borderBottom: '1px solid var(--color-border)',
-                boxShadow: '0 14px 28px rgba(0, 0, 0, 0.4)',
-                display: 'flex', flexDirection: 'column',
-                padding: '6px 0',
-                zIndex: 95,
-              }}
-            >
-              {links.map((l) => (
-                <Link
-                  key={l.to + l.label}
-                  to={l.to}
-                  onClick={() => setMenuOpen(false)}
-                  className={`gnav-mitem${location.pathname === l.to ? ' active' : ''}`}
-                >
-                  <NavIcon label={l.label} />
-                  {l.label}
-                </Link>
-              ))}
-
-              <div style={{ borderTop: '1px solid var(--color-border)', margin: '6px 0' }} />
-
-              <div style={{ display: 'flex', gap: '12px', padding: '8px 20px 12px' }}>
-                <FeedbackButton userEmail={profile?.email || ''} userName={profile?.full_name || ''} />
-                <Button onClick={handleSignOut} variant="muted" size="sm">Sign out</Button>
-              </div>
-            </div>
-          </>
-        )}
-      </nav>
+        </nav>
+        <nav className="gnav-bottom" aria-label="Primary">
+          {links.map((l) => {
+            const active = l.to === '/'
+              ? location.pathname === '/'
+              : location.pathname === l.to || location.pathname.startsWith(l.to + '/')
+            return (
+              <Link
+                key={l.to + l.label}
+                to={l.to}
+                className={`gnav-tab${active ? ' active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+              >
+                <NavIcon label={l.label} size={23} />
+                <span className="gnav-tab-label">{l.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
+      </>
     )
   }
 
