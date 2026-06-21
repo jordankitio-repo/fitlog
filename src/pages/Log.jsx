@@ -1758,7 +1758,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              {savedSteps && <Button onClick={() => setStepsExpanded(false)} variant="ghost" size="sm">Cancel</Button>}
+              <Button onClick={() => setStepsExpanded(false)} variant="ghost" size="sm">Cancel</Button>
               <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary" size="sm">{savedSteps ? 'Update' : 'Log Steps'}</Button>
             </div>
           </div>
@@ -1811,7 +1811,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               ))}
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              {savedMeas && <Button onClick={() => { setMeasExpanded(false); fetchMeasurements() }} variant="ghost" size="sm">Cancel</Button>}
+              <Button onClick={() => { setMeasExpanded(false); fetchMeasurements() }} variant="ghost" size="sm">Cancel</Button>
               <Button onClick={saveMeasurements} variant="primary" size="sm">{savedMeas ? 'Update' : 'Log measurements'}</Button>
             </div>
           </div>
