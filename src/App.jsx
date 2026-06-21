@@ -20,6 +20,7 @@ import RolePicker from './pages/RolePicker'
 import BillingSuccess from './pages/BillingSuccess'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
+import { resolveLockState } from './utils/lockState'
 
 // Coach paywall is OFF for now — coaches use the app free while we're
 // pre-public. Flip back to `true` to re-enable the paywall + trial gating when
@@ -32,6 +33,67 @@ export const BILLING_ENABLED = false
 // becomes always-true while this is false (see below).
 export const SOLO_BILLING_ENABLED = false
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
+
+// Where should a client land when they open the app? They get dropped straight
+// onto the Log page so they can log right away — unless their progress view is
+// locked, in which case they land on the Dashboard, where the "paused" notice
+// lives. Mirrors Dashboard's own lock check (resolveLockState). Any failure
+// falls back to the Dashboard (the safe, full view).
+async function resolveClientLanding() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return 'dashboard'
+    const { data: connection } = await supabase
+      .from('coach_clients')
+      .select('created_at, lock_cleared_at')
+      .eq('client_id', session.user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (!connection) return 'log' // no active coach — the lock never applies
+    const { data: lastLog } = await supabase
+      .from('nutrition_log')
+      .select('logged_date')
+      .eq('user_id', session.user.id)
+      .order('logged_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const lock = resolveLockState({
+      lastNutritionDate: lastLog?.logged_date || null,
+      connectionCreatedAt: connection.created_at.split('T')[0],
+      lockClearedAt: connection.lock_cleared_at || null,
+    })
+    return lock.locked ? 'dashboard' : 'log'
+  } catch {
+    return 'dashboard'
+  }
+}
+
+// The client's home (`/`). On the first entry of a session it decides Log vs
+// Dashboard (see resolveClientLanding) and, once decided, renders the Dashboard
+// normally — so the Dashboard tab keeps working for the rest of the session.
+// The decision is per-launch (sessionStorage), so reopening the PWA lands them
+// back on Log.
+function ClientHome({ profile, hasSoloPremium }) {
+  const LANDED_KEY = 'gardnr:client-landed'
+  const [decision, setDecision] = useState(() =>
+    sessionStorage.getItem(LANDED_KEY) ? 'dashboard' : 'pending'
+  )
+
+  useEffect(() => {
+    if (decision !== 'pending') return
+    let active = true
+    resolveClientLanding().then((target) => {
+      if (!active) return
+      sessionStorage.setItem(LANDED_KEY, '1')
+      setDecision(target)
+    })
+    return () => { active = false }
+  }, [decision])
+
+  if (decision === 'pending') return <LoadingScreen />
+  if (decision === 'log') return <Navigate to="/log" replace />
+  return <Dashboard profile={profile} hasSoloPremium={hasSoloPremium} />
+}
 
 function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium, onProfileUpdate }) {
   const location = useLocation()
@@ -70,7 +132,9 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
           <Route path="/" element={session ? (
             profile?.role === 'coach'
               ? <CoachDashboard profile={profile} />
-              : <Dashboard profile={profile} hasSoloPremium={hasSoloPremium} />
+              : profile?.role === 'client'
+                ? <ClientHome profile={profile} hasSoloPremium={hasSoloPremium} />
+                : <Dashboard profile={profile} hasSoloPremium={hasSoloPremium} />
           ) : (showLoginAsHome ? <Login /> : <Landing />)} />
           <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
           <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
