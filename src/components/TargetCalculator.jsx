@@ -8,17 +8,28 @@ import { estimateTargets, ACTIVITY_LEVELS, PACES } from '../utils/targetEstimate
 // to onApply for the parent to drop into its target inputs (coach on ClientView,
 // solo on Profile). The numbers are a starting point to review, not a precision
 // prescription.
-export default function TargetCalculator({ defaultWeightUnit = 'lbs', onApply }) {
-  const [sex, setSex] = useState('male')
-  const [age, setAge] = useState('')
-  const [units, setUnits] = useState(defaultWeightUnit === 'kg' ? 'metric' : 'imperial')
-  const [weight, setWeight] = useState('')
-  const [goalWeight, setGoalWeight] = useState('')
-  const [heightCm, setHeightCm] = useState('')
-  const [heightFt, setHeightFt] = useState('')
-  const [heightIn, setHeightIn] = useState('')
+export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = {}, onApply }) {
+  // `initial` prefills the assessment from stored biometrics (solo's own profile,
+  // or — for a coach — the client's), so neither has to re-type age/height/etc.
+  const metricInit = initial.units ? initial.units === 'metric' : defaultWeightUnit === 'kg'
+  const h0 = (() => {
+    const cm = Number(initial.heightCm) || 0
+    if (!cm) return { cm: '', ft: '', in: '' }
+    if (metricInit) return { cm: String(Math.round(cm)), ft: '', in: '' }
+    const totalIn = Math.round(cm / 2.54)
+    return { cm: '', ft: String(Math.floor(totalIn / 12)), in: String(totalIn % 12) }
+  })()
+
+  const [sex, setSex] = useState(initial.sex || 'male')
+  const [age, setAge] = useState(initial.age != null ? String(initial.age) : '')
+  const [units, setUnits] = useState(metricInit ? 'metric' : 'imperial')
+  const [weight, setWeight] = useState(initial.weight != null ? String(initial.weight) : '')
+  const [goalWeight, setGoalWeight] = useState(initial.goalWeight != null ? String(initial.goalWeight) : '')
+  const [heightCm, setHeightCm] = useState(h0.cm)
+  const [heightFt, setHeightFt] = useState(h0.ft)
+  const [heightIn, setHeightIn] = useState(h0.in)
   const [bodyFat, setBodyFat] = useState('')
-  const [activity, setActivity] = useState('moderate')
+  const [activity, setActivity] = useState(initial.activity || 'moderate')
   const [pace, setPace] = useState('moderate')
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')

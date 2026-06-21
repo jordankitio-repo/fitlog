@@ -14,6 +14,16 @@ import { SOLO_BILLING_ENABLED } from '../App'
 import ConfirmDialog from '../components/ConfirmDialog'
 import TargetCalculator from '../components/TargetCalculator'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
+import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
+
+// Primary-goal options (mirrors Onboarding). Stored on profiles.primary_goal.
+const GOAL_OPTIONS = [
+  { key: 'lose', label: 'Lose fat' },
+  { key: 'gain', label: 'Build muscle' },
+  { key: 'maintain', label: 'Maintain' },
+  { key: 'recomp', label: 'Recomp' },
+]
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -52,6 +62,21 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     weight_goal_unit: 'lbs'
   })
   const [saved, setSaved] = useState(false)
+  // Biometrics ("Your details") — solo + client only. Clients own/edit these;
+  // a coach reads them (to set targets) but never writes them.
+  const ftInInit = cmToFtIn(profile?.height_cm)
+  const [bio, setBio] = useState({
+    unit_preference: profile?.unit_preference || 'imperial',
+    sex: profile?.sex || '',
+    birth_date: profile?.birth_date || '',
+    height_cm: profile?.height_cm != null ? String(profile.height_cm) : '',
+    height_ft: ftInInit.ft,
+    height_in: ftInInit.in,
+    activity_level: profile?.activity_level || 'moderate',
+    primary_goal: profile?.primary_goal || '',
+  })
+  const [bioSaved, setBioSaved] = useState(false)
+  const [bioSaving, setBioSaving] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -154,6 +179,28 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     }
   }
 
+  // Canonical height in cm from whichever unit the user edits in.
+  const bioHeightCm = bio.unit_preference === 'metric'
+    ? (Number(bio.height_cm) || 0)
+    : ftInToCm(bio.height_ft, bio.height_in)
+
+  async function saveBio() {
+    setBioSaving(true)
+    const { error } = await supabase.from('profiles').update({
+      unit_preference: bio.unit_preference,
+      sex: bio.sex || null,
+      birth_date: bio.birth_date || null,
+      height_cm: bioHeightCm > 0 ? bioHeightCm : null,
+      activity_level: bio.activity_level,
+      primary_goal: bio.primary_goal || null,
+    }).eq('id', session.user.id)
+    setBioSaving(false)
+    if (error) { console.error('Error saving details:', error); return }
+    setBioSaved(true)
+    setTimeout(() => setBioSaved(false), 2000)
+    onProfileUpdate?.()
+  }
+
   async function exportData() {
     setExportLoading(true)
     const { data: { session: currentSession } } = await supabase.auth.getSession()
@@ -253,6 +300,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     { key: 'messages', label: 'Messages', show: profile?.role === 'client' },
     { key: 'account', label: 'Account', show: true },
     { key: 'appearance', label: 'Appearance', show: true },
+    { key: 'details', label: 'Your details', show: profile?.role !== 'coach' },
     { key: 'targets', label: 'Daily targets', show: profile?.role !== 'coach' },
     { key: 'questionnaire', label: 'Check-in questions', show: profile?.role === 'coach' },
     { key: 'charts', label: 'Charts', show: profile?.role === 'coach' },
@@ -389,6 +437,86 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         <ThemeToggle />
       </div>
 
+      {profile?.role !== 'coach' && (() => {
+        const metric = bio.unit_preference === 'metric'
+        const age = ageFromBirthDate(bio.birth_date)
+        const pill = (active) => ({
+          flex: 1, padding: '9px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 'var(--text-sm)', fontWeight: active ? 600 : 500,
+          border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+          background: active ? 'var(--color-primary-dim)' : 'var(--color-surface)',
+          color: active ? 'var(--color-primary)' : 'var(--color-muted)',
+        })
+        const lbl = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
+        return (
+          <div id="section-details" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Your details</h2>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: '6px 0 0' }}>
+                Used to estimate your targets.{profile?.role === 'client' ? ' Your coach can see these to fine-tune your plan.' : ''}
+              </p>
+            </div>
+
+            <div>
+              <label style={lbl}>Units</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[['imperial', 'lb / ft·in'], ['metric', 'kg / cm']].map(([u, t]) => (
+                  <button key={u} type="button" onClick={() => setBio({ ...bio, unit_preference: u })} style={pill(bio.unit_preference === u)}>{t}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={lbl}>Sex</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[['male', 'Male'], ['female', 'Female']].map(([v, t]) => (
+                    <button key={v} type="button" onClick={() => setBio({ ...bio, sex: v })} style={pill(bio.sex === v)}>{t}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={lbl}>Date of birth{age != null ? ` · ${age} yrs` : ''}</label>
+                <input type="date" value={bio.birth_date} max={todayStr()} onChange={(e) => setBio({ ...bio, birth_date: e.target.value })} style={inputStyle} />
+              </div>
+            </div>
+
+            <div>
+              <label style={lbl}>Height</label>
+              {metric ? (
+                <input type="number" inputMode="numeric" value={bio.height_cm} onChange={(e) => setBio({ ...bio, height_cm: e.target.value })} placeholder="cm" style={inputStyle} />
+              ) : (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="number" inputMode="numeric" value={bio.height_ft} onChange={(e) => setBio({ ...bio, height_ft: e.target.value })} placeholder="ft" style={inputStyle} />
+                  <input type="number" inputMode="numeric" value={bio.height_in} onChange={(e) => setBio({ ...bio, height_in: e.target.value })} placeholder="in" style={inputStyle} />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label style={lbl}>Activity level</label>
+              <select value={bio.activity_level} onChange={(e) => setBio({ ...bio, activity_level: e.target.value })} style={{ ...inputStyle, cursor: 'pointer' }}>
+                {ACTIVITY_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={lbl}>Primary goal</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                {GOAL_OPTIONS.map((g) => (
+                  <button key={g.key} type="button" onClick={() => setBio({ ...bio, primary_goal: g.key })} style={pill(bio.primary_goal === g.key)}>{g.label}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Button onClick={saveBio} variant="primary" loading={bioSaving}>Save details</Button>
+              {bioSaved && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-sm)', fontWeight: 600 }}>Saved ✓</span>}
+            </div>
+          </div>
+        )
+      })()}
+
       {profile?.role !== 'coach' && (
       <div id="section-targets" style={{
         ...cardStyle,
@@ -421,6 +549,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               <div style={{ marginTop: '12px' }}>
                 <TargetCalculator
                   defaultWeightUnit={targets.weight_goal_unit}
+                  initial={{
+                    sex: bio.sex || undefined,
+                    age: ageFromBirthDate(bio.birth_date) ?? undefined,
+                    heightCm: bioHeightCm || undefined,
+                    units: bio.unit_preference,
+                    goalWeight: targets.weight_goal || undefined,
+                    activity: bio.activity_level,
+                  }}
                   onApply={(t) => {
                     setTargets(prev => ({ ...prev, calories: String(t.calories), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) }))
                     setShowTargetCalc(false)

@@ -17,6 +17,7 @@ import Join from './pages/Join'
 import ClientView from './pages/ClientView'
 import ResetPassword from './pages/ResetPassword'
 import RolePicker from './pages/RolePicker'
+import Onboarding from './pages/Onboarding'
 import BillingSuccess from './pages/BillingSuccess'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
@@ -321,6 +322,20 @@ function App() {
         session={session}
         onComplete={() => fetchProfile(session.user.id)}
         onCancel={handleSignOut}
+      />
+    )
+  }
+
+  // Brand-new tracked users (solo + clients who weren't already solo) do a quick
+  // biometrics setup once. The single `!onboarded_at` gate handles every entry
+  // path: a solo→client carries their already-set onboarded_at, so they skip it.
+  // Coaches are never tracked, so they never see it.
+  if (session && profile && (profile.role === 'solo' || profile.role === 'client') && !profile.onboarded_at) {
+    return (
+      <Onboarding
+        session={session}
+        profile={profile}
+        onComplete={() => fetchProfile(session.user.id)}
       />
     )
   }

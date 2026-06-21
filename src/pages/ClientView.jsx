@@ -22,6 +22,7 @@ import SectionRail from '../components/SectionRail'
 import TargetCalculator from '../components/TargetCalculator'
 import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
+import { ageFromBirthDate } from '../utils/biometrics'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
 import { computeClientStats } from '../utils/clientStats'
 import { attentionLevel } from '../utils/attentionLevel'
@@ -1721,6 +1722,14 @@ async function sendMessage(text) {
               <div style={{ marginTop: '12px' }}>
                 <TargetCalculator
                   defaultWeightUnit={clientTargets.weight_goal_unit}
+                  initial={{
+                    sex: clientProfile?.sex || undefined,
+                    age: ageFromBirthDate(clientProfile?.birth_date) ?? undefined,
+                    heightCm: clientProfile?.height_cm || undefined,
+                    units: clientProfile?.unit_preference || undefined,
+                    goalWeight: clientTargets.weight_goal || undefined,
+                    activity: clientProfile?.activity_level || undefined,
+                  }}
                   onApply={(t) => {
                     setClientTargets(prev => ({ ...prev, calories: String(t.calories), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) }))
                     setShowTargetCalc(false)
