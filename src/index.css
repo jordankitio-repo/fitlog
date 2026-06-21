@@ -42,6 +42,7 @@
      white-on-fill 25x) so they flip cleanly and stay consistent. */
   --color-success: #34d399;
   --color-warning: #fbbf24;
+  --color-warning-dim: rgba(251, 191, 36, 0.12); /* soft amber fill for attention/nudge cards */
   --color-on-accent: #ffffff; /* text/icons on a filled accent (primary/error/…) */
 
   --radius: 8px;
@@ -80,6 +81,7 @@
   /* Bright dark-mode green/amber are low-contrast on white — darken for light. */
   --color-success: #16a34a;
   --color-warning: #b45309;
+  --color-warning-dim: rgba(180, 83, 9, 0.10);
   --color-control-border: rgba(0, 0, 0, 0.18);
   /* Softer, cooler shadow so white cards lift gently instead of looking smudged. */
   --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);

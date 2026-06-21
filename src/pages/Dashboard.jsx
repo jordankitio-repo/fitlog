@@ -943,29 +943,31 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         </div>
       )}
 
-	      {profile?.role === 'client' && (lockInfo.locked || lockInfo.reason === 'coach-unlocked') && (
-	        <div style={{
-	          ...cardStyle,
-	          borderColor: 'var(--color-error)',
-	          borderLeftWidth: '4px',
-	          backgroundColor: 'rgba(248, 113, 113, 0.05)',
-	        }}>
-	          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-	            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-	              <span style={{ fontSize: 'var(--text-lg)' }}>🔒</span>
-	              <h2 style={{ margin: 0 }}>Progress view paused</h2>
-	            </div>
-		            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', lineHeight: '1.6', margin: 0 }}>
-		              {lockInfo.reason === 'coach-unlocked'
-		                ? 'Your coach unlocked your account. You have 48 hours to log your nutrition before it locks again.'
-		                : `No nutrition logged for ${lockInfo.days} ${lockInfo.days === 1 ? 'day' : 'days'}. Log today to bring your progress view back, or ask your coach to unlock it.`}
-		            </p>
-	            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-	              Your logging form is still fully available — keep adding entries any time.
-	            </p>
-	          </div>
-	        </div>
-	      )}
+      {profile?.role === 'client' && (lockInfo.locked || lockInfo.reason === 'coach-unlocked') && (
+        <div style={{
+          ...cardStyle,
+          background: 'var(--color-warning-dim)',
+          borderColor: 'transparent',
+          borderLeft: '3px solid var(--color-warning)',
+          gap: '14px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <h2 style={{ margin: 0 }}>Progress view paused</h2>
+          </div>
+          <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-base)', lineHeight: 1.6, maxWidth: '54ch' }}>
+            {lockInfo.reason === 'coach-unlocked'
+              ? 'Your coach unlocked your account. You have 48 hours to log your nutrition before it locks again.'
+              : `No nutrition logged for ${lockInfo.days} ${lockInfo.days === 1 ? 'day' : 'days'}. Log today to bring your progress view back, or ask your coach to unlock it.`}
+          </p>
+          <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>
+            Your logging form is still fully available — keep adding entries any time.
+          </p>
+        </div>
+      )}
 
 
       {/* Coach reports */}
