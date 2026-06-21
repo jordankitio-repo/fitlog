@@ -214,8 +214,11 @@ nav a:hover {
   display: flex;
   align-items: stretch;
   background-color: var(--color-surface);
+  /* A single hairline + a whisper of lift — no heavy drop shadow, which read as
+     a harsh dark band above the bar (esp. on the light theme). Surface-vs-bg
+     contrast carries the rest of the separation. */
   border-top: 1px solid var(--color-border);
-  box-shadow: 0 -0.5px 0 var(--color-border), 0 -8px 24px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
   /* Sit above the iOS home indicator in the standalone PWA. */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
