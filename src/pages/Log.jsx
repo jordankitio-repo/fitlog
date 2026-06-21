@@ -457,7 +457,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       }),
     )
     if (error) { console.error('Error logging saved meal:', error); showToast('Something went wrong — try again.', 'error') }
-    else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
+    else { fetchEntries(); fetchFrequentFoods(); refreshNotifications(); setShowSavedMeals(false) }
     setLoggingMealId(null); setLogPickId(null)
   }
 
