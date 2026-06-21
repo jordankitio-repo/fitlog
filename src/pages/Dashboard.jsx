@@ -947,8 +947,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         <div style={{
           ...cardStyle,
           background: 'var(--color-warning-dim)',
-          borderColor: 'transparent',
-          borderLeft: '3px solid var(--color-warning)',
           gap: '14px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
