@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { itemsFromEntries, entriesFromItems, mealTotals } from './savedMeals'
+import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from './savedMeals'
 
 describe('itemsFromEntries', () => {
   it('snapshots entries into saved_meal_items with ids/defaults', () => {
@@ -46,5 +46,36 @@ describe('mealTotals', () => {
   })
   it('handles empty', () => {
     expect(mealTotals([])).toEqual({ calories: 0, protein: 0, carbs: 0, fat: 0 })
+  })
+})
+
+describe('mealSignature', () => {
+  const a = [{ food: 'Oats', calories: 300, protein: 10, carbs: 50, fat: 5, serving_size: 80, serving_unit: 'g' },
+             { food: 'Egg', calories: 70 }]
+
+  it('matches same name + same content regardless of item order', () => {
+    const reversed = [a[1], a[0]]
+    expect(mealSignature('Pre workout', a)).toBe(mealSignature('Pre workout', reversed))
+  })
+
+  it('ignores name casing and surrounding whitespace', () => {
+    expect(mealSignature('  Pre Workout ', a)).toBe(mealSignature('pre workout', a))
+  })
+
+  it('treats an entry and its saved snapshot identically (shared defaults)', () => {
+    // itemsFromEntries fills serving_size 100 / serving_unit 'g'; an entry that
+    // omits them must hash the same as the stored item that has the defaults.
+    const entry = [{ food: 'Egg', calories: 70 }]
+    const stored = itemsFromEntries(entry, { savedMealId: 'm', userId: 'u' })
+    expect(mealSignature('Snack', entry)).toBe(mealSignature('Snack', stored))
+  })
+
+  it('differs when the name differs', () => {
+    expect(mealSignature('Pre workout', a)).not.toBe(mealSignature('Post workout', a))
+  })
+
+  it('differs when content differs', () => {
+    const b = [{ food: 'Oats', calories: 301, protein: 10, carbs: 50, fat: 5, serving_size: 80, serving_unit: 'g' }, { food: 'Egg', calories: 70 }]
+    expect(mealSignature('Pre workout', a)).not.toBe(mealSignature('Pre workout', b))
   })
 })

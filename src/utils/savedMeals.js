@@ -35,6 +35,29 @@ export function entriesFromItems(items = [], { userId, date, meal, loggedMealId 
   }))
 }
 
+// A stable fingerprint of a meal used to detect duplicates by name AND content
+// (same name + same set of foods/macros). Item order doesn't matter, casing and
+// surrounding whitespace are ignored, and the same per-item defaults as
+// itemsFromEntries (serving_size 100, serving_unit 'g') are applied so an entry
+// and its saved snapshot hash identically. Two meals are duplicates iff their
+// signatures match.
+export function mealSignature(name, items = []) {
+  const txt = (s) => String(s ?? '').trim().toLowerCase()
+  const num = (n) => Number(n ?? 0)
+  const rows = items
+    .map((i) => [
+      txt(i.food),
+      num(i.calories),
+      num(i.protein),
+      num(i.carbs),
+      num(i.fat),
+      num(i.serving_size ?? 100),
+      txt(i.serving_unit ?? 'g'),
+    ].join('|'))
+    .sort()
+  return txt(name) + '::' + rows.join('~')
+}
+
 // Aggregate macros for a saved meal's items (for the list label).
 export function mealTotals(items = []) {
   return items.reduce(

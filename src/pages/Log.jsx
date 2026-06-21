@@ -12,7 +12,7 @@ import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
-import { itemsFromEntries, entriesFromItems, mealTotals } from '../utils/savedMeals'
+import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '../utils/savedMeals'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -294,6 +294,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setSavedMeals((data || []).map(m => ({ id: m.id, name: m.name, items: m.saved_meal_items || [] })))
   }
 
+  // True when a saved meal with this exact name AND content already exists, so
+  // we don't pile up identical "Pre workout × N" entries. Returns the existing
+  // match (for messaging) or null.
+  function findDuplicateSavedMeal(name, items) {
+    const sig = mealSignature(name, items)
+    return savedMeals.find(m => mealSignature(m.name, m.items) === sig) || null
+  }
+
   // Snapshot the current day's logged foods into a reusable saved meal.
   function toggleSelect(id) {
     setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -310,6 +318,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const name = saveMealName.trim()
     const chosen = entries.filter(e => selectedIds.has(e.id))
     if (!name || chosen.length === 0) return
+    if (findDuplicateSavedMeal(name, chosen)) {
+      showToast(`"${name}" is already in your saved meals.`, 'error'); exitSelect(); return
+    }
     setSavingMeal(true)
     const { data: { session: cs } } = await supabase.auth.getSession()
     const { data: created, error } = await supabase
@@ -479,6 +490,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // Save a logged-meal container's foods as a reusable saved meal (named from
   // the container; rename later in the Saved meals modal).
   async function saveContainerAsMeal(item) {
+    if (findDuplicateSavedMeal(item.name, item.entries)) {
+      setDialog({ title: 'Already saved', message: `"${item.name}" is already in your saved meals.`, confirmLabel: 'OK' })
+      return
+    }
     const { data: { session: cs } } = await supabase.auth.getSession()
     const { data: created, error } = await supabase
       .from('saved_meals').insert({ user_id: cs.user.id, name: item.name }).select('id').single()
