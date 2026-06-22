@@ -39,9 +39,6 @@ function RosterBanner({ roster, onReviewClick }) {
   )
   return (
     <div style={{ ...cardStyle, padding: '14px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '18px' }}>
-      <span style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', fontWeight: 600 }}>
-        Roster
-      </span>
       {seg(attentionColors.red, roster.atRisk, 'at risk')}
       {seg(attentionColors.yellow, roster.review, 'needs review')}
       {seg(attentionColors.green, roster.onTrack, 'on track')}
