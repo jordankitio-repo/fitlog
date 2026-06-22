@@ -54,7 +54,7 @@ const pains = [
 ]
 
 const contrast = [
-  { before: 'Screenshots and text threads', after: 'Daily nutrition, weight, cardio, and steps — all tied to the client' },
+  { before: 'Screenshots and text threads', after: 'Daily nutrition, weight, body measurements, cardio, and steps — all tied to the client' },
   { before: 'Manual weekly averages',       after: '7-day compliance across calories, protein, cardio, and steps' },
   { before: 'Generic check-in questions',   after: 'Check-ins you design — your cadence, your questions, answered against real data' },
   { before: 'Guessing who needs attention', after: 'Dashboard sorted by compliance and last log' },
