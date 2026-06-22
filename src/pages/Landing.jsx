@@ -54,15 +54,16 @@ const pains = [
 ]
 
 const contrast = [
-  { before: 'Screenshots and text threads', after: 'Daily nutrition, weight, body measurements, cardio, and steps — all tied to the client' },
+  { before: 'Screenshots and text threads', after: 'Daily nutrition, weight, cardio, and steps — all tied to the client' },
+  { before: 'The scale as the only progress signal', after: 'Weight plus body measurements — neck to thigh — with per-site trends and change since day one' },
   { before: 'Manual weekly averages',       after: '7-day compliance across calories, protein, cardio, and steps' },
   { before: 'Generic check-in questions',   after: 'Check-ins you design — your cadence, your questions, answered against real data' },
   { before: 'Guessing who needs attention', after: 'Dashboard sorted by compliance and last log' },
 ]
 
 const steps = [
-  { n: '01', kind: 'targets', title: 'Set the targets',          copy: 'Invite a client, set calories, macros, cardio, steps, and weight goals.' },
-  { n: '02', kind: 'log',     title: 'Clients log from the web', copy: 'No app download required. Clients record what you need from any browser.' },
+  { n: '01', kind: 'targets', title: 'Set the targets',          copy: 'Invite a client — Gardnr suggests starting macros from their stats, then you set calories, macros, cardio, steps, and weight goals.' },
+  { n: '02', kind: 'log',     title: 'Clients log from their phone', copy: 'Installs like an app from any browser — no App Store. It opens straight to logging, so they actually keep it up.' },
   { n: '03', kind: 'chart',   title: 'Coach from the evidence',  copy: 'One view for compliance, messages, check-ins, notes, reports, and trends.' },
 ]
 
@@ -324,7 +325,7 @@ export default function Landing() {
             <a href="#how" className="lp-link-arrow">See the workflow <span style={{ opacity: 0.6 }}>→</span></a>
           </div>
           <div className="lp-trust">
-            {['30 days free', '$19/month after trial', 'No app download for clients'].map((t) => (
+            {['30 days free', '$19/month after trial', 'Installs like an app — no App Store'].map((t) => (
               <span key={t} className="lp-trust-item"><span className="lp-trust-check">✓</span>{t}</span>
             ))}
           </div>
