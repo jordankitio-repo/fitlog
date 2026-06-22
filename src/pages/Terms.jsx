@@ -14,7 +14,7 @@ export default function Terms() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Terms of Service
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 7, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 22, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>Agreement to Our Legal Terms</h2>
@@ -158,6 +158,7 @@ export default function Terms() {
           <li style={li}>Use the Services to advertise or offer to sell goods and services.</li>
           <li style={li}>Sell or otherwise transfer your profile.</li>
           <li style={li}>Upload false or misleading health data with intent to deceive a coach or client.</li>
+          <li style={li}>Upload or share any image or content that is unlawful, infringing, obscene, or that you do not have the rights to use.</li>
           <li style={li}>Use the Services as part of any effort to compete with us or for any revenue-generating endeavor without our authorization.</li>
         </ul>
       </section>
@@ -165,9 +166,16 @@ export default function Terms() {
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>8. User Generated Contributions</h2>
         <p style={p}>
-          The Services allow you to create, submit, post, and transmit content including coaching notes, reports,
-          messages, and logged data (collectively, "Contributions"). You are solely responsible for your Contributions
-          and represent that they are accurate, lawful, and do not infringe any third-party rights.
+          The Services allow you to create, submit, post, transmit, and upload content including coaching notes,
+          reports, messages, logged data, and profile photos or other images (collectively, "Contributions"). You
+          are solely responsible for your Contributions and represent that they are accurate and lawful, that you
+          own or have the necessary rights to them, and that they do not infringe any third-party rights.
+        </p>
+        <p style={p}>
+          By uploading a profile photo or other image, you grant us a non-exclusive, royalty-free license to store,
+          display, and process it solely to operate and provide the Services — for example, displaying your photo to
+          you and to a coach or client you are connected with. This license ends when you remove the image or delete
+          your account.
         </p>
         <p style={p}>
           We reserve the right to remove or edit any Contributions at any time without notice if we consider them
@@ -287,7 +295,9 @@ export default function Terms() {
         <p style={p}>
           Gardnr is a productivity and tracking tool, not a medical service. Nothing on Gardnr constitutes medical
           advice, diagnosis, or treatment. Nutrition targets and AI-generated coaching reports are informational
-          only. Always consult a qualified healthcare provider before making changes to your diet or exercise routine.
+          only. Any starting targets we estimate from the details you provide (such as the target calculator) are
+          general estimates, not a personalized medical or nutritional prescription. Always consult a qualified
+          healthcare provider before making changes to your diet or exercise routine.
         </p>
         <p style={p}>
           Coaches using Gardnr are independent professionals. Digigarden LLC is not responsible for advice,

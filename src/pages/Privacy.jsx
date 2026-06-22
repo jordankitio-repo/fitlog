@@ -14,7 +14,7 @@ export default function Privacy() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 7, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 22, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -34,7 +34,9 @@ export default function Privacy() {
         <ul style={ul}>
           <li style={li}>Name and email address (collected at registration)</li>
           <li style={li}>Account credentials (password stored as a secure hash — we never see your plain-text password)</li>
-          <li style={li}>Health and fitness data you voluntarily enter: body weight, nutrition intake (calories, macronutrients), cardio activity, and step counts</li>
+          <li style={li}>Health and fitness data you voluntarily enter: body weight, body measurements (e.g. neck, chest, waist, hips, arm, thigh), nutrition intake (calories and macronutrients), cardio activity, and step counts</li>
+          <li style={li}>Profile and biometric details used to estimate your daily targets: sex, date of birth, height, activity level, and your weight or body-composition goals</li>
+          <li style={li}>A profile photo, if you choose to upload one (stored in our Supabase storage)</li>
           <li style={li}>Coaching content: targets set by coaches, messages, reports, check-ins, and private notes</li>
           <li style={li}>Payment information (processed by Stripe — we do not store your card details)</li>
         </ul>
@@ -113,8 +115,9 @@ export default function Privacy() {
         <p style={p}>
           We keep your personal information for as long as you have an active account with us. When you delete
           your account via the Profile page, we permanently delete all of your data from our active databases.
-          This includes your nutrition logs, weight logs, cardio logs, step logs, messages, reports, and all
-          other data associated with your account.
+          This includes your nutrition logs, weight logs, body measurements, cardio logs, step logs, profile and
+          biometric details, any uploaded profile photo, messages, reports, and all other data associated with
+          your account.
         </p>
       </section>
 
