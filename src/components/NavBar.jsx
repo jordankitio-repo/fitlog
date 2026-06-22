@@ -1,7 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../supabase'
-import Button from './Button'
 import Logo from './Logo'
 import FeedbackButton from './FeedbackButton'
 import NotificationCenter from './NotificationCenter'
@@ -35,6 +34,9 @@ function NavBar({ profile }) {
     document.body.classList.add('has-bottom-nav')
     return () => document.body.classList.remove('has-bottom-nav')
   }, [isMobile])
+
+  // Desktop account menu (opens from the avatar): Profile + Sign out.
+  const [menuOpen, setMenuOpen] = useState(false)
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -112,7 +114,8 @@ function NavBar({ profile }) {
     <nav className="gnav" style={{ ...navBase, gap: '24px' }}>
       {brand}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-        {links.map((l) => (
+        {/* Profile lives in the avatar menu on desktop, not as a pill. */}
+        {links.filter((l) => l.to !== '/profile').map((l) => (
           <Link
             key={l.to + l.label}
             to={l.to}
@@ -124,10 +127,49 @@ function NavBar({ profile }) {
         <NotificationCenter profile={profile} />
         <span style={{ width: '8px' }} />
         <FeedbackButton userEmail={profile?.email || ''} userName={profile?.full_name || ''} />
-        <Button onClick={handleSignOut} variant="muted" size="sm">Sign out</Button>
-        <Link to="/profile" aria-label="Your profile" style={{ display: 'inline-flex', marginLeft: '4px' }}>
-          <Avatar url={profile?.avatar_url} name={profile?.full_name} size={32} />
-        </Link>
+
+        <div style={{ position: 'relative', display: 'inline-flex', marginLeft: '4px' }}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="Account menu"
+            aria-expanded={menuOpen}
+            style={{
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              borderRadius: '50%', display: 'inline-flex',
+              boxShadow: location.pathname === '/profile' ? '0 0 0 2px var(--color-primary)' : 'none',
+            }}
+          >
+            <Avatar url={profile?.avatar_url} name={profile?.full_name} size={34} />
+          </button>
+
+          {menuOpen && (
+            <>
+              <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 110 }} />
+              <div style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 10px)', width: 220, zIndex: 120,
+                background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius)', boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+                overflow: 'hidden', padding: '6px',
+              }}>
+                <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--color-border)', marginBottom: '4px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.full_name || 'Your account'}</div>
+                  {profile?.email && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.email}</div>}
+                </div>
+                <Link
+                  to="/profile"
+                  onClick={() => setMenuOpen(false)}
+                  className={`gnav-menu-item${location.pathname === '/profile' ? ' active' : ''}`}
+                >
+                  Profile
+                </Link>
+                <button type="button" onClick={() => { setMenuOpen(false); handleSignOut() }} className="gnav-menu-item">
+                  Sign out
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </nav>
   )

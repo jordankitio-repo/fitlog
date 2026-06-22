@@ -206,6 +206,26 @@ nav a:hover {
   font-weight: 600;
 }
 
+/* Desktop account dropdown (opens from the avatar) */
+.gnav-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.gnav-menu-item:hover { background-color: var(--color-surface-2); }
+.gnav-menu-item.active { color: var(--color-primary); font-weight: 600; }
+
 /* Mobile bottom tab bar (Cronometer-style): primary nav pinned to the bottom
    edge, within thumb reach. Only rendered at <=600px (see NavBar). The active
    tab lifts its icon into a Material-3-style "pill" so the current page reads
