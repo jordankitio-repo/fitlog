@@ -69,7 +69,7 @@ const steps = [
 
 const trialSteps = [
   'Invite one client and set their targets',
-  'Have them log a normal week from the web app',
+  'Have them log a normal week from their phone',
   'Review their compliance before the check-in',
   'Generate, edit, and send the weekly report',
 ]
@@ -78,12 +78,15 @@ const capabilities = [
   { title: 'Attention triage',     copy: 'Your dashboard ranks who needs you first — by compliance and last log. Ready, watch, or nudge.' },
   { title: 'Compliance breakdown', copy: 'Weekday vs weekend, on-target vs over vs under. You see why a client is slipping, not just that they are.' },
   { title: 'Energy balance read',  copy: 'Empirical maintenance and weight trajectory, read from their real intake and weigh-ins — not a formula.' },
+  { title: 'Body composition',     copy: 'Measurements alongside weight — neck to thigh — with per-site trends and change since day one. See the recomp the scale hides.' },
   { title: 'Meeting prep',         copy: 'A private brief of what changed since you last talked, so you walk into every check-in already up to speed.' },
   { title: 'Smart nudges',         copy: 'One tap sends a contextual email — a log reminder or a check-in — tailored to why they went quiet.' },
   { title: 'Weekly reports',       copy: "Drafted from the week's data in your voice. Review, edit, and send in a minute." },
   { title: 'Check-in cadence',     copy: 'Set each client to weekly, biweekly, or a custom rhythm — the right pace for their phase, not one fixed schedule.' },
   { title: 'Custom check-ins',     copy: 'Build the exact check-in questions you want answered — ratings, scales, free-text — instead of a one-size-fits-all form.' },
   { title: '90-day adherence map', copy: 'Three months of compliance at a glance — every day, every metric, colored by target. Spot the drift before it becomes a plateau.' },
+  { title: 'Private coach notes',  copy: 'Keep running notes on each client — context, history, what to watch — private to you and always one click from their data.' },
+  { title: 'Re-engagement built in', copy: 'When a client goes quiet, their progress view pauses until they log again — a gentle pull back. You can unlock it anytime, with a 48-hour grace window.' },
 ]
 
 const badgeLabels = { ready: 'Ready', watch: 'Watch', nudge: 'Nudge' }
