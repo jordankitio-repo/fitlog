@@ -7,6 +7,7 @@ import ChatBubble from './ChatBubble'
 // Log, Profile, …). The data plumbing previously lived in Dashboard.
 export default function ClientChat({ profile }) {
   const [messages, setMessages] = useState([])
+  const [coach, setCoach] = useState(null)
 
   const fetchMessages = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -30,6 +31,29 @@ export default function ClientChat({ profile }) {
   useEffect(() => {
     document.body.classList.add('has-chat-fab')
     return () => document.body.classList.remove('has-chat-fab')
+  }, [])
+
+  // Fetch the client's active coach (name + avatar) for the chat header. RLS
+  // allows a client to read their coach's profile (is_profile_related).
+  useEffect(() => {
+    async function loadCoach() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const { data: rel } = await supabase
+        .from('coach_clients')
+        .select('coach_id')
+        .eq('client_id', session.user.id)
+        .eq('status', 'active')
+        .maybeSingle()
+      if (!rel) return
+      const { data: c } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', rel.coach_id)
+        .maybeSingle()
+      if (c) setCoach(c)
+    }
+    loadCoach()
   }, [])
 
   // Mark-read happens when the bubble opens, so the unread badge survives until
@@ -67,7 +91,8 @@ export default function ClientChat({ profile }) {
     <ChatBubble
       messages={messages}
       currentUserId={profile?.id}
-      recipientName="your coach"
+      recipientName={coach?.full_name || 'your coach'}
+      recipientAvatarUrl={coach?.avatar_url}
       onSend={sendMessage}
       onMarkRead={markMessagesRead}
     />

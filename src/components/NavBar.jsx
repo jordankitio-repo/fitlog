@@ -5,6 +5,7 @@ import Button from './Button'
 import Logo from './Logo'
 import FeedbackButton from './FeedbackButton'
 import NotificationCenter from './NotificationCenter'
+import Avatar from './Avatar'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
 function NavIcon({ label, size = 19 }) {
@@ -75,7 +76,12 @@ function NavBar({ profile }) {
       <>
         <nav className="gnav" style={{ ...navBase, justifyContent: 'space-between' }}>
           {brand}
-          <NotificationCenter profile={profile} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <NotificationCenter profile={profile} />
+            <Link to="/profile" aria-label="Your profile" style={{ display: 'inline-flex' }}>
+              <Avatar url={profile?.avatar_url} name={profile?.full_name} size={30} />
+            </Link>
+          </div>
         </nav>
         <nav className="gnav-bottom" aria-label="Primary">
           {links.map((l) => {
@@ -119,6 +125,9 @@ function NavBar({ profile }) {
         <span style={{ width: '8px' }} />
         <FeedbackButton userEmail={profile?.email || ''} userName={profile?.full_name || ''} />
         <Button onClick={handleSignOut} variant="muted" size="sm">Sign out</Button>
+        <Link to="/profile" aria-label="Your profile" style={{ display: 'inline-flex', marginLeft: '4px' }}>
+          <Avatar url={profile?.avatar_url} name={profile?.full_name} size={32} />
+        </Link>
       </div>
     </nav>
   )

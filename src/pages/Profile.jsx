@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
+import Avatar from '../components/Avatar'
+import { uploadAvatar, removeAvatar, AVATAR_MAX_BYTES } from '../utils/avatarUpload'
 import SectionRail from '../components/SectionRail'
 import Button from '../components/Button'
 import PasswordInput from '../components/PasswordInput'
@@ -77,6 +79,11 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   })
   const [bioSaved, setBioSaved] = useState(false)
   const [bioSaving, setBioSaving] = useState(false)
+  // Profile picture (all roles).
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '')
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
+  const avatarInputRef = useRef(null)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -199,6 +206,45 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     setBioSaved(true)
     setTimeout(() => setBioSaved(false), 2000)
     onProfileUpdate?.()
+  }
+
+  async function onPickAvatar(e) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // let the user re-pick the same file later
+    if (!file) return
+    setAvatarError('')
+    if (!file.type.startsWith('image/')) { setAvatarError('Please choose an image file.'); return }
+    if (file.size > AVATAR_MAX_BYTES) { setAvatarError('Image must be under 5 MB.'); return }
+    setAvatarBusy(true)
+    try {
+      const url = await uploadAvatar(session.user.id, file)
+      const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', session.user.id)
+      if (error) throw error
+      setAvatarUrl(url)
+      onProfileUpdate?.()
+    } catch (err) {
+      console.error('avatar upload:', err)
+      setAvatarError(err.message || 'Upload failed — try again.')
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  async function onRemoveAvatar() {
+    setAvatarBusy(true)
+    setAvatarError('')
+    try {
+      await removeAvatar(session.user.id)
+      const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', session.user.id)
+      if (error) throw error
+      setAvatarUrl('')
+      onProfileUpdate?.()
+    } catch (err) {
+      console.error('avatar remove:', err)
+      setAvatarError('Could not remove — try again.')
+    } finally {
+      setAvatarBusy(false)
+    }
   }
 
   async function exportData() {
@@ -376,6 +422,23 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         gap: '16px'
       }}>
         <h2 style={{ margin: 0 }}>Account</h2>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Avatar url={avatarUrl} name={profile?.full_name || ''} size={64} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input ref={avatarInputRef} type="file" accept="image/*" onChange={onPickAvatar} style={{ display: 'none' }} />
+              <Button onClick={() => avatarInputRef.current?.click()} variant="outline" size="sm" loading={avatarBusy}>
+                {avatarUrl ? 'Change photo' : 'Upload photo'}
+              </Button>
+              {avatarUrl && <Button onClick={onRemoveAvatar} variant="ghost" size="sm" disabled={avatarBusy}>Remove</Button>}
+            </div>
+            <p style={{ fontSize: 'var(--text-xs)', color: avatarError ? 'var(--color-error)' : 'var(--color-muted)', margin: 0 }}>
+              {avatarError || 'JPG or PNG, up to 5 MB.'}
+            </p>
+          </div>
+        </div>
+
         <div>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '6px' }}>Name</p>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

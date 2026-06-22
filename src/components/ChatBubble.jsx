@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import Button from './Button'
+import Avatar from './Avatar'
 
 // A per-thread chat widget pinned to the bottom-right corner. Presentational +
 // open/close only — the page owns the data (messages, send, mark-read). Used on
@@ -17,7 +18,7 @@ function ChatIcon() {
   )
 }
 
-export default function ChatBubble({ messages = [], currentUserId, recipientName = 'client', onSend, onMarkRead }) {
+export default function ChatBubble({ messages = [], currentUserId, recipientName = 'client', recipientAvatarUrl, onSend, onMarkRead }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -83,7 +84,10 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)' }}>
-        <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{recipientName}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+          <Avatar url={recipientAvatarUrl} name={recipientName} size={28} />
+          <span style={{ fontWeight: 700, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipientName}</span>
+        </span>
         <button onClick={() => setOpen(false)} aria-label="Close messages" style={{ background: 'transparent', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1, padding: '0 4px' }}>×</button>
       </div>
 

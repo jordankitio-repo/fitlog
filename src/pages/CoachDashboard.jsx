@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
+import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import Toast from '../components/Toast'
 import Skeleton from '../components/Skeleton'
@@ -120,7 +121,7 @@ function CoachDashboard({ profile }) {
 
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, email, full_name')
+      .select('id, email, full_name, avatar_url')
       .in('id', clientIds)
 
     const merged = relationships.map(r => ({
@@ -461,10 +462,13 @@ function CoachDashboard({ profile }) {
                   gap: '16px'
                 }}>
                 {/* Header row */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <p style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>{c.client?.full_name || 'Unnamed'}</p>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px', letterSpacing: '0.01em' }}>{c.client?.email}</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                    <Avatar url={c.client?.avatar_url} name={c.client?.full_name || ''} size={40} />
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>{c.client?.full_name || 'Unnamed'}</p>
+                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px', letterSpacing: '0.01em' }}>{c.client?.email}</p>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {nudge && (

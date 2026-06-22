@@ -23,6 +23,7 @@ import TargetCalculator from '../components/TargetCalculator'
 import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
 import { ageFromBirthDate } from '../utils/biometrics'
+import Avatar from '../components/Avatar'
 import { energyBalanceRead } from '../utils/energyBalanceRead'
 import { computeClientStats } from '../utils/clientStats'
 import { attentionLevel } from '../utils/attentionLevel'
@@ -1334,6 +1335,7 @@ async function sendMessage(text) {
       <div className="cv-titlerow">
         <div><Button onClick={() => navigate('/')} variant="ghost" size="sm">← Back</Button></div>
         <div style={{ flex: 1, minWidth: '180px', display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+        <Avatar url={clientProfile?.avatar_url} name={clientProfile?.full_name || ''} size={52} style={{ marginTop: '4px' }} />
         <div style={{ flex: 1, minWidth: '180px' }}>
           <h1>{clientProfile?.full_name || 'Client'}</h1>
           <p style={{ fontSize: 'var(--text-base)', marginTop: '2px' }}>{clientProfile?.email}</p>
@@ -2236,6 +2238,7 @@ async function sendMessage(text) {
       messages={messages}
       currentUserId={profile?.id}
       recipientName={clientProfile?.full_name || 'client'}
+      recipientAvatarUrl={clientProfile?.avatar_url}
       onSend={sendMessage}
       onMarkRead={markMessagesRead}
     />
