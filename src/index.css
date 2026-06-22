@@ -174,9 +174,12 @@ nav a:hover {
 /* ---------- App navigation ---------- */
 /* Solid (not translucent): a frosted backdrop-filter here both bled scrolled
    content through the bar and trapped the mobile menu's fixed backdrop against
-   the 56px nav box. A solid bar + soft shadow gives depth without either bug. */
+   the 56px nav box. The bar already carries a hairline border-bottom
+   (--color-border); pair it with only a whisper of lift — matching the bottom
+   tab bar — instead of the old hard line + heavy drop shadow that read as a
+   harsh black edge (esp. on the light theme). */
 .gnav {
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 /* Desktop pill links */
