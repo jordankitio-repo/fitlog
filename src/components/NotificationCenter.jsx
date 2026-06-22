@@ -4,6 +4,7 @@ import { supabase } from '../supabase'
 import { computeClientStats, computeClientAlerts } from '../utils/clientStats'
 import { attentionLevel } from '../utils/attentionLevel'
 import { NOTIF_REFRESH } from '../utils/notifyRefresh'
+import Avatar from './Avatar'
 
 // Notification bell + dropdown. Two kinds of entry, deliberately handled
 // differently (see the day/night-mode-era decision to mirror PagerDuty/Linear):
@@ -69,9 +70,10 @@ export default function NotificationCenter({ profile }) {
       const relationships = rels || []
       const ids = relationships.map((r) => r.client_id)
       const names = {}
+      const avatars = {}
       if (ids.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', ids)
-        ;(profs || []).forEach((p) => { names[p.id] = p.full_name || p.email || 'A client' })
+        const { data: profs } = await supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', ids)
+        ;(profs || []).forEach((p) => { names[p.id] = p.full_name || p.email || 'A client'; avatars[p.id] = p.avatar_url })
       }
 
       // Events
@@ -79,8 +81,8 @@ export default function NotificationCenter({ profile }) {
         supabase.from('check_ins').select('id, client_id, created_at').eq('coach_id', uid).order('created_at', { ascending: false }).limit(15),
         supabase.from('messages').select('id, client_id, content, created_at').eq('coach_id', uid).neq('sender_id', uid).order('created_at', { ascending: false }).limit(15),
       ])
-      ;(ci.data || []).forEach((c) => ev.push({ id: 'ci' + c.id, kind: 'checkin', title: `${names[c.client_id] || 'A client'} checked in`, time: +new Date(c.created_at), href: `/client/${c.client_id}?focus=checkIn` }))
-      ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: `${names[m.client_id] || 'A client'} messaged you`, sub: trim(m.content), time: +new Date(m.created_at), href: `/client/${m.client_id}?focus=chat` }))
+      ;(ci.data || []).forEach((c) => ev.push({ id: 'ci' + c.id, kind: 'checkin', title: `${names[c.client_id] || 'A client'} checked in`, time: +new Date(c.created_at), href: `/client/${c.client_id}?focus=checkIn`, avatarUrl: avatars[c.client_id], avatarName: names[c.client_id] }))
+      ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: `${names[m.client_id] || 'A client'} messaged you`, sub: trim(m.content), time: +new Date(m.created_at), href: `/client/${m.client_id}?focus=chat`, avatarUrl: avatars[m.client_id], avatarName: names[m.client_id] }))
 
       // Alerts — one per client that needs attention, from the same triage the
       // coach dashboard uses.
@@ -94,21 +96,31 @@ export default function NotificationCenter({ profile }) {
               title: names[id] || 'A client',
               sub: t.reasons.slice(0, 2).join(' · '),
               href: `/client/${id}`,
+              avatarUrl: avatars[id], avatarName: names[id],
             })
           }
         })
         al.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level])
       }
     } else if (profile?.role === 'client') {
+      // The client's coach (name + avatar) — every coach-sourced item shows it.
+      let coachAvatar = null
+      const { data: rel } = await supabase.from('coach_clients').select('coach_id').eq('client_id', uid).eq('status', 'active').maybeSingle()
+      let coachName = 'your coach'
+      if (rel) {
+        const { data: c } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', rel.coach_id).maybeSingle()
+        if (c) { coachName = c.full_name || coachName; coachAvatar = c.avatar_url }
+      }
+
       // Events
       const [rep, msg, rev] = await Promise.all([
         supabase.from('reports').select('id, created_at').eq('client_id', uid).order('created_at', { ascending: false }).limit(15),
         supabase.from('messages').select('id, content, created_at').eq('client_id', uid).neq('sender_id', uid).order('created_at', { ascending: false }).limit(15),
         supabase.from('check_ins').select('id, coach_comment, reviewed_at').eq('client_id', uid).not('reviewed_at', 'is', null).order('reviewed_at', { ascending: false }).limit(15),
       ])
-      ;(rep.data || []).forEach((r) => ev.push({ id: 'r' + r.id, kind: 'report', title: 'New weekly report', sub: 'From your coach', time: +new Date(r.created_at), href: '/?focus=reports' }))
-      ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: 'Message from your coach', sub: trim(m.content), time: +new Date(m.created_at), href: '/?focus=chat' }))
-      ;(rev.data || []).forEach((c) => ev.push({ id: 'rev' + c.id, kind: 'review', title: 'Your coach reviewed your check-in', sub: c.coach_comment ? trim(c.coach_comment) : 'From your coach', time: +new Date(c.reviewed_at), href: '/?focus=checkin' }))
+      ;(rep.data || []).forEach((r) => ev.push({ id: 'r' + r.id, kind: 'report', title: 'New weekly report', sub: 'From your coach', time: +new Date(r.created_at), href: '/?focus=reports', avatarUrl: coachAvatar, avatarName: coachName }))
+      ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: 'Message from your coach', sub: trim(m.content), time: +new Date(m.created_at), href: '/?focus=chat', avatarUrl: coachAvatar, avatarName: coachName }))
+      ;(rev.data || []).forEach((c) => ev.push({ id: 'rev' + c.id, kind: 'review', title: 'Your coach reviewed your check-in', sub: c.coach_comment ? trim(c.coach_comment) : 'From your coach', time: +new Date(c.reviewed_at), href: '/?focus=checkin', avatarUrl: coachAvatar, avatarName: coachName }))
 
       // Alerts — the client's own action-items (lock, due check-in, coach nudge).
       const act = await computeClientAlerts(uid)
@@ -121,7 +133,7 @@ export default function NotificationCenter({ profile }) {
         al.push({ id: 'al:checkin', level: 'yellow', title: 'Weekly check-in due', sub: 'Let your coach know how your week went', href: '/?focus=checkin' })
       }
       if (act.nudged) {
-        al.push({ id: 'al:nudge', level: 'yellow', title: 'Your coach nudged you', sub: 'Log your nutrition today to stay on track', href: '/log' })
+        al.push({ id: 'al:nudge', level: 'yellow', title: 'Your coach nudged you', sub: 'Log your nutrition today to stay on track', href: '/log', avatarUrl: coachAvatar, avatarName: coachName })
       }
       al.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level])
     }
@@ -242,7 +254,14 @@ export default function NotificationCenter({ profile }) {
                             border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', color: 'var(--color-text)',
                           }}
                         >
-                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: LEVEL_COLOR[a.level], marginTop: 5, flexShrink: 0 }} />
+                          {a.avatarName ? (
+                            <span style={{ position: 'relative', flexShrink: 0, marginTop: 1, display: 'inline-flex' }}>
+                              <Avatar url={a.avatarUrl} name={a.avatarName} size={30} />
+                              <span style={{ position: 'absolute', bottom: -1, right: -1, width: 11, height: 11, borderRadius: '50%', background: LEVEL_COLOR[a.level], border: '2px solid var(--color-surface)' }} />
+                            </span>
+                          ) : (
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: LEVEL_COLOR[a.level], marginTop: 5, flexShrink: 0 }} />
+                          )}
                           <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                             <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{a.title}</span>
                             {a.sub && <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>{a.sub}</span>}
@@ -261,14 +280,17 @@ export default function NotificationCenter({ profile }) {
                         key={i.id}
                         onClick={() => go(i.href)}
                         style={{
-                          width: '100%', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2,
+                          width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 9,
                           padding: '11px 14px', background: 'transparent',
                           border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', color: 'var(--color-text)',
                         }}
                       >
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{i.title}</span>
-                        {i.sub && <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>{i.sub}</span>}
-                        <span style={{ fontSize: '0.68rem', color: 'var(--color-muted)' }}>{relTime(i.time)}</span>
+                        {i.avatarName && <Avatar url={i.avatarUrl} name={i.avatarName} size={30} style={{ marginTop: 1 }} />}
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{i.title}</span>
+                          {i.sub && <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>{i.sub}</span>}
+                          <span style={{ fontSize: '0.68rem', color: 'var(--color-muted)' }}>{relTime(i.time)}</span>
+                        </span>
                       </button>
                     ))}
                   </>
