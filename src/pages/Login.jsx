@@ -16,6 +16,7 @@ function Login() {
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState(initialRole)
   const [isSignUp, setIsSignUp] = useState(initialIsSignUp)
+  const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState('')
   const [errors, setErrors] = useState({})
   const [showForgot, setShowForgot] = useState(false)
@@ -41,6 +42,7 @@ function Login() {
       const passwordError = getPasswordValidationError(password)
       if (passwordError) newErrors.password = passwordError
     }
+    if (isSignUp && !agreed) newErrors.agreed = 'Please confirm you are 18+ and agree to the Terms and Privacy Policy.'
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -187,6 +189,24 @@ function Login() {
         </div>
       )}
 
+      {isSignUp && (
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.5, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            style={{ marginTop: '2px', flex: '0 0 auto', cursor: 'pointer', width: 16, height: 16 }}
+          />
+          <span>
+            I confirm I'm 18 or older and agree to the{' '}
+            <Link to="/terms" style={{ color: 'var(--color-primary)' }}>Terms of Service</Link>
+            {' '}and{' '}
+            <Link to="/privacy" style={{ color: 'var(--color-primary)' }}>Privacy Policy</Link>.
+          </span>
+        </label>
+      )}
+      {errors.agreed && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-4px' }}>{errors.agreed}</p>}
+
       {error && <p style={{ color: '#f87171' }}>{error}</p>}
 
       <Button type="submit" variant="primary" fullWidth>
@@ -236,12 +256,13 @@ function Login() {
       >
         {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
       </p>
-      <p style={{ textAlign: 'center', marginTop: 16, fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.6 }}>
-        By signing up, you confirm you're 18+ and agree to our{' '}
-        <Link to="/terms" style={{ color: 'var(--color-primary)' }}>Terms of Service</Link>
-        {' '}and{' '}
-        <Link to="/privacy" style={{ color: 'var(--color-primary)' }}>Privacy Policy</Link>.
-      </p>
+      {!isSignUp && (
+        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.6 }}>
+          <Link to="/terms" style={{ color: 'var(--color-muted)' }}>Terms</Link>
+          {' · '}
+          <Link to="/privacy" style={{ color: 'var(--color-muted)' }}>Privacy</Link>
+        </p>
+      )}
     </div>
   )
 }

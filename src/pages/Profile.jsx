@@ -252,20 +252,44 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const userId = currentSession.user.id
 
-    const [nutrition, weight, cardio, steps] = await Promise.all([
+    // Complete personal-data export (data-portability right). Covers every table
+    // that holds the user's own data — keep in sync with the delete-account erasure
+    // list. RLS still scopes each query to the caller's rows.
+    const [
+      profile, targets, nutrition, weight, cardio, steps, measurements,
+      savedMeals, savedMealItems, dayComplete, checkIns, messages, notifications,
+    ] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      supabase.from('targets').select('*').eq('user_id', userId),
       supabase.from('nutrition_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
       supabase.from('weight_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
       supabase.from('cardio_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
       supabase.from('steps_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
+      supabase.from('body_measurements').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
+      supabase.from('saved_meals').select('*').eq('user_id', userId),
+      supabase.from('saved_meal_items').select('*').eq('user_id', userId),
+      supabase.from('day_complete').select('*').eq('user_id', userId),
+      supabase.from('check_ins').select('*').eq('client_id', userId).order('created_at', { ascending: true }),
+      supabase.from('messages').select('*').or(`coach_id.eq.${userId},client_id.eq.${userId}`).order('created_at', { ascending: true }),
+      supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
     ])
 
     const payload = {
       exported_at: new Date().toISOString(),
-      email: currentSession.user.email,
+      account: { id: userId, email: currentSession.user.email },
+      profile: profile.data || null,
+      targets: targets.data || [],
       nutrition_log: nutrition.data || [],
       weight_log: weight.data || [],
       cardio_log: cardio.data || [],
       steps_log: steps.data || [],
+      body_measurements: measurements.data || [],
+      saved_meals: savedMeals.data || [],
+      saved_meal_items: savedMealItems.data || [],
+      day_complete: dayComplete.data || [],
+      check_ins: checkIns.data || [],
+      messages: messages.data || [],
+      notifications: notifications.data || [],
     }
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
