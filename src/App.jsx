@@ -21,6 +21,7 @@ import Onboarding from './pages/Onboarding'
 import BillingSuccess from './pages/BillingSuccess'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
+import ConsumerHealthData from './pages/ConsumerHealthData'
 import { resolveLockState } from './utils/lockState'
 
 // Coach paywall is OFF for now — coaches use the app free while we're
@@ -145,6 +146,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
           <Route path="/billing/success" element={<BillingSuccess />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/health-data-privacy" element={<ConsumerHealthData />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -309,6 +311,7 @@ function App() {
           <Route path="/billing/success" element={<BillingSuccess />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/health-data-privacy" element={<ConsumerHealthData />} />
         </Routes>
       </BrowserRouter>
     )

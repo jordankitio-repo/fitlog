@@ -14,7 +14,7 @@ export default function Privacy() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 22, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 24, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -25,6 +25,11 @@ export default function Privacy() {
         <p style={p}>
           If you do not agree with our policies and practices, please do not use our Services. Questions or
           concerns? Contact us at <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>.
+        </p>
+        <p style={p}>
+          Gardnr handles health-related information. If you are a resident of Washington, Nevada, or Connecticut,
+          please also review our separate{' '}
+          <a href="/health-data-privacy" style={link}>Consumer Health Data Privacy Policy</a>.
         </p>
       </section>
 
@@ -181,8 +186,11 @@ export default function Privacy() {
         <p style={p}>
           We have implemented appropriate technical and organizational security measures to protect your personal
           information. These include row-level security on all database tables, encrypted connections (HTTPS),
-          server-side API key management, and hashed password storage. However, no electronic transmission or
-          storage system is 100% secure, and we cannot guarantee absolute security.
+          server-side API key management, hashed password storage, and a private, access-controlled store for
+          profile photos. However, no electronic transmission or storage system is 100% secure, and we cannot
+          guarantee absolute security. If a breach affecting your personal information occurs, we will notify you
+          and any relevant authorities as required by applicable law, including the FTC Health Breach Notification
+          Rule.
         </p>
       </section>
 

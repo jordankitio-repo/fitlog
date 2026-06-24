@@ -169,6 +169,8 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
         <a href="/terms" style={{ color: 'var(--color-muted)' }}>Terms</a>
         {' | '}
         <a href="/privacy" style={{ color: 'var(--color-muted)' }}>Privacy</a>
+        {' | '}
+        <a href="/health-data-privacy" style={{ color: 'var(--color-muted)' }}>Health Data</a>
       </p>
 
       {showConfirm && (

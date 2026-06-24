@@ -450,7 +450,7 @@ export default function Landing() {
           <span className="lp-footer-tag">Create conditions for growth.</span>
         </div>
         <nav className="lp-footer-nav">
-          {[['Sign in', '/login'], ['Terms', '/terms'], ['Privacy', '/privacy']].map(([label, path]) => (
+          {[['Sign in', '/login'], ['Terms', '/terms'], ['Privacy', '/privacy'], ['Health Data', '/health-data-privacy']].map(([label, path]) => (
             <Link key={path} to={path} className="lp-footer-link">{label}</Link>
           ))}
           <Link to="/login?mode=signup&role=solo" className="lp-footer-solo">Training solo? Start free →</Link>
