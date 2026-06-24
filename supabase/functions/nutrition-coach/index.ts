@@ -12,6 +12,30 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   })
 }
 
+// Per-user rate limit via the check_rate_limit RPC. Fails OPEN: a limiter hiccup
+// must not break the feature for legitimate users (the abuse case still requires
+// the limiter to be down). Returns true when the call is allowed.
+async function withinRateLimit(
+  supabaseUrl: string,
+  serviceKey: string,
+  userId: string,
+  bucket: string,
+  limit: number,
+  windowSeconds: number,
+) {
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/check_rate_limit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_user_id: userId, p_bucket: bucket, p_limit: limit, p_window_seconds: windowSeconds }),
+    })
+    if (!res.ok) return true
+    return (await res.json()) === true
+  } catch {
+    return true
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -73,6 +97,10 @@ Deno.serve(async (req) => {
       if (!sub?.status || !PAID_STATUSES.includes(sub.status) || sub.paused_for_coaching) {
         return jsonResponse({ error: 'Solo Premium required' }, 403)
       }
+    }
+
+    if (!(await withinRateLimit(supabaseUrl, serviceKey, user.id, 'nutrition-coach', 30, 3600))) {
+      return jsonResponse({ error: 'Too many requests — please wait a bit before trying again.' }, 429)
     }
 
     const { entries } = await req.json()

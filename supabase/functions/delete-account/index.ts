@@ -355,18 +355,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Delete all user data explicitly before deleting auth user
+    // Delete all user data explicitly before deleting auth user.
+    // Erasure must cover EVERY table that holds the user's personal/health data
+    // (right-to-delete; FTC Health Breach + state consumer-health-data laws). Tables
+    // added after this function's first version were missing — body_measurements,
+    // saved_meals(+items), day_complete, notifications, checkin_questions — so they
+    // are included here. A no-op for roles that own no such rows.
     const deletions = [
       `nutrition_log?user_id=eq.${uid}`,
       `weight_log?user_id=eq.${uid}`,
       `cardio_log?user_id=eq.${uid}`,
       `steps_log?user_id=eq.${uid}`,
+      `body_measurements?user_id=eq.${uid}`,
       `targets?user_id=eq.${uid}`,
+      `saved_meal_items?user_id=eq.${uid}`,
+      `saved_meals?user_id=eq.${uid}`,
+      `day_complete?user_id=eq.${uid}`,
+      `notifications?user_id=eq.${uid}`,
       `check_ins?client_id=eq.${uid}`,
       `messages?client_id=eq.${uid}`,
       `messages?coach_id=eq.${uid}`,
       `coach_notes?client_id=eq.${uid}`,
       `coach_notes?coach_id=eq.${uid}`,
+      `checkin_questions?coach_id=eq.${uid}`,
       `reports?client_id=eq.${uid}`,
       `reports?coach_id=eq.${uid}`,
       `coach_clients?client_id=eq.${uid}`,
@@ -376,6 +387,23 @@ Deno.serve(async (req) => {
 
     for (const path of deletions) {
       await fetch(`${supabaseUrl}/rest/v1/${path}`, { method: 'DELETE', headers })
+    }
+
+    // Purge the user's profile photo from Storage. The avatar lives at
+    // `avatars/<uid>/avatar.jpg`; leaving it behind means a deleted user's face
+    // photo survives erasure (and, while the bucket is public, stays world-readable).
+    // Best-effort: a storage hiccup must not block account deletion, but it is logged.
+    try {
+      const avatarPath = `${uid}/avatar.jpg`
+      const purgeRes = await fetch(
+        `${supabaseUrl}/storage/v1/object/avatars/${avatarPath}`,
+        { method: 'DELETE', headers },
+      )
+      if (!purgeRes.ok && purgeRes.status !== 404) {
+        console.error(`Failed to purge avatar for ${uid} (${purgeRes.status}):`, await purgeRes.text())
+      }
+    } catch (e) {
+      console.error('Avatar storage purge failed:', e)
     }
 
     // Cancel the coach's own Stripe subscription AFTER coach_clients rows are gone,

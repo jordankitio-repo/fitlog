@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { invalidateAvatar } from './avatarUrl'
 
 const BUCKET = 'avatars'
 const MAX_PX = 512
@@ -32,9 +33,11 @@ export function downscaleToBlob(file, max = MAX_PX) {
   })
 }
 
-// Upload to a fixed per-user path (upsert) and return a cache-busted public URL
-// to store on the profile. Path stays `<uid>/avatar.jpg` so re-uploads replace
-// (no orphaned files); the ?v= query busts the CDN/browser cache.
+// Upload to a fixed per-user path (upsert) and return the storage PATH to store on
+// the profile. Path stays `<uid>/avatar.jpg` so re-uploads replace (no orphaned
+// files). The bucket is private, so reads go through signed URLs (see avatarUrl.js)
+// rather than a stored public URL; we invalidate the sign cache so the new image
+// shows immediately instead of a stale cached signed URL.
 export async function uploadAvatar(userId, file) {
   const blob = await downscaleToBlob(file)
   const path = `${userId}/avatar.jpg`
@@ -44,10 +47,12 @@ export async function uploadAvatar(userId, file) {
     cacheControl: '3600',
   })
   if (error) throw error
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-  return `${data.publicUrl}?v=${Date.now()}`
+  invalidateAvatar(path)
+  return path
 }
 
 export async function removeAvatar(userId) {
-  await supabase.storage.from(BUCKET).remove([`${userId}/avatar.jpg`])
+  const path = `${userId}/avatar.jpg`
+  await supabase.storage.from(BUCKET).remove([path])
+  invalidateAvatar(path)
 }

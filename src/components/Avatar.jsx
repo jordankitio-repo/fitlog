@@ -1,6 +1,11 @@
+import { useSignedAvatar } from '../utils/avatarUrl'
+
 // Reusable avatar: the uploaded picture when set, else a brand-tinted circle of
 // the person's initials. Used in the nav, roster, client record, and chat.
+// `url` is the stored avatar value — a private-bucket storage path that we resolve
+// to a short-lived signed URL here (or an already-signed http URL, passed through).
 export default function Avatar({ url, name = '', size = 36, style }) {
+  const resolved = useSignedAvatar(url)
   const initials = name.trim()
     ? name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('')
     : '?'
@@ -14,8 +19,8 @@ export default function Avatar({ url, name = '', size = 36, style }) {
     ...style,
   }
 
-  if (url) {
-    return <img src={url} alt={name ? `${name}'s avatar` : 'avatar'} width={size} height={size} style={base} />
+  if (resolved) {
+    return <img src={resolved} alt={name ? `${name}'s avatar` : 'avatar'} width={size} height={size} style={base} />
   }
 
   return (

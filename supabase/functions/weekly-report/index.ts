@@ -10,6 +10,29 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   })
 }
 
+// Per-user rate limit via the check_rate_limit RPC. Fails OPEN: a limiter hiccup
+// must not break the feature for legitimate users. Returns true when allowed.
+async function withinRateLimit(
+  supabaseUrl: string,
+  serviceKey: string,
+  userId: string,
+  bucket: string,
+  limit: number,
+  windowSeconds: number,
+) {
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/check_rate_limit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_user_id: userId, p_bucket: bucket, p_limit: limit, p_window_seconds: windowSeconds }),
+    })
+    if (!res.ok) return true
+    return (await res.json()) === true
+  } catch {
+    return true
+  }
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Verifies the caller is the active coach of `clientId`. Without this, the
@@ -52,6 +75,13 @@ Deno.serve(async (req) => {
 
     const auth = await verifyCoachOwnsClient(req, clientId)
     if (auth.error) return auth.error
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    if (!(await withinRateLimit(supabaseUrl, serviceKey, auth.userId, 'weekly-report', 60, 3600))) {
+      return jsonResponse({ error: 'Too many requests — please wait a bit before trying again.' }, 429)
+    }
+
     const rangeLabel = weekRange?.label || (
       weekData?.length
         ? `${weekData[0].date} - ${weekData[weekData.length - 1].date}`
