@@ -14,7 +14,7 @@ export default function Terms() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Terms of Service
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 22, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 25, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>Agreement to Our Legal Terms</h2>
@@ -52,7 +52,10 @@ export default function Terms() {
         <p style={p}>
           The Services are not tailored to comply with industry-specific regulations such as the Health Insurance
           Portability and Accountability Act (HIPAA) or the Federal Information Security Management Act (FISMA).
-          If your interactions would be subject to such laws, you may not use the Services.
+          If your interactions would be subject to such laws, you may not use the Services. We do not act as a HIPAA
+          business associate and do not enter into Business Associate Agreements. The Services are intended for
+          direct-to-consumer use and are not for use by covered entities or for handling protected health
+          information on a covered entity's behalf.
         </p>
         <p style={p}>
           The information provided through the Services is not intended for distribution to or use by any person or

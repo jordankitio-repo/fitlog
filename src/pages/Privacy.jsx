@@ -14,7 +14,7 @@ export default function Privacy() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 24, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 25, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -52,7 +52,8 @@ export default function Privacy() {
           maintain the security and operation of our Services.
         </p>
         <p style={p}>
-          We also collect information through cookies and similar technologies. See Section 4 for more detail.
+          To keep you signed in and remember preferences such as your theme, we store information in your browser's
+          local storage. We do not use advertising or tracking cookies. See Section 4 for more detail.
         </p>
       </section>
 
@@ -89,10 +90,12 @@ export default function Privacy() {
       </section>
 
       <section style={{ marginBottom: 40 }}>
-        <h2 style={h2}>4. Do We Use Cookies?</h2>
+        <h2 style={h2}>4. Cookies and Local Storage</h2>
         <p style={p}>
-          Yes. We use cookies primarily to manage your authentication session via Supabase Auth. These are
-          necessary for the Services to function. We do not use cookies for advertising or third-party tracking.
+          We do not use advertising or third-party tracking cookies, and we do not use cookies to track you across
+          other websites. To keep you signed in, Supabase Auth stores your session token in your browser's local
+          storage, and we use local storage to remember preferences such as your theme and which notifications you
+          have seen. These are necessary for the Services to function and are not shared with third parties.
         </p>
       </section>
 
@@ -178,6 +181,13 @@ export default function Privacy() {
           delete personal information, and the right to opt out of the sale of personal information. We do not
           sell personal information. To submit a request, contact us at{' '}
           <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>.
+        </p>
+        <p style={p}>
+          <strong style={{ color: 'var(--color-text)' }}>Residents of other U.S. states</strong> with comprehensive
+          privacy laws (including Virginia, Colorado, Connecticut, Utah, Texas, and Oregon) have similar rights to
+          access, correct, delete, and obtain a portable copy of their personal information, and to appeal a denied
+          request. We do not sell personal information or use it for targeted advertising. To exercise these rights,
+          contact us at <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>.
         </p>
       </section>
 

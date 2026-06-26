@@ -18,7 +18,7 @@ export default function ConsumerHealthData() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Consumer Health Data Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated June 24, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated June 25, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -118,7 +118,7 @@ export default function ConsumerHealthData() {
         <p style={p}>You have the right to:</p>
         <ul style={ul}>
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Access</strong> — confirm whether we process your consumer health data and get a copy. Use "Export my data" on your <a href="/profile" style={link}>Profile</a> page, which downloads all of it.</li>
-          <li style={li}><strong style={{ color: 'var(--color-text)' }}>Delete</strong> — delete your consumer health data and the third parties' copies. Deleting your account on the Profile page permanently removes your data from our systems (including your profile photo).</li>
+          <li style={li}><strong style={{ color: 'var(--color-text)' }}>Delete</strong> — request deletion of your consumer health data. Deleting your account on the Profile page permanently removes your data from our systems, including your profile photo. Our service providers are contractually required to delete data they process for us, and data sent to our AI provider is automatically deleted within about 30 days.</li>
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Withdraw consent</strong> — stop logging, delete entries, or delete your account at any time.</li>
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Appeal</strong> — if we deny a request, you may appeal by replying to our decision; we will respond with our reasoning. Washington residents may also contact the Washington State Attorney General.</li>
         </ul>
