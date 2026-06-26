@@ -29,7 +29,7 @@ for (const path of paths) {
   for (const v of violations) {
     console.log(`  [${v.impact}] ${v.id}: ${v.help} (${v.nodes.length} node[s])`)
     console.log(`     ${v.helpUrl}`)
-    v.nodes.slice(0, 4).forEach((n) => {
+    v.nodes.slice(0, Number(process.env.AXE_NODES) || 4).forEach((n) => {
       const d = n.any?.[0]?.data
       const ratio = d?.contrastRatio ? ` ratio=${d.contrastRatio} fg=${d.fgColor} bg=${d.bgColor} size=${d.fontSize}` : ''
       console.log(`     → ${n.target.join(' ')}${ratio}`)
