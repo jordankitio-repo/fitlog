@@ -66,9 +66,14 @@ export async function seedClientData(clientId, marker) {
 export async function cleanupUsers(users) {
   const ids = users.map((u) => u.id)
   // Best-effort: clear rows that may not cascade, then delete the auth users.
-  for (const t of ['nutrition_log', 'weight_log', 'cardio_log', 'steps_log', 'targets']) {
+  for (const t of [
+    'nutrition_log', 'weight_log', 'cardio_log', 'steps_log', 'targets',
+    'body_measurements', 'day_complete', 'saved_meal_items', 'saved_meals',
+    'notifications', 'rate_limits',
+  ]) {
     try { await admin.from(t).delete().in('user_id', ids) } catch { /* noop */ }
   }
+  try { await admin.from('checkin_questions').delete().in('coach_id', ids) } catch { /* noop */ }
   for (const t of ['check_ins', 'reports', 'messages', 'coach_notes']) {
     try { await admin.from(t).delete().or(`client_id.in.(${ids.join(',')}),coach_id.in.(${ids.join(',')})`) } catch { /* noop */ }
   }
