@@ -7,7 +7,7 @@
 | **Supabase** | DB, auth, storage, edge functions — all app data at rest | https://supabase.com/legal/dpa | ✅ **DPA executed Jun 25 2026** (signed by Digigarden LLC; copy on file). |
 | **Vercel** | Hosting / CDN (request metadata, IP) | https://vercel.com/legal/dpa | Standard DPA, part of Vercel's terms — downloadable, no negotiation. |
 | **Stripe** | Payments (name, email, **card data** — their scope) | https://stripe.com/legal/dpa | Built into the Stripe Services Agreement you **already accepted**. Nothing to sign. |
-| **Resend** | Transactional email (address + content) | https://resend.com/legal | Accept their standard DPA/terms. |
+| **Resend** | Transactional email (address + content) | https://resend.com/legal | ✅ **DPA executed Jun 25 2026** (Resend = Plus Five Five, Inc.; signed by Digigarden LLC; copy on file). |
 | **Anthropic** | AI generation — **health data in prompts** | Commercial Terms (+ optional ZDR) | Covered by default — see note below. |
 | **USDA FoodData Central** | Food search (typed food name only) | Public US-gov API | N/A — no personal/health data is sent. |
 | **Google** (OAuth) | Optional sign-in (name, email) | Google API/Cloud terms | On hold until OAuth is enabled pre-launch. |
