@@ -3,7 +3,7 @@
 > Status of the security + compliance program. Scope: **US-only, 18+, not HIPAA-covered** (FTC HBNR + state consumer-health-data laws bind). Last updated Jun 25 2026. Companion docs: [data-map.md](data-map.md), [subprocessors.md](subprocessors.md), [breach-response.md](breach-response.md).
 
 ## Verdict
-**Engineering & data-protection readiness: DONE.** The two live launch-blockers we started with (public profile photos; account deletion that silently skipped data) are closed and verified in prod. Remaining items are **owner/legal tasks only** (counsel review, accept DPAs) — none are code.
+**Program complete.** Engineering & data-protection work is DONE and verified in prod (the two live launch-blockers we started with — public profile photos; deletion that silently skipped data — are closed). All subprocessor DPAs are in place. The owner has elected to launch on the current legal drafts without formal counsel review (recorded below) — so there are **no open blockers**; remaining items are optional/deferred.
 
 ## Security
 
@@ -46,10 +46,10 @@
 - ✅ All public pages (landing, auth, legal) **axe-clean in light AND dark** — focus, labels, keyboard, zoom, contrast, links. App-wide button system fixed. `5cab91a`, `68177ad`, `1dcb297`.
 - ⬜ **Gap:** authenticated app screens (Dashboard/Log/ClientView/Profile) not yet axe-scanned (need a logged-in scan). They inherit the token/button fixes; extend `scripts/a11y-scan.mjs` with a throwaway login to confirm.
 
-## Owner / non-code actions (only you can do these)
-1. **Legal review** — have the three policy drafts reviewed (Termly's MHMDA generator or a one-time flat-fee privacy attorney). They're accurate to the product; that's the foundation counsel builds on.
-2. **Accept subprocessor DPAs** — standard click-to-accept (Supabase, Vercel, Resend; Stripe is automatic). Links in [subprocessors.md](subprocessors.md).
-3. **Line up counsel + consider cyber-insurance** before launch (for the breach runbook).
+## Owner / non-code actions
+1. **Legal review of the 3 policy drafts** — ⏸️ **Owner elected NOT to pursue formal review (Jun 25 2026); launching on the current drafts.** Acceptable risk posture: the drafts are *accurate to what the app does* (the key FTC factor — deception is what gets enforced, and there is none here). Residual risk = edge-case enforceability of specific clauses (arbitration/liability caps) + whether the MHMDA policy satisfies every state nuance; low for a small US app. **Guardrail: do not edit the policies to claim anything the app doesn't do.** A near-free safety net (Termly/iubenda MHMDA generator) remains available if revisited.
+2. **Accept subprocessor DPAs** — ✅ **Done** (Supabase + Resend signed; Vercel in force on Pro; Stripe automatic; Anthropic default). See [subprocessors.md](subprocessors.md).
+3. **Line up counsel + consider cyber-insurance** — optional, for the breach runbook; deferred.
 4. At public launch: flip `BILLING_ENABLED`/`SOLO_BILLING_ENABLED` back on when ready (separate product decision).
 
 ## Recommended remaining engineering (optional, not blockers)
