@@ -1042,8 +1042,15 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const moveOpen = moveItemId === item.id
     return (
       <div key={item.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
-        <div onClick={() => toggleMealExpand(item.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: 'pointer' }}>
-          <span style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', width: 12 }}>{open ? '▾' : '▸'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}>
+          <button
+            type="button"
+            onClick={() => toggleMealExpand(item.id)}
+            aria-expanded={open}
+            aria-label={`${open ? 'Collapse' : 'Expand'} ${item.name}`}
+            style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', font: 'inherit', color: 'inherit' }}
+          >
+            <span aria-hidden="true" style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', width: 12 }}>{open ? '▾' : '▸'}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>🍽 {item.name}</p>
             <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--color-muted)' }}>
@@ -1056,8 +1063,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
               })()}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal">↻</button>
+          </button>
+          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal" aria-label="Repeat meal">↻</button>
             <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />

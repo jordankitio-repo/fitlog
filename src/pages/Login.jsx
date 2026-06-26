@@ -115,6 +115,20 @@ function Login() {
     width: '100%'
   }
 
+  // Text-styled button: keyboard- and screen-reader-accessible, looks like the
+  // plain centered links it replaced (mode toggle, forgot-password).
+  const textButton = {
+    background: 'none',
+    border: 'none',
+    padding: '4px',
+    font: 'inherit',
+    fontSize: '0.875rem',
+    cursor: 'pointer',
+    textAlign: 'center',
+    width: '100%',
+    color: 'var(--color-muted)',
+  }
+
   return (
     <div className="page-fade-in" style={{
       maxWidth: '400px',
@@ -131,6 +145,7 @@ function Login() {
         <>
           <input
             type="text"
+            aria-label="Full name"
             placeholder="Full name"
             value={fullName}
             onChange={(e) => { setFullName(e.target.value); setErrors(p => ({ ...p, fullName: '' })) }}
@@ -142,6 +157,7 @@ function Login() {
 
       <input
         type="email"
+        aria-label="Email"
         placeholder="Email"
         value={email}
         onChange={(e) => { setEmail(e.target.value); setErrors(p => ({ ...p, email: '' })) }}
@@ -149,6 +165,7 @@ function Login() {
       />
       {errors.email && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.email}</p>}
       <PasswordInput
+        aria-label="Password"
         placeholder="Password"
         value={password}
         onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}
@@ -171,7 +188,9 @@ function Login() {
                   borderRadius: 'var(--radius)',
                   border: role === r ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
                   backgroundColor: role === r ? 'var(--color-primary-dim)' : 'var(--color-surface)',
-                  color: role === r ? 'var(--color-primary)' : 'var(--color-muted)',
+                  // Selected = green border + tint; use the high-contrast text color
+                  // for the label (green-on-green-dim fails WCAG AA, esp. light mode).
+                  color: role === r ? 'var(--color-text)' : 'var(--color-muted)',
                   cursor: 'pointer',
                   fontWeight: role === r ? 600 : 400,
                   fontSize: '0.875rem'
@@ -217,16 +236,18 @@ function Login() {
       {!isSignUp && (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
     {!showForgot ? (
-      <p
+      <button
+        type="button"
         onClick={() => setShowForgot(true)}
-        style={{ cursor: 'pointer', textAlign: 'center', color: 'var(--color-muted)', fontSize: '0.875rem' }}
+        style={textButton}
       >
         Forgot password?
-      </p>
+      </button>
     ) : (
       <>
         <input
           type="email"
+          aria-label="Email for password reset"
           placeholder="Enter your email"
           value={forgotEmail}
           onChange={(e) => setForgotEmail(e.target.value)}
@@ -240,22 +261,24 @@ function Login() {
             {forgotStatus}
           </p>
         )}
-        <p
+        <button
+          type="button"
           onClick={() => setShowForgot(false)}
-          style={{ cursor: 'pointer', textAlign: 'center', color: 'var(--color-muted)', fontSize: '0.875rem' }}
+          style={textButton}
         >
           Back to sign in
-        </p>
+        </button>
       </>
     )}
   </div>
 )}
-      <p
+      <button
+        type="button"
         onClick={() => { setIsSignUp(!isSignUp); setError(''); setErrors({}) }}
-        style={{ cursor: 'pointer', textAlign: 'center', color: 'var(--color-muted)' }}
+        style={{ ...textButton, fontSize: 'inherit' }}
       >
         {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-      </p>
+      </button>
       {!isSignUp && (
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.6 }}>
           <Link to="/terms" style={{ color: 'var(--color-muted)' }}>Terms</Link>

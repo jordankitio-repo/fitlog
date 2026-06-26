@@ -71,7 +71,9 @@
   --color-surface-2: #eef0ee;
   --color-border: #e4e6e4;
   --color-border-strong: #d2d5d2;
-  --color-primary: #16a34a;
+  /* green-700, not green-600: #16a34a fails WCAG AA as link text / button bg on
+     white (≈3:1). #15803d gives white-on-primary ≈5:1 and primary-as-text ≈4.6:1. */
+  --color-primary: #15803d;
   --color-primary-dim: rgba(22, 163, 74, 0.13);
   --color-text: #16181c;
   --color-text-dim: #3b3f45;
@@ -144,6 +146,20 @@ textarea:focus {
   border-color: var(--color-primary) !important;
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Visible keyboard focus for every interactive control (WCAG 2.4.7). Scoped to
+   :focus-visible so it appears for keyboard/AT users without a ring on mouse
+   click. Covers real buttons/links plus clickable elements given role/tabindex. */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 
 /* iOS Safari auto-zooms (and stays zoomed) when a focused form field has a

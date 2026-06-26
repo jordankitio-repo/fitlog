@@ -265,5 +265,5 @@ const li = {
 
 const link = {
   color: 'var(--color-primary)',
-  textDecoration: 'none',
+  textDecoration: 'underline',
 }

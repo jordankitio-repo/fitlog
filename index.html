@@ -2,7 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- No maximum-scale / user-scalable=no: blocking pinch-zoom fails WCAG 1.4.4.
+         iOS auto-zoom on input focus is prevented by the 16px input font instead. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Apply the saved/auto theme before first paint to avoid a flash. Mirrors
          src/utils/theme.js (keep in sync). -->
