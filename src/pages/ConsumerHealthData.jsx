@@ -18,7 +18,7 @@ export default function ConsumerHealthData() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Consumer Health Data Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 24, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated June 24, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -81,7 +81,14 @@ export default function ConsumerHealthData() {
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Anthropic</strong> — when an AI feature is triggered, the relevant logged data is sent to Anthropic's Claude API to generate the text. Anthropic does not use it to train models.</li>
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Resend</strong> — our transactional email provider, used to send coaching-related notifications.</li>
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Vercel</strong> — our hosting and content-delivery provider.</li>
+          <li style={li}><strong style={{ color: 'var(--color-text)' }}>At your direction</strong> — when you explicitly ask us to share your information (for example, by connecting to a coach).</li>
+          <li style={li}><strong style={{ color: 'var(--color-text)' }}>Legal obligations</strong> — to comply with applicable law, a subpoena, a court order, or a valid government or law-enforcement request.</li>
+          <li style={li}><strong style={{ color: 'var(--color-text)' }}>Corporate transactions</strong> — in connection with a merger, acquisition, or sale of our business, the data may transfer to the successor entity, which will remain bound by this Policy.</li>
         </ul>
+        <p style={p}>
+          Our service providers process consumer health data only on our behalf and are bound by contractual
+          obligations restricting how they may use it.
+        </p>
         <p style={p}>
           <strong style={{ color: 'var(--color-text)' }}>We do not sell your consumer health data</strong> — to anyone,
           for any purpose. We do not share it for cross-context behavioral advertising. We do not use geofencing to
@@ -92,10 +99,17 @@ export default function ConsumerHealthData() {
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>5. Consent</h2>
         <p style={p}>
-          We collect this data because it is necessary to provide the tracking and coaching service you asked for, and
-          with your consent, which you give when you create an account and choose to log the data. You can withdraw
-          consent at any time by deleting the relevant entries or your account. Because we never sell consumer health
-          data or share it for advertising, we do not seek the separate authorization those activities would require.
+          We collect and use your consumer health data primarily because it is necessary to provide the tracking and
+          coaching service you specifically requested, and which you initiate by creating an account and choosing to
+          log the data. Where the law requires consent beyond that — for any collection, use, or sharing not necessary
+          to provide the Services you asked for — we will obtain your clear, voluntary, and unambiguous affirmative
+          opt-in consent first. We will never use deceptive designs, pre-checked boxes, or bundled requests to obtain
+          consent.
+        </p>
+        <p style={p}>
+          You can withdraw consent at any time by deleting the relevant entries or your account. Because we never sell
+          consumer health data or share it for targeted advertising, we do not seek the separate written authorization
+          that those activities would require under the law.
         </p>
       </section>
 
@@ -110,7 +124,10 @@ export default function ConsumerHealthData() {
         </ul>
         <p style={p}>
           We will not discriminate against you for exercising any of these rights. To make a request or appeal,
-          contact us at <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>.
+          contact us at <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>. To protect
+          your data, we will take reasonable steps to verify your identity before acting on a request. We will respond
+          within <strong style={{ color: 'var(--color-text)' }}>45 days</strong> of receiving a verifiable request (we
+          may extend once by another 45 days where reasonably necessary, and will tell you if we do).
         </p>
       </section>
 
@@ -126,7 +143,16 @@ export default function ConsumerHealthData() {
       </section>
 
       <section style={{ marginBottom: 40 }}>
-        <h2 style={h2}>8. Contact</h2>
+        <h2 style={h2}>8. Changes to this Policy</h2>
+        <p style={p}>
+          We may update this Policy to reflect changes in our practices or the law. When we do, we will revise the
+          "Last updated" date above and post the new version on this page. If we make material changes, we will
+          notify you by email.
+        </p>
+      </section>
+
+      <section style={{ marginBottom: 40 }}>
+        <h2 style={h2}>9. Contact</h2>
         <p style={{ ...p, color: 'var(--color-text)' }}>
           Digigarden LLC<br />
           <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>
