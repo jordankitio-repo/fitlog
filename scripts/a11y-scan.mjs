@@ -15,7 +15,8 @@ const paths = ['/', '/login', '/login?mode=signup', '/privacy', '/terms', '/heal
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 
 const browser = await chromium.launch()
-const context = await browser.newContext()
+// AXE_DARK=1 forces dark mode (the app's default theme follows prefers-color-scheme).
+const context = await browser.newContext(process.env.AXE_DARK ? { colorScheme: 'dark' } : { colorScheme: 'light' })
 let total = 0
 for (const path of paths) {
   const page = await context.newPage()

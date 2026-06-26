@@ -87,7 +87,7 @@ function Button({
     },
   }
 
-  const spinnerColor = variant === 'primary' ? '#fff' : variant === 'ai' ? 'var(--color-ai)' : 'var(--color-primary)'
+  const spinnerColor = (variant === 'primary' || variant === 'danger') ? 'var(--color-on-accent)' : variant === 'ai' ? 'var(--color-ai)' : 'var(--color-primary)'
   const hoverStyle = hovered && !disabled && !loading ? { filter: 'brightness(1.12)' } : {}
 
   return (
