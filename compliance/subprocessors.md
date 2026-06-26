@@ -4,7 +4,7 @@
 
 | Vendor | What it processes | Data terms / DPA | What you do |
 |---|---|---|---|
-| **Supabase** | DB, auth, storage, edge functions — all app data at rest | https://supabase.com/legal/dpa | Review the PDF; if you want it executed, complete their PandaDoc. For US-only, accepting their standard terms is the practical bar. |
+| **Supabase** | DB, auth, storage, edge functions — all app data at rest | https://supabase.com/legal/dpa | ✅ **DPA executed Jun 25 2026** (signed by Digigarden LLC; copy on file). |
 | **Vercel** | Hosting / CDN (request metadata, IP) | https://vercel.com/legal/dpa | Standard DPA, part of Vercel's terms — downloadable, no negotiation. |
 | **Stripe** | Payments (name, email, **card data** — their scope) | https://stripe.com/legal/dpa | Built into the Stripe Services Agreement you **already accepted**. Nothing to sign. |
 | **Resend** | Transactional email (address + content) | https://resend.com/legal | Accept their standard DPA/terms. |
