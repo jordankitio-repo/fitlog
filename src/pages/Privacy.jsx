@@ -14,7 +14,7 @@ export default function Privacy() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 25, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 26, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -80,6 +80,7 @@ export default function Privacy() {
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Resend</strong> — to send transactional emails on our behalf.</li>
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Google</strong> — if you choose to sign in with Google OAuth, we receive your name and email address from Google.</li>
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Anthropic</strong> — health and fitness data included in AI report generation is processed by Anthropic's API. See Section 8 for details.</li>
+          <li style={li}><strong style={{ color: 'var(--color-text)' }}>Sentry</strong> — our error-monitoring provider. It receives technical error reports (error messages, stack traces, browser/device info) to help us diagnose problems. We configure it not to send your health data.</li>
           <li style={li}><strong style={{ color: 'var(--color-text)' }}>Business transfers</strong> — we may share your information in connection with a merger, sale, or acquisition of all or a portion of our business.</li>
         </ul>
         <p style={p}>

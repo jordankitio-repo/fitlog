@@ -9,6 +9,7 @@
 | **Stripe** | Payments (name, email, **card data** — their scope) | https://stripe.com/legal/dpa | Built into the Stripe Services Agreement you **already accepted**. Nothing to sign. |
 | **Resend** | Transactional email (address + content) | https://resend.com/legal | ✅ **DPA executed Jun 25 2026** (Resend = Plus Five Five, Inc.; signed by Digigarden LLC; copy on file). |
 | **Anthropic** | AI generation — **health data in prompts** | Commercial Terms (+ optional ZDR) | Covered by default — see note below. |
+| **Sentry** (Functional Software, Inc.) | Frontend error monitoring — error/stack data, browser/device, approx. source IP | https://sentry.io/legal/dpa/ | Accept their standard DPA. Configured error-only: no PII (`sendDefaultPii:false`), no session replay, query strings stripped from breadcrumbs → **no health data sent**. Active once `VITE_SENTRY_DSN` is set. |
 | **USDA FoodData Central** | Food search (typed food name only) | Public US-gov API | N/A — no personal/health data is sent. |
 | **Google** (OAuth) | Optional sign-in (name, email) | Google API/Cloud terms | On hold until OAuth is enabled pre-launch. |
 
