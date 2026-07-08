@@ -76,9 +76,13 @@ export default function NotificationCenter({ profile }) {
         ;(profs || []).forEach((p) => { names[p.id] = p.full_name || p.email || 'A client'; avatars[p.id] = p.avatar_url })
       }
 
-      // Events
+      // Events. check_ins is keyed by client_id (no coach_id column), so scope
+      // to this coach's clients — filtering by coach_id 400s and silently drops
+      // every "client checked in" event from the bell.
       const [ci, msg] = await Promise.all([
-        supabase.from('check_ins').select('id, client_id, created_at').eq('coach_id', uid).order('created_at', { ascending: false }).limit(15),
+        ids.length
+          ? supabase.from('check_ins').select('id, client_id, created_at').in('client_id', ids).order('created_at', { ascending: false }).limit(15)
+          : Promise.resolve({ data: [] }),
         supabase.from('messages').select('id, client_id, content, created_at').eq('coach_id', uid).neq('sender_id', uid).order('created_at', { ascending: false }).limit(15),
       ])
       ;(ci.data || []).forEach((c) => ev.push({ id: 'ci' + c.id, kind: 'checkin', title: `${names[c.client_id] || 'A client'} checked in`, time: +new Date(c.created_at), href: `/client/${c.client_id}?focus=checkIn`, avatarUrl: avatars[c.client_id], avatarName: names[c.client_id] }))
