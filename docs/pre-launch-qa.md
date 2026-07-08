@@ -126,7 +126,7 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 - [~] ~~Solo Premium **pause/resume** when the solo joins/leaves coaching; remaining days preserved.~~ **N/A — paid Solo tier retired** (plumbing dormant behind `SOLO_BILLING_ENABLED`).
 - [x] Webhook: cancel/lapse → clients offboarded to solo at period end (see §12). _(VERIFIED: signed `customer.subscription.deleted` → coach sub `canceled` + active client `coach_clients.status → offboarded`.)_
 - [ ] Orphaned Stripe customer recovery (deleted customer) → checkout still works. _(not driven; `customerIsUsable()` logic present in create-checkout-session — recreates customer if deleted.)_
-- [~] Card declines / abandoned checkout → no half-state; user can retry. _(hosted-Checkout card entry is browser-only (hCaptcha-guarded, not automatable); sub stays `incomplete` until a completed session — verified by design + create-side test. MANUAL to fully confirm.)_
+- [x] Card declines / abandoned checkout → no half-state; user can retry. _(VERIFIED manually 2026-07-08: `4000…0002` → declined, stayed on Checkout, no sub created (no half-state); retry with `4242…` → completed → single sub row flipped to `trialing` + `trial_ledger.coach_trial_used=true`. Confirms the full browser→Stripe→webhook path end-to-end.)_
 
 ## 11. Lifecycle — offboarding, leaving, deletion **[Co/Cl]**
 <!-- QA run 2026-07-08: delete-erasure + client-self-leave VERIFIED; coach-side offboard still to drive. -->
