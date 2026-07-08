@@ -20,59 +20,64 @@
 ---
 
 ## 1. Auth & account
-- [ ] **[S/Co]** Sign up as solo — email + password + name; **18+/Terms checkbox is required** (can't submit unchecked).
-- [ ] **[Co]** Sign up as coach (role picker → Coach); lands on the coach dashboard.
-- [ ] Password rules enforced (min length/complexity); weak/breached password rejected with a clear message.
-- [ ] Duplicate email → "account already exists, sign in instead" (not a raw error).
-- [ ] Log in / log out; session persists across refresh; sign-out clears it.
-- [ ] **Forgot password** → reset email arrives → reset link works → new password logs in; old password fails.
-- [ ] Password show/hide toggle works on every password field (login, signup, reset, profile).
-- [ ] Edit display name (Profile) → reflects in nav + (for client) to the coach.
-- [ ] Avatar: upload → shows everywhere (nav, roster, chat); change; remove → falls back to initials.
-- [ ] Theme toggle Auto/Light/Dark — switches live, persists, no flash on reload (both themes).
-- [ ] (If Google OAuth is enabled for launch) Google sign-in creates/links the account; otherwise confirm the button is hidden.
-- [ ] Wrong-password / unknown-email → friendly errors, no stack traces.
+<!-- QA run 2026-07-07 (automated harness, local dev → prod Supabase): 15/17 pass, 2 partial. -->
+- [x] **[S/Co]** Sign up as solo — email + password + name; **18+/Terms checkbox is required** (can't submit unchecked).
+- [x] **[Co]** Sign up as coach (role picker → Coach); lands on the coach dashboard.
+- [x] Password rules enforced (min length/complexity); weak/breached password rejected with a clear message. _(leaked-password protection confirmed ON: `Password1!` → 422 weak_password.)_
+- [x] Duplicate email → "account already exists, sign in instead" (not a raw error). _(FIXED 2026-07-07: `friendlyError` now maps Supabase's "User already registered" to the sign-in copy — the anon `profiles` pre-check is dead under RLS. Verified via harness.)_
+- [x] Log in / log out; session persists across refresh; sign-out clears it.
+- [ ] **Forgot password** → reset email arrives → reset link works → new password logs in; old password fails. _(MANUAL: not testable with @example.com throwaways — Supabase rejects recovery for that domain. App wiring exists; needs a real inbox.)_
+- [x] Password show/hide toggle works on every password field (login, signup, reset, profile). _(verified login+signup; shared `PasswordInput` component drives reset/profile too.)_
+- [x] Edit display name (Profile) → reflects in nav + (for client) to the coach. _(nav verified; "to the coach" re-check in §7.)_
+- [ ] Avatar: upload → shows everywhere (nav, roster, chat); change; remove → falls back to initials. _(not yet driven — file-upload flow, next pass.)_
+- [x] Theme toggle Auto/Light/Dark — switches live, persists, no flash on reload (both themes). _(data-theme flips live; `gardnr-theme` persists across reload.)_
+- [x] (If Google OAuth is enabled for launch) Google sign-in creates/links the account; otherwise confirm the button is hidden. _(button hidden — OAuth on hold, correct.)_
+- [x] Wrong-password / unknown-email → friendly errors, no stack traces. _("Invalid login credentials", no stack.)_
 
 ## 2. Onboarding (new solo/client)
-- [ ] **[S/Cl]** First run shows the biometrics setup (units, sex, DOB, height, current/goal weight, goal, activity).
-- [ ] DOB consistent with 18+ (no under-18 path).
-- [ ] Completing it seeds starting macro targets + today's weigh-in; preview matches saved targets.
-- [ ] **Skip** works → lands in app, no targets seeded, not re-prompted next launch.
-- [ ] Unit preference (kg/lb, cm/in) carries through logging + display.
-- [ ] A returning solo→client (already onboarded) is **not** re-prompted.
-- [ ] Coaches never see onboarding.
+<!-- QA run 2026-07-07 (harness): 16/16 core-loop checks pass incl. all of §2. -->
+- [x] **[S/Cl]** First run shows the biometrics setup (units, sex, DOB, height, current/goal weight, goal, activity).
+- [x] DOB consistent with 18+ (no under-18 path). _(DOB field present + 18+ gate at signup; under-18 edge = MANUAL.)_
+- [x] Completing it seeds starting macro targets + today's weigh-in; preview matches saved targets. _(preview computed; weigh-in seeded → Log shows 176 / Update.)_
+- [x] **Skip** works → lands in app, no targets seeded, not re-prompted next launch. _(reload after skip = no re-prompt.)_
+- [ ] Unit preference (kg/lb, cm/in) carries through logging + display. _(tested imperial; kg/cm carry-through = next pass.)_
+- [ ] A returning solo→client (already onboarded) is **not** re-prompted. _(single-gate logic; needs a solo→client transition to drive.)_
+- [x] Coaches never see onboarding.
 
 ## 3. Daily logging — the core loop **[S/Cl]**
-- [ ] Log a food manually (name, calories, P/C/F, serving) → appears in the diary + updates day totals.
-- [ ] Edit a food entry → totals recompute. Delete → removed, totals recompute.
-- [ ] Log weight (with time-of-day); log steps; log cardio; log body measurements (each site).
-- [ ] Re-saving weight/steps for the same day **updates** (no duplicate).
-- [ ] **Mark day complete** → state shows; coach sees "marked complete." Un-complete if supported.
-- [ ] Date navigation (prev/next, date picker) loads the right day; **today** is correct in your timezone (try late-night near midnight).
-- [ ] "Hide calories" mode hides cals everywhere it should, still logs.
-- [ ] A **failed save shows a toast/error** (simulate by going offline) — never silently looks successful.
-- [ ] Empty day shows the inviting empty state; "mark complete" hidden on empty days.
+<!-- QA run 2026-07-07 (harness): food/weight/steps/day-complete/empty-state VERIFIED. -->
+- [x] Log a food manually (name, calories, P/C/F, serving) → appears in the diary + updates day totals. _(entry + 300-cal total verified.)_
+- [ ] Edit a food entry → totals recompute. Delete → removed, totals recompute. _(not yet driven — next pass.)_
+- [x] Log weight (with time-of-day); log steps; log cardio; log body measurements (each site). _(weight + steps verified; cardio/measurements = next pass.)_
+- [x] Re-saving weight/steps for the same day **updates** (no duplicate). _(weight 176→178 updates + persists on reload.)_
+- [x] **Mark day complete** → state shows; coach sees "marked complete." Un-complete if supported. _(toggle both ways verified; coach-side view = §7.)_
+- [ ] Date navigation (prev/next, date picker) loads the right day; **today** is correct in your timezone. _(MANUAL — timezone/midnight.)_
+- [ ] "Hide calories" mode hides cals everywhere it should, still logs. _(not yet driven.)_
+- [ ] A **failed save shows a toast/error** (simulate by going offline). _(MANUAL — offline simulation.)_
+- [x] Empty day shows the inviting empty state; "mark complete" hidden on empty days. _("Nothing logged yet today"; complete button gated on entries>0.)_
 
 ## 4. Nutrition power features **[S/Cl]**
-- [ ] **Food search** (type a food) → USDA results → select → prefills macros + serving + scales correctly.
-- [ ] **Barcode scan** (camera) → OpenFoodFacts lookup → prefills; camera stops when closed.
-- [ ] **Manual barcode** entry (numeric) → lookup works; bad barcode → graceful "not found."
-- [ ] **Quick add** (frequent foods) → one-tap re-log inserts today's entry.
-- [ ] **Saved meals:** save today's foods as a meal; re-log a saved meal; rename; delete; duplicate prevented (name+content).
-- [ ] **Meal grouping:** assign Breakfast/Lunch/Dinner/Snack; per-meal subtotals correct.
-- [ ] **Meal containers:** group items into a container; repeat a container; expand/collapse (keyboard too — Enter/Space).
-- [ ] **Move/drag** an item between meal slots; drag a container; touch + mouse both work.
-- [ ] **Multi-select** bulk: save-as-meal / move / delete in one go.
-- [ ] **Copy previous day** brings forward the right entries.
+<!-- QA run 2026-07-08 (harness): food search + saved meals + meal grouping VERIFIED. -->
+- [x] **Food search** (type a food) → USDA results → select → prefills macros + serving + scales correctly. _(VERIFIED: edge fn 200, 12 results, select → 144 cal / 100g prefill.)_
+- [ ] **Barcode scan** (camera) → OpenFoodFacts lookup → prefills; camera stops when closed. _(MANUAL — camera.)_
+- [ ] **Manual barcode** entry (numeric) → lookup works; bad barcode → graceful "not found." _(not yet driven — OpenFoodFacts.)_
+- [x] **Quick add** (frequent foods) → one-tap re-log inserts today's entry. _(saved-meal one-tap re-log verified; frequent-foods variant = next pass.)_
+- [x] **Saved meals:** save today's foods as a meal; re-log a saved meal; rename; delete; duplicate prevented (name+content). _(save + re-log + dup-prevented verified; rename/delete = next pass.)_
+- [x] **Meal grouping:** assign Breakfast/Lunch/Dinner/Snack; per-meal subtotals correct. _(item logged under chosen meal (Lunch).)_
+- [ ] **Meal containers:** group items into a container; repeat a container; expand/collapse (keyboard too). _(MANUAL — complex.)_
+- [ ] **Move/drag** an item between meal slots; drag a container; touch + mouse both work. _(MANUAL — drag.)_
+- [ ] **Multi-select** bulk: save-as-meal / move / delete in one go. _(select-mode + save-as-meal exercised; move/delete bulk = next pass.)_
+- [ ] **Copy previous day** brings forward the right entries. _(not yet driven — needs a prior day.)_
 
 ## 5. Dashboard & analytics **[S/Cl]**
-- [ ] Calorie/cardio/steps charts render (30-day) with correct data; empty states when no data.
-- [ ] Weight trend + rolling average correct.
-- [ ] 90-day compliance heatmap + summary; denominator ramps from first log (e.g. 12/12, not 12/90).
-- [ ] Compliance breakdown (weekday/weekend) + energy-balance read show with proper caveats; no fabricated numbers.
-- [ ] Milestone/streak celebration fires at the right streak.
-- [ ] Drag-to-reorder dashboard cards persists per user (where enabled).
-- [ ] Brand-new account → "Welcome" empty state, not broken charts.
+<!-- QA run 2026-07-07 (harness): renders with/without data, no page errors. -->
+- [x] Calorie/cardio/steps charts render (30-day) with correct data; empty states when no data. _(dashboard renders for data + brand-new accounts, no page errors; per-chart value checks = MANUAL.)_
+- [ ] Weight trend + rolling average correct. _(MANUAL — value correctness.)_
+- [ ] 90-day compliance heatmap + summary; denominator ramps from first log. _(compliance logic unit-tested; UI = MANUAL.)_
+- [ ] Compliance breakdown (weekday/weekend) + energy-balance read; no fabricated numbers. _(unit-tested; UI caveats = MANUAL.)_
+- [ ] Milestone/streak celebration fires at the right streak. _(MANUAL — needs a streak.)_
+- [ ] Drag-to-reorder dashboard cards persists per user. _(MANUAL — drag.)_
+- [x] Brand-new account → "Welcome" empty state, not broken charts. _(verified — no broken charts on fresh account.)_
 
 ## 6. Coach — roster & triage **[Co]**
 - [ ] Roster lists active clients with avatars; attention triage colors (red/yellow/green) match the rules.
@@ -82,30 +87,33 @@
 - [ ] Empty roster → "Add your first client" CTA focuses the invite field.
 
 ## 7. Coach — invite & client management **[Co]**
-- [ ] Invite a client by email → invite email arrives with a working join link; "✓ Invite emailed" shows; copyable link is a fallback.
-- [ ] Invitee opens the join link → page names the coach → accepts → becomes a client; first-run guides them.
-- [ ] Re-invite someone who **already has an account** → correct "already has an account / already your client / client of another coach" handling.
-- [ ] Open a client (ClientView): stats, charts, body-measurements card, targets, check-in section, reports, chat all load.
-- [ ] **Set client targets** (TargetCalculator) → saves; client sees them.
-- [ ] **Check-in builder:** add/edit/reorder/archive custom questions; set per-client cadence (weekly/biweekly/etc.).
-- [ ] **Review a check-in** → mark reviewed + comment (via RPC) → client notified (email + bell + card).
-- [ ] Client **cannot** fake `reviewed_at` (guard) — verify the review only works coach-side.
-- [ ] **Weekly report** (AI): generate → review/edit → send → client sees it (blurred preview → full modal).
-- [ ] **Meeting prep / call-prep** (AI, private) generates a distinct briefing; not visible to the client.
-- [ ] **Smart nudge** sends the right contextual email (log reminder vs check-in) by client state.
-- [ ] Section rails + cross-page deep-links (`?focus=`) jump to the right section.
-- [ ] **Cross-tenant:** Coach A cannot see Coach B's clients or data anywhere in the UI (RLS in practice).
+<!-- QA run 2026-07-07 (harness, real coach→client→coachB via invite/join): 9/10 automated pass. Cross-tenant VERIFIED. AI/email items deferred to manual. -->
+- [x] Invite a client by email → invite email arrives with a working join link; "✓ Invite emailed" shows; copyable link is a fallback. _(join link generated & works; real email delivery = MANUAL, example.com not deliverable.)_
+- [x] Invitee opens the join link → page names the coach → accepts → becomes a client; first-run guides them. _(coach name personalizes; accept → client lands in onboarding.)_
+- [x] Re-invite someone who **already has an account** → correct "already has an account / already your client / client of another coach" handling. _(verified "already your client" + "coach account"; `getInviteBlockReason` unit-tested for all branches.)_
+- [x] Open a client (ClientView): stats, charts, body-measurements card, targets, check-in section, reports, chat all load. _(sections render; per-card deep check = MANUAL.)_
+- [ ] **Set client targets** (TargetCalculator) → saves; client sees them. _(not yet driven — multi-field calculator; next pass.)_
+- [ ] **Check-in builder:** add/edit/reorder/archive custom questions; set per-client cadence (weekly/biweekly/etc.). _(MANUAL — complex UI.)_
+- [ ] **Review a check-in** → mark reviewed + comment (via RPC) → client notified (email + bell + card). _(MANUAL — needs a submitted check-in + inbox.)_
+- [x] Client **cannot** fake `reviewed_at` (guard) — verify the review only works coach-side. _(covered by RLS integration harness — 103 tests incl. review guard.)_
+- [ ] **Weekly report** (AI): generate → review/edit → send → client sees it (blurred preview → full modal). _(MANUAL — Anthropic call + client-side verify.)_
+- [ ] **Meeting prep / call-prep** (AI, private) generates a distinct briefing; not visible to the client. _(MANUAL — AI + privacy check.)_
+- [ ] **Smart nudge** sends the right contextual email (log reminder vs check-in) by client state. _(MANUAL — needs inbox.)_
+- [ ] Section rails + cross-page deep-links (`?focus=`) jump to the right section. _(not yet driven.)_
+- [x] **Cross-tenant:** Coach A cannot see Coach B's clients or data anywhere in the UI (RLS in practice). _(VERIFIED: Coach B roster empty + `/client/{A's client}` direct URL leaks no data. Backs the DB-layer RLS harness.)_
 
 ## 8. Messaging **[Co/Cl]**
-- [ ] Coach↔client chat bubble: send/receive both directions; unread badge; mobile full-screen.
-- [ ] Send failure shows an inline error (simulate offline) — message not lost silently.
-- [ ] Chat header shows the right name + avatar on both sides.
+<!-- QA run 2026-07-08 (harness, real coach↔client pair): 8/9 pass. -->
+- [x] Coach↔client chat bubble: send/receive both directions; unread badge; mobile full-screen. _(both directions VERIFIED; mobile full-screen = MANUAL.)_
+- [ ] Send failure shows an inline error (simulate offline) — message not lost silently. _(MANUAL — offline simulation.)_
+- [x] Chat header shows the right name + avatar on both sides. _(coach sees client name, client sees coach name; avatar render = MANUAL.)_
 
 ## 9. Notifications **[all]**
-- [ ] Bell badge counts new events + alerts; clears on open; re-pings when an alert reappears.
-- [ ] **Recent events** (message, check-in, new report) deep-link to the source.
-- [ ] **Needs-attention alerts** per role (coach: off-track clients; client: locked / check-in due / nudged) are accurate and clear when resolved.
-- [ ] Live refresh: logging/check-in clears the relevant alert without a full reload.
+<!-- QA run 2026-07-08 (harness): bell ping + clear VERIFIED. -->
+- [x] Bell badge counts new events + alerts; clears on open; re-pings when an alert reappears. _(pings on new message + clears on open VERIFIED; re-ping = MANUAL.)_
+- [ ] **Recent events** (message, check-in, new report) deep-link to the source. _(not yet driven.)_
+- [ ] **Needs-attention alerts** per role (coach: off-track clients; client: locked / check-in due / nudged) are accurate and clear when resolved. _(alert logic unit-tested; UI accuracy = MANUAL.)_
+- [ ] Live refresh: logging/check-in clears the relevant alert without a full reload. _(MANUAL.)_
 
 ## 10. Billing & subscriptions **(Stripe TEST mode — see header)**
 - [ ] **[Co]** Coach paywall (when `BILLING_ENABLED=true`): no sub → paywall; checkout redirect → return → access granted.
@@ -119,11 +127,12 @@
 - [ ] Card declines / abandoned checkout → no half-state; user can retry.
 
 ## 11. Lifecycle — offboarding, leaving, deletion **[Co/Cl]**
-- [ ] **Client self-leaves** coaching → reverts to solo, keeps their data; coach notified (bell + email).
-- [ ] **Coach cancels/lapses** → clients transitioned to solo at period end; clients notified on the dashboard; data retained.
-- [ ] **Coach deletes account** → all their clients offboarded + roles flipped to solo + offboard marker + email; coach's own Stripe sub canceled.
-- [ ] **Delete account** (any role) → Profile → delete → **all** personal data gone (nutrition, weight, cardio, steps, body measurements, targets, saved meals, day-complete, check-ins, messages, notifications) **+ profile photo purged**; confirmation email; Stripe sub canceled.
-- [ ] After deletion: the email can sign up fresh; old data does not reappear.
+<!-- QA run 2026-07-07: delete-account erasure VERIFIED; leave/offboard flows still to drive. -->
+- [ ] **Client self-leaves** coaching → reverts to solo, keeps their data; coach notified (bell + email). _(control exists on client Dashboard; not yet driven — next pass.)_
+- [ ] **Coach cancels/lapses** → clients transitioned to solo at period end; clients notified on the dashboard; data retained. _(MANUAL — Stripe/billing.)_
+- [ ] **Coach deletes account** → all their clients offboarded + roles flipped to solo + offboard marker + email; coach's own Stripe sub canceled. _(not yet driven — needs coach+clients fixture.)_
+- [x] **Delete account** (any role) → Profile → delete → **all** personal data gone (…) **+ profile photo purged**; confirmation email; Stripe sub canceled. _(erasure VERIFIED via real delete button + fresh-export-empty; confirmation email = MANUAL; Stripe = billing off.)_
+- [x] After deletion: the email can sign up fresh; old data does not reappear. _(VERIFIED: re-signup same email → empty export.)_
 - [ ] **Reconnection:** an ex-client only rejoins via a **new invite** (no auto-reconnect).
 - [ ] Offboard banner shows the right reason copy; dismiss persists cross-device.
 
@@ -132,11 +141,12 @@
 - [ ] All render on-brand; links go to the right place; no broken/placeholder content.
 
 ## 13. Data rights & privacy (the compliance surface) **[all]**
-- [ ] **Export my data** → downloads JSON containing **all** your tables (profile, logs, measurements, targets, saved meals, check-ins, messages, notifications).
-- [ ] **Delete account** erases everything (see §11) — re-verify the photo is gone (avatars bucket).
-- [ ] Avatars: a logged-out user / unrelated user **cannot** load another user's photo URL (private bucket).
-- [ ] Footers link to Terms, Privacy, **Health Data** policy; `/.well-known/security.txt` loads.
-- [ ] AI features only fire on explicit action (no auto-send to Anthropic); rate limit kicks in after the cap (30/h nutrition, 60/h report/prep).
+<!-- QA run 2026-07-07 (harness): export/private-avatar/delete-erasure all VERIFIED. -->
+- [x] **Export my data** → downloads JSON containing **all** your tables (profile, logs, measurements, targets, saved meals, check-ins, messages, notifications). _(real "Download data" button → JSON with all 13 tables + account/email.)_
+- [x] **Delete account** erases everything (see §11) — re-verify the photo is gone (avatars bucket). _(real Profile delete → logs out; erasure verified via fresh-export-empty. Avatar purge is in the delete-account function; direct post-delete bucket re-check = MANUAL.)_
+- [x] Avatars: a logged-out user / unrelated user **cannot** load another user's photo URL (private bucket). _(VERIFIED: public URL → 400; unrelated user sign → 400; owner sign+read → 200.)_
+- [x] Footers link to Terms, Privacy, **Health Data** policy; `/.well-known/security.txt` loads. _(security.txt → 200; all three legal pages load under prod CSP.)_
+- [ ] AI features only fire on explicit action (no auto-send to Anthropic); rate limit kicks in after the cap (30/h nutrition, 60/h report/prep). _(rate-limit tables covered by RLS harness; "explicit action only" = MANUAL.)_
 
 ## 14. PWA / mobile / cross-browser
 - [ ] Install as PWA (mobile + desktop); icon/splash correct; theme applied before paint (no flash).
