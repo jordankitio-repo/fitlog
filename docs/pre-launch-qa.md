@@ -116,16 +116,17 @@
 - [ ] Live refresh: logging/check-in clears the relevant alert without a full reload. _(MANUAL.)_
 
 ## 10. Billing & subscriptions **(Stripe TEST mode — see header)**
-<!-- Flags currently OFF (App.jsx BILLING_ENABLED=false, SOLO_BILLING_ENABLED=false). The paid SOLO tier is RETIRED (solo is free, hasSoloPremium always true) — solo billing items below are N/A. Coach billing = the real business; test before flipping BILLING_ENABLED on. -->
-- [ ] **[Co]** Coach paywall (when `BILLING_ENABLED=true`): no sub → paywall; checkout redirect → return → access granted.
+<!-- Flags currently OFF (App.jsx BILLING_ENABLED=false, SOLO_BILLING_ENABLED=false). The paid SOLO tier is RETIRED (solo is free, hasSoloPremium always true) — solo billing items below are N/A. Coach billing = the real business; test before flipping BILLING_ENABLED on.
+QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + functions serve + `stripe listen`, App.jsx flag flipped then reverted): coach matrix 18/18 + paywall UI 2/2. Flag reverted to false; stack torn down. -->
+- [x] **[Co]** Coach paywall (when `BILLING_ENABLED=true`): no sub → paywall; checkout redirect → return → access granted. _(VERIFIED: no-sub coach → CoachPaywall "Start your free trial"; "Start 30-day free trial" → redirects to Stripe Checkout (`cs_test_…`); checkout shows correct 30-day trial + $19/mo founding price. Post-checkout access = webhook-driven (below).)_
 - [~] ~~**[S]** Solo Premium trial start; trialing state; access to gated features.~~ **N/A — paid Solo tier retired (solo is free).**
-- [ ] Trial **eligibility**: a second trial on the **same email** is refused (ledger, hashed email). _(coach trial only.)_
-- [ ] **Cancel** → cancel-at-period-end; access continues to period end; confirmation email.
-- [ ] **Resume** a canceled-at-period-end sub.
+- [x] Trial **eligibility**: a second trial on the **same email** is refused (ledger, hashed email). _(VERIFIED: trial recorded in `trial_ledger` on `trialing`; ledger persists across account deletion (email-hash keyed); `create-checkout-session` gates the trial on it.)_
+- [x] **Cancel** → cancel-at-period-end; access continues to period end; confirmation email. _(VERIFIED: `cancel-subscription{action:cancel}` → `cancel_at_period_end=true`. Confirmation email = MANUAL.)_
+- [x] **Resume** a canceled-at-period-end sub. _(VERIFIED: `{action:resume}` → `cancel_at_period_end=false`.)_
 - [~] ~~Solo Premium **pause/resume** when the solo joins/leaves coaching; remaining days preserved.~~ **N/A — paid Solo tier retired** (plumbing dormant behind `SOLO_BILLING_ENABLED`).
-- [ ] Webhook: cancel/lapse → clients offboarded to solo at period end (see §12).
-- [ ] Orphaned Stripe customer recovery (deleted customer) → checkout still works.
-- [ ] Card declines / abandoned checkout → no half-state; user can retry.
+- [x] Webhook: cancel/lapse → clients offboarded to solo at period end (see §12). _(VERIFIED: signed `customer.subscription.deleted` → coach sub `canceled` + active client `coach_clients.status → offboarded`.)_
+- [ ] Orphaned Stripe customer recovery (deleted customer) → checkout still works. _(not driven; `customerIsUsable()` logic present in create-checkout-session — recreates customer if deleted.)_
+- [~] Card declines / abandoned checkout → no half-state; user can retry. _(hosted-Checkout card entry is browser-only (hCaptcha-guarded, not automatable); sub stays `incomplete` until a completed session — verified by design + create-side test. MANUAL to fully confirm.)_
 
 ## 11. Lifecycle — offboarding, leaving, deletion **[Co/Cl]**
 <!-- QA run 2026-07-08: delete-erasure + client-self-leave VERIFIED; coach-side offboard still to drive. -->
