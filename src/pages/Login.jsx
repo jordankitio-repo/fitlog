@@ -27,6 +27,12 @@ function Login() {
     if (!message || message === 'Failed to fetch' || message.toLowerCase().includes('networkerror') || message.toLowerCase().includes('failed to fetch')) {
       return 'Unable to connect to our servers. Please try again in a few minutes.'
     }
+    // A duplicate signup returns Supabase's raw "User already registered". The
+    // client-side profiles pre-check can't catch it (RLS hides other users'
+    // rows from anon), so rewrite the server error to our sign-in guidance.
+    if (message.toLowerCase().includes('already registered')) {
+      return 'An account with this email already exists. Sign in instead.'
+    }
     return message
   }
 
