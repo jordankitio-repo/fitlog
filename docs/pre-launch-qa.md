@@ -116,12 +116,13 @@
 - [ ] Live refresh: logging/check-in clears the relevant alert without a full reload. _(MANUAL.)_
 
 ## 10. Billing & subscriptions **(Stripe TEST mode — see header)**
+<!-- Flags currently OFF (App.jsx BILLING_ENABLED=false, SOLO_BILLING_ENABLED=false). The paid SOLO tier is RETIRED (solo is free, hasSoloPremium always true) — solo billing items below are N/A. Coach billing = the real business; test before flipping BILLING_ENABLED on. -->
 - [ ] **[Co]** Coach paywall (when `BILLING_ENABLED=true`): no sub → paywall; checkout redirect → return → access granted.
-- [ ] **[S]** Solo Premium trial start; trialing state; access to gated features.
-- [ ] Trial **eligibility**: a second trial on the **same email** is refused (ledger, hashed email).
+- [~] ~~**[S]** Solo Premium trial start; trialing state; access to gated features.~~ **N/A — paid Solo tier retired (solo is free).**
+- [ ] Trial **eligibility**: a second trial on the **same email** is refused (ledger, hashed email). _(coach trial only.)_
 - [ ] **Cancel** → cancel-at-period-end; access continues to period end; confirmation email.
 - [ ] **Resume** a canceled-at-period-end sub.
-- [ ] Solo Premium **pause/resume** when the solo joins/leaves coaching; remaining days preserved.
+- [~] ~~Solo Premium **pause/resume** when the solo joins/leaves coaching; remaining days preserved.~~ **N/A — paid Solo tier retired** (plumbing dormant behind `SOLO_BILLING_ENABLED`).
 - [ ] Webhook: cancel/lapse → clients offboarded to solo at period end (see §12).
 - [ ] Orphaned Stripe customer recovery (deleted customer) → checkout still works.
 - [ ] Card declines / abandoned checkout → no half-state; user can retry.
