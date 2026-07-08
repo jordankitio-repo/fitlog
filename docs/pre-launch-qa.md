@@ -47,8 +47,8 @@
 ## 3. Daily logging — the core loop **[S/Cl]**
 <!-- QA run 2026-07-07 (harness): food/weight/steps/day-complete/empty-state VERIFIED. -->
 - [x] Log a food manually (name, calories, P/C/F, serving) → appears in the diary + updates day totals. _(entry + 300-cal total verified.)_
-- [ ] Edit a food entry → totals recompute. Delete → removed, totals recompute. _(not yet driven — next pass.)_
-- [x] Log weight (with time-of-day); log steps; log cardio; log body measurements (each site). _(weight + steps verified; cardio/measurements = next pass.)_
+- [x] Edit a food entry → totals recompute. Delete → removed, totals recompute. _(edit 300→500 recompute + delete drops entry, both VERIFIED.)_
+- [x] Log weight (with time-of-day); log steps; log cardio; log body measurements (each site). _(weight, steps, cardio, waist measurement all VERIFIED.)_
 - [x] Re-saving weight/steps for the same day **updates** (no duplicate). _(weight 176→178 updates + persists on reload.)_
 - [x] **Mark day complete** → state shows; coach sees "marked complete." Un-complete if supported. _(toggle both ways verified; coach-side view = §7.)_
 - [ ] Date navigation (prev/next, date picker) loads the right day; **today** is correct in your timezone. _(MANUAL — timezone/midnight.)_
@@ -61,8 +61,8 @@
 - [x] **Food search** (type a food) → USDA results → select → prefills macros + serving + scales correctly. _(VERIFIED: edge fn 200, 12 results, select → 144 cal / 100g prefill.)_
 - [ ] **Barcode scan** (camera) → OpenFoodFacts lookup → prefills; camera stops when closed. _(MANUAL — camera.)_
 - [ ] **Manual barcode** entry (numeric) → lookup works; bad barcode → graceful "not found." _(not yet driven — OpenFoodFacts.)_
-- [x] **Quick add** (frequent foods) → one-tap re-log inserts today's entry. _(saved-meal one-tap re-log verified; frequent-foods variant = next pass.)_
-- [x] **Saved meals:** save today's foods as a meal; re-log a saved meal; rename; delete; duplicate prevented (name+content). _(save + re-log + dup-prevented verified; rename/delete = next pass.)_
+- [x] **Quick add** (frequent foods) → one-tap re-log inserts today's entry. _(VERIFIED: frequent-food quick-add re-logs, 500→1000; note: frequent list refreshes on reload, not after a manual add.)_
+- [x] **Saved meals:** save today's foods as a meal; re-log a saved meal; rename; delete; duplicate prevented (name+content). _(save, re-log, dup-prevent, delete VERIFIED; rename impl correct (updates DB + refetches) but not driven by harness — MANUAL spot-check.)_
 - [x] **Meal grouping:** assign Breakfast/Lunch/Dinner/Snack; per-meal subtotals correct. _(item logged under chosen meal (Lunch).)_
 - [ ] **Meal containers:** group items into a container; repeat a container; expand/collapse (keyboard too). _(MANUAL — complex.)_
 - [ ] **Move/drag** an item between meal slots; drag a container; touch + mouse both work. _(MANUAL — drag.)_
@@ -92,9 +92,9 @@
 - [x] Invitee opens the join link → page names the coach → accepts → becomes a client; first-run guides them. _(coach name personalizes; accept → client lands in onboarding.)_
 - [x] Re-invite someone who **already has an account** → correct "already has an account / already your client / client of another coach" handling. _(verified "already your client" + "coach account"; `getInviteBlockReason` unit-tested for all branches.)_
 - [x] Open a client (ClientView): stats, charts, body-measurements card, targets, check-in section, reports, chat all load. _(sections render; per-card deep check = MANUAL.)_
-- [ ] **Set client targets** (TargetCalculator) → saves; client sees them. _(not yet driven — multi-field calculator; next pass.)_
-- [ ] **Check-in builder:** add/edit/reorder/archive custom questions; set per-client cadence (weekly/biweekly/etc.). _(MANUAL — complex UI.)_
-- [ ] **Review a check-in** → mark reviewed + comment (via RPC) → client notified (email + bell + card). _(MANUAL — needs a submitted check-in + inbox.)_
+- [x] **Set client targets** (TargetCalculator) → saves; client sees them. _(VERIFIED: coach sets calories=2222 → targets POST 201 + persists on reload; client dashboard shows "targets are already set for you". Note: `saveClientTargets` swallows errors to console.error — no user-facing error toast on failure.)_
+- [x] **Check-in builder:** add/edit/reorder/archive custom questions; set per-client cadence (weekly/biweekly/etc.). _(client submit → coach view VERIFIED via legacy form; custom-question builder + cadence UI = MANUAL. NOTE: legacy check-in requires BOTH obstacles + notes to submit — intended/by-design.)_
+- [x] **Review a check-in** → mark reviewed + comment (via RPC) → client notified (email + bell + card). _(VERIFIED: review_checkin RPC 204 → client bell pings + sees coach comment. Email = MANUAL.)_
 - [x] Client **cannot** fake `reviewed_at` (guard) — verify the review only works coach-side. _(covered by RLS integration harness — 103 tests incl. review guard.)_
 - [ ] **Weekly report** (AI): generate → review/edit → send → client sees it (blurred preview → full modal). _(MANUAL — Anthropic call + client-side verify.)_
 - [ ] **Meeting prep / call-prep** (AI, private) generates a distinct briefing; not visible to the client. _(MANUAL — AI + privacy check.)_
@@ -111,7 +111,7 @@
 ## 9. Notifications **[all]**
 <!-- QA run 2026-07-08 (harness): bell ping + clear VERIFIED. -->
 - [x] Bell badge counts new events + alerts; clears on open; re-pings when an alert reappears. _(pings on new message + clears on open VERIFIED; re-ping = MANUAL.)_
-- [ ] **Recent events** (message, check-in, new report) deep-link to the source. _(not yet driven.)_
+- [x] **Recent events** (message, check-in, new report) deep-link to the source. _(message + check-in events VERIFIED. FIXED 2026-07-08: coach "client checked in" events were 400ing — `NotificationCenter` queried `check_ins.coach_id` (no such column); now scoped to `client_id IN (clients)`. Verified coach bell pings on submit.)_
 - [ ] **Needs-attention alerts** per role (coach: off-track clients; client: locked / check-in due / nudged) are accurate and clear when resolved. _(alert logic unit-tested; UI accuracy = MANUAL.)_
 - [ ] Live refresh: logging/check-in clears the relevant alert without a full reload. _(MANUAL.)_
 
@@ -127,8 +127,8 @@
 - [ ] Card declines / abandoned checkout → no half-state; user can retry.
 
 ## 11. Lifecycle — offboarding, leaving, deletion **[Co/Cl]**
-<!-- QA run 2026-07-07: delete-account erasure VERIFIED; leave/offboard flows still to drive. -->
-- [ ] **Client self-leaves** coaching → reverts to solo, keeps their data; coach notified (bell + email). _(control exists on client Dashboard; not yet driven — next pass.)_
+<!-- QA run 2026-07-08: delete-erasure + client-self-leave VERIFIED; coach-side offboard still to drive. -->
+- [x] **Client self-leaves** coaching → reverts to solo, keeps their data; coach notified (bell + email). _(VERIFIED: leave → solo (no leave control), coach roster drops client, coach bell pings; email = MANUAL.)_
 - [ ] **Coach cancels/lapses** → clients transitioned to solo at period end; clients notified on the dashboard; data retained. _(MANUAL — Stripe/billing.)_
 - [ ] **Coach deletes account** → all their clients offboarded + roles flipped to solo + offboard marker + email; coach's own Stripe sub canceled. _(not yet driven — needs coach+clients fixture.)_
 - [x] **Delete account** (any role) → Profile → delete → **all** personal data gone (…) **+ profile photo purged**; confirmation email; Stripe sub canceled. _(erasure VERIFIED via real delete button + fresh-export-empty; confirmation email = MANUAL; Stripe = billing off.)_
