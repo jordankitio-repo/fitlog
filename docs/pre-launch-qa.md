@@ -141,6 +141,7 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 
 ## 12. Emails (Resend) — confirm each actually arrives & links work
 <!-- QA run 2026-07-09: triggered via a real coach↔client pair on Gmail +aliases (jordangarden44+…), verified arrival/content/links via the Gmail integration. 7 verified, 1 finding, 3 deferred. -->
+<!-- Follow-up 2026-07-09 (same day): the 3 deferred now resolved — report + milestone driven live (INBOX, on-brand); digest branding via local render. Plus a suite-wide branding fix: legacy blue #4f8ef7 → green #16a34a across all 8 transactional email fns (5eaef51). -->
 - [x] **Invite** — arrives (INBOX), on-brand (green Gardnr), "Accept invite" → `gardnr.fit/join?token=<token>` (token verified against dashboard). _(Note: the Gmail integration mis-decodes the `=` in QP URLs — shows `token[`/`token�` — a display artifact, the real link is `?token=<full>`.)_
 - [x] **Check-in submitted** (→ coach) — arrives; shows adherence/energy/obstacles/notes.
 - [x] **Check-in reviewed** (→ client) — arrives; includes the coach's note.
@@ -148,10 +149,10 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 - [x] **Client-left notification** (→ coach) — arrives.
 - [x] **Account-deletion confirmation** (client + coach) — arrives, on-brand.
 - [x] **Password reset** — arrives + link works (`…supabase.co/auth/v1/verify?...&redirect_to=gardnr.fit/reset-password`). **FIXED 2026-07-09:** enabled Supabase Auth custom SMTP (Resend) → now sends from **`noreply@gardnr.fit`** (verified; was `noreply@mail.app.supabase.io`). Sender/trust issue resolved. _(DONE 2026-07-09: the branded template from `docs/email-templates/reset-password.html` was pasted into Auth → Email Templates → Reset Password — the reset email now renders fully on-brand, no `supabase.com` opt-out footer.)_
-- [ ] **Weekly report notification** — DEFERRED (needs driving the AI report generate→send flow).
-- [ ] **Milestone** (→ coach) — DEFERRED (needs a real multi-day streak; can't fake without backdating prod data).
-- [ ] **Weekly digest** (Mon cron) — DEFERRED (cron-triggered; not on-demand invokable on prod).
-- [x] All render on-brand; links go to the right place; no broken/placeholder content. _(the 7 above render on-brand + deliver to INBOX, not spam; password-reset is the lone off-brand exception, flagged above.)_
+- [x] **Weekly report notification** (→ client) — **VERIFIED 2026-07-09**: drove `notify-report` on prod via a throwaway coach↔client pair (`+qagclient-97bc0`) → "New coaching report from QAGreenCoach" arrives **INBOX**, on-brand **green** (delivered HTML carries `#16a34a`), "View report" → `gardnr.fit/login`. _(Earlier deferral was overcautious — the email is separate from the AI report generation; `weekData` is client-supplied, so no backdating is needed.)_
+- [x] **Milestone** (→ coach) — **VERIFIED 2026-07-09**: `milestone-reached` with `{streakCount:7}` (client JWT) → "🔥 QAGreenClient just hit a 7-day streak" arrives **INBOX** to the coach, on-brand green, "View client data →" link correct. _(Deferral was a misdiagnosis: `streakCount` is passed in the request body by the client, not derived from backdated data.)_
+- [~] **Weekly digest** (Mon cron) — **branding VERIFIED via local render** (green "Open Gardnr" button + compliance-pill table render correctly). Live delivery still rides the Monday `pg_cron` (needs a `service_role` JWT + emails every active coach, so not driven on-demand). Deployed green will apply on the next cron run.
+- [x] All render on-brand; links go to the right place; no broken/placeholder content. **Branding pass 2026-07-09:** the legacy pre-rebrand **blue `#4f8ef7`** CTA/heading accent was still shipping in **8** email functions (incl. `notify-checkin` / `notify-checkin-review`, which slipped through the "7 verified" pass) → all swapped to brand **green `#16a34a`** and redeployed (`5eaef51`). Now the whole transactional-email suite is consistently on-brand.
 
 ## 13. Data rights & privacy (the compliance surface) **[all]**
 <!-- QA run 2026-07-07 (harness): export/private-avatar/delete-erasure all VERIFIED. -->
