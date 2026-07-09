@@ -18,6 +18,12 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  // Build/tooling config runs in Node, not the browser — give it Node globals
+  // so process.env (gates the Sentry source-map upload) lints clean.
+  {
+    files: ['vite.config.js'],
+    languageOptions: { globals: globals.node },
+  },
   // Design-system guardrail: on pages migrated onto the token layer, a raw hex
   // as a `color:` value is a regression — use a --color-* token. (`color:` is
   // never a chart.js dataset prop, so this never false-positives on charts;
