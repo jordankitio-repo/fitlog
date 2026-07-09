@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`5eaef51 fix(emails): harmonize transactional emails to brand green` (Jul 9 — legacy blue → green across all 8 transactional email fns, redeployed; 3 deferred §12 emails verified. Earlier same day: Sentry source-maps LIVE)
+`960438c fix(mobile): lock viewport on touch-down so iOS login zoom never fires` (Jul 9 — real fix for the iOS input-focus zoom (v1 focusin was too late); owner-confirmed. Same day: emails harmonized to brand green + 3 deferred §12 verified; Sentry source-maps LIVE)
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -32,7 +32,7 @@
 - **CoachPaywall "Delete account"** signed the user out even on a *failed* delete → now checks the response first (matches the Profile delete path).
 - **Food "Add entry" double-submit** created duplicate `nutrition_log` rows (plain insert, no guard, button not disabled during the async write) → synchronous re-entrancy ref + disabled/loading button (`Log.jsx`). Weight/steps/measurements were safe (upserts); cardio safe (form collapses synchronously).
 - **"Send invite" double-submit** created two pending invites + two emails (insert, no guard, no DB unique constraint) → same ref-guard + disabled buttons (`CoachDashboard.jsx`).
-- **iOS input-focus auto-zoom** (page stuck zoomed after tapping Sign in from a focused field) — the 16px inputs weren't preventing it on some iOS versions. Fix: lock the viewport (`maximum-scale=1`) **only while a field is focused**, release on blur (`utils/iosInputZoom.js`, init in `main.jsx`). Prevents the zoom + snaps back to 100%; **static viewport keeps no maximum-scale so pinch-zoom + axe stay clean** (WCAG 1.4.4 holds). *(Pending the owner's real-device re-test.)*
+- **iOS input-focus auto-zoom** (page zooms/stuck-zoomed when tapping the login field) — 16px inputs weren't preventing it on the owner's device. Fix: lock the viewport (`maximum-scale=1`) during field interaction, release on blur (`utils/iosInputZoom.js`, init in `main.jsx`); **static viewport keeps no maximum-scale so pinch-zoom + axe stay clean** (WCAG 1.4.4 holds). **NOTE — took two tries:** v1 (`2219e08`) locked on `focusin`, which is **too late** (iOS commits to the zoom the instant focus lands) → still zoomed on real device. **v2 (`960438c`) locks on `touchstart`/`pointerdown` (tap-DOWN, before focus)** → owner-confirmed fixed. Lesson: prevent iOS input-zoom by locking `maximum-scale` on pointer-down, not focus.
 
 Config/ops shipped this pass:
 - **Sentry made LIVE** (was dormant — `VITE_SENTRY_DSN` unset → `Sentry.init` tree-shaken; a thrown error sent 0 requests to sentry.io). Owner created the project + set the DSN in Vercel; verified capturing after redeploy. IP storage disabled. See Production above.
