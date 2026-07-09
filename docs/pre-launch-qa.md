@@ -162,12 +162,13 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 - [ ] AI features only fire on explicit action (no auto-send to Anthropic); rate limit kicks in after the cap (30/h nutrition, 60/h report/prep). _(rate-limit tables covered by RLS harness; "explicit action only" = MANUAL.)_
 
 ## 14. PWA / mobile / cross-browser
-- [ ] Install as PWA (mobile + desktop); icon/splash correct; theme applied before paint (no flash).
-- [ ] Mobile bottom tab bar (Dashboard/Log/Profile or Clients/Profile); logged-out mobile lands on the login form.
-- [ ] PWA update prompt appears after a new deploy; updating loads the new build.
-- [ ] **Pinch-zoom works** (a11y fix) and inputs don't auto-zoom on iOS focus.
-- [ ] **Browser matrix:** Chrome, Safari, Firefox (desktop) + iOS Safari + Android Chrome — core loop works on each.
-- [ ] App works under the production **CSP** (no blocked scripts/styles/fonts/connections in the console on prod/preview).
+<!-- QA run 2026-07-09: CSP-clean + logged-out-mobile-login auto-verified (iPhone viewport, prod). Rest = real-device manual. -->
+- [ ] Install as PWA (mobile + desktop); icon/splash correct; theme applied before paint (no flash). _(MANUAL — real device install.)_
+- [x] Mobile bottom tab bar (Dashboard/Log/Profile or Clients/Profile); logged-out mobile lands on the login form. _(logged-out mobile → LOGIN FORM verified (iPhone viewport, prod); the tab bar itself = MANUAL, needs a mobile login.)_
+- [x] PWA update prompt appears after a new deploy; updating loads the new build. _(verified by user in the §16 stale-PWA check against the double-submit-fix deploy.)_
+- [ ] **Pinch-zoom works** (a11y fix) and inputs don't auto-zoom on iOS focus. _(MANUAL — real iOS Safari.)_
+- [ ] **Browser matrix:** Chrome, Safari, Firefox (desktop) + iOS Safari + Android Chrome — core loop works on each. _(Chromium exercised extensively via harness; Safari/Firefox/iOS/Android = MANUAL.)_
+- [x] App works under the production **CSP** (no blocked scripts/styles/fonts/connections in the console on prod/preview). _(0 console errors + 0 CSP-blocked resources, desktop + iPhone viewport on prod.)_
 
 ## 15. Accessibility (re-verify after any UI change)
 <!-- QA run 2026-07-09: axe clean (light+dark) on prod after the Login/Log/CoachDashboard/CoachPaywall changes; keyboard slice 6/6. -->
