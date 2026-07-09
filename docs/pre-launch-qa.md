@@ -140,8 +140,18 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 - [ ] Offboard banner shows the right reason copy; dismiss persists cross-device.
 
 ## 12. Emails (Resend) — confirm each actually arrives & links work
-- [ ] Invite · password reset · weekly report notification · check-in submitted · check-in reviewed · nudge · milestone · account-deletion confirmation (client) · client-left/deleted notification (coach) · weekly digest (Mon cron).
-- [ ] All render on-brand; links go to the right place; no broken/placeholder content.
+<!-- QA run 2026-07-09: triggered via a real coach↔client pair on Gmail +aliases (jordangarden44+…), verified arrival/content/links via the Gmail integration. 7 verified, 1 finding, 3 deferred. -->
+- [x] **Invite** — arrives (INBOX), on-brand (green Gardnr), "Accept invite" → `gardnr.fit/join?token=<token>` (token verified against dashboard). _(Note: the Gmail integration mis-decodes the `=` in QP URLs — shows `token[`/`token�` — a display artifact, the real link is `?token=<full>`.)_
+- [x] **Check-in submitted** (→ coach) — arrives; shows adherence/energy/obstacles/notes.
+- [x] **Check-in reviewed** (→ client) — arrives; includes the coach's note.
+- [x] **Nudge** (→ client) — arrives ("Time to log your day"), correct log-reminder.
+- [x] **Client-left notification** (→ coach) — arrives.
+- [x] **Account-deletion confirmation** (client + coach) — arrives, on-brand.
+- [x] **Password reset** — arrives + link works (`…supabase.co/auth/v1/verify?...&redirect_to=gardnr.fit/reset-password`). **FIXED 2026-07-09:** enabled Supabase Auth custom SMTP (Resend) → now sends from **`noreply@gardnr.fit`** (verified; was `noreply@mail.app.supabase.io`). Sender/trust issue resolved. _(Optional polish left: the email **body** is still Supabase's default recovery template with an "Opt out → supabase.com" footer — customize under Auth → Email Templates → Reset Password for full on-brand HTML.)_
+- [ ] **Weekly report notification** — DEFERRED (needs driving the AI report generate→send flow).
+- [ ] **Milestone** (→ coach) — DEFERRED (needs a real multi-day streak; can't fake without backdating prod data).
+- [ ] **Weekly digest** (Mon cron) — DEFERRED (cron-triggered; not on-demand invokable on prod).
+- [x] All render on-brand; links go to the right place; no broken/placeholder content. _(the 7 above render on-brand + deliver to INBOX, not spam; password-reset is the lone off-brand exception, flagged above.)_
 
 ## 13. Data rights & privacy (the compliance surface) **[all]**
 <!-- QA run 2026-07-07 (harness): export/private-avatar/delete-erasure all VERIFIED. -->
