@@ -23,6 +23,7 @@ function Button({
   loading = false,
   fullWidth = false,
   type = 'button',
+  ariaLabel,
   style = {}
 }) {
   const [hovered, setHovered] = useState(false)
@@ -99,6 +100,7 @@ function Button({
       onFocus={() => setHovered(true)}
       onBlur={() => setHovered(false)}
       disabled={disabled || loading}
+      aria-label={ariaLabel}
       className="btn"
       style={{ ...base, ...sizes[size], ...variants[variant], ...style, ...hoverStyle }}
     >

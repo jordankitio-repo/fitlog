@@ -909,9 +909,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
-          <input type="date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
-          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
+          <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day">←</Button>
+          <input type="date" aria-label="Selected date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
+          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day">→</Button>
           {isToday && <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
           {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
 	        </div>

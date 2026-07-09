@@ -128,6 +128,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
                   return (
                     <div
                       key={cell.dateStr}
+                      role="img"
                       aria-label={tooltipText || cell.dateStr}
                       onMouseEnter={(event) => {
                         if (tooltipText) {

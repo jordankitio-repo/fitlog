@@ -74,9 +74,11 @@
   --color-surface-2: #eef0ee;
   --color-border: #e4e6e4;
   --color-border-strong: #d2d5d2;
-  /* green-700, not green-600: #16a34a fails WCAG AA as link text / button bg on
-     white (≈3:1). #15803d gives white-on-primary ≈5:1 and primary-as-text ≈4.6:1. */
-  --color-primary: #15803d;
+  /* green-800, not green-600/700: as TEXT on a faint-green tint (active nav pill,
+     secondary buttons over --color-primary-dim) green-700 #15803d lands ~4.0–4.3:1,
+     just under AA 4.5. green-800 #166534 clears it on both white and the tint,
+     and only raises white-on-primary contrast for filled buttons/pills. */
+  --color-primary: #166534;
   --color-primary-dim: rgba(22, 163, 74, 0.13);
   --color-text: #16181c;
   --color-text-dim: #3b3f45;
