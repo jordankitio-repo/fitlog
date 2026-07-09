@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
     const commentBlock = safeComment
       ? `<p style="margin-top: 8px;">They left you a note:</p>
-         <blockquote style="margin: 8px 0; padding: 12px 16px; background: #f4f6fb; border-left: 3px solid #4f8ef7; border-radius: 6px; color: #333;">${safeComment}</blockquote>`
+         <blockquote style="margin: 8px 0; padding: 12px 16px; background: #f0fdf4; border-left: 3px solid #16a34a; border-radius: 6px; color: #333;">${safeComment}</blockquote>`
       : ''
 
     const response = await fetch('https://api.resend.com/emails', {
@@ -92,11 +92,11 @@ Deno.serve(async (req) => {
         subject: `${coachName} reviewed your check-in`,
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-            <h2 style="color: #4f8ef7;">Your check-in was reviewed ✅</h2>
+            <h2 style="color: #16a34a;">Your check-in was reviewed ✅</h2>
             <p>Hi ${clientName},</p>
             <p>Your coach <strong>${coachName}</strong> reviewed your latest check-in.</p>
             ${commentBlock}
-            <a href="https://www.gardnr.fit/login" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #4f8ef7; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
+            <a href="https://www.gardnr.fit/login" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
               Open Gardnr
             </a>
             <p style="margin-top: 24px; color: #888; font-size: 0.875rem;">Gardnr — your fitness coaching platform</p>

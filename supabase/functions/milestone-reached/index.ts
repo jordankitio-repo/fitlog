@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     </p>
 
     <div style="margin-top:24px">
-      <a href="https://www.gardnr.fit" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+      <a href="https://www.gardnr.fit" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
         View client data &rarr;
       </a>
     </div>

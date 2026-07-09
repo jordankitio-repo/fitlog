@@ -91,13 +91,13 @@ Deno.serve(async (req) => {
         subject: `New check-in from ${safeClientName}`,
         html: `
           <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
-            <h2 style="color: #4f8ef7;">New weekly check-in submitted</h2>
+            <h2 style="color: #16a34a;">New weekly check-in submitted</h2>
             <p>Hi ${safeCoachName},</p>
             <p><strong>${safeClientName}</strong> submitted a weekly check-in.</p>
             <div style="margin: 20px 0; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px;">
               ${detailsHtml}
             </div>
-            <a href="https://www.gardnr.fit/login" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #4f8ef7; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
+            <a href="https://www.gardnr.fit/login" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
               View client
             </a>
             <p style="margin-top: 24px; color: #888; font-size: 0.875rem;">Gardnr - your fitness coaching platform</p>

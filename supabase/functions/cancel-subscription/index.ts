@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
     <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 32px">
       Changed your mind? You can resume anytime before then from your profile &mdash; nothing will be lost.
     </p>
-    <a href="https://www.gardnr.fit/profile" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+    <a href="https://www.gardnr.fit/profile" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
       Manage subscription
     </a>
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">

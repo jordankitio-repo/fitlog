@@ -265,7 +265,7 @@ async function sendDigestEmail(
     </table>
 
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid #242424">
-      <a href="https://www.gardnr.fit" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+      <a href="https://www.gardnr.fit" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
         Open Gardnr
       </a>
     </div>

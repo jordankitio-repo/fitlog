@@ -170,7 +170,7 @@ async function offboardCoachClients(
     <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 32px">
       If you'd like to connect with a new coach in the future, they can send you an invite and you'll be back up and running.
     </p>
-    <a href="https://www.gardnr.fit" style="display:inline-block;background:#4f8ef7;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+    <a href="https://www.gardnr.fit" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
       Open Gardnr
     </a>
     <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
