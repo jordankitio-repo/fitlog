@@ -175,10 +175,14 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 - [ ] **Stale PWA:** old cached app after a deploy → update prompt recovers it (no broken avatars/blank screen).
 
 ## 17. Production smoke test (do right after each deploy)
-- [ ] Load `www.gardnr.fit` (logged out) → landing renders, no console errors.
-- [ ] Sign up a throwaway → onboard → log one food → see it on the dashboard.
-- [ ] Check the error monitor (once Sentry is wired) shows no new exceptions from your run.
-- [ ] Delete the throwaway account.
+<!-- QA run 2026-07-08 (harness vs live www.gardnr.fit, after the CoachPaywall deploy): 6/6. -->
+- [x] Load `www.gardnr.fit` (logged out) → landing renders, no console errors. _(landing ✓; no app console/page errors during the run.)_
+- [x] Sign up a throwaway → onboard → log one food → see it on the dashboard. _(signup → skip → logged "Smoke Oatmeal" 321 cal → 321 shows on dashboard.)_
+- [ ] Check the error monitor (once Sentry is wired) shows no new exceptions from your run. _(client console clean; Sentry dashboard check = MANUAL — needs your access.)_
+- [x] Delete the throwaway account. _(delete-account 200; self-cleans.)_
+<!-- Investigated 2026-07-08: automated fresh-navigation (new tab / bare goto to a route) after signup shows a logged-out state + cleared token; reproduced headless AND headed. NOT a real bug — user confirmed a real browser stays logged in (Playwright + supabase-js Web Locks / just-signed-up refresh-token timing). Harnesses must use SPA nav / reload, not goto-to-new-route, after auth. -->
+
+**Notes:** Prod header/CSP/security.txt checks are in §13/§14 (already ✓). One throwaway from the first smoke run couldn't self-delete (unknown email) — remove from Supabase Auth dashboard.
 
 ---
 
