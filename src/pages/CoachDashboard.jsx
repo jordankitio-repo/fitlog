@@ -92,6 +92,8 @@ function CoachDashboard({ profile }) {
   const [pendingInviteEmail, setPendingInviteEmail] = useState('')
   const [inviteEmailedTo, setInviteEmailedTo] = useState('') // address the invite email reached, or ''
   const inviteInputRef = useRef(null)
+  const [inviting, setInviting] = useState(false)
+  const invitingRef = useRef(false) // synchronous double-submit guard (state is async)
   const [loading, setLoading] = useState(true)
   const [nudgeLoadingIds, setNudgeLoadingIds] = useState({})
   const [toast, setToast] = useState({ message: '', type: 'success' })
@@ -248,36 +250,45 @@ function CoachDashboard({ profile }) {
   }
 
   async function sendInvite(email, accountExists = false) {
-    const { data, error } = await supabase
-      .from('invitations')
-      .insert([{ coach_id: profile.id, client_email: email, account_exists: accountExists }])
-      .select().single()
-    if (error) {
-      setInviteError('Error sending invite.')
-      setInviteLink('')
-      console.error(error)
-    }
-    else {
-      setInviteLink(`${window.location.origin}/join?token=${data.token}`)
-      setInviteError('')
-      setInviteEmail('')
-      setSoloAccountDetected(false)
-      setPendingInviteEmail('')
-
-      // Email the link straight to the client. The link stays on screen as a
-      // fallback, so a failed/unconfigured email never blocks inviting.
-      try {
-        const { data: res, error: fnError } = await supabase.functions.invoke('notify-invite', {
-          body: { invitationId: data.id },
-        })
-        if (fnError || !res?.success) throw fnError || new Error('send failed')
-        setInviteEmailedTo(email)
-        setToast({ message: `Invite emailed to ${email}`, type: 'success' })
-      } catch (err) {
-        console.error('notify-invite failed:', err)
-        setInviteEmailedTo('')
-        setToast({ message: "Couldn't email the invite — copy the link below to share it.", type: 'error' })
+    // Prevent a rapid double-click from creating two pending invites (+ two emails).
+    if (invitingRef.current) return
+    invitingRef.current = true
+    setInviting(true)
+    try {
+      const { data, error } = await supabase
+        .from('invitations')
+        .insert([{ coach_id: profile.id, client_email: email, account_exists: accountExists }])
+        .select().single()
+      if (error) {
+        setInviteError('Error sending invite.')
+        setInviteLink('')
+        console.error(error)
       }
+      else {
+        setInviteLink(`${window.location.origin}/join?token=${data.token}`)
+        setInviteError('')
+        setInviteEmail('')
+        setSoloAccountDetected(false)
+        setPendingInviteEmail('')
+
+        // Email the link straight to the client. The link stays on screen as a
+        // fallback, so a failed/unconfigured email never blocks inviting.
+        try {
+          const { data: res, error: fnError } = await supabase.functions.invoke('notify-invite', {
+            body: { invitationId: data.id },
+          })
+          if (fnError || !res?.success) throw fnError || new Error('send failed')
+          setInviteEmailedTo(email)
+          setToast({ message: `Invite emailed to ${email}`, type: 'success' })
+        } catch (err) {
+          console.error('notify-invite failed:', err)
+          setInviteEmailedTo('')
+          setToast({ message: "Couldn't email the invite — copy the link below to share it.", type: 'error' })
+        }
+      }
+    } finally {
+      invitingRef.current = false
+      setInviting(false)
     }
   }
 
@@ -594,7 +605,7 @@ function CoachDashboard({ profile }) {
 	            }}
 	            style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem' }}
 	          />
-	          <Button onClick={checkAndInvite} variant="primary">Send invite</Button>
+	          <Button onClick={checkAndInvite} variant="primary" loading={inviting} disabled={inviting}>Send invite</Button>
 	        </div>
 	        {soloAccountDetected && (
 	          <div style={{
@@ -614,6 +625,8 @@ function CoachDashboard({ profile }) {
 	                onClick={() => sendInvite(pendingInviteEmail, true)}
 	                variant="primary"
 	                size="sm"
+	                loading={inviting}
+	                disabled={inviting}
 	              >
 	                Send invite anyway
 	              </Button>
