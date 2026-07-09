@@ -170,9 +170,10 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 - [ ] App works under the production **CSP** (no blocked scripts/styles/fonts/connections in the console on prod/preview).
 
 ## 15. Accessibility (re-verify after any UI change)
-- [ ] `node scripts/a11y-scan.mjs` (light) and `AXE_DARK=1 node scripts/a11y-scan.mjs` (dark) → 0 violations on public pages.
-- [ ] Keyboard-only: tab through signup, log a food, open/close modals (focus trap + Esc), expand a meal — all reachable, visible focus ring.
-- [ ] Screen-reader smoke test (VoiceOver) on login + dashboard: labels read sensibly.
+<!-- QA run 2026-07-09: axe clean (light+dark) on prod after the Login/Log/CoachDashboard/CoachPaywall changes; keyboard slice 6/6. -->
+- [x] `node scripts/a11y-scan.mjs` (light) and `AXE_DARK=1 node scripts/a11y-scan.mjs` (dark) → 0 violations on public pages. _(re-run vs www.gardnr.fit — 0 violations both themes, after all the recent UI changes.)_
+- [x] Keyboard-only: tab through signup, log a food, open/close modals (focus trap + Esc), expand a meal — all reachable, visible focus ring. _(harness 6/6: signup fully Tab-reachable + visible focus ring; Enter submits login; saved-meals modal = role="dialog" + focus trap + Esc closes.)_
+- [ ] Screen-reader smoke test (VoiceOver) on login + dashboard: labels read sensibly. _(MANUAL — needs VoiceOver; axe already confirms labels/roles present.)_
 
 ## 16. Edge cases & cross-cutting (the stuff that bites)
 <!-- QA run 2026-07-09 (harness, negative-tz + offline sim): 7/7 automatable pass; found+fixed a double-submit dup. -->
