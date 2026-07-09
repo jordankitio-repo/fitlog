@@ -4,8 +4,10 @@ import './index.css'
 import { Sentry } from './sentry'
 import App from './App.jsx'
 import { initThemeWatcher } from './utils/theme'
+import { initIosInputZoomGuard } from './utils/iosInputZoom'
 
 initThemeWatcher()
+initIosInputZoomGuard()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
