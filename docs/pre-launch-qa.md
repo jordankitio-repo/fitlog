@@ -165,14 +165,15 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 - [ ] Screen-reader smoke test (VoiceOver) on login + dashboard: labels read sensibly.
 
 ## 16. Edge cases & cross-cutting (the stuff that bites)
-- [ ] **Timezones:** log near local midnight → entry lands on the correct calendar day (esp. US negative offsets).
-- [ ] **Network failure / Supabase blip:** friendly "couldn't connect" message, no stuck spinners, retry works.
-- [ ] **Double-submit:** rapid double-click on save/checkout/invite doesn't create duplicates.
-- [ ] **Empty states** everywhere (no clients, no logs, no check-ins, no reports) — inviting, not broken.
-- [ ] **Long content** (long food names, long coach reports, many clients) doesn't break layout.
-- [ ] **Concurrency:** same account open in two tabs/devices — edits don't corrupt; notifications reconcile.
-- [ ] **Permissions:** deny camera (barcode) / it's unavailable → graceful fallback to manual entry.
-- [ ] **Stale PWA:** old cached app after a deploy → update prompt recovers it (no broken avatars/blank screen).
+<!-- QA run 2026-07-09 (harness, negative-tz + offline sim): 7/7 automatable pass; found+fixed a double-submit dup. -->
+- [x] **Timezones:** log near local midnight → entry lands on the correct calendar day (esp. US negative offsets). _(America/Los_Angeles context → entry logged on the local Pacific date; date logic unit-tested. True 23:59-boundary = MANUAL.)_
+- [x] **Network failure / Supabase blip:** friendly "couldn't connect" message, no stuck spinners, retry works. _(offline food-save → error toast, not silent success; offline login → "Unable to connect to our servers.")_
+- [x] **Double-submit:** rapid double-click on save/checkout/invite doesn't create duplicates. _(**FOUND+FIXED**: food "Add entry" was a plain insert with no guard → double-click made 2 rows; added a synchronous re-entrancy ref + disabled button. Verified 2→1. Weight/steps/measurements = upserts (safe); cardio/weight/steps collapse the form synchronously (button vanishes) so practically safe; checkout has a loading guard. **Invite (`Send invite`) not driven — worth a check (inserts + no obvious loading guard).**)_
+- [x] **Empty states** everywhere (no clients, no logs, no check-ins, no reports) — inviting, not broken. _(fresh solo: dashboard welcome + log "nothing logged yet", no broken UI. Coach empty roster = §6.)_
+- [x] **Long content** (long food names, long coach reports, many clients) doesn't break layout. _(~200-char food name → renders, no horizontal overflow. Long reports / many clients = MANUAL.)_
+- [~] **Concurrency:** same account open in two tabs/devices — edits don't corrupt; notifications reconcile. _(MANUAL — multi-tab is flaky under automation.)_
+- [x] **Permissions:** deny camera (barcode) / it's unavailable → graceful fallback to manual entry. _(no camera → scanner doesn't crash; manual "Enter barcode #" stays available.)_
+- [~] **Stale PWA:** old cached app after a deploy → update prompt recovers it (no broken avatars/blank screen). _(MANUAL — needs a real deploy + stale SW; ties to §14.)_
 
 ## 17. Production smoke test (do right after each deploy)
 <!-- QA run 2026-07-08 (harness vs live www.gardnr.fit, after the CoachPaywall deploy): 6/6. -->

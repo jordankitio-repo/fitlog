@@ -143,6 +143,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [hideCalories, setHideCalories] = useState(false)
   const [weightExpanded, setWeightExpanded] = useState(false)
   const [nutritionExpanded, setNutritionExpanded] = useState(false)
+  const [savingEntry, setSavingEntry] = useState(false)
+  const submittingEntryRef = useRef(false) // synchronous double-submit guard (state updates are async)
   const [cardioExpanded, setCardioExpanded] = useState(false)
   const [stepsExpanded, setStepsExpanded] = useState(false)
 
@@ -659,25 +661,34 @@ function Log({ session, profile, hasSoloPremium = true }) {
       return
     }
     setNutritionErrors({})
-    const { data: { session: currentSession } } = await supabase.auth.getSession()
-    if (editingEntry) {
-      const { error } = await supabase.from('nutrition_log').update({
-        food, calories: parseInt(calories), protein: parseInt(protein) || 0,
-        carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
-        serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal
-      }).eq('id', editingEntry.id)
-      if (error) { console.error('Error updating:', error); showToast('Couldn\'t save that food — try again.', 'error') }
-      else { setEditingEntry(null); clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
-    } else {
-      const { error } = await supabase.from('nutrition_log').insert([{
-        food, calories: parseInt(calories), protein: parseInt(protein) || 0,
-        carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
-        serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal,
-        logged_date: selectedDate, user_id: currentSession.user.id,
-        ...(addingToMeal ? { logged_meal_id: addingToMeal.id, logged_meal_name: addingToMeal.name } : {}),
-      }])
-      if (error) { console.error('Error saving:', error); showToast('Couldn\'t save that food — try again.', 'error') }
-      else { clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
+    // Prevent a rapid double-click / double-tap from inserting the food twice.
+    if (submittingEntryRef.current) return
+    submittingEntryRef.current = true
+    setSavingEntry(true)
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (editingEntry) {
+        const { error } = await supabase.from('nutrition_log').update({
+          food, calories: parseInt(calories), protein: parseInt(protein) || 0,
+          carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
+          serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal
+        }).eq('id', editingEntry.id)
+        if (error) { console.error('Error updating:', error); showToast('Couldn\'t save that food — try again.', 'error') }
+        else { setEditingEntry(null); clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
+      } else {
+        const { error } = await supabase.from('nutrition_log').insert([{
+          food, calories: parseInt(calories), protein: parseInt(protein) || 0,
+          carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
+          serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal,
+          logged_date: selectedDate, user_id: currentSession.user.id,
+          ...(addingToMeal ? { logged_meal_id: addingToMeal.id, logged_meal_name: addingToMeal.name } : {}),
+        }])
+        if (error) { console.error('Error saving:', error); showToast('Couldn\'t save that food — try again.', 'error') }
+        else { clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
+      }
+    } finally {
+      submittingEntryRef.current = false
+      setSavingEntry(false)
     }
   }
 
@@ -1464,7 +1475,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             {nutritionErrors.calories && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>{nutritionErrors.calories}</p>}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <Button onClick={() => { setNutritionExpanded(false); setEditingEntry(null); clearNutritionForm() }} variant="ghost" size="sm">Cancel</Button>
-              <Button onClick={handleSubmit} variant="primary" size="sm">{editingEntry ? 'Update entry' : 'Add entry'}</Button>
+              <Button onClick={handleSubmit} variant="primary" size="sm" loading={savingEntry} disabled={savingEntry}>{editingEntry ? 'Update entry' : 'Add entry'}</Button>
             </div>
           </div>
         )}
