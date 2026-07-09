@@ -177,7 +177,7 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 <!-- Follow-up 2026-07-09: first authenticated-screen a11y audit (logged-in dashboard) — found+fixed 1 critical + 2 serious WCAG issues (8fe2704). Closes the long-standing "authenticated screens not yet axe-scanned" gap. -->
 - [x] `node scripts/a11y-scan.mjs` (light) and `AXE_DARK=1 node scripts/a11y-scan.mjs` (dark) → 0 violations on public pages. _(re-run vs www.gardnr.fit — 0 violations both themes, after all the recent UI changes.)_
 - [x] Keyboard-only: tab through signup, log a food, open/close modals (focus trap + Esc), expand a meal — all reachable, visible focus ring. _(harness 6/6: signup fully Tab-reachable + visible focus ring; Enter submits login; saved-meals modal = role="dialog" + focus trap + Esc closes.)_
-- [~] Screen-reader smoke test (VoiceOver) on login + dashboard: labels read sensibly. _(**Automated a11y-tree + axe audit 2026-07-09** (Playwright `ariaSnapshot` + `@axe-core/playwright`) on **login (public) AND a logged-in dashboard** — the first time an authenticated screen was scanned (prior passes = public pages only). **Login = WCAG-clean**, every control has a sensible name. **Dashboard surfaced + FIXED 4 issues (`8fe2704`):** [critical] the day-nav date input was unlabeled (read as bare "2026-07-09") → `aria-label` + prev/next arrows now "Previous day"/"Next day"; [serious] `aria-prohibited-attr ×91` (heatmap `aria-label` on role-less divs) → `role="img"`; [serious] `color-contrast ×3` light-mode (green-700 primary text on faint-green tint, ~4.0–4.3:1) → darkened to green-800. Re-audit: dashboard **4 → 1** (a `[minor]` best-practice image-redundant-alt). **Remaining = the actual VoiceOver listen** (swipe order, announcements, focus on route change) on the deployed build = owner-manual; the semantic tree is now clean. Optional best-practice: wrap content in `<main>`/landmark regions (axe `region`/`landmark-one-main`, not an AA failure).)_
+- [x] Screen-reader smoke test (VoiceOver) on login + dashboard: labels read sensibly. _(**VoiceOver listen owner-confirmed 2026-07-09 on the deployed build — reads sensibly.** Automated a11y-tree + axe audit 2026-07-09 (Playwright `ariaSnapshot` + `@axe-core/playwright`) on **login (public) AND a logged-in dashboard** — the first time an authenticated screen was scanned (prior passes = public pages only). **Login = WCAG-clean**, every control has a sensible name. **Dashboard surfaced + FIXED 4 issues (`8fe2704`):** [critical] the day-nav date input was unlabeled (read as bare "2026-07-09") → `aria-label` + prev/next arrows now "Previous day"/"Next day"; [serious] `aria-prohibited-attr ×91` (heatmap `aria-label` on role-less divs) → `role="img"`; [serious] `color-contrast ×3` light-mode (green-700 primary text on faint-green tint, ~4.0–4.3:1) → darkened to green-800. Re-audit: dashboard **4 → 1** (a `[minor]` best-practice image-redundant-alt). **Remaining = the actual VoiceOver listen** (swipe order, announcements, focus on route change) on the deployed build = owner-manual; the semantic tree is now clean. Optional best-practice: wrap content in `<main>`/landmark regions (axe `region`/`landmark-one-main`, not an AA failure).)_
 
 ## 16. Edge cases & cross-cutting (the stuff that bites)
 <!-- QA run 2026-07-09 (harness, negative-tz + offline sim): 7/7 automatable pass; found+fixed a double-submit dup. -->
@@ -205,10 +205,10 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 ## Pre-launch sign-off
 - [ ] §1–§9 pass for all applicable roles
 - [ ] §10–§11 billing & lifecycle pass in Stripe test mode
-- [ ] §12 emails all arrive & link correctly
+- [x] §12 emails all arrive & link correctly _(all incl. the 3 formerly-deferred; suite harmonized to brand green — 2026-07-09)_
 - [ ] §13 data rights & privacy pass
-- [ ] §14 PWA + browser matrix pass
-- [ ] §15 a11y clean
+- [x] §14 PWA + browser matrix pass _(desktop Safari/Firefox auto-clean; iOS + Android PWA install owner-confirmed 2026-07-09)_
+- [x] §15 a11y clean _(public + authenticated axe clean; VoiceOver owner-confirmed 2026-07-09)_
 - [ ] §16 edge cases pass
 - [x] Error monitoring live and quiet _(Sentry LIVE as of 2026-07-09 — verified capturing on www.gardnr.fit. See §17.)_
 - [ ] Known issues triaged (ship-blockers fixed; rest logged)
