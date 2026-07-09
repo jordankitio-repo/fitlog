@@ -178,7 +178,7 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 <!-- QA run 2026-07-08 (harness vs live www.gardnr.fit, after the CoachPaywall deploy): 6/6. -->
 - [x] Load `www.gardnr.fit` (logged out) → landing renders, no console errors. _(landing ✓; no app console/page errors during the run.)_
 - [x] Sign up a throwaway → onboard → log one food → see it on the dashboard. _(signup → skip → logged "Smoke Oatmeal" 321 cal → 321 shows on dashboard.)_
-- [ ] Check the error monitor (once Sentry is wired) shows no new exceptions from your run. _(client console clean; Sentry dashboard check = MANUAL — needs your access.)_
+- [!] Check the error monitor (once Sentry is wired) shows no new exceptions from your run. _(**FINDING 2026-07-08: Sentry is NOT live in prod.** Code is correct + privacy-tuned, but `VITE_SENTRY_DSN` is unset in the Vercel build → `Sentry.init` is tree-shaken out (no DSN in bundle; a thrown error on www.gardnr.fit sent 0 requests to sentry.io). TO FIX: set `VITE_SENTRY_DSN` in Vercel Production env, then **redeploy** (DSN is inlined at build time). Until then, error monitoring is dormant.)_
 - [x] Delete the throwaway account. _(delete-account 200; self-cleans.)_
 <!-- Investigated 2026-07-08: automated fresh-navigation (new tab / bare goto to a route) after signup shows a logged-out state + cleared token; reproduced headless AND headed. NOT a real bug — user confirmed a real browser stays logged in (Playwright + supabase-js Web Locks / just-signed-up refresh-token timing). Harnesses must use SPA nav / reload, not goto-to-new-route, after auth. -->
 
@@ -194,7 +194,7 @@ QA run 2026-07-08 (Stripe TEST mode, isolated local stack: local Supabase + func
 - [ ] §14 PWA + browser matrix pass
 - [ ] §15 a11y clean
 - [ ] §16 edge cases pass
-- [ ] Error monitoring live and quiet
+- [!] Error monitoring live and quiet _(NOT live — `VITE_SENTRY_DSN` unset in Vercel prod; set it + redeploy. See §17.)_
 - [ ] Known issues triaged (ship-blockers fixed; rest logged)
 
 **Signed off for public launch:** __________________  **Date:** __________
