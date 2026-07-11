@@ -186,12 +186,16 @@ volume grows; each has a clear trigger metric (see §9).
 
 ---
 
-## 8. Open questions / decisions needed
+## 8. Decisions (resolved 2026-07-11) + open items
 
-- **Free-solo AI policy (F6):** keep-and-cap (tighten to ~3/day), lifetime-N-then-upgrade (converts), or coach-only (remove from solo)? Product call — affects §4.4.
-- **Circuit-breaker state:** per-isolate in-memory (simple, loose) vs. DB-backed (consistent, +1 read). Start simple.
-- **Anthropic tier:** confirm current usage tier and request a limit increase before, not after, a growth event — cheap headroom for F1.
-- **Cache staleness tolerance:** confirm 6–24h feedback caching reads as "fresh enough" to users.
+**Resolved:**
+- **Free-solo AI policy (F6): KEEP it for solo** (not coach-only) — it's the activation taste. Phase 4 still applies a **tightened free cap** (default ~3/day, tunable; doubles as a "connect with a coach for more" nudge). Owner may leave the current 30/hr if preferred — the number is a one-line change.
+- **Cache staleness (§4.2): 6–24h is fine.** Nutrition feedback caching at that TTL reads as fresh; input-hash invalidation refreshes on any new log.
+- **Anthropic account/tier (F1):** rate limits are per **API org** (the org owning the `ANTHROPIC_API_KEY` in Supabase secrets — separate from any Claude.ai chat subscription). Keep all app usage on **one** org so tiers auto-advance (spend + time); don't split across accounts. A dedicated business org is the clean long-term home (billing/security isolation) but is a post-launch migration, not urgent. For headroom before a spike, request a limit increase in Console → Limits. Cost is negligible (Haiku, ~$0.0025/call); the tier matters only for the **RPM/concurrency ceiling**, which Phases 1+3 address.
+
+**Still open:**
+- **Circuit-breaker state:** per-isolate in-memory (simple, loose) vs. DB-backed (consistent, +1 read). Start simple; promote if isolate-local proves too loose.
+- **Exact free-solo cap number** (~3/day vs keep 30/hr) — owner's call at Phase 4.
 
 ## 9. Trade-offs
 
