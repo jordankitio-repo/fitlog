@@ -80,6 +80,10 @@
      and only raises white-on-primary contrast for filled buttons/pills. */
   --color-primary: #166534;
   --color-primary-dim: rgba(22, 163, 74, 0.13);
+  /* violet-700, not the dark-theme violet-400 #a78bfa: on the light surface the
+     AI button's purple text/border was ~2.3:1 (washed out, unreadable). #6d28d9
+     clears AA on --color-surface-2. */
+  --color-ai: #6d28d9;
   --color-text: #16181c;
   --color-text-dim: #3b3f45;
   --color-muted: #5f6469;

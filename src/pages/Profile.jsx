@@ -564,7 +564,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               </div>
               <div>
                 <label style={lbl}>Date of birth{age != null ? ` · ${age} yrs` : ''}</label>
-                <input type="date" value={bio.birth_date} max={todayStr()} onChange={(e) => setBio({ ...bio, birth_date: e.target.value })} style={inputStyle} />
+                <input type="date" value={bio.birth_date} max={todayStr()} onChange={(e) => setBio({ ...bio, birth_date: e.target.value })} style={{ ...pill(false), color: 'var(--color-text)', width: '100%', textAlign: 'center' }} />
               </div>
             </div>
 

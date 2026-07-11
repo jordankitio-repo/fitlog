@@ -172,7 +172,7 @@ export default function Onboarding({ session, profile, onComplete }) {
         </div>
         <div>
           <label style={labelStyle}>Date of birth</label>
-          <input type="date" value={birthDate} max={todayStr()} onChange={(e) => setBirthDate(e.target.value)} style={inputStyle} />
+          <input type="date" value={birthDate} max={todayStr()} onChange={(e) => setBirthDate(e.target.value)} style={{ ...pill(false), color: 'var(--color-text)', width: '100%', textAlign: 'center' }} />
         </div>
       </div>
 

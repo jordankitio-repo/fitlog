@@ -70,13 +70,14 @@ async function resolveClientLanding() {
   }
 }
 
-// The client's home (`/`). On the first entry of a session it decides Log vs
-// Dashboard (see resolveClientLanding) and, once decided, renders the Dashboard
-// normally — so the Dashboard tab keeps working for the rest of the session.
-// The decision is per-launch (sessionStorage), so reopening the PWA lands them
-// back on Log.
-function ClientHome({ profile, hasSoloPremium }) {
-  const LANDED_KEY = 'gardnr:client-landed'
+// Home (`/`) for the tracked roles — solo + client. On the first entry of a
+// session it decides Log vs Dashboard (see resolveClientLanding: solo/no-coach
+// and un-locked clients → Log; a locked client → Dashboard where the paused
+// notice lives) and, once decided, renders the Dashboard normally — so the
+// Dashboard tab keeps working for the rest of the session. The decision is
+// per-launch (sessionStorage), so reopening the PWA lands them back on Log.
+function HomeLanding({ profile, hasSoloPremium }) {
+  const LANDED_KEY = 'gardnr:home-landed'
   const [decision, setDecision] = useState(() =>
     sessionStorage.getItem(LANDED_KEY) ? 'dashboard' : 'pending'
   )
@@ -134,9 +135,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
           <Route path="/" element={session ? (
             profile?.role === 'coach'
               ? <CoachDashboard profile={profile} />
-              : profile?.role === 'client'
-                ? <ClientHome profile={profile} hasSoloPremium={hasSoloPremium} />
-                : <Dashboard profile={profile} hasSoloPremium={hasSoloPremium} />
+              : <HomeLanding profile={profile} hasSoloPremium={hasSoloPremium} />
           ) : (showLoginAsHome ? <Login /> : <Landing />)} />
           <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
           <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
