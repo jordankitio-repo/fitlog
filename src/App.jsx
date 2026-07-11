@@ -321,11 +321,13 @@ function App() {
 
   if (session && profile && !profile.role) {
     return (
-      <RolePicker
-        session={session}
-        onComplete={() => fetchProfile(session.user.id)}
-        onCancel={handleSignOut}
-      />
+      <main>
+        <RolePicker
+          session={session}
+          onComplete={() => fetchProfile(session.user.id)}
+          onCancel={handleSignOut}
+        />
+      </main>
     )
   }
 
@@ -335,11 +337,13 @@ function App() {
   // Coaches are never tracked, so they never see it.
   if (session && profile && (profile.role === 'solo' || profile.role === 'client') && !profile.onboarded_at) {
     return (
-      <Onboarding
-        session={session}
-        profile={profile}
-        onComplete={() => fetchProfile(session.user.id)}
-      />
+      <main>
+        <Onboarding
+          session={session}
+          profile={profile}
+          onComplete={() => fetchProfile(session.user.id)}
+        />
+      </main>
     )
   }
 
