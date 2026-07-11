@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`bf729d1 fix(a11y): wrap setup screens (RolePicker/Onboarding) in <main>` (Jul 10 — last a11y polish; **pre-launch QA engineering now COMPLETE, §1–§17 signed off**. This pass also: dashboard a11y (1 critical + 2 serious), iOS zoom real fix (touchstart), emails → brand green + 3 deferred §12, Sentry source-maps LIVE, §14 Safari/Firefox + PWA installs, §15 VoiceOver)
+`2df39b4 fix(ui): solo polish — AI button contrast, details glyph, date field, log landing` (Jul 10 — solo-account review fixes: light-mode `--color-ai` #a78bfa→#6d28d9 (washed-out AI button), "Your details" rail glyph added, DOB field restyled to match the Sex/Units pills, **solo now lands on /log like clients**). Prior: pre-launch QA engineering COMPLETE, §1–§17 signed off (a11y, iOS zoom, brand-green emails, Sentry source-maps, PWA/Safari/Firefox, VoiceOver)
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
