@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`2df39b4 fix(ui): solo polish — AI button contrast, details glyph, date field, log landing` (Jul 10 — solo-account review fixes: light-mode `--color-ai` #a78bfa→#6d28d9 (washed-out AI button), "Your details" rail glyph added, DOB field restyled to match the Sex/Units pills, **solo now lands on /log like clients**). Prior: pre-launch QA engineering COMPLETE, §1–§17 signed off (a11y, iOS zoom, brand-green emails, Sentry source-maps, PWA/Safari/Firefox, VoiceOver)
+`cc7da48 fix(ui): make the date-of-birth field match the segmented pills exactly` (Jul 11 — DOB field pinned to the pills' 36px/13px: exempted from the mobile `input{font-size:16px}` zoom rule via `.dob-field` (touchstart guard covers zoom) + explicit height. Part of the solo-account review polish set — see below). Prior: pre-launch QA engineering COMPLETE, §1–§17 signed off (a11y, iOS zoom, brand-green emails, Sentry source-maps, PWA/Safari/Firefox, VoiceOver)
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -25,6 +25,13 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Solo-account review polish (Jul 10–11, `2df39b4`→`cc7da48`)** — Fixes from a solo-account walkthrough:
+- **"Get AI feedback" button contrast** — `--color-ai` was one light violet (`#a78bfa`) with no light-mode override, so its text/border on the light surface was ~2.3:1 (washed out). Added a light-mode `--color-ai: #6d28d9` (violet-700, ~6:1) — keeps the AI-purple identity but readable. (Kept purple, not green — it's the deliberate AI accent; flag to owner if they'd rather it match brand green.)
+- **"Your details" rail glyph** — the `details` section key had no entry in `SectionRail`'s ICONS map → added a clipboard glyph.
+- **Date-of-birth field** — restyled to match the Sex/Units segmented pills. The mismatch was the mobile `input{font-size:16px !important}` iOS-zoom rule inflating the date to 16px while the pills stayed `--text-sm`; exempted the DOB field (`.dob-field`, safe because the touchstart zoom guard covers it) + pinned to the pills' 36px height. Measured parity @390px (both 36px/13px).
+- **Solo lands on `/log`** — non-coach roles now route through the landing resolver (`ClientHome`→`HomeLanding`); `resolveClientLanding` already returns `log` for anyone without an active coach. Coaches still land on their dashboard.
+- **NOT done (design only):** AI-feature resilience/scaling. Surfaced that the AI edge fns (`nutrition-coach`, `weekly-report`, `call-prep`, `weekly-digest`) all funnel through one shared Anthropic key with **no retry/backoff on 429/529, no response cache, no global concurrency cap** → they degrade hard (raw errors) under concurrent load, and free-solo AI is unbounded cost. Full design at **`docs/ai-resilience-design.md`** (proposed, not implemented). Also open: whether to tighten/gate free-solo AI (Haiku, 300 tok, 30/hr per user today).
 
 **Pre-launch QA pass — 6 bug fixes + monitoring/email config (Jul 5–9)** — Ran the full `docs/pre-launch-qa.md` plan via functional Playwright harnesses (throwaway accounts against the real prod backend, self-cleaning; harnesses live in the session scratchpad, not the repo). Verified the automatable surface of §1–§17 green (auth, onboarding, daily-loop, nutrition incl. USDA search, dashboard, coach invite→join + **cross-tenant isolation in the UI**, messaging, notifications, check-in submit→review, lifecycle/leave, data export + private-avatar bucket + delete-erasure). Found + fixed + **shipped 6 real bugs** (`b686c03`→`2219e08`, all pushed to `main`):
 - **Duplicate-email signup** surfaced Supabase's raw "User already registered" instead of the intended "already exists — sign in instead" copy (the client-side `profiles` pre-check is dead under the RLS lockdown) → mapped the error in `friendlyError` (`Login.jsx`).
