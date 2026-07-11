@@ -83,31 +83,45 @@ Batch (weekly-digest / bulk reports):                       (F5)
 ## 4. Component designs
 
 ### 4.1 Shared Anthropic client wrapper  *(fixes F2, F4; foundation for F1)*
-A single Deno module (`supabase/functions/_shared/anthropic.ts`) imported by all
-four functions. Responsibilities:
+A single Deno module (`supabase/functions/_shared/anthropic.ts`) imported by the
+**three** Anthropic-calling functions (`nutrition-coach`, `weekly-report`,
+`call-prep` — grep `api.anthropic.com`; `weekly-digest`/`notify-*` use Resend, not
+Anthropic). Responsibilities **in this phase**:
 - **Retry**: on `429`, `529`, `5xx`, or network error → exponential backoff with
-  jitter, 2–3 attempts; honor the `retry-after` header when present.
-- **Circuit breaker**: track recent Anthropic 429/529s; when the failure rate
-  crosses a threshold, short-circuit new calls to a "busy" response for a cooldown
-  window (prevents fail-open-into-overload). Start with per-isolate in-memory
-  state (simplest); promote to a DB-backed breaker (one row) if isolate-local
-  proves too loose.
-- **Timeout**: abort after N seconds so a slow upstream doesn't pin an isolate.
-- **Error mapping**: all failures → a stable `{ error, retryable }` shape the
-  functions turn into friendly copy ("High demand right now — try again in a
-  moment.").
+  jitter, 3 attempts; honor the `retry-after` header; cap each delay (~4s) and the
+  per-attempt timeout (~20s) so worst-case wall time stays well under the edge limit.
+- **Timeout**: abort a hung upstream so it doesn't pin an isolate.
+- **Error mapping**: all failures → a stable `{ ok:false, retryable, status, error }`
+  shape (the module never throws) that each function turns into friendly copy
+  ("Our AI is busy right now — please try again in a moment.").
+- **Circuit breaker — NOT in this phase.** It ships in **Phase 3** alongside the
+  global gate (per-isolate in-memory to start; DB-backed if too loose). Keep the
+  Phase-1 wrapper to retry/backoff/timeout only.
 
 *Rollout note:* this is a drop-in refactor — each function replaces its inline
-`fetch(api.anthropic.com…)` with `callAnthropic(prompt, opts)`. Highest leverage,
-lowest risk. Ship first.
+`fetch(api.anthropic.com…)` with `callAnthropic(body, opts)`, **matching that
+function's own return style** (`nutrition-coach` uses the `jsonResponse` helper;
+`weekly-report`/`call-prep` use `new Response(JSON.stringify(…))`). Highest
+leverage, lowest risk. Ship first. **Frontend note:** the solo caller
+(`getAIFeedback` in `Log.jsx`) ignores errors today (reads `data.message`, no
+try/catch) — it needs a small fix to surface the friendly copy; the coach callers
+in `ClientView.jsx` already render `data.error`.
 
 ### 4.2 Response cache — `ai_cache`  *(fixes F3)*
-Before calling Anthropic, hash the **inputs** and look up a recent result.
-- `nutrition-coach`: hash the day's log signature (foods + calories + date) — a
-  repeat click on an unchanged day returns instantly, no call.
-- `weekly-report`: hash `(clientId, weekRange, weekData+checkIn)`.
-- TTL per function (e.g., nutrition-coach 6–24h; report until the underlying data changes).
-- Invalidation is natural: a new log entry changes the hash → cache miss → fresh call.
+Before calling Anthropic, hash the **inputs** and look up a recent result. The
+lookup runs **before** the per-user rate limiter, so a cache hit costs neither an
+Anthropic call nor a limiter token.
+- **`nutrition-coach` (this phase):** hash the day's log signature (foods +
+  calories) — a repeat click on an unchanged day returns instantly, no call. TTL
+  ~6h. Namespace the cache key (`nutrition-coach:v1`) so a future prompt change can
+  bump the version and bypass stale entries.
+- **`weekly-report` / `call-prep`: DEFERRED (not cached yet).** A coach may
+  legitimately re-generate to get a *different* draft; caching identical inputs
+  would silently return the same one. Cache these only once a "force refresh"
+  bypass exists (later PR).
+- Invalidation is natural: a new/edited log changes the hash → cache miss → fresh call.
+- Growth control: reads filter on `expires_at`; add a nightly pg_cron sweep
+  (`delete … where expires_at < now()`) so the table doesn't grow unbounded.
 
 ### 4.3 Global concurrency / token gate  *(fixes F1)*
 A **global** bucket (not per-user) that caps total in-flight AI work below the
@@ -176,7 +190,7 @@ All new tables: RLS on, `service_role`-only DML (same pattern as `rate_limits`).
 | Phase | Work | Fixes | Risk | Notes |
 |-------|------|-------|------|-------|
 | **1** | Shared `callAnthropic()` wrapper: retry/backoff + friendly errors | F2, F4 | Low | Drop-in; biggest resilience win alone |
-| **2** | `ai_cache` (nutrition-coach first, then report) | F3 | Low | Biggest cost/load reduction |
+| **2** | `ai_cache` (**nutrition-coach only**; report/prep deferred — reroll) | F3 | Low | Biggest cost/load reduction |
 | **3** | Global concurrency gate + circuit breaker | F1 | Med | Protects the shared key under spikes |
 | **4** | Tiered / tightened free-solo limits | F6 | Low | Also a conversion lever; needs a product call (§8) |
 | **5** | Batch pacing for digest/reports | F5 | Med | Prevents cron stampede |
