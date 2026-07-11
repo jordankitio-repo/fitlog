@@ -184,6 +184,14 @@ summary:focus-visible {
   textarea {
     font-size: 16px !important;
   }
+  /* Exception: the date-of-birth field sits beside the Sex/Units segmented
+     pills (--text-sm) and must match their dimensions, so keep it at the design
+     font. Safe from the iOS zoom this rule guards against: the touchstart
+     viewport lock (utils/iosInputZoom) covers it, and native date pickers open
+     a wheel — they don't trigger the text-input focus-zoom. */
+  input.dob-field {
+    font-size: var(--text-sm) !important;
+  }
 }
 
 /* Button press */
