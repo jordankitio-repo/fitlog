@@ -104,8 +104,8 @@ const CLIENTS = [
     measurements: { neck: [32.5, 32.0], chest: [94, 92.5], waist: [78, 72.5], hips: [98, 95], arm: [28.5, 29.4], thigh: [56, 54.5] },
   },
   {
-    email: 'jordan@gardnr.demo',
-    name: 'Jordan Lee',
+    email: 'marcus@gardnr.demo',
+    name: 'Marcus Webb',
     goal: 'Reverse diet',
     sex: 'male', height: 179, startWeight: 80.9, perDay: 0.012,
     targets: { calories: 2600, protein: 175, carbs: 280, fat: 80, cardio_minutes: 30, steps: 10000 },

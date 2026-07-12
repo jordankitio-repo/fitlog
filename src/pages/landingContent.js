@@ -113,11 +113,11 @@ export const heroTour = {
       id: 'triage',
       tab: 'Who needs you first',
       caption:
-        'Your roster, ranked by who is slipping. Sam stopped logging five days ago. Jordan’s cardio has quietly gone to one session in seven. Maya is fine — leave her alone.',
-      alt: 'The Gardnr coach dashboard, sorted by attention. Sam Rivera is flagged red for five days without a log. Jordan Lee is amber, with cardio at one session out of seven. Maya Chen is on track. A banner across the top reads one at risk, one needs review, one on track, with two check-ins waiting to be reviewed.',
+        'Your roster, ranked by who is slipping. Sam stopped logging five days ago. Marcus’s cardio has quietly gone to one session in seven. Maya is fine — leave her alone.',
+      alt: 'The Gardnr coach dashboard, sorted by attention. Sam Rivera is flagged red for five days without a log. Marcus Webb is amber, with cardio at one session out of seven. Maya Chen is on track. A banner across the top reads one at risk, one needs review, one on track, with two check-ins waiting to be reviewed.',
       hotspots: {
         sam: 'Sam went quiet five days ago. Gardnr put him at the top of the list and offered the nudge — you didn’t have to notice.',
-        jordan: 'Jordan is still logging, so nothing looks wrong. But his cardio has fallen to one session in seven. That’s the drift a spreadsheet hides.',
+        marcus: 'Marcus is still logging, so nothing looks wrong. But his cardio has fallen to one session in seven. That’s the drift a spreadsheet hides.',
         maya: 'Maya is on target and logged today. The most valuable thing a dashboard can tell you is who you can safely ignore.',
       },
     },
@@ -338,18 +338,43 @@ export const faq = {
   ],
 }
 
-// DEFERRED — founder note.
+// The founder note. Currently the only thing on this page that vouches for
+// Gardnr — there are no testimonials, no coach count, no logos, because there
+// are no users yet.
 //
-// This page currently carries zero trust signals: no testimonials, no coach
-// count, no logos, no founder. That is the largest remaining gap in it, and it
-// is not fixable with better copy — it needs either real users to quote or a
-// real person to stand behind it.
+// ⚠️ EVERY LINE HERE IS A FACT ABOUT A REAL PERSON. It is the one section that
+// cannot be improved by writing it better, only by it being true.
 //
-// At zero users the honest substitute is a founder note: who built this, and
-// what coaching problem they actually had. Deliberately not written yet, because
-// inventing one converts worse than saying nothing and detonates later. When the
-// raw material exists, add a `founder` export here and a section between
-// `pricing` and `trial`.
+// The first draft of this was fiction. It opened "I'm not a coach — I'm the
+// client who kept letting his coach down", and built to "my coach couldn't
+// notice". Jordan has never had a coach. It would have shipped a fabricated
+// origin story on the one part of the page whose entire job is to make him
+// trustworthy — and a coach who found out would have been right to disbelieve
+// everything else on the page too.
+//
+// What is true, and all of it is load-bearing:
+//   - he is not a coach; he's the person who needs one
+//   - training is easy for him, adherence is not
+//   - accountability with real follow-up is what works on him
+//   - he researched what coaches actually have to work with, and built for the gap
+//   - the first ten commits of this repo are a solo tracker he built for himself;
+//     the coach role came later (verifiable: git log --reverse)
+//
+// If you edit this, the test is not "does it read well". It's "would he say this
+// out loud to a coach who then checked".
+export const founder = {
+  eyebrow: 'Who built this',
+  h2: 'I’m not a coach. I’m the guy who needed one who could actually see.',
+  body: [
+    'Training was never my problem — I like being in the gym. It’s the diet. And the plan, and the schedule, and most things I have to hold myself to on my own.',
+    'The only thing that reliably works on me is being accountable to someone. Not encouragement. Follow-up. Someone I can’t quietly disappoint.',
+    'But to hold a client to a plan, a coach has to be able to see them break it. So I went and looked at what coaches actually have to work with — food photos buried in a DM thread, a spreadsheet rebuilt every Sunday, and a check-in that opens with “how did your week go?”, asked of the least reliable witness in the room.',
+  ],
+  // The closer. It turns "not a coach" from a liability into the reason to trust
+  // him: he is the demand side, and he knows exactly what a client hides.
+  kicker: 'Gardnr is the tool I’d want my coach to have.',
+  signature: '— Jordan',
+}
 
 export const finalCta = {
   h2: 'Start your next check-in from Gardnr.',

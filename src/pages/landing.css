@@ -395,3 +395,25 @@
   .lp-final-row { flex-direction: column; }
   .lp-final-row .lp-cta { width: 100%; }
 }
+
+/* ---------- FOUNDER ---------- */
+/* The only thing on this page that vouches for Gardnr. Set narrow and quiet —
+   a founder note that shouts is a founder note nobody believes. */
+.lp-founder { max-width: 640px; margin: 0 auto; }
+.lp-founder-h2 {
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  font-weight: 800; letter-spacing: -0.03em; line-height: 1.2;
+  color: #f0f0f0; margin: 0 0 28px;
+}
+.lp-founder-p {
+  margin: 0 0 18px; font-size: 0.95rem; line-height: 1.8;
+  color: #9a9a9a; letter-spacing: -0.01em;
+}
+.lp-founder-kicker {
+  margin: 28px 0 0; font-size: 1.05rem; line-height: 1.6;
+  color: #ececec; font-weight: 600; letter-spacing: -0.02em;
+}
+.lp-founder-sig {
+  margin: 14px 0 0; font-size: 0.85rem; color: #34d399;
+  font-weight: 600; letter-spacing: -0.01em;
+}

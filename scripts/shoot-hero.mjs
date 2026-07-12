@@ -146,7 +146,7 @@ async function capture(variant, size) {
   await page.waitForTimeout(1500)
   await save(page, 'triage', variant, [
     { id: 'sam', text: 'Sam Rivera' },
-    { id: 'jordan', text: 'Jordan Lee' },
+    { id: 'marcus', text: 'Marcus Webb' },
     { id: 'maya', text: 'Maya Chen' },
   ])
 

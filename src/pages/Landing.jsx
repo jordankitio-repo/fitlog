@@ -9,6 +9,7 @@ import {
   faq,
   finalCta,
   footer,
+  founder,
   hero,
   heroTour,
   instruments,
@@ -470,6 +471,23 @@ export default function Landing() {
           early access" is stated once in the hero and answered once in the FAQ;
           that is the whole of it. Bring this section back the day there is a
           number to put in it. */}
+
+      {/* FOUNDER — placed AFTER the workflow, deliberately. A coach should meet
+          the person only once they've seen the product work; a founder note up
+          front is a stranger asking to be trusted before he's shown you anything.
+          It's the only thing on this page that vouches for Gardnr — there are no
+          testimonials yet, because there are no users yet. */}
+      <section className="lp-section">
+        <div className="lp-founder">
+          <p className="lp-eyebrow-text lp-eyebrow-green">{founder.eyebrow}</p>
+          <h2 className="lp-founder-h2">{founder.h2}</h2>
+          {founder.body.map((para) => (
+            <p key={para.slice(0, 24)} className="lp-founder-p">{para}</p>
+          ))}
+          <p className="lp-founder-kicker">{founder.kicker}</p>
+          <p className="lp-founder-sig">{founder.signature}</p>
+        </div>
+      </section>
 
       {/* TRIAL */}
       <section id="trial" className="lp-section">
