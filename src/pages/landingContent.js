@@ -97,6 +97,15 @@ export const hero = {
 // 1.1.1) — the story, not an inventory of widgets. "Screenshot of dashboard" is
 // not alt text. The captions do the same job for anyone on a phone, where a
 // screenshot of a dense app is decorative no matter how well it's cropped.
+// `hotspots` are the callouts you get when you hover (or tap) a region of a
+// frame. The REGIONS live in public/hero/hotspots.json and are measured off the
+// live DOM at capture time, so they can't drift from the picture; the WORDS live
+// here, because they're copy.
+//
+// Hovering lifts the region and explains the signal, the way the real app
+// responds to a hover — but a click does nothing, deliberately. This is a
+// photograph you can point at, not a puppet show pretending to be an app. The
+// difference between the two is the whole reason the last hero got deleted.
 export const heroTour = {
   label: 'A tour of Gardnr',
   frames: [
@@ -106,6 +115,11 @@ export const heroTour = {
       caption:
         'Your roster, ranked by who is slipping. Sam stopped logging five days ago. Jordan’s cardio has quietly gone to one session in seven. Maya is fine — leave her alone.',
       alt: 'The Gardnr coach dashboard, sorted by attention. Sam Rivera is flagged red for five days without a log. Jordan Lee is amber, with cardio at one session out of seven. Maya Chen is on track. A banner across the top reads one at risk, one needs review, one on track, with two check-ins waiting to be reviewed.',
+      hotspots: {
+        sam: 'Sam went quiet five days ago. Gardnr put him at the top of the list and offered the nudge — you didn’t have to notice.',
+        jordan: 'Jordan is still logging, so nothing looks wrong. But his cardio has fallen to one session in seven. That’s the drift a spreadsheet hides.',
+        maya: 'Maya is on target and logged today. The most valuable thing a dashboard can tell you is who you can safely ignore.',
+      },
     },
     {
       id: 'evidence',
@@ -113,6 +127,10 @@ export const heroTour = {
       caption:
         'Ninety days of adherence, every day coloured against target. Fifty of fifty-six days logged, 94% of target on average — and you can see exactly which days went over.',
       alt: 'A client record showing logging consistency: a twelve-day streak, seven of the last seven days logged, and a ninety-day calorie-compliance heatmap where every day is coloured against target — green on target, amber under, orange over. Fifty of fifty-six days logged, at 94% of target on average.',
+      hotspots: {
+        heatmap: 'Ninety days at a glance. On-target is a band, not a line — so a day spent 400 calories over never gets to hide behind the word “logged”.',
+        streak: 'Twelve days running, and seven of the last seven. You walk into the check-in already knowing whether the plan was even followed.',
+      },
     },
     {
       id: 'composition',
@@ -120,6 +138,10 @@ export const heroTour = {
       caption:
         'Waist down 5.2cm. Arm up 1.1cm. The weight barely moved — this is the recomp a scale on its own would never have shown you.',
       alt: 'Body measurements for a client: neck, chest, waist, hips, arm and thigh, each showing its current value, the change since the first recording, and a trend line over eight weeks. The waist is down 5.2 centimetres while the arm is up 1.1 centimetres.',
+      hotspots: {
+        waist: 'Waist down 5.2cm over eight weeks — while the scale barely moved. This is the number that keeps a client from quitting.',
+        arm: 'And the arm is UP. Losing fat while gaining size is the whole point, and it is invisible to a weigh-in.',
+      },
     },
   ],
 }

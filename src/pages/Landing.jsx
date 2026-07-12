@@ -73,6 +73,10 @@ function beforeSendMarketingOnly(event) {
 // has no point.
 function HeroTour() {
   const [sel, setSel] = useState(0)
+  const [hot, setHot] = useState(null)          // hovered/focused hotspot id
+  const [spots, setSpots] = useState(null)      // measured regions, fetched once
+  const [wide, setWide] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 769px)').matches)
   const tabRefs = useRef([])
   const frames = heroTour.frames
 
@@ -89,6 +93,29 @@ function HeroTour() {
     return () => (idle ? window.cancelIdleCallback?.(id) : clearTimeout(id))
   }, [frames])
 
+  // Which crop is on screen decides which hotspot map applies — the two frames
+  // are different pictures, not one picture at two sizes, so their coordinates
+  // genuinely differ.
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 769px)')
+    const on = (e) => setWide(e.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+
+  // Regions are measured off the live app at capture time (scripts/shoot-hero.mjs)
+  // and shipped as data, so they can never drift from the screenshot. Fetched
+  // rather than bundled: it's ~1KB the hero doesn't need to paint, and if it
+  // fails the tour degrades to plain pictures, which is a fine place to land.
+  useEffect(() => {
+    let live = true
+    fetch('/hero/hotspots.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => live && setSpots(d))
+      .catch(() => {})
+    return () => { live = false }
+  }, [])
+
   // Roving tabindex + arrow keys: the tabs pattern users actually expect.
   function onKeyDown(e) {
     const last = frames.length - 1
@@ -99,11 +126,19 @@ function HeroTour() {
     else if (e.key === 'End') next = last
     if (next === null) return
     e.preventDefault()
-    setSel(next)
+    select(next)
     tabRefs.current[next]?.focus()
   }
 
   const frame = frames[sel]
+  const regions = spots?.[frame.id]?.[wide ? 'wide' : 'narrow']
+
+  // Switching tabs must drop the callout, or you'd be reading Sam's story over a
+  // picture of a tape measure.
+  function select(i) {
+    setSel(i)
+    setHot(null)
+  }
 
   return (
     <div className="lp-tour">
@@ -119,7 +154,7 @@ function HeroTour() {
             aria-controls={`tour-panel-${f.id}`}
             tabIndex={i === sel ? 0 : -1}
             className="lp-tour-tab"
-            onClick={() => setSel(i)}
+            onClick={() => select(i)}
           >
             {f.tab}
           </button>
@@ -137,19 +172,60 @@ function HeroTour() {
             unreadable, so the narrow file is a genuinely tighter crop. The
             aspect ratio is pinned in CSS per breakpoint, so switching tabs — and
             first paint — cost no layout shift. */}
-        <picture key={frame.id} className="lp-tour-frame">
-          <source media="(min-width: 769px)" srcSet={`/hero/${frame.id}-wide.webp`} />
-          <img
-            src={`/hero/${frame.id}-narrow.webp`}
-            alt={frame.alt}
-            className="lp-tour-shot"
-            loading="eager"
-            fetchPriority={sel === 0 ? 'high' : 'auto'}
-            width={720}
-            height={620}
-          />
-        </picture>
-        <p className="lp-tour-caption">{frame.caption}</p>
+        <div key={frame.id} className="lp-tour-stage">
+          <picture>
+            <source media="(min-width: 769px)" srcSet={`/hero/${frame.id}-wide.webp`} />
+            <img
+              src={`/hero/${frame.id}-narrow.webp`}
+              alt={frame.alt}
+              className="lp-tour-shot"
+              loading="eager"
+              fetchPriority={sel === 0 ? 'high' : 'auto'}
+              width={720}
+              height={900}
+            />
+          </picture>
+
+          {/* Hotspots. Hovering one lifts the region and explains the signal —
+              alive the way the real app is — but nothing is claimed to happen on
+              click, because nothing does. This is a photograph you can point at,
+              not a puppet show pretending to be an app.
+
+              They're <button>s so a keyboard reaches them and focus shows the
+              same callout hover does; aria-hidden would have been the lazy call,
+              but then the callouts would exist for mouse users only, and the
+              copy in them is worth reading. */}
+          {(regions ?? []).map((r) => {
+            const text = frame.hotspots?.[r.id]
+            if (!text) return null
+            return (
+              <button
+                key={r.id}
+                type="button"
+                className={`lp-tour-hot${hot === r.id ? ' is-hot' : ''}`}
+                style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%` }}
+                onMouseEnter={() => setHot(r.id)}
+                onMouseLeave={() => setHot((h) => (h === r.id ? null : h))}
+                onFocus={() => setHot(r.id)}
+                onBlur={() => setHot((h) => (h === r.id ? null : h))}
+                // Set, don't toggle. On touch, focus fires before click — a
+                // toggle would switch the callout on and straight back off, so
+                // tapping a region did nothing at all. Blur clears it instead.
+                onClick={() => setHot(r.id)}
+              >
+                <span className="lp-sr-only">{text}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* The callout replaces the caption while a region is live, rather than
+            floating over the picture — a tooltip pinned to a hotspot would fall
+            off the edge of a small frame, and this way the words land in the same
+            place every time. aria-live so a screen-reader user hears it change. */}
+        <p className="lp-tour-caption" aria-live="polite">
+          {(hot && frame.hotspots?.[hot]) || frame.caption}
+        </p>
       </div>
     </div>
   )
