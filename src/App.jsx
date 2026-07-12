@@ -34,6 +34,14 @@ export const BILLING_ENABLED = false
 // free (Solo is the funnel, coaches are the business). Flipping this back to
 // true re-enables solo billing and the upgrade prompts. `hasSoloPremium`
 // becomes always-true while this is false (see below).
+//
+// ⚠️ This flag has a TWIN on the server: SOLO_BILLING_ENABLED in the
+// nutrition-coach edge function's env. They must agree. They didn't, once: this
+// side said Solo was free and showed every solo user the "Get AI feedback"
+// button, while the server still demanded a paid subscription and 403'd them all
+// with "Solo Premium required". If you flip this to true, set the function's env
+// var to 'true' in the same breath — otherwise the paywall here is cosmetic and
+// the server keeps serving for free.
 export const SOLO_BILLING_ENABLED = false
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy', '/health-data-privacy']
 

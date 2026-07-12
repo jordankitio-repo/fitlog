@@ -550,7 +550,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         const body = custom
           ? { answers: answersSnapshot.map(a => ({ prompt: a.prompt, text: formatAnswer(a) })) }
           : { adherence: checkIn.adherence_rating, energy: checkIn.energy_level, obstacles: checkIn.obstacles, notes: checkIn.notes }
-        fetch('https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/notify-checkin', {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-checkin`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

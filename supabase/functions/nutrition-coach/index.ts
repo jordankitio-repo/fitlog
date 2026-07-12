@@ -85,7 +85,24 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'AI nutrition feedback is not available for this account type' }, 403)
     }
 
-    if (role === 'solo') {
+    // Solo billing is OFF (SOLO_BILLING_ENABLED in src/App.jsx, commit a2b4199 —
+    // "Solo is the funnel, coaches are the business"). This check did not get the
+    // memo, so it kept demanding a paid subscription while the client, seeing the
+    // flag, showed the "Get AI feedback" button to every solo user. The result:
+    // every free solo user — i.e. all of them — clicked it and got a 403 reading
+    // "Solo Premium required". The two halves disagreed about whether Solo is free.
+    //
+    // What guards this endpoint is NOT a paywall. It's the rate cap (30/hour/user)
+    // and the response cache below — the deliberate "keep free-solo + cap"
+    // decision. Those still apply to everyone.
+    //
+    // Defaults to FREE, matching the product as it actually is. If you ever
+    // re-enable solo billing you MUST set SOLO_BILLING_ENABLED=true on this
+    // function too, or the paywall in the UI is cosmetic and the server keeps
+    // serving anyway.
+    const soloBillingEnabled = Deno.env.get('SOLO_BILLING_ENABLED') === 'true'
+
+    if (soloBillingEnabled && role === 'solo') {
       const subRes = await fetch(
         `${supabaseUrl}/rest/v1/subscriptions?solo_id=eq.${user.id}&select=status,paused_for_coaching&limit=1`,
         { headers: restHeaders },

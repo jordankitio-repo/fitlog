@@ -409,7 +409,7 @@ function ClientView({ profile }) {
     setOffboarding(true)
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const res = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/offboard-client',
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/offboard-client`,
       {
         method: 'POST',
         headers: {
@@ -432,7 +432,7 @@ function ClientView({ profile }) {
     setNudging(true)
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const response = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nudge-client',
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nudge-client`,
       {
         method: 'POST',
         headers: {
@@ -887,7 +887,7 @@ async function addNoteEntry() {
     })
 
     const response = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/weekly-report',
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/weekly-report`,
       {
         method: 'POST',
         headers: {
@@ -945,7 +945,7 @@ async function addNoteEntry() {
       setReport('')
       setToast({ message: 'Report sent to client.', type: 'success' })
       // Notify client by email
-      fetch('https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/notify-report', {
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1025,7 +1025,7 @@ async function addNoteEntry() {
     const signals = sig.join(' ') || null
 
     const response = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/call-prep',
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/call-prep`,
       {
         method: 'POST',
         headers: {

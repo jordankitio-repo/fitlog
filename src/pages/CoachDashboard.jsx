@@ -154,7 +154,7 @@ function CoachDashboard({ profile }) {
 
     const { data: { session } } = await supabase.auth.getSession()
     const response = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nudge-client',
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nudge-client`,
       {
         method: 'POST',
         headers: {
@@ -373,8 +373,14 @@ function CoachDashboard({ profile }) {
               <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{clients.length}</span>
             </p>
           </div>
+          {/* "At risk", not "Need attention". This tile counts RED only — which is
+              deliberate (attentionLevel.js pins the threshold to it) — but the
+              old label contradicted the banner directly above it: a coach with
+              three amber clients read "3 needs review" and, beside it, "Need
+              attention: 0" in the success colour. The count was right; the word
+              was a lie. "At risk" is the banner's own term for red. */}
           <div style={{ ...cardStyle, border: `1px solid ${needsAttention > 0 ? 'var(--color-error)' : 'var(--color-border)'}`, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-            <p style={summaryLabelStyle}>Need attention</p>
+            <p style={summaryLabelStyle}>At risk</p>
             <p style={{ ...summaryNumStyle, color: needsAttention > 0 ? 'var(--color-error)' : 'var(--color-success)' }}>{needsAttention}</p>
           </div>
         </div>

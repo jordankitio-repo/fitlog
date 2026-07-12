@@ -730,7 +730,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch(
-        'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nutrition-coach',
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nutrition-coach`,
         { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }, body: JSON.stringify({ entries }) }
       )
       const data = await response.json().catch(() => ({}))

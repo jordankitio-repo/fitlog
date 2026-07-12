@@ -309,7 +309,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     const { data: { session: currentSession } } = await supabase.auth.getSession()
 
     const response = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/delete-account',
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
       {
         method: 'POST',
         headers: {
