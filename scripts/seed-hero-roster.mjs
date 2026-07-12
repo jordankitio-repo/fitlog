@@ -74,6 +74,16 @@ async function makeUser(email, full_name, role, extra = {}) {
 // placeholder "e.g. 30", and clientStats compares each day's total against it.
 // Seeding it as a weekly figure (150) makes every client read Cardio 0/7,
 // because no single day clears a 150-minute bar.
+// Build a run of logged days from `from` back to `span`, dropping `skip` offsets.
+// History runs 8 weeks deep rather than 2, for two reasons the shorter seed
+// couldn't satisfy:
+//   - the energy-balance read needs 8+ weigh-ins spanning 14+ days at 70%
+//     coverage (energyBalanceRead.js) — 13 days of data spans only 13, so it
+//     stayed locked behind "need a couple more weeks of logging"
+//   - the 90-day compliance heatmap has almost nothing to draw with two weeks
+const run = (from, span, skip = []) =>
+  Array.from({ length: span - from + 1 }, (_, i) => from + i).filter((d) => !skip.includes(d))
+
 const CLIENTS = [
   {
     email: 'maya@gardnr.demo',
@@ -83,9 +93,15 @@ const CLIENTS = [
     targets: { calories: 1850, protein: 140, carbs: 165, fat: 60, cardio_minutes: 35, steps: 9000 },
     // GREEN. Logged today, checked in, and every metric clears 3/7 — including
     // cardio, which needs 4+ sessions inside the 7-day window to get there.
-    logDays: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13],
-    hit: 0.94, steps: 9600, cardioDays: [0, 2, 4, 5, 8, 11],
+    // Near-perfect adherence over eight weeks, so the heatmap and the energy
+    // balance read both have something honest to say.
+    logDays: run(0, 55, [12, 19, 26, 33, 40, 47]),
+    hit: 0.94, steps: 9600,
+    cardioDays: [0, 2, 4, 5, 8, 11, 15, 18, 22, 25, 29, 32, 36, 39, 43, 46, 50, 53],
     checkIn: { adherence_rating: 4, energy_level: 4, notes: 'Good week. Weekend was harder but I stayed in range.' },
+    // A recomp the scale would hide: weight down a little, waist down a lot,
+    // arm up. This is the argument for tracking measurements at all.
+    measurements: { neck: [32.5, 32.0], chest: [94, 92.5], waist: [78, 72.5], hips: [98, 95], arm: [28.5, 29.4], thigh: [56, 54.5] },
   },
   {
     email: 'jordan@gardnr.demo',
@@ -96,8 +112,8 @@ const CLIENTS = [
     // YELLOW. Weight holding flat, which is what a reverse should do, and he has
     // checked in — but his cardio and steps have quietly stopped. Exactly the
     // drift a spreadsheet hides and the pills surface.
-    logDays: [1, 2, 3, 4, 7, 8, 9, 10, 11, 14],
-    hit: 1.08, steps: 7400, cardioDays: [3, 10],
+    logDays: run(1, 55, [5, 6, 12, 13, 20, 27, 34, 41, 48]),
+    hit: 1.08, steps: 7400, cardioDays: [3, 10, 17, 24, 31, 38],
     checkIn: { adherence_rating: 3, energy_level: 3, notes: 'Travelling for work, missed a couple of sessions.' },
   },
   {
@@ -109,8 +125,8 @@ const CLIENTS = [
     // RED. Went quiet five days ago — past the 4-day threshold — and never
     // checked in. The client the dashboard exists to catch, and the one a
     // spreadsheet lets you forget about until the call.
-    logDays: [5, 6, 7, 9, 10, 12, 13],
-    hit: 0.71, steps: 4900, cardioDays: [6],
+    logDays: run(5, 55, [8, 11, 14, 16, 21, 23, 28, 30, 35, 37, 42, 44, 49, 51]),
+    hit: 0.71, steps: 4900, cardioDays: [6, 20, 33],
     checkIn: null,
   },
 ]
@@ -121,6 +137,21 @@ const weekOf = (() => {
   d.setUTCDate(d.getUTCDate() - d.getUTCDay())
   return d.toISOString().slice(0, 10)
 })()
+
+// Nobody eats the same percentage of their target 50 days running. A flat `hit`
+// produced a heatmap that was a solid wall of identical green — which reads as
+// fake, and wastes the legend the heatmap actually has (90-110% green, >110%
+// orange, 60-89% amber, <60% red). This scatters days around the client's
+// average so the grid looks like a person ate it.
+//
+// Deterministic on the day offset, not random: the seed must be reproducible or
+// the hero image quietly changes every time someone re-runs it.
+function hitForDay(base, off) {
+  const wobble = (((off * 37) % 15) - 7) / 100        // ±7% day to day
+  const blowout = off % 17 === 3 ? 0.28 : 0           // an over-target day now and then
+  const skimped = off % 11 === 5 ? -0.22 : 0          // and a day they under-ate
+  return Math.max(0.4, base + wobble + blowout + skimped)
+}
 
 // A day's eating split across meals, scaled to hit a share of the calorie target.
 function mealsFor(userId, date, t, hit) {
@@ -184,7 +215,7 @@ for (const c of CLIENTS) {
   const steps = []
   for (const off of c.logDays) {
     const date = dstr(off)
-    nutrition.push(...mealsFor(id, date, c.targets, c.hit))
+    nutrition.push(...mealsFor(id, date, c.targets, hitForDay(c.hit, off)))
     weights.push({
       user_id: id,
       // Trends toward the goal with a little daily noise, so the line looks like
@@ -213,6 +244,32 @@ for (const c of CLIENTS) {
     if (error) throw new Error(`${c.name} ${table}: ${error.message}`)
   }
 
+  if (c.measurements) {
+    // Six tape sessions across the eight weeks, interpolated between the start
+    // and current value per site. Two points would satisfy "change since day
+    // one" but there'd be no per-site *trend* to draw, which is the thing the
+    // copy actually promises.
+    const SESSIONS = [55, 44, 33, 22, 11, 0]
+    const rows = SESSIONS.map((off, i) => {
+      const t = i / (SESSIONS.length - 1) // 0 at the first session, 1 at today
+      return {
+        user_id: id,
+        logged_date: dstr(off),
+        unit: 'cm',
+        ...Object.fromEntries(
+          Object.entries(c.measurements).map(([site, [from, to]]) => {
+            // Straight interpolation plus a little measurement noise — a tape
+            // measure read by a human doesn't move in a perfect line.
+            const noise = (((i * 29) % 7) - 3) / 20
+            return [site, +(from + (to - from) * t + noise).toFixed(1)]
+          }),
+        ),
+      }
+    })
+    const { error } = await admin.from('body_measurements').insert(rows)
+    if (error) throw new Error(`${c.name} body_measurements: ${error.message}`)
+  }
+
   if (c.checkIn) {
     // Left unreviewed on purpose: the roster banner's "N check-ins to review" is
     // a live to-do, and a hero image should show the product with work in it.
@@ -225,7 +282,7 @@ for (const c of CLIENTS) {
   const last = Math.min(...c.logDays)
   console.log(
     `client  ${c.name.padEnd(12)} ${c.goal.padEnd(13)} ` +
-    `${c.logDays.length}/14 logged · last ${last === 0 ? 'today' : `${last}d ago`}`,
+    `${c.logDays.length} days logged · last ${last === 0 ? 'today' : `${last}d ago`}`,
   )
 }
 

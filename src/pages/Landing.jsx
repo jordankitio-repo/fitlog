@@ -10,7 +10,7 @@ import {
   finalCta,
   footer,
   hero,
-  heroShot,
+  heroTour,
   instruments,
   meta,
   nav,
@@ -55,6 +55,104 @@ function beforeSendMarketingOnly(event) {
   } catch {
     return null
   }
+}
+
+// ── Hero tour ────────────────────────────────────────────────────────────────
+//
+// Three real screens of the running app, behind real tabs.
+//
+// The thing this replaced was an interactive mock — a hand-drawn dashboard with
+// a "Review and send" button that did nothing. That was worse than a static
+// image: it invited a stranger to touch the product and then lied to them. It
+// was also mouse-only (`onMouseEnter` on bare <div>s), which made it dead on
+// touch and failed WCAG 2.2 SC 2.1.1 Keyboard — a Level A criterion.
+//
+// So this is a real ARIA tabs widget: <button>s, arrow-key navigation, roving
+// tabindex. Frame 1 carries the whole argument by itself, because most visitors
+// will never click a tab, and a hero that hides its point behind an interaction
+// has no point.
+function HeroTour() {
+  const [sel, setSel] = useState(0)
+  const tabRefs = useRef([])
+  const frames = heroTour.frames
+
+  // Warm the other frames once the page is idle, so switching tabs is instant
+  // rather than a flash of empty box. Only the visible one is in the DOM.
+  useEffect(() => {
+    const warm = () => {
+      for (const f of frames) {
+        for (const v of ['wide', 'narrow']) new Image().src = `/hero/${f.id}-${v}.webp`
+      }
+    }
+    const idle = window.requestIdleCallback
+    const id = idle ? idle(warm) : setTimeout(warm, 1500)
+    return () => (idle ? window.cancelIdleCallback?.(id) : clearTimeout(id))
+  }, [frames])
+
+  // Roving tabindex + arrow keys: the tabs pattern users actually expect.
+  function onKeyDown(e) {
+    const last = frames.length - 1
+    let next = null
+    if (e.key === 'ArrowRight') next = sel === last ? 0 : sel + 1
+    else if (e.key === 'ArrowLeft') next = sel === 0 ? last : sel - 1
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = last
+    if (next === null) return
+    e.preventDefault()
+    setSel(next)
+    tabRefs.current[next]?.focus()
+  }
+
+  const frame = frames[sel]
+
+  return (
+    <div className="lp-tour">
+      <div className="lp-tour-tabs" role="tablist" aria-label={heroTour.label} onKeyDown={onKeyDown}>
+        {frames.map((f, i) => (
+          <button
+            key={f.id}
+            ref={(el) => { tabRefs.current[i] = el }}
+            type="button"
+            role="tab"
+            id={`tour-tab-${f.id}`}
+            aria-selected={i === sel}
+            aria-controls={`tour-panel-${f.id}`}
+            tabIndex={i === sel ? 0 : -1}
+            className="lp-tour-tab"
+            onClick={() => setSel(i)}
+          >
+            {f.tab}
+          </button>
+        ))}
+      </div>
+
+      <div
+        role="tabpanel"
+        id={`tour-panel-${frame.id}`}
+        aria-labelledby={`tour-tab-${frame.id}`}
+        className="lp-tour-panel"
+      >
+        {/* key={frame.id} restarts the fade on every switch. Two sources, not one
+            image scaled: a 1240px app screen squeezed into a 375px phone is
+            unreadable, so the narrow file is a genuinely tighter crop. The
+            aspect ratio is pinned in CSS per breakpoint, so switching tabs — and
+            first paint — cost no layout shift. */}
+        <picture key={frame.id} className="lp-tour-frame">
+          <source media="(min-width: 769px)" srcSet={`/hero/${frame.id}-wide.webp`} />
+          <img
+            src={`/hero/${frame.id}-narrow.webp`}
+            alt={frame.alt}
+            className="lp-tour-shot"
+            loading="eager"
+            fetchPriority={sel === 0 ? 'high' : 'auto'}
+            width={720}
+            height={620}
+          />
+        </picture>
+        <p className="lp-tour-caption">{frame.caption}</p>
+      </div>
+    </div>
+  )
 }
 
 // Tracks whether an element is in the viewport. `once` stops observing after
@@ -203,28 +301,7 @@ export default function Landing() {
           <p className="lp-cta-note">{hero.ctaNote}</p>
         </div>
         <div className="lp-hero-visual">
-          {/* The real coach dashboard, captured from the running app against a
-              seeded roster (scripts/seed-hero-roster.mjs + scripts/shoot-hero.mjs).
-              It replaces a hand-drawn mock of a dashboard that didn't exist — a
-              drawing of your product is a poor thing to show someone who is
-              deciding whether to trust you.
-
-              Two sources, not one image scaled: a 1320px dashboard rendered into
-              a 375px phone is unreadable, so the narrow file is a tighter crop.
-              width/height are the CSS-pixel sizes so the box is reserved before
-              the image lands and the hero costs no layout shift. */}
-          <picture>
-            <source media="(min-width: 769px)" srcSet="/hero/dashboard-wide.webp" />
-            <img
-              src="/hero/dashboard-narrow.webp"
-              alt={heroShot.alt}
-              width={760}
-              height={880}
-              loading="eager"
-              fetchPriority="high"
-              className="lp-hero-shot"
-            />
-          </picture>
+          <HeroTour />
         </div>
       </section>
 

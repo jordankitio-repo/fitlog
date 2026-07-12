@@ -83,15 +83,45 @@ export const hero = {
   ctaNote: 'No card required.',
 }
 
-// The hero image is a screenshot of the real coach dashboard, captured from the
-// running app against a seeded demo roster. It replaces a hand-built mock of a
-// UI that did not exist.
+// The hero is an interactive tour of three REAL screens, captured from the
+// running app against a seeded roster (scripts/seed-hero-roster.mjs and
+// scripts/shoot-hero.mjs). It replaces a hand-drawn mock of a dashboard that did
+// not exist, with a "Review and send" button that did nothing.
 //
-// This image carries meaning rather than decoration, so the alt text has to
-// convey what a sighted visitor takes from it (WCAG 1.1.1) — which is the
-// triage story, not a list of widgets. It is not "screenshot of dashboard".
-export const heroShot = {
-  alt: 'The Gardnr coach dashboard: three clients ranked by who needs attention first. Maya is on target, Jordan is drifting, and Sam has not logged in three days — each with their week of calorie, protein, cardio and step compliance beside them.',
+// Interactivity sells. FAKE interactivity is worse than a static image, because
+// it invites a stranger to touch your product and then lies to them. So: real
+// tabs, real screens, and the default frame carries the argument on its own for
+// the majority of visitors who will never click anything.
+//
+// Every `alt` has to convey what a sighted visitor TAKES from the frame (WCAG
+// 1.1.1) — the story, not an inventory of widgets. "Screenshot of dashboard" is
+// not alt text. The captions do the same job for anyone on a phone, where a
+// screenshot of a dense app is decorative no matter how well it's cropped.
+export const heroTour = {
+  label: 'A tour of Gardnr',
+  frames: [
+    {
+      id: 'triage',
+      tab: 'Who needs you first',
+      caption:
+        'Your roster, ranked by who is slipping. Sam stopped logging five days ago. Jordan’s cardio has quietly gone to one session in seven. Maya is fine — leave her alone.',
+      alt: 'The Gardnr coach dashboard, sorted by attention. Sam Rivera is flagged red for five days without a log. Jordan Lee is amber, with cardio at one session out of seven. Maya Chen is on track. A banner across the top reads one at risk, one needs review, one on track, with two check-ins waiting to be reviewed.',
+    },
+    {
+      id: 'evidence',
+      tab: 'The whole week, in evidence',
+      caption:
+        'Ninety days of adherence, every day coloured against target. Fifty of fifty-six days logged, 94% of target on average — and you can see exactly which days went over.',
+      alt: 'A client record showing logging consistency: a twelve-day streak, seven of the last seven days logged, and a ninety-day calorie-compliance heatmap where every day is coloured against target — green on target, amber under, orange over. Fifty of fifty-six days logged, at 94% of target on average.',
+    },
+    {
+      id: 'composition',
+      tab: 'What the scale hides',
+      caption:
+        'Waist down 5.2cm. Arm up 1.1cm. The weight barely moved — this is the recomp a scale on its own would never have shown you.',
+      alt: 'Body measurements for a client: neck, chest, waist, hips, arm and thigh, each showing its current value, the change since the first recording, and a trend line over eight weeks. The waist is down 5.2 centimetres while the arm is up 1.1 centimetres.',
+    },
+  ],
 }
 
 export const tagline = {

@@ -24,19 +24,67 @@
 .lp-hero-copy > *:nth-child(5) { animation-delay: 0.20s; }
 .lp-hero-visual { animation: lpFadeUp 0.7s ease 0.18s both; }
 
-/* ---------- HERO SHOT ---------- */
-/* A screenshot of the real coach dashboard. The frame and shadow are the same
-   treatment the old fabricated mock had — the difference is that what's inside
-   it is now true. `height: auto` lets the intrinsic width/height on the <img>
-   reserve the right box while still scaling; the aspect ratio is preserved, so
-   the hero costs no layout shift. */
-.lp-hero-shot {
+/* ---------- HERO TOUR ---------- */
+/* Three real screens of the app behind real tabs. The frame keeps the shadow
+   treatment the old fabricated mock had — what changed is that the thing inside
+   it is now true. */
+.lp-tour { display: flex; flex-direction: column; gap: 14px; }
+
+.lp-tour-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.lp-tour-tab {
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #858585;
+  background: #0d0d0d;
+  border: 1px solid #1c1c1c;
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+.lp-tour-tab:hover { color: #ccc; border-color: #2a2a2a; }
+.lp-tour-tab[aria-selected='true'] {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+/* Aspect ratio is pinned per breakpoint to match the two art-directed crops
+   (narrow 720x620, wide 1240x800), so the box is reserved before the image
+   lands and switching tabs never shifts the page. */
+.lp-tour-shot {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 16px;
+  aspect-ratio: 720 / 620;
+  border-radius: 14px;
   border: 1px solid #1c1c1c;
   box-shadow: 0 48px 96px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  animation: lpTourIn 0.35s ease both;
+}
+@media (min-width: 769px) {
+  .lp-tour-shot { aspect-ratio: 1240 / 800; }
+}
+@keyframes lpTourIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.lp-tour-caption {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #858585;
+  letter-spacing: -0.01em;
+  /* Reserve two lines so the shortest caption doesn't bounce the page height
+     when you tab to a longer one. */
+  min-height: 2.6em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-tour-shot { animation: none !important; }
 }
 
 /* ---------- NAV ---------- */
