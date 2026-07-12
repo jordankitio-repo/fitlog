@@ -13,7 +13,7 @@ for (const [name, w, h] of [['landing-desktop', 1440, 900], ['landing-tablet', 7
   await p.getByRole('heading', { level: 1, name: hero.h1 }).waitFor()
   const overflow = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   if (overflow > 0) throw new Error(`${name} has ${overflow}px horizontal overflow`)
-  await p.screenshot({ path: `${OUT}/${name}.png` })
+  await p.screenshot({ path: `${OUT}/${name}.png`, fullPage: true })
   await ctx.close(); console.log('shot', name)
 }
 

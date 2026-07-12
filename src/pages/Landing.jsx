@@ -3,9 +3,27 @@ import { Link } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
 import { track } from '@vercel/analytics'
 import Logo from '../components/Logo'
+import {
+  alsoIncluded,
+  contrast as contrastContent,
+  faq,
+  finalCta,
+  footer,
+  hero,
+  instruments,
+  meta,
+  nav,
+  pain,
+  pricing,
+  tagline,
+  trial,
+  workflow,
+} from './landingContent'
 import './landing.css'
 
 const signupPath = '/login?mode=signup&role=coach'
+const soloSignupPath = '/login?mode=signup&role=solo'
+const brandName = meta.title.split(' — ')[0]
 
 // ── Data ────────────────────────────────────────────────────────────────────
 
@@ -47,48 +65,6 @@ const clients = [
     reportStatus: 'Nudge sent',
     report: 'Logging stopped 3 days ago. Nudge sent — waiting on re-engagement.',
   },
-]
-
-const pains = [
-  { icon: '📲', text: 'Food screenshots buried in three different message threads' },
-  { icon: '📊', text: 'Rebuilding the same compliance spreadsheet every week' },
-  { icon: '🤔', text: 'Starting every check-in by asking "how did your week go?"' },
-]
-
-const contrast = [
-  { before: 'Screenshots and text threads', after: 'Daily nutrition, weight, cardio, and steps — all tied to the client' },
-  { before: 'The scale as the only progress signal', after: 'Weight plus body measurements — neck to thigh — with per-site trends and change since day one' },
-  { before: 'Manual weekly averages',       after: '7-day compliance across calories, protein, cardio, and steps' },
-  { before: 'Generic check-in questions',   after: 'Check-ins you design — your cadence, your questions, answered against real data' },
-  { before: 'Guessing who needs attention', after: 'Dashboard sorted by compliance and last log' },
-]
-
-const steps = [
-  { n: '01', kind: 'targets', title: 'Set the targets',          copy: 'Invite a client — Gardnr suggests starting macros from their stats, then you set calories, macros, cardio, steps, and weight goals.' },
-  { n: '02', kind: 'log',     title: 'Clients log from their phone', copy: 'Installs like an app from any browser — no App Store. It opens straight to logging, so they actually keep it up.' },
-  { n: '03', kind: 'chart',   title: 'Coach from the evidence',  copy: 'One view for compliance, messages, check-ins, notes, reports, and trends.' },
-]
-
-const trialSteps = [
-  'Invite one client and set their targets',
-  'Have them log a normal week from their phone',
-  'Review their compliance before the check-in',
-  'Generate, edit, and send the weekly report',
-]
-
-const capabilities = [
-  { title: 'Attention triage',     copy: 'Your dashboard ranks who needs you first — by compliance and last log. Ready, watch, or nudge.' },
-  { title: 'Compliance breakdown', copy: 'Weekday vs weekend, on-target vs over vs under. You see why a client is slipping, not just that they are.' },
-  { title: 'Energy balance read',  copy: 'Empirical maintenance and weight trajectory, read from their real intake and weigh-ins — not a formula.' },
-  { title: 'Body composition',     copy: 'Measurements alongside weight — neck to thigh — with per-site trends and change since day one. See the recomp the scale hides.' },
-  { title: 'Meeting prep',         copy: 'A private brief of what changed since you last talked, so you walk into every check-in already up to speed.' },
-  { title: 'Smart nudges',         copy: 'One tap sends a contextual email — a log reminder or a check-in — tailored to why they went quiet.' },
-  { title: 'Weekly reports',       copy: "Drafted from the week's data in your voice. Review, edit, and send in a minute." },
-  { title: 'Check-in cadence',     copy: 'Set each client to weekly, biweekly, or a custom rhythm — the right pace for their phase, not one fixed schedule.' },
-  { title: 'Custom check-ins',     copy: 'Build the exact check-in questions you want answered — ratings, scales, free-text — instead of a one-size-fits-all form.' },
-  { title: '90-day adherence map', copy: 'Three months of compliance at a glance — every day, every metric, colored by target. Spot the drift before it becomes a plateau.' },
-  { title: 'Private coach notes',  copy: 'Keep running notes on each client — context, history, what to watch — private to you and always one click from their data.' },
-  { title: 'Re-engagement built in', copy: 'When a client goes quiet, their progress view pauses until they log again — a gentle pull back. You can unlock it anytime, with a 48-hour grace window.' },
 ]
 
 const badgeLabels = { ready: 'Ready', watch: 'Watch', nudge: 'Nudge' }
@@ -263,7 +239,7 @@ function WorkflowSteps() {
   const [ref, inView] = useInView({ threshold: 0.3 })
   return (
     <div ref={ref} className={`lp-step-grid${inView ? ' is-playing' : ''}`}>
-      {steps.map((s) => (
+      {workflow.steps.map((s) => (
         <div key={s.n} className="lp-step">
           <span className="lp-step-num">{s.n}</span>
           <h3 className="lp-step-title">{s.title}</h3>
@@ -280,7 +256,7 @@ function TrialChecklist() {
   const [ref, shown] = useInView({ threshold: 0.35, once: true })
   return (
     <div ref={ref} className={`lp-trial-checklist${shown ? ' is-shown' : ''}`}>
-      {trialSteps.map((step, i) => (
+      {trial.steps.map((step, i) => (
         <div key={step} className="lp-trial-item" style={{ '--i': i }}>
           <span className="lp-trial-num">{i + 1}</span>
           <p className="lp-trial-text">{step}</p>
@@ -297,25 +273,36 @@ export default function Landing() {
     track('landing_view')
   }, [])
 
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.items.map(({ q, a }) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a },
+    })),
+  }
+
   return (
     <div className="lp">
 
       <Analytics />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
       {/* NAV */}
       <nav className="lp-nav">
-        <Link to="/" className="lp-brand">
+        <Link to="/" className="lp-brand" aria-label={meta.title}>
           <Logo size={30} />
-          <span className="lp-brand-name">gardnr</span>
+          <span className="lp-brand-name">{brandName.toLowerCase()}</span>
         </Link>
+        <div className="lp-nav-links">
+          {nav.links.map(([href, label]) => (
+            <a key={href} href={href} className="lp-nav-link">{label}</a>
+          ))}
+        </div>
         <div className="lp-nav-right">
-          <div className="lp-nav-links">
-            {[['#how', 'Workflow'], ['#trial', 'The trial']].map(([href, label]) => (
-              <a key={href} href={href} className="lp-nav-link">{label}</a>
-            ))}
-          </div>
-          <Link to="/login" className="lp-signin">Sign in</Link>
-          <Link to={signupPath} className="lp-cta-sm" onClick={() => track('cta_click', { location: 'nav' })}>Start free trial</Link>
+          <Link to="/login" className="lp-signin">{nav.signIn}</Link>
+          <Link to={signupPath} className="lp-cta-sm" onClick={() => track('cta_click', { location: 'nav' })}>{nav.cta}</Link>
         </div>
       </nav>
 
@@ -324,22 +311,20 @@ export default function Landing() {
         <div className="lp-hero-copy">
           <div className="lp-eyebrow">
             <span className="lp-eyebrow-dot" />
-            <span className="lp-eyebrow-label">Nutrition coaching intelligence</span>
+            <span className="lp-eyebrow-label">{hero.eyebrow}</span>
           </div>
-          <h1 className="lp-h1">Stop guessing how your clients' week actually went.</h1>
-          <p className="lp-subhead">
-            Your coaching runs on food screenshots and rebuilt spreadsheets. Gardnr gives you one
-            place where client logging, compliance, and weekly reports actually live.
-          </p>
+          <h1 className="lp-h1">{hero.h1}</h1>
+          <p className="lp-subhead">{hero.subhead}</p>
           <div className="lp-cta-row">
-            <Link to={signupPath} className="lp-cta" onClick={() => track('cta_click', { location: 'hero' })}>Start 30-day free trial</Link>
-            <a href="#how" className="lp-link-arrow">See the workflow <span style={{ opacity: 0.6 }}>→</span></a>
+            <Link to={signupPath} className="lp-cta" onClick={() => track('cta_click', { location: 'hero' })}>{hero.cta}</Link>
+            <a href="#how" className="lp-link-arrow">{hero.secondaryCta} <span aria-hidden="true" style={{ opacity: 0.6 }}>→</span></a>
           </div>
           <div className="lp-trust">
-            {['30 days free', '$19/month after trial', 'Installs like an app — no App Store'].map((t) => (
-              <span key={t} className="lp-trust-item"><span className="lp-trust-check">✓</span>{t}</span>
+            {hero.trust.map((item) => (
+              <span key={item} className="lp-trust-item"><span className="lp-trust-check" aria-hidden="true">✓</span>{item}</span>
             ))}
           </div>
+          <p className="lp-cta-note">{hero.ctaNote}</p>
         </div>
         <div className="lp-hero-visual">
           <ProductPreview />
@@ -349,21 +334,21 @@ export default function Landing() {
       {/* TAGLINE BAND */}
       <div className="lp-tagline">
         <p>
-          <span className="lp-tagline-accent">Coaches don't build physiques.</span>{' '}
-          They create conditions for growth.
+          <span className="lp-tagline-accent">{tagline.accent}</span>{' '}
+          {tagline.rest}
         </p>
       </div>
 
       {/* PAIN */}
       <section className="lp-section lp-band">
         <div className="lp-section-narrow">
-          <p className="lp-eyebrow-text lp-eyebrow-red">The problem</p>
-          <h2 className="lp-h2">Nutrition coaching still loses the signal.</h2>
+          <p className="lp-eyebrow-text lp-eyebrow-red">{pain.eyebrow}</p>
+          <h2 className="lp-h2">{pain.h2}</h2>
           <div className="lp-pain-grid">
-            {pains.map((p) => (
-              <div key={p.text} className="lp-pain-card">
-                <span className="lp-pain-icon">{p.icon}</span>
-                <p className="lp-pain-text">{p.text}</p>
+            {pain.items.map((item) => (
+              <div key={item.text} className="lp-pain-card">
+                <span className="lp-pain-icon" aria-hidden="true">{item.icon}</span>
+                <p className="lp-pain-text">{item.text}</p>
               </div>
             ))}
           </div>
@@ -373,17 +358,23 @@ export default function Landing() {
       {/* CONTRAST */}
       <section id="contrast" className="lp-section">
         <div className="lp-section-inner">
-          <p className="lp-eyebrow-text lp-eyebrow-green">What changes</p>
-          <h2 className="lp-h2">Replace scattered proof with one coaching record.</h2>
+          <p className="lp-eyebrow-text lp-eyebrow-green">{contrastContent.eyebrow}</p>
+          <h2 className="lp-h2">{contrastContent.h2}</h2>
           <div className="lp-contrast-table">
             <div className="lp-contrast-head">
-              <div className="lp-contrast-head-before"><span>Without Gardnr</span></div>
-              <div className="lp-contrast-head-after"><span>With Gardnr</span></div>
+              <div className="lp-contrast-head-before"><span>{contrastContent.headBefore}</span></div>
+              <div className="lp-contrast-head-after"><span>{contrastContent.headAfter}</span></div>
             </div>
-            {contrast.map((row, i) => (
+            {contrastContent.rows.map((row, i) => (
               <div key={i} className="lp-contrast-row">
-                <div className="lp-contrast-before"><p>{row.before}</p></div>
-                <div className="lp-contrast-after"><p>{row.after}</p></div>
+                <div className="lp-contrast-before">
+                  <span className="lp-contrast-mobile-label">{contrastContent.headBefore}</span>
+                  <p>{row.before}</p>
+                </div>
+                <div className="lp-contrast-after">
+                  <span className="lp-contrast-mobile-label">{contrastContent.headAfter}</span>
+                  <p>{row.after}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -393,10 +384,10 @@ export default function Landing() {
       {/* INSTRUMENTS */}
       <section id="instruments" className="lp-section">
         <div className="lp-section-inner">
-          <p className="lp-eyebrow-text lp-eyebrow-green">The layer between tracking and coaching</p>
-          <h2 className="lp-h2">Instruments that turn logging into coaching.</h2>
+          <p className="lp-eyebrow-text lp-eyebrow-green">{instruments.eyebrow}</p>
+          <h2 className="lp-h2">{instruments.h2}</h2>
           <div className="lp-cap-grid">
-            {capabilities.map((cap) => (
+            {instruments.items.map((cap) => (
               <div key={cap.title} className="lp-cap-card">
                 <span className="lp-cap-dot" />
                 <h3 className="lp-cap-title">{cap.title}</h3>
@@ -404,15 +395,40 @@ export default function Landing() {
               </div>
             ))}
           </div>
+          <div className="lp-also">
+            <p className="lp-also-label">{alsoIncluded.label}</p>
+            <div className="lp-also-list">
+              {alsoIncluded.items.map((item) => <span key={item} className="lp-also-chip">{item}</span>)}
+            </div>
+          </div>
         </div>
       </section>
 
       {/* WORKFLOW */}
       <section id="how" className="lp-section lp-band">
         <div className="lp-section-narrow">
-          <p className="lp-eyebrow-text lp-eyebrow-green">Workflow</p>
-          <h2 className="lp-h2">Invite, log, coach.</h2>
+          <p className="lp-eyebrow-text lp-eyebrow-green">{workflow.eyebrow}</p>
+          <h2 className="lp-h2">{workflow.h2}</h2>
           <WorkflowSteps />
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section id="pricing" className="lp-section">
+        <div className="lp-section-narrow">
+          <p className="lp-eyebrow-text lp-eyebrow-green">{pricing.eyebrow}</p>
+          <h2 className="lp-h2">{pricing.h2}</h2>
+          <p className="lp-pricing-lede">{pricing.lede}</p>
+          <div className="lp-pricing-card">
+            <div className="lp-price"><span className="lp-price-amount">{pricing.amount}</span><span className="lp-price-period">{pricing.period}</span></div>
+            <p className="lp-pricing-trial">{pricing.trialLine}</p>
+            <ul className="lp-pricing-includes">
+              {pricing.includes.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+            <Link to={signupPath} className="lp-cta lp-pricing-cta" onClick={() => track('cta_click', { location: 'pricing' })}>{pricing.cta}</Link>
+            <p className="lp-trial-note">{pricing.note}</p>
+          </div>
+          <p className="lp-solo-line">{pricing.soloLine} <Link to={soloSignupPath}>{pricing.soloCta}</Link></p>
         </div>
       </section>
 
@@ -422,16 +438,29 @@ export default function Landing() {
           <div className="lp-trial-card">
             <div className="lp-trial-glow" />
             <div className="lp-trial-left">
-              <p className="lp-eyebrow-text lp-eyebrow-green">The proof plan</p>
-              <h2 className="lp-trial-h2">Use the trial to run one real check-in.</h2>
-              <p className="lp-trial-copy">
-                30 days to run a real coaching cycle. See compliance, send reports, message
-                clients — everything in one place from day one.
-              </p>
-              <Link to={signupPath} className="lp-trial-cta" onClick={() => track('cta_click', { location: 'trial' })}>Start your 30-day trial</Link>
-              <p className="lp-trial-note">$19/month after the trial. Cancel anytime.</p>
+              <p className="lp-eyebrow-text lp-eyebrow-green">{trial.eyebrow}</p>
+              <h2 className="lp-trial-h2">{trial.h2}</h2>
+              <p className="lp-trial-copy">{trial.copy}</p>
+              <Link to={signupPath} className="lp-trial-cta" onClick={() => track('cta_click', { location: 'trial' })}>{trial.cta}</Link>
+              <p className="lp-trial-note">{trial.note}</p>
             </div>
             <TrialChecklist />
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="lp-section lp-band">
+        <div className="lp-section-narrow">
+          <p className="lp-eyebrow-text lp-eyebrow-green">{faq.eyebrow}</p>
+          <h2 className="lp-h2">{faq.h2}</h2>
+          <div className="lp-faq-list">
+            {faq.items.map(({ q, a }) => (
+              <details key={q} className="lp-faq-item">
+                <summary>{q}</summary>
+                <p>{a}</p>
+              </details>
+            ))}
           </div>
         </div>
       </section>
@@ -439,13 +468,11 @@ export default function Landing() {
       {/* FINAL CTA */}
       <section className="lp-final">
         <div className="lp-final-inner">
-          <h2 className="lp-final-h2">Start your next check-in from Gardnr.</h2>
-          <p className="lp-final-copy">
-            Everything your coaching workflow needs, in one place. 30 days free, $19/month after.
-          </p>
+          <h2 className="lp-final-h2">{finalCta.h2}</h2>
+          <p className="lp-final-copy">{finalCta.copy}</p>
           <div className="lp-final-row">
-            <Link to={signupPath} className="lp-cta" onClick={() => track('cta_click', { location: 'final' })}>Start 30-day free trial</Link>
-            <Link to="/login" className="lp-signin">Sign in</Link>
+            <Link to={signupPath} className="lp-cta" onClick={() => track('cta_click', { location: 'final' })}>{finalCta.cta}</Link>
+            <Link to="/login" className="lp-signin">{finalCta.signIn}</Link>
           </div>
         </div>
       </section>
@@ -454,14 +481,14 @@ export default function Landing() {
       <footer className="lp-footer">
         <div className="lp-footer-brand">
           <Logo size={24} />
-          <span className="lp-footer-name">gardnr</span>
-          <span className="lp-footer-tag">Create conditions for growth.</span>
+          <span className="lp-footer-name">{brandName.toLowerCase()}</span>
+          <span className="lp-footer-tag">{footer.tagline}</span>
         </div>
         <nav className="lp-footer-nav">
-          {[['Sign in', '/login'], ['Terms', '/terms'], ['Privacy', '/privacy'], ['Health Data', '/health-data-privacy']].map(([label, path]) => (
+          {footer.links.map(([label, path]) => (
             <Link key={path} to={path} className="lp-footer-link">{label}</Link>
           ))}
-          <Link to="/login?mode=signup&role=solo" className="lp-footer-solo">Training solo? Start free →</Link>
+          <Link to={soloSignupPath} className="lp-footer-solo">{footer.solo}</Link>
         </nav>
       </footer>
 
