@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
+import { track } from '@vercel/analytics'
 import Logo from '../components/Logo'
 import './landing.css'
 
@@ -291,8 +293,14 @@ function TrialChecklist() {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Landing() {
+  useEffect(() => {
+    track('landing_view')
+  }, [])
+
   return (
     <div className="lp">
+
+      <Analytics />
 
       {/* NAV */}
       <nav className="lp-nav">
@@ -307,7 +315,7 @@ export default function Landing() {
             ))}
           </div>
           <Link to="/login" className="lp-signin">Sign in</Link>
-          <Link to={signupPath} className="lp-cta-sm">Start free trial</Link>
+          <Link to={signupPath} className="lp-cta-sm" onClick={() => track('cta_click', { location: 'nav' })}>Start free trial</Link>
         </div>
       </nav>
 
@@ -324,7 +332,7 @@ export default function Landing() {
             place where client logging, compliance, and weekly reports actually live.
           </p>
           <div className="lp-cta-row">
-            <Link to={signupPath} className="lp-cta">Start 30-day free trial</Link>
+            <Link to={signupPath} className="lp-cta" onClick={() => track('cta_click', { location: 'hero' })}>Start 30-day free trial</Link>
             <a href="#how" className="lp-link-arrow">See the workflow <span style={{ opacity: 0.6 }}>→</span></a>
           </div>
           <div className="lp-trust">
@@ -420,7 +428,7 @@ export default function Landing() {
                 30 days to run a real coaching cycle. See compliance, send reports, message
                 clients — everything in one place from day one.
               </p>
-              <Link to={signupPath} className="lp-trial-cta">Start your 30-day trial</Link>
+              <Link to={signupPath} className="lp-trial-cta" onClick={() => track('cta_click', { location: 'trial' })}>Start your 30-day trial</Link>
               <p className="lp-trial-note">$19/month after the trial. Cancel anytime.</p>
             </div>
             <TrialChecklist />
@@ -436,7 +444,7 @@ export default function Landing() {
             Everything your coaching workflow needs, in one place. 30 days free, $19/month after.
           </p>
           <div className="lp-final-row">
-            <Link to={signupPath} className="lp-cta">Start 30-day free trial</Link>
+            <Link to={signupPath} className="lp-cta" onClick={() => track('cta_click', { location: 'final' })}>Start 30-day free trial</Link>
             <Link to="/login" className="lp-signin">Sign in</Link>
           </div>
         </div>

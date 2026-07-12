@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { track } from '@vercel/analytics'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
@@ -22,6 +23,12 @@ function Login() {
   const [showForgot, setShowForgot] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotStatus, setForgotStatus] = useState('')
+
+  useEffect(() => {
+    if (searchParams.get('mode') === 'signup' && searchParams.get('role') === 'coach') {
+      track('signup_started')
+    }
+  }, [searchParams])
 
   function friendlyError(message) {
     if (!message || message === 'Failed to fetch' || message.toLowerCase().includes('networkerror') || message.toLowerCase().includes('failed to fetch')) {

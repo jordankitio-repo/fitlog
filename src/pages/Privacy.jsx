@@ -14,7 +14,7 @@ export default function Privacy() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated June 26, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated July 12, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -54,6 +54,11 @@ export default function Privacy() {
         <p style={p}>
           To keep you signed in and remember preferences such as your theme, we store information in your browser's
           local storage. We do not use advertising or tracking cookies. See Section 4 for more detail.
+        </p>
+        <p style={p}>
+          On public marketing pages only, we use first-party, cookieless Vercel Web Analytics to measure page visits
+          and trial-start interactions. It receives no account identifiers, and its requests are sent through our own
+          domain. This analytics does not run on signed-in or health-data routes.
         </p>
       </section>
 
