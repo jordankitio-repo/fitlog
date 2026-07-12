@@ -1,4 +1,12 @@
 {
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "gardnr.fit" }],
+      "destination": "https://www.gardnr.fit/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
@@ -8,7 +16,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-rdo77btvfOMKrN5tkKZJO2jh9NqLJaYv9iGmlIBT/r8=' 'sha256-m8VluYlTEZ2TFSG/Gc2fX+WD8nphXw8WxVhuikEWMK0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://world.openfoodfacts.org https://*.sentry.io; worker-src 'self' blob:; manifest-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' 'sha256-rdo77btvfOMKrN5tkKZJO2jh9NqLJaYv9iGmlIBT/r8=' 'sha256-oR3mrGVXgKDQhyd/WnsfYw0d+zjvbZILymAcJBzrO7k=' 'sha256-UeGKAeqwfMLjKLQvd4BDx+PIurmFZ/0JBU08oT5z2qI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://world.openfoodfacts.org https://*.sentry.io; worker-src 'self' blob:; manifest-src 'self'; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
         },
         {
           "key": "Strict-Transport-Security",

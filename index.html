@@ -26,22 +26,29 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#062120" />
 
-    <title>Gardnr — Nutrition coaching software</title>
-    <meta name="description" content="Gardnr is nutrition coaching software that creates the conditions for client growth." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800;9..40,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <link rel="canonical" href="https://www.gardnr.fit/" />
+    <title>__LANDING_TITLE__</title>
+    <meta name="description" content="__LANDING_DESCRIPTION__" />
 
     <!-- Open Graph / social -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Gardnr" />
-    <meta property="og:title" content="Gardnr — Nutrition coaching software" />
-    <meta property="og:description" content="Create conditions for growth." />
-    <meta property="og:url" content="https://gardnr.fit" />
-    <meta property="og:image" content="https://gardnr.fit/og.png" />
+    <meta property="og:title" content="__LANDING_TITLE__" />
+    <meta property="og:description" content="__LANDING_OG_DESCRIPTION__" />
+    <meta property="og:url" content="https://www.gardnr.fit/" />
+    <meta property="og:image" content="https://www.gardnr.fit/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Gardnr — Nutrition coaching software" />
-    <meta name="twitter:description" content="Create conditions for growth." />
-    <meta name="twitter:image" content="https://gardnr.fit/og.png" />
+    <meta name="twitter:title" content="__LANDING_TITLE__" />
+    <meta name="twitter:description" content="__LANDING_OG_DESCRIPTION__" />
+    <meta name="twitter:image" content="https://www.gardnr.fit/og.png" />
+
+    <script type="application/ld+json">__SOFTWARE_APPLICATION_JSON__</script>
 
     <style>
       /* Cold-start splash (esp. the mobile PWA): a black screen with the Gardnr
@@ -82,10 +89,27 @@
     </style>
   </head>
   <body>
-    <div id="splash"><img src="/logo-icon.svg" alt="Gardnr" width="132" height="132" /></div>
+    <div id="splash" hidden><img src="/logo-icon.svg" alt="Gardnr" width="132" height="132" /></div>
     <div id="root"></div>
     <script>
       (function () {
+        var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        var hasAuth = false;
+        try {
+          for (var i = 0; i < localStorage.length; i++) {
+            if (/^sb-.*-auth-token$/.test(localStorage.key(i) || '')) {
+              hasAuth = true;
+              break;
+            }
+          }
+        } catch (e) {}
+        var splash = document.getElementById('splash');
+        if (!standalone && !hasAuth) {
+          if (splash) splash.remove();
+          window.hideSplash = function () {};
+          return;
+        }
+        if (splash) splash.hidden = false;
         var start = Date.now();
         var MIN = 900; // show the pulse at least this long before the zoom-reveal
         function reveal() {

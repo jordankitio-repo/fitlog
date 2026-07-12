@@ -2,6 +2,39 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
+import { visualizer } from 'rollup-plugin-visualizer'
+import { meta } from './src/pages/landingContent.js'
+
+function escapeHtml(value) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+}
+
+function landingMetadata() {
+  const name = meta.title.split(' — ')[0]
+  const softwareApplication = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name,
+    description: meta.description,
+    applicationCategory: 'HealthApplication',
+    offers: { '@type': 'Offer', price: '19', priceCurrency: 'USD' },
+  }
+
+  return {
+    name: 'landing-metadata',
+    transformIndexHtml(html) {
+      return html
+        .replaceAll('__LANDING_TITLE__', escapeHtml(meta.title))
+        .replaceAll('__LANDING_DESCRIPTION__', escapeHtml(meta.description))
+        .replaceAll('__LANDING_OG_DESCRIPTION__', escapeHtml(meta.ogDescription))
+        .replace('__SOFTWARE_APPLICATION_JSON__', JSON.stringify(softwareApplication))
+    },
+  }
+}
 
 // Stamped into the bundle so the running app can show which build it is — lets
 // us tell "stale PWA cache" apart from "real bug" at a glance.
@@ -19,8 +52,19 @@ export default defineConfig({
   // 'hidden' emits .map files but omits the //# sourceMappingURL comment, so the
   // served JS never points browsers at them; the Sentry plugin uploads then
   // deletes them (filesToDeleteAfterUpload) so they're never on the CDN.
-  build: { sourcemap: sentryAuthToken ? 'hidden' : false },
+  build: {
+    sourcemap: sentryAuthToken ? 'hidden' : false,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/@supabase/')) return 'supabase'
+          if (id.includes('/node_modules/chart.js/') || id.includes('/node_modules/react-chartjs-2/')) return 'charts'
+        },
+      },
+    },
+  },
   plugins: [
+    landingMetadata(),
     react(),
     // Installable PWA: precaches the hashed app shell so the home-screen icon
     // opens straight into the (already-logged-in) app, fast and offline-tolerant.
@@ -90,6 +134,13 @@ export default defineConfig({
             err.message,
           )
         },
+      }),
+    process.env.ANALYZE &&
+      visualizer({
+        filename: 'dist/bundle-stats.html',
+        template: 'treemap',
+        gzipSize: true,
+        brotliSize: true,
       }),
   ].filter(Boolean),
   server: {

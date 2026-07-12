@@ -1,10 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useState, useEffect, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
-import Dashboard from './pages/Dashboard'
-import Log from './pages/Log'
-import Profile from './pages/Profile'
-import Login from './pages/Login'
 import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
 import LoadingScreen from './components/LoadingScreen'
@@ -12,17 +8,22 @@ import { useMediaQuery } from './hooks/useMediaQuery'
 import ClientChat from './components/ClientChat'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CoachPaywall from './components/CoachPaywall'
-import CoachDashboard from './pages/CoachDashboard'
-import Join from './pages/Join'
-import ClientView from './pages/ClientView'
-import ResetPassword from './pages/ResetPassword'
-import RolePicker from './pages/RolePicker'
-import Onboarding from './pages/Onboarding'
-import BillingSuccess from './pages/BillingSuccess'
-import Terms from './pages/Terms'
-import Privacy from './pages/Privacy'
-import ConsumerHealthData from './pages/ConsumerHealthData'
 import { resolveLockState } from './utils/lockState'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Log = lazy(() => import('./pages/Log'))
+const Profile = lazy(() => import('./pages/Profile'))
+const Login = lazy(() => import('./pages/Login'))
+const CoachDashboard = lazy(() => import('./pages/CoachDashboard'))
+const Join = lazy(() => import('./pages/Join'))
+const ClientView = lazy(() => import('./pages/ClientView'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const RolePicker = lazy(() => import('./pages/RolePicker'))
+const Onboarding = lazy(() => import('./pages/Onboarding'))
+const BillingSuccess = lazy(() => import('./pages/BillingSuccess'))
+const Terms = lazy(() => import('./pages/Terms'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const ConsumerHealthData = lazy(() => import('./pages/ConsumerHealthData'))
 
 // Coach paywall is OFF for now — coaches use the app free while we're
 // pre-public. Flip back to `true` to re-enable the paywall + trial gating when
@@ -34,7 +35,7 @@ export const BILLING_ENABLED = false
 // true re-enables solo billing and the upgrade prompts. `hasSoloPremium`
 // becomes always-true while this is false (see below).
 export const SOLO_BILLING_ENABLED = false
-const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy']
+const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy', '/health-data-privacy']
 
 // Where should a client land when they open the app? They get dropped straight
 // onto the Log page so they can log right away — unless their progress view is
@@ -130,24 +131,26 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
     <>
       {session && <NavBar profile={profile} />}
       <main style={mainStyle}>
-        <Routes>
-          <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
-          <Route path="/" element={session ? (
-            profile?.role === 'coach'
-              ? <CoachDashboard profile={profile} />
-              : <HomeLanding profile={profile} hasSoloPremium={hasSoloPremium} />
-          ) : (showLoginAsHome ? <Login /> : <Landing />)} />
-          <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
-          <Route path="/join" element={<Join />} />
-          <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/billing/success" element={<BillingSuccess />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/health-data-privacy" element={<ConsumerHealthData />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+            <Route path="/" element={session ? (
+              profile?.role === 'coach'
+                ? <CoachDashboard profile={profile} />
+                : <HomeLanding profile={profile} hasSoloPremium={hasSoloPremium} />
+            ) : (showLoginAsHome ? <Login /> : <Landing />)} />
+            <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
+            <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
+            <Route path="/join" element={<Join />} />
+            <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/billing/success" element={<BillingSuccess />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/health-data-privacy" element={<ConsumerHealthData />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
       {/* Client chat bubble — mounted at the layout level so it's available on
           every authenticated page, not just the dashboard. */}
@@ -306,12 +309,14 @@ function App() {
   if (PUBLIC_ROUTES.includes(window.location.pathname)) {
     return (
       <BrowserRouter>
-        <Routes>
-          <Route path="/billing/success" element={<BillingSuccess />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/health-data-privacy" element={<ConsumerHealthData />} />
-        </Routes>
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            <Route path="/billing/success" element={<BillingSuccess />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/health-data-privacy" element={<ConsumerHealthData />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     )
   }
@@ -320,13 +325,15 @@ function App() {
 
   if (session && profile && !profile.role) {
     return (
-      <main>
-        <RolePicker
-          session={session}
-          onComplete={() => fetchProfile(session.user.id)}
-          onCancel={handleSignOut}
-        />
-      </main>
+      <Suspense fallback={<LoadingScreen />}>
+        <main>
+          <RolePicker
+            session={session}
+            onComplete={() => fetchProfile(session.user.id)}
+            onCancel={handleSignOut}
+          />
+        </main>
+      </Suspense>
     )
   }
 
@@ -336,13 +343,15 @@ function App() {
   // Coaches are never tracked, so they never see it.
   if (session && profile && (profile.role === 'solo' || profile.role === 'client') && !profile.onboarded_at) {
     return (
-      <main>
-        <Onboarding
-          session={session}
-          profile={profile}
-          onComplete={() => fetchProfile(session.user.id)}
-        />
-      </main>
+      <Suspense fallback={<LoadingScreen />}>
+        <main>
+          <Onboarding
+            session={session}
+            profile={profile}
+            onComplete={() => fetchProfile(session.user.id)}
+          />
+        </main>
+      </Suspense>
     )
   }
 
