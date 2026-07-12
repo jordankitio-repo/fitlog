@@ -44,9 +44,9 @@ export default function SoloUpgrade({ feature = 'this feature', compact = false 
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            priceId: import.meta.env.VITE_STRIPE_SOLO_PRICE_ID?.trim(),
-          }),
+          // No priceId — the server resolves it from our verified role. See
+          // create-checkout-session.
+          body: JSON.stringify({}),
         }
       )
       const json = await res.json()

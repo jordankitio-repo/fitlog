@@ -87,9 +87,10 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            priceId: import.meta.env.VITE_STRIPE_FOUNDING_PRICE_ID?.trim(),
-          }),
+          // No priceId. The server picks the price from our verified role — see
+          // create-checkout-session. Sending one from here meant the price lived
+          // in the JS bundle, where anyone could swap it for a cheaper one.
+          body: JSON.stringify({}),
         }
       )
       const json = await res.json()

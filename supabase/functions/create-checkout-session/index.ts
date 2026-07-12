@@ -90,9 +90,25 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'STRIPE_SECRET_KEY is not configured' }, 500)
     }
 
-    const { priceId, price_id } = await req.json()
-    const stripePriceId = priceId || price_id
-    if (!stripePriceId) return jsonResponse({ error: 'priceId is required' }, 400)
+    // The price is chosen HERE, from the caller's role, and never taken from the
+    // request. It used to be read straight off the request body — and both price
+    // IDs ship to the browser (VITE_* is public, it's in the JS bundle), so a
+    // coach could call this with the solo price ID and get coach access at the
+    // solo rate. `role` was verified against the database; the price wasn't
+    // verified against anything.
+    //
+    // This also makes tiered pricing possible at all. A tier whose price the
+    // client selects is not a tier — a coach would pass the cheapest price ID and
+    // coach an unlimited roster on it. Server-side price resolution is the
+    // precondition for ever charging by roster size.
+    //
+    // Requires STRIPE_COACH_PRICE_ID / STRIPE_SOLO_PRICE_ID in the function's
+    // env (server-side, NOT VITE_*). When tiers arrive this becomes a map from a
+    // validated tier name to a price ID; the shape below already anticipates it.
+    const PRICE_IDS: Record<string, string | undefined> = {
+      coach: Deno.env.get('STRIPE_COACH_PRICE_ID'),
+      solo: Deno.env.get('STRIPE_SOLO_PRICE_ID'),
+    }
 
     // Verify caller
     const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
@@ -121,6 +137,15 @@ Deno.serve(async (req) => {
     // Only coach and solo can subscribe
     if (role !== 'coach' && role !== 'solo') {
       return jsonResponse({ error: 'Only coaches and solo users can start checkout' }, 403)
+    }
+
+    // Resolve the price from the verified role. Fail closed: if the env var is
+    // missing we refuse to open a checkout rather than fall back to anything the
+    // caller supplied.
+    const stripePriceId = PRICE_IDS[role]
+    if (!stripePriceId) {
+      console.error(`No Stripe price configured for role "${role}"`)
+      return jsonResponse({ error: 'Billing is not configured' }, 500)
     }
 
     const PAID_STATUSES = ['trialing', 'active', 'past_due']
