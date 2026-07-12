@@ -143,6 +143,20 @@ export const heroTour = {
         arm: 'And the arm is UP. Losing fat while gaining size is the whole point, and it is invisible to a weigh-in.',
       },
     },
+    // The sharpest thing Gardnr does, and until now it was one line of prose
+    // buried in a list. Every competitor draws you a weight chart. This one reads
+    // the chart back to you as a number you can actually coach from — and says
+    // out loud how sure it is, which is rarer than it should be.
+    {
+      id: 'maintenance',
+      tab: 'What they can actually eat',
+      caption:
+        'Her real maintenance — about 2,150–2,250 calories — read from what she actually ate and actually weighed. Not a formula that assumes an average human. The range is the honest width of the estimate, and it narrows as she logs.',
+      alt: 'A coach-only energy balance read for a client. Estimated maintenance is 2,150 to 2,250 calories, her weight trend is down 0.9 pounds a week, and she logged 1,746 calories against an 1,850 target. Above it, a chart overlays her weight line on daily calorie and cardio compliance bars.',
+      hotspots: {
+        read: 'No calculator asked her height and guessed. This is fitted from eight weeks of her own intake against her own weigh-ins — and the width of the range is the fit’s real error, so it tells you when it doesn’t know.',
+      },
+    },
   ],
 }
 

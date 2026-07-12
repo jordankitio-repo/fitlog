@@ -22,7 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.env
+# Every .env variant, not just `.env`. A stray `.env.bak` backup was once made
+# inside the repo and swept into a commit by `git add -A`; GitHub's push
+# protection caught the Stripe key in it. Backups belong outside the tree.
+.env*
 .vercel
 
 # Supabase local-dev artifacts (created by `supabase start`)

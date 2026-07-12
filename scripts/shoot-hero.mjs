@@ -178,13 +178,20 @@ async function capture(variant, size) {
     { id: 'arm', text: 'Arm', minWidth: 180 },
   ])
 
-  // NOT captured: the Progress overview / energy-balance section. The read itself
-  // is one of the best things in the product — real empirical maintenance from
-  // what the client actually ate and weighed — but the chart directly above it
-  // plots the weight line across the full history while the calorie and cardio
-  // bars cover only the last 30 days. With eight weeks of data its left half is
-  // permanently blank, and it photographs as though the app is broken. Worth
-  // fixing in the chart; not worth putting in the hero until it is.
+  // 4 — Their real maintenance. Empirical TDEE fitted from what the client
+  //     actually ate against what they actually weighed — reported as a RANGE
+  //     whose width is the regression's own error, so the band widens honestly
+  //     when the weigh-ins are noisy. Every competitor shows you a weight chart.
+  //     This turns the chart into a number you can coach from.
+  //
+  //     This frame was unusable until f04d72f: the weight line was drawn from the
+  //     client's OLDEST 30 weigh-ins while the bars covered the last 30 days, so
+  //     the chart had a permanently blank half and photographed as though the app
+  //     were broken. It was stale data, not a framing problem.
+  await toSection(page, 'correlatedChart', 1800)
+  await save(page, 'maintenance', variant, [
+    { id: 'read', text: 'Est. maintenance', minWidth: 420 },
+  ])
 
   await ctx.close()
 }
