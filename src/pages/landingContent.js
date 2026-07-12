@@ -5,22 +5,41 @@
 // is that positioning can change without touching components, and that no claim
 // reaches the page without someone checking it's true.
 //
-// Claims on this page are load-bearing and were verified against the code:
-//   - "flat, no per-client fee"  → create-checkout-session sets line_items
-//     quantity to 1; nothing multiplies by roster size.
-//   - "card required"            → Checkout runs in subscription mode without a
-//     payment_method_collection override, so Stripe collects a card up front.
-//   - "clients can delete"       → account erasure ships (delete-account fn).
-//     NOTE: data *export* does NOT ship yet — do not claim it here.
-// If you change billing or privacy behavior, change this file in the same PR.
+// ⚠️ BILLING IS OFF. This page must not describe a trial, a price you charge
+// today, or a card requirement.
+//
+// `BILLING_ENABLED = false` (src/App.jsx) — committed in b451ce6, "turn off the
+// coach paywall (pre-public)". CoachPaywall is the ONLY path a coach has to
+// create-checkout-session, and it never renders. So today a coach signs up, walks
+// straight into the app, and is never asked for a card or charged anything.
+//
+// An earlier draft of this file described a "$19/month, 30-day trial, card
+// required" flow, inferred from create-checkout-session without checking whether
+// the paywall that calls it was reachable. It wasn't. That copy invented a price
+// and a credit-card wall that do not exist — the most expensive possible error
+// for a product whose only constraint is distribution.
+//
+// 🔒 If you flip BILLING_ENABLED back to true, the pricing, trial, hero and FAQ
+// copy below all become lies in the other direction. Change them in the SAME PR.
+//
+// Claims here, and how each was verified:
+//   - "free, no card"        → BILLING_ENABLED === false, so CoachPaywall (the
+//                              only coach checkout entry point) never mounts.
+//   - "every client included"→ create-checkout-session hardcodes line_items
+//                              quantity to 1; nothing multiplies by roster size.
+//                              No client cap exists in the schema.
+//   - "$19/month planned"    → the configured Stripe price. Stated as INTENT,
+//                              never as a charge that happens today.
+//   - "clients can delete"   → account erasure ships (delete-account fn).
+//                              NOTE: data *export* does NOT ship — do not claim it.
 
 export const meta = {
   title: 'Gardnr — Nutrition coaching software',
   // Kept under ~160 chars so it isn't truncated in search results.
   description:
-    'Nutrition coaching software for online coaches: client logging, 7-day compliance, and weekly reports drafted from real data. Flat $19/mo. 30-day free trial.',
+    'Nutrition coaching software for online coaches: client logging, 7-day compliance, and weekly reports drafted from real data. Free while in early access.',
   ogDescription:
-    'Client logging, compliance, and weekly reports in one place. Flat $19/month, every client included.',
+    'Client logging, compliance, and weekly reports in one place. Free while we’re in early access.',
 }
 
 export const nav = {
@@ -30,7 +49,7 @@ export const nav = {
     ['#faq', 'FAQ'],
   ],
   signIn: 'Sign in',
-  cta: 'Start free trial',
+  cta: 'Start free',
 }
 
 export const hero = {
@@ -41,20 +60,28 @@ export const hero = {
   h1: "Stop guessing how your clients' week actually went.",
   subhead:
     'You coach nutrition on food screenshots and rebuilt spreadsheets. Gardnr puts client logging, compliance, and weekly reports in one place — so you walk into every check-in already knowing how the week went.',
-  cta: 'Start 30-day free trial',
+  cta: 'Start free',
   secondaryCta: 'See the workflow',
-  // Positive, checkmarked. The card disclosure is deliberately NOT one of these
-  // — a checkmark implies a benefit, and "card required" isn't one.
   trust: [
-    '30 days free, then $19/month',
-    'Flat rate — no per-client fees',
+    'Free while we’re in early access',
+    'Every client included — no per-seat fee',
     'Installs like an app — no App Store',
   ],
-  // Sits directly under the CTA, unchecked and plain. Saying this out loud
-  // converts better than hiding it until Stripe, and it's the honest posture
-  // under ROSCA (material terms disclosed before billing info is collected).
-  ctaNote:
-    "Card required to start. You're not charged until day 31, and you can cancel any time before then.",
+  // "No card" is the single strongest thing this page can say to a stranger who
+  // has never heard of Gardnr and has no reason to trust it yet. It is also, for
+  // once, simply true. Say it directly under the CTA where the hesitation lives.
+  ctaNote: 'No card, no trial clock. Gardnr is free while we’re in early access.',
+}
+
+// The hero image is a screenshot of the real coach dashboard, captured from the
+// running app against a seeded demo roster. It replaces a hand-built mock of a
+// UI that did not exist.
+//
+// This image carries meaning rather than decoration, so the alt text has to
+// convey what a sighted visitor takes from it (WCAG 1.1.1) — which is the
+// triage story, not a list of widgets. It is not "screenshot of dashboard".
+export const heroShot = {
+  alt: 'The Gardnr coach dashboard: three clients ranked by who needs attention first. Maya is on target, Jordan is drifting, and Sam has not logged in three days — each with their week of calorie, protein, cardio and step compliance beside them.',
 }
 
 export const tagline = {
@@ -165,74 +192,85 @@ export const workflow = {
   ],
 }
 
-// New section. Flat pricing is the sharpest commercial argument Gardnr has and
-// it appeared nowhere on the old page — every competitor charges per client.
-// It gets its own anchor.
+// Pricing while BILLING_ENABLED is false.
+//
+// The job of this section is no longer to sell a price — it's to remove the
+// last hesitation ("what's the catch?") while still anchoring what Gardnr is
+// worth. Naming $19 now, as intent rather than a charge, is what stops the day
+// we switch billing on from feeling like a bait-and-switch. Free with a named
+// future price is a normal, honest early-access posture; free with no mention
+// of ever charging is the one that burns your earliest supporters later.
 export const pricing = {
   eyebrow: 'Pricing',
-  h2: 'One price. Every client included.',
-  lede: "$19 a month, flat. Not per client, not per seat. Coach three people or thirty — the price doesn't move.",
-  amount: '$19',
-  period: '/month',
-  trialLine: '30 days free, then $19/month',
+  h2: 'Free while we’re in early access.',
+  lede:
+    'Gardnr is free to use right now — no card, no trial clock, no cap on how many clients you coach. When we do start charging it will be $19 a month, flat, with every client included. You’ll hear it from us well before that happens.',
+  amount: 'Free',
+  period: 'while in early access',
+  trialLine: 'Planned at launch: $19/month, flat',
   includes: [
-    'Every client on your roster — no per-seat fee',
+    'Every client on your roster — no per-seat fee, ever',
     'Clients use Gardnr free — they never pay anything',
     'Compliance, reports, check-ins, messaging, and nudges',
-    'Cancel any time from your profile',
+    'Delete your account, and everything in it, whenever you like',
   ],
-  cta: 'Start 30-day free trial',
-  note: "Card required to start. You're not charged until day 31.",
+  cta: 'Start free',
+  note: 'No card required. We’ll give you plenty of notice before Gardnr costs anything.',
   // The free solo product was a 12px footer link — the lowest-commitment door
   // Gardnr owns, hidden below the fold. It gets a real line here.
   soloLine: 'Not coaching anyone? Gardnr is free for tracking your own nutrition.',
   soloCta: 'Start free',
 }
 
+// Was "The proof plan — use the trial to run one real check-in". There is no
+// trial any more, but the section is the best on the page: it tells a coach
+// exactly how to evaluate Gardnr instead of asking them to browse features. The
+// framing survives, the trial clock doesn't.
 export const trial = {
   eyebrow: 'The proof plan',
-  h2: 'Use the trial to run one real check-in.',
-  copy: '30 days to run a real coaching cycle. See compliance, send reports, message clients — everything in one place from day one.',
+  h2: 'Judge it on one real check-in.',
+  copy:
+    'Don’t take our word for any of this. Give it one client and one week, then look at the check-in that comes out the other end and decide.',
   steps: [
     'Invite one client and set their targets',
     'Have them log a normal week from their phone',
     'Review their compliance before the check-in',
     'Generate, edit, and send the weekly report',
   ],
-  cta: 'Start your 30-day trial',
-  note: "$19/month after the trial. Card required to start; you're not charged until day 31. Cancel any time.",
+  cta: 'Start free',
+  note: 'Free while we’re in early access. No card, and nothing to cancel.',
 }
 
-// New section. Every objection below is one a coach will actually have, and an
-// unanswered objection resolves as "no". Answers are deliberately plain — each
-// one is checkable against the code, and none of them oversells.
+// Every objection below is one a coach will actually have, and an unanswered
+// objection resolves as "no". Answers are deliberately plain — each one is
+// checkable against the code, and none of them oversells.
 export const faq = {
   eyebrow: 'Before you ask',
   h2: 'The questions coaches actually ask.',
   items: [
     {
+      q: 'What does Gardnr cost?',
+      a: 'Nothing right now. Gardnr is free while we’re in early access — no card, no trial clock, no limits. When we start charging it will be $19 a month, flat, and you’ll hear it from us well before it happens.',
+    },
+    {
+      q: 'What’s the catch?',
+      a: 'There isn’t one. Gardnr is new, and we would rather have coaches using it and telling us what’s wrong with it than have a payment page nobody reaches. That’s the whole trade.',
+    },
+    {
+      q: 'How many clients can I coach?',
+      a: 'As many as you like. There is no per-client fee and no cap — and there won’t be one when we start charging either. The price is flat, so it doesn’t scale with the size of your book.',
+    },
+    {
       q: 'Do my clients pay anything?',
-      a: 'No. Clients use Gardnr free, forever. You pay $19/month; they pay nothing.',
-    },
-    {
-      q: 'How many clients can I coach on $19/month?',
-      a: "Every client on your roster is included. The price is flat — it doesn't scale with the size of your book.",
-    },
-    {
-      q: 'Do I need a card to start the free trial?',
-      a: "Yes. We take your card at signup so your account keeps running on day 31. You aren't charged during the 30 days, and cancelling before then costs you nothing.",
+      a: 'No. Clients use Gardnr free, and they always will. Whatever a coach pays, their clients pay nothing.',
     },
     {
       q: 'Do my clients need to download an app?',
       a: 'No App Store, no download. Gardnr installs to their home screen straight from the browser, and opens to a logging screen.',
     },
     {
-      q: "What happens to my clients' health data?",
-      a: "It's theirs. We don't sell it, and we don't share it with advertisers. Clients can permanently delete their account and data at any time. The details are in our Consumer Health Data Policy.",
-    },
-    {
-      q: 'Can I cancel?',
-      a: 'Any time, from your profile. Cancel during the trial and you are never charged.',
+      q: 'What happens to my clients’ health data?',
+      a: 'It’s theirs. We don’t sell it, and we don’t share it with advertisers. Clients can permanently delete their account and everything in it at any time. The details are in our Consumer Health Data Policy.',
     },
   ],
 }
@@ -252,8 +290,8 @@ export const faq = {
 
 export const finalCta = {
   h2: 'Start your next check-in from Gardnr.',
-  copy: 'Everything your coaching workflow needs, in one place. 30 days free, $19/month after — every client included.',
-  cta: 'Start 30-day free trial',
+  copy: 'Everything your coaching workflow needs, in one place. Free while we’re in early access — no card, every client included.',
+  cta: 'Start free',
   signIn: 'Sign in',
 }
 
