@@ -25,6 +25,38 @@ const signupPath = '/login?mode=signup&role=coach'
 const soloSignupPath = '/login?mode=signup&role=solo'
 const brandName = meta.title.split(' — ')[0]
 
+// ── Analytics containment ───────────────────────────────────────────────────
+//
+// Gardnr is a consumer health app (FTC Health Breach Notification Rule, WA My
+// Health My Data). Reporting authenticated paths like /client/<id> or /log to
+// an analytics vendor is the GoodRx/BetterHelp fact pattern. Our privacy policy
+// states this analytics "does not run on signed-in or health-data routes" — the
+// two guards below are what make that sentence true. Do not remove either.
+//
+// Guard 1 — `route`/`path` on <Analytics>. Mounting the component inside
+// Landing is NOT sufficient on its own: @vercel/analytics `inject()` appends its
+// script to document.head from an effect with no cleanup, so the script OUTLIVES
+// this component. Left bare, it keeps auto-tracking history changes for the rest
+// of the SPA session — straight into the authenticated app. Passing `route` sets
+// `data-disable-auto-track` on the script tag, so it never patches the history
+// API and only reports what we explicitly send.
+//
+// Guard 2 — `beforeSend`. A path allowlist, applied to every outgoing event, in
+// case guard 1 ever regresses. It fails closed: no parseable URL, no send.
+const MARKETING_PATHS = new Set(['/', '/login'])
+
+function beforeSendMarketingOnly(event) {
+  try {
+    // NOTE: '/' is also the signed-in dashboard. That is safe only because
+    // auto-tracking is off and nothing inside the app calls track() — so no
+    // event ever originates there. The paths that carry health data
+    // (/log, /profile, /client/<id>) are refused here regardless.
+    return MARKETING_PATHS.has(new URL(event.url).pathname) ? event : null
+  } catch {
+    return null
+  }
+}
+
 // ── Data ────────────────────────────────────────────────────────────────────
 
 // Each client tells a story the hover reveals: a winner, a watch, and a lapse.
@@ -286,7 +318,10 @@ export default function Landing() {
   return (
     <div className="lp">
 
-      <Analytics />
+      {/* route/path are load-bearing, not cosmetic — see the note at the top of
+          this file. They disable the script's history auto-tracking, which would
+          otherwise follow the visitor into the authenticated app. */}
+      <Analytics route="/" path="/" beforeSend={beforeSendMarketingOnly} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
       {/* NAV */}
