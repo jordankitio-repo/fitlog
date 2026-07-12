@@ -15,12 +15,12 @@
 - **Stack:** Supabase **edge functions** at `supabase/functions/<name>/index.ts` — Deno runtime (TypeScript, Web APIs, `Deno.env`, global `fetch`, `crypto.subtle`, `AbortController`; **no npm, no Node**). Frontend is React under `src/`.
 - **The three Anthropic callers** (verify, don't trust: `grep -rl "api.anthropic.com" supabase/functions/`) are **`nutrition-coach`**, **`weekly-report`**, **`call-prep`**. `weekly-digest` and `notify-*` use Resend, not Anthropic — do not touch them.
 - **These functions differ in their return style — match each one's existing style, don't standardize:**
-  | Function | Auth var | Success return (keep the key + the style) | `max_tokens` |
-  |---|---|---|---|
-  | `nutrition-coach` | `user.id` (inline JWT check) | `return jsonResponse({ message })` | 300 |
-  | `weekly-report` | `auth.userId` (`verifyCoachOwnsClient`) | `return new Response(JSON.stringify({ report }), { headers })` | 800 |
-  | `call-prep` | `auth.userId` (`verifyCoachOwnsClient`) | `return new Response(JSON.stringify({ briefing }), { headers })` | 1024 |
-- **Secrets/model already correct.** Keep `model: "claude-haiku-4-5-20251001"` and each function's existing `max_tokens`. `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY` are already in the edge env — **add no new secrets, no new deps.**
+  | Function | Auth var | Success return (keep the key + the style) | `model` | `max_tokens` |
+  |---|---|---|---|---|
+  | `nutrition-coach` | `user.id` (inline JWT check) | `return jsonResponse({ message })` | `claude-haiku-4-5-20251001` | 300 |
+  | `weekly-report` | `auth.userId` (`verifyCoachOwnsClient`) | `return new Response(JSON.stringify({ report }), { headers })` | `claude-haiku-4-5-20251001` | 800 |
+  | `call-prep` | `auth.userId` (`verifyCoachOwnsClient`) | `return new Response(JSON.stringify({ briefing }), { headers })` | **`claude-opus-4-5`** | 1024 |
+- **Secrets/model already correct.** Keep each function's **existing** `model` and `max_tokens` per the table above — the three are **not** all on the same model (`call-prep` runs Opus; the other two run Haiku). `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY` are already in the edge env — **add no new secrets, no new deps.**
 - **Shared modules:** put shared code in **`supabase/functions/_shared/`** (a `_`-prefixed dir is NOT deployed as a function) and import with a plain **relative path** (`../_shared/anthropic.ts`). This needs **no** change to any function's `deno.json` / import map — a relative import isn't an import-map entry.
 - **Migration convention:** `supabase/migrations/YYYYMMDDHHMMSS_<name>.sql`, timestamp strictly greater than the latest existing migration. Mirror `supabase/migrations/20260624140000_rate_limits.sql` for style.
 

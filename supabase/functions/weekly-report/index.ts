@@ -1,3 +1,5 @@
+import { callAnthropic } from '../_shared/anthropic.ts'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -134,32 +136,24 @@ Write a structured weekly coaching report with these sections:
 
 Be direct, specific, and encouraging. Use the actual numbers from their data. If the client submitted a check-in, make sure to address it personally. Do not include a date-range title; the app will add it.`
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey ?? '',
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 800,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    const result = await callAnthropic({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      messages: [{ role: 'user', content: prompt }],
     })
-
-    const data = await response.json()
-
-    if (data.type === 'error') {
-      return new Response(JSON.stringify({ error: data.error.message }), {
-        status: 500,
+    if (!result.ok) {
+      console.error('weekly-report anthropic failed:', result.status, result.error)
+      return new Response(JSON.stringify({
+        error: result.retryable
+          ? 'Our AI is busy right now — please try again in a moment.'
+          : "Couldn't generate a response right now.",
+      }), {
+        status: result.retryable ? 503 : 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const report = `Weekly Report (${rangeLabel})\n\n${data.content[0].text}`
+    const report = `Weekly Report (${rangeLabel})\n\n${result.text}`
 
     return new Response(JSON.stringify({ report }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

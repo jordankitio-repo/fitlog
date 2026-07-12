@@ -727,14 +727,24 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   async function getAIFeedback() {
     setLoading(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    const response = await fetch(
-      'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nutrition-coach',
-      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }, body: JSON.stringify({ entries }) }
-    )
-    const data = await response.json()
-    setFeedback(data.message)
-    setLoading(false)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch(
+        'https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/nutrition-coach',
+        { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }, body: JSON.stringify({ entries }) }
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || data.error) {
+        showToast(data.error || 'Something went wrong — please try again.', 'error')
+        return
+      }
+      setFeedback(data.message)
+    } catch (error) {
+      console.error('AI feedback error:', error)
+      showToast('Something went wrong — please try again.', 'error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function lookupBarcode(barcode) {

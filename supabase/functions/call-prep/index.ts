@@ -1,3 +1,5 @@
+import { callAnthropic } from '../_shared/anthropic.ts'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -83,8 +85,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Too many requests — please wait a bit before trying again.' }, 429)
     }
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-
     const nutritionSummary = weekData.map((d: any) => {
       const parts = [`${d.date}:`]
       if (d.totalCalories > 0) parts.push(`${d.totalCalories} cal, ${d.totalProtein}g protein`)
@@ -136,22 +136,24 @@ Write the briefing with exactly these sections:
 
 Be concise and direct; use bullet points. This is the coach's conversation cheat-sheet — do NOT write recommendations or a plan for the client (that is the weekly report's job, a separate tool).`
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    const result = await callAnthropic({
+      model: 'claude-opus-4-5',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
     })
+    if (!result.ok) {
+      console.error('call-prep anthropic failed:', result.status, result.error)
+      return new Response(JSON.stringify({
+        error: result.retryable
+          ? 'Our AI is busy right now — please try again in a moment.'
+          : "Couldn't generate a response right now.",
+      }), {
+        status: result.retryable ? 503 : 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    const data = await response.json()
-    const briefing = data.content?.[0]?.text || 'Failed to generate briefing.'
+    const briefing = result.text
 
     return new Response(JSON.stringify({ briefing }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

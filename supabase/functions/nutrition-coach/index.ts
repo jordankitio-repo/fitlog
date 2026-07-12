@@ -1,3 +1,6 @@
+import { callAnthropic } from '../_shared/anthropic.ts'
+import { getCached, hashInput, setCached } from '../_shared/aiCache.ts'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -99,11 +102,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    const { entries } = await req.json()
+
+    const inputHash = await hashInput(entries)
+    const cached = inputHash
+      ? await getCached('nutrition-coach:v1', user.id, inputHash)
+      : null
+    if (cached?.message) return jsonResponse({ message: cached.message })
+
     if (!(await withinRateLimit(supabaseUrl, serviceKey, user.id, 'nutrition-coach', 30, 3600))) {
       return jsonResponse({ error: 'Too many requests — please wait a bit before trying again.' }, 429)
     }
-
-    const { entries } = await req.json()
 
     const entryList = entries
       .map((e: { food: string; calories: number }) => `- ${e.food}: ${e.calories} cal`)
@@ -113,29 +122,24 @@ Deno.serve(async (req) => {
 ${entryList}
 Give them brief, practical feedback in 3-4 sentences. Assess their calorie intake, comment on what you can infer about their nutrition, and give one concrete suggestion.`
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey ?? '',
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    const result = await callAnthropic({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }],
     })
-
-    const data = await response.json()
-
-    if (data.type === 'error') {
-      return jsonResponse({ error: data.error.message }, 500)
+    if (!result.ok) {
+      console.error('nutrition-coach anthropic failed:', result.status, result.error)
+      return jsonResponse({
+        error: result.retryable
+          ? 'Our AI is busy right now — please try again in a moment.'
+          : "Couldn't generate a response right now.",
+      }, result.retryable ? 503 : 502)
     }
 
-    const message = data.content[0].text
+    const message = result.text
+    if (inputHash) {
+      await setCached('nutrition-coach:v1', user.id, inputHash, { message }, 21600)
+    }
 
     return jsonResponse({ message })
 
