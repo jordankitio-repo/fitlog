@@ -10,6 +10,7 @@ import {
   finalCta,
   footer,
   hero,
+  heroShot,
   instruments,
   meta,
   nav,
@@ -54,165 +55,6 @@ function beforeSendMarketingOnly(event) {
   } catch {
     return null
   }
-}
-
-// ── Data ────────────────────────────────────────────────────────────────────
-
-// Each client tells a story the hover reveals: a winner, a watch, and a lapse.
-const clients = [
-  {
-    name: 'Maya Chen', goal: 'Cut phase', lastLog: 'Today', status: 'ready',
-    pills: [
-      { label: 'Calories', value: '5/7', tone: 'good' },
-      { label: 'Protein',  value: '6/7', tone: 'good' },
-      { label: 'Cardio',   value: '3/7', tone: 'warn' },
-      { label: 'Steps',    value: '6/7', tone: 'good' },
-    ],
-    bars: [82, 76, 71, 67, 62, 58, 54],
-    reportStatus: 'Draft ready',
-    report: 'Protein on target 6/7 days. Cardio dipped midweek — weight still trending down.',
-  },
-  {
-    name: 'Jordan Lee', goal: 'Reverse diet', lastLog: 'Yesterday', status: 'watch',
-    pills: [
-      { label: 'Calories', value: '4/7', tone: 'warn' },
-      { label: 'Protein',  value: '5/7', tone: 'good' },
-      { label: 'Cardio',   value: '2/7', tone: 'warn' },
-      { label: 'Steps',    value: '4/7', tone: 'warn' },
-    ],
-    bars: [60, 63, 61, 64, 62, 65, 64],
-    reportStatus: 'Draft ready',
-    report: 'Weekend calories crept up. Weight holding flat — on plan for a reverse.',
-  },
-  {
-    name: 'Sam Rivera', goal: 'Maintenance', lastLog: '3 days', status: 'nudge',
-    pills: [
-      { label: 'Calories', value: '2/7', tone: 'bad' },
-      { label: 'Protein',  value: '2/7', tone: 'bad' },
-      { label: 'Cardio',   value: '1/7', tone: 'bad' },
-      { label: 'Steps',    value: '3/7', tone: 'warn' },
-    ],
-    bars: [54, 48, 0, 0, 46, 0, 40],
-    reportStatus: 'Nudge sent',
-    report: 'Logging stopped 3 days ago. Nudge sent — waiting on re-engagement.',
-  },
-]
-
-const badgeLabels = { ready: 'Ready', watch: 'Watch', nudge: 'Nudge' }
-
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function StatusBadge({ status }) {
-  return <span className={`lp-badge lp-badge-${status}`}>{badgeLabels[status]}</span>
-}
-
-function ProductPreview() {
-  const [sel, setSel] = useState(0)
-  const [cta, setCta] = useState('idle') // idle | sending | sent
-  const timers = useRef([])
-  const c = clients[sel]
-
-  useEffect(() => () => timers.current.forEach(clearTimeout), [])
-
-  function clearTimers() {
-    timers.current.forEach(clearTimeout)
-    timers.current = []
-  }
-  function selectClient(i) {
-    clearTimers()
-    setCta('idle')
-    setSel(i)
-  }
-  function sendReport() {
-    if (cta !== 'idle') return
-    clearTimers()
-    setCta('sending')
-    timers.current.push(setTimeout(() => setCta('sent'), 650))
-    timers.current.push(setTimeout(() => setCta('idle'), 2600))
-  }
-
-  const ctaLabel = cta === 'sending' ? 'Sending…' : cta === 'sent' ? 'Sent ✓' : 'Review and send →'
-
-  return (
-    <div className="lp-pp">
-      {/* Chrome */}
-      <div className="lp-pp-chrome">
-        {['#ff5f57', '#febc2e', '#28c840'].map((c) => (
-          <span key={c} className="lp-pp-dot" style={{ background: c }} />
-        ))}
-        <span className="lp-pp-url">gardnr.fit — Coach dashboard</span>
-      </div>
-
-      <div className="lp-pp-grid">
-        {/* Left: client list */}
-        <div className="lp-pp-left">
-          <div className="lp-pp-listhead">
-            <span>Active clients</span>
-            <span className="lp-pp-sort">Sort: compliance</span>
-          </div>
-
-          {clients.map((client, i) => (
-            <div
-              key={client.name}
-              className={`lp-pp-client${i === sel ? ' is-sel' : ''}`}
-              onMouseEnter={() => selectClient(i)}
-              onClick={() => selectClient(i)}
-            >
-              <div>
-                <p className="lp-pp-client-name">{client.name}</p>
-                <p className="lp-pp-client-meta">{client.goal} · {client.lastLog}</p>
-              </div>
-              <StatusBadge status={client.status} />
-            </div>
-          ))}
-
-          <div className="lp-pp-pills">
-            <p className="lp-pp-pills-label">{c.name} · 7-day compliance</p>
-            <div className="lp-pp-pills-row">
-              {c.pills.map((p) => (
-                <span key={p.label} className={`lp-pp-pill lp-pp-pill-${p.tone}`}>
-                  {p.label} {p.value}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: client detail — driven by the hovered client */}
-        <div className="lp-pp-right">
-          <p className="lp-pp-label">Client view</p>
-          <p className="lp-pp-client-title">{c.name}</p>
-
-          <div className="lp-pp-card">
-            <p className="lp-pp-card-label">Weight trend</p>
-            <div className="lp-pp-chart">
-              {c.bars.map((h, i) => (
-                <span
-                  key={i}
-                  className={`lp-pp-bar${i === c.bars.length - 1 ? ' lp-pp-bar-last' : ''}`}
-                  style={{ height: `${h}%` }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="lp-pp-card">
-            <div className="lp-pp-report-head">
-              <p className="lp-pp-card-label" style={{ margin: 0 }}>Weekly report</p>
-              <span className={`lp-pp-report-status${cta === 'sent' ? ' is-sent' : ''}`}>
-                {cta === 'sent' ? 'Sent ✓' : c.reportStatus}
-              </span>
-            </div>
-            <p className="lp-pp-report-text">{c.report}</p>
-          </div>
-
-          <button type="button" className={`lp-pp-cta lp-pp-cta-${cta}`} onClick={sendReport}>
-            <span>{ctaLabel}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // Tracks whether an element is in the viewport. `once` stops observing after
@@ -361,7 +203,28 @@ export default function Landing() {
           <p className="lp-cta-note">{hero.ctaNote}</p>
         </div>
         <div className="lp-hero-visual">
-          <ProductPreview />
+          {/* The real coach dashboard, captured from the running app against a
+              seeded roster (scripts/seed-hero-roster.mjs + scripts/shoot-hero.mjs).
+              It replaces a hand-drawn mock of a dashboard that didn't exist — a
+              drawing of your product is a poor thing to show someone who is
+              deciding whether to trust you.
+
+              Two sources, not one image scaled: a 1320px dashboard rendered into
+              a 375px phone is unreadable, so the narrow file is a tighter crop.
+              width/height are the CSS-pixel sizes so the box is reserved before
+              the image lands and the hero costs no layout shift. */}
+          <picture>
+            <source media="(min-width: 769px)" srcSet="/hero/dashboard-wide.webp" />
+            <img
+              src="/hero/dashboard-narrow.webp"
+              alt={heroShot.alt}
+              width={760}
+              height={880}
+              loading="eager"
+              fetchPriority="high"
+              className="lp-hero-shot"
+            />
+          </picture>
         </div>
       </section>
 

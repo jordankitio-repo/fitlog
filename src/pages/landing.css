@@ -24,6 +24,21 @@
 .lp-hero-copy > *:nth-child(5) { animation-delay: 0.20s; }
 .lp-hero-visual { animation: lpFadeUp 0.7s ease 0.18s both; }
 
+/* ---------- HERO SHOT ---------- */
+/* A screenshot of the real coach dashboard. The frame and shadow are the same
+   treatment the old fabricated mock had — the difference is that what's inside
+   it is now true. `height: auto` lets the intrinsic width/height on the <img>
+   reserve the right box while still scaling; the aspect ratio is preserved, so
+   the hero costs no layout shift. */
+.lp-hero-shot {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+  border: 1px solid #1c1c1c;
+  box-shadow: 0 48px 96px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
 /* ---------- NAV ---------- */
 .lp-nav {
   position: sticky; top: 0; z-index: 100;
@@ -77,58 +92,6 @@
 .lp-trust-item { font-size: 0.78rem; color: #858585; display: flex; align-items: center; gap: 6px; letter-spacing: -0.01em; }
 .lp-trust-check { color: #34d399; font-weight: 800; font-size: 0.7rem; }
 .lp-cta-note { margin: 14px 0 0; max-width: 460px; color: #858585; font-size: 0.74rem; line-height: 1.55; }
-
-/* ---------- PRODUCT PREVIEW ---------- */
-.lp-pp { background: #0c0c0c; border: 1px solid #1c1c1c; border-radius: 16px; overflow: hidden; box-shadow: 0 48px 96px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03); }
-.lp-pp-chrome { background: #111; border-bottom: 1px solid #1c1c1c; padding: 10px 16px; display: flex; align-items: center; gap: 6px; }
-.lp-pp-dot { width: 10px; height: 10px; border-radius: 50%; display: block; opacity: 0.8; flex: 0 0 auto; }
-.lp-pp-url { margin-left: 10px; font-size: 0.65rem; color: #858585; letter-spacing: 0.03em; }
-.lp-pp-grid { display: grid; grid-template-columns: 55% 45%; }
-.lp-pp-left { border-right: 1px solid #161616; }
-.lp-pp-listhead { padding: 14px 16px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #161616; }
-.lp-pp-listhead > span:first-child { font-size: 0.62rem; color: #858585; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
-.lp-pp-sort { font-size: 0.6rem; color: #3b82f6; font-weight: 500; }
-.lp-pp-client { position: relative; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #131313; cursor: pointer; transition: background-color 0.15s ease; }
-.lp-pp-client:last-of-type { border-bottom: none; }
-.lp-pp-client::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--color-primary); opacity: 0; transition: opacity 0.15s ease; }
-.lp-pp-client:hover { background: rgba(255,255,255,0.02); }
-.lp-pp-client.is-sel { background: rgba(34,197,94,0.05); }
-.lp-pp-client.is-sel::before { opacity: 1; }
-.lp-pp-client.is-sel .lp-pp-client-name { color: #fff; }
-.lp-pp-client-name { margin: 0; font-size: 0.8rem; font-weight: 600; color: #ddd; letter-spacing: -0.01em; }
-.lp-pp-client-meta { margin: 2px 0 0; font-size: 0.62rem; color: #858585; }
-.lp-pp-pills { padding: 12px 16px; border-top: 1px solid #161616; background: #0a0a0a; }
-.lp-pp-pills-label { margin: 0 0 8px; font-size: 0.6rem; color: #858585; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-.lp-pp-pills-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.lp-pp-pill { padding: 3px 8px; border-radius: 6px; font-size: 0.65rem; font-weight: 700; }
-.lp-pp-pill-good { color: #34d399; background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.15); }
-.lp-pp-pill-warn { color: #fbbf24; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.15); }
-.lp-pp-pill-bad  { color: #f87171; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.15); }
-.lp-pp-right { padding: 14px; }
-.lp-pp-label { margin: 0 0 2px; font-size: 0.6rem; color: #858585; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-.lp-pp-client-title { margin: 0 0 12px; font-size: 0.85rem; font-weight: 700; color: #ddd; letter-spacing: -0.01em; }
-.lp-pp-card { background: #0a0a0a; border: 1px solid #161616; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
-.lp-pp-card-label { margin: 0 0 6px; font-size: 0.58rem; color: #858585; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-.lp-pp-chart { display: flex; align-items: flex-end; gap: 2px; height: 32px; }
-.lp-pp-bar { flex: 1; background: rgba(52,211,153,0.15); border-radius: 2px 2px 0 0; display: block; transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-.lp-pp-bar-last { background: linear-gradient(to top, #34d399, rgba(52,211,153,0.4)); }
-.lp-pp-report-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.lp-pp-report-status { font-size: 0.58rem; color: #3b82f6; font-weight: 500; }
-.lp-pp-report-text { margin: 0; font-size: 0.68rem; color: #9a9a9a; line-height: 1.5; }
-.lp-pp-cta { width: 100%; display: block; font-family: inherit; cursor: pointer; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.15); border-radius: 8px; padding: 8px 12px; text-align: center; transition: background-color 0.2s ease, border-color 0.2s ease; }
-.lp-pp-cta span { font-size: 0.68rem; color: #3b82f6; font-weight: 600; transition: color 0.2s ease; }
-.lp-pp-cta-idle:hover { background: rgba(59,130,246,0.16); border-color: rgba(59,130,246,0.3); }
-.lp-pp-cta-sending { background: rgba(59,130,246,0.05); border-color: rgba(59,130,246,0.1); cursor: default; }
-.lp-pp-cta-sending span { color: #5577aa; }
-.lp-pp-cta-sent { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.35); cursor: default; }
-.lp-pp-cta-sent span { color: #34d399; }
-.lp-pp-report-status.is-sent { color: #34d399; }
-
-/* ---------- STATUS BADGE ---------- */
-.lp-badge { padding: 2px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
-.lp-badge-ready { color: #34d399; background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2); }
-.lp-badge-watch { color: #fbbf24; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2); }
-.lp-badge-nudge { color: #f87171; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); }
 
 /* ---------- TAGLINE BAND ---------- */
 .lp-tagline { border-top: 1px solid #111; border-bottom: 1px solid #111; padding: 28px 48px; text-align: center; background: #0a0a0a; }
@@ -268,7 +231,6 @@
   .lp-viz-fill { width: var(--w) !important; animation: none !important; }
   .lp-viz-cell { background: var(--color-weight) !important; transform: none !important; animation: none !important; }
   .lp-viz-bar { height: var(--h) !important; animation: none !important; }
-  .lp-pp-bar { transition: none !important; }
 }
 
 /* ---------- FAQ ---------- */
@@ -330,14 +292,6 @@
   .lp-cta-sm { padding: 8px 12px; }
   .lp-hero { padding-left: 16px; padding-right: 16px; }
   .lp-cap-grid { grid-template-columns: 1fr; }
-  .lp-pp { min-width: 0; }
-  .lp-pp-chrome { padding-left: 10px; padding-right: 10px; }
-  .lp-pp-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lp-pp-grid { grid-template-columns: 1fr; }
-  .lp-pp-left, .lp-pp-right { min-width: 0; padding-left: 14px; padding-right: 14px; }
-  .lp-pp-listhead, .lp-pp-client { gap: 8px; }
-  .lp-pp-pills-row { flex-wrap: wrap; }
-  .lp-pp-left { border-right: none; border-bottom: 1px solid #161616; }
   .lp-contrast-table { overflow: visible; }
   .lp-contrast-head { display: none; }
   .lp-contrast-row { gap: 0; margin-bottom: 12px; border: 1px solid #161616; border-radius: 10px; overflow: hidden; }

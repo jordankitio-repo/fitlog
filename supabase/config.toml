@@ -121,3 +121,8 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/notify-checkin-review/deno.json"
 entrypoint = "./functions/notify-checkin-review/index.ts"
+
+[analytics]
+# Off for local dev: the vector container mounts the Docker socket, which Colima
+# cannot do ("operation not supported"). Nothing local depends on it.
+enabled = false
