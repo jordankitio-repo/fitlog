@@ -101,12 +101,12 @@ function HomeLanding({ profile, hasSoloPremium }) {
 function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium, onProfileUpdate }) {
   const location = useLocation()
   const path = location.pathname
-  const isMobile = useMediaQuery('(max-width: 600px)')
-  // On phones the marketing landing (built for hover/desktop) is replaced by the
-  // sign-in form as the home screen — login IS the landing on mobile. The
-  // full-bleed landing treatment then only applies to the desktop marketing page.
-  const showLoginAsHome = !session && path === '/' && isMobile
-  const isLanding = !session && path === '/' && !isMobile
+  // A PWA launched from the home screen opens at `/` and wants the sign-in form.
+  // A stranger who tapped a link in a browser — at any width — wants the landing.
+  const isStandaloneDisplay = useMediaQuery('(display-mode: standalone)')
+  const isStandalone = isStandaloneDisplay || window.navigator.standalone === true
+  const showLoginAsHome = !session && path === '/' && isStandalone
+  const isLanding = !session && path === '/' && !isStandalone
 
   // App screens (every role's dashboard at `/`, the daily log at /log, the
   // profile, and a client's full record at /client/:id) get the full width so

@@ -297,9 +297,26 @@
 }
 
 @media (max-width: 480px) {
+  .lp-nav { padding: 0 12px; }
+  .lp-nav-right { gap: 10px; }
+  .lp-brand { gap: 6px; }
+  .lp-brand-name { font-size: 1rem; }
+  .lp-cta-sm { padding: 8px 12px; }
+  .lp-hero { padding-left: 16px; padding-right: 16px; }
   .lp-cap-grid { grid-template-columns: 1fr; }
+  .lp-pp { min-width: 0; }
+  .lp-pp-chrome { padding-left: 10px; padding-right: 10px; }
+  .lp-pp-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lp-pp-grid { grid-template-columns: 1fr; }
+  .lp-pp-left, .lp-pp-right { min-width: 0; padding-left: 14px; padding-right: 14px; }
+  .lp-pp-listhead, .lp-pp-client { gap: 8px; }
+  .lp-pp-pills-row { flex-wrap: wrap; }
   .lp-pp-left { border-right: none; border-bottom: 1px solid #161616; }
+  .lp-contrast-table { overflow: visible; }
+  .lp-contrast-head { display: none; }
+  .lp-contrast-row { gap: 0; margin-bottom: 12px; border: 1px solid #161616; border-radius: 10px; overflow: hidden; }
+  .lp-contrast-before, .lp-contrast-after { padding: 14px 16px; }
+  .lp-contrast-before { border-top: 0; }
   .lp-cta, .lp-trial-cta { width: 100%; text-align: center; }
   .lp-cta-row { gap: 16px; }
   .lp-final-row { flex-direction: column; }
