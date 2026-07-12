@@ -14,7 +14,6 @@ import {
   meta,
   nav,
   pain,
-  pricing,
   tagline,
   trial,
   workflow,
@@ -448,24 +447,13 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* PRICING */}
-      <section id="pricing" className="lp-section">
-        <div className="lp-section-narrow">
-          <p className="lp-eyebrow-text lp-eyebrow-green">{pricing.eyebrow}</p>
-          <h2 className="lp-h2">{pricing.h2}</h2>
-          <p className="lp-pricing-lede">{pricing.lede}</p>
-          <div className="lp-pricing-card">
-            <div className="lp-price"><span className="lp-price-amount">{pricing.amount}</span><span className="lp-price-period">{pricing.period}</span></div>
-            <p className="lp-pricing-trial">{pricing.trialLine}</p>
-            <ul className="lp-pricing-includes">
-              {pricing.includes.map((item) => <li key={item}>{item}</li>)}
-            </ul>
-            <Link to={signupPath} className="lp-cta lp-pricing-cta" onClick={() => track('cta_click', { location: 'pricing' })}>{pricing.cta}</Link>
-            <p className="lp-trial-note">{pricing.note}</p>
-          </div>
-          <p className="lp-solo-line">{pricing.soloLine} <Link to={soloSignupPath}>{pricing.soloCta}</Link></p>
-        </div>
-      </section>
+      {/* No pricing section. There is no price to defend — a pricing section
+          exists to answer a price objection, and while Gardnr is free there
+          isn't one. All it could do here is make the page talk about our
+          business model instead of the coach's problem. "Free while we're in
+          early access" is stated once in the hero and answered once in the FAQ;
+          that is the whole of it. Bring this section back the day there is a
+          number to put in it. */}
 
       {/* TRIAL */}
       <section id="trial" className="lp-section">
@@ -509,6 +497,9 @@ export default function Landing() {
             <Link to={signupPath} className="lp-cta" onClick={() => track('cta_click', { location: 'final' })}>{finalCta.cta}</Link>
             <Link to="/login" className="lp-signin">{finalCta.signIn}</Link>
           </div>
+          {/* Rehomed from the deleted pricing section — the free solo product is
+              the lowest-commitment door Gardnr owns and shouldn't be footer-only. */}
+          <p className="lp-solo-line">{finalCta.soloLine} <Link to={soloSignupPath}>{finalCta.soloCta}</Link></p>
         </div>
       </section>
 

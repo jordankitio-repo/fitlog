@@ -43,9 +43,10 @@ export const meta = {
 }
 
 export const nav = {
+  // No "Pricing" link — there is no pricing section to point it at. See the
+  // note where that section used to live, further down this file.
   links: [
     ['#how', 'Workflow'],
-    ['#pricing', 'Pricing'],
     ['#faq', 'FAQ'],
   ],
   signIn: 'Sign in',
@@ -62,15 +63,24 @@ export const hero = {
     'You coach nutrition on food screenshots and rebuilt spreadsheets. Gardnr puts client logging, compliance, and weekly reports in one place — so you walk into every check-in already knowing how the week went.',
   cta: 'Start free',
   secondaryCta: 'See the workflow',
+  // The entire treatment money gets on this page: three words in a checklist.
+  // "while we're in early access" is what makes charging later fair — everyone
+  // understands a beta ends — and it costs three words to say, not a section.
+  //
+  // "No client caps" replaced "no per-seat fee". The competitors don't charge
+  // per seat either (TrueCoach, Practice Better and Healthie all bill a flat fee
+  // inside a client-count band), so "no per-seat fee" was differentiating against
+  // nobody. Caps are the thing they all have and we don't — Healthie's entry tier
+  // stops at 10 clients. That's the true claim, and it's the sharper one.
   trust: [
     'Free while we’re in early access',
-    'Every client included — no per-seat fee',
+    'No client caps — coach as many as you like',
     'Installs like an app — no App Store',
   ],
   // "No card" is the single strongest thing this page can say to a stranger who
-  // has never heard of Gardnr and has no reason to trust it yet. It is also, for
-  // once, simply true. Say it directly under the CTA where the hesitation lives.
-  ctaNote: 'No card, no trial clock. Gardnr is free while we’re in early access.',
+  // has never heard of Gardnr and has no reason to trust it yet. Say it directly
+  // under the CTA, where the hesitation actually lives. Then stop talking.
+  ctaNote: 'No card required.',
 }
 
 // The hero image is a screenshot of the real coach dashboard, captured from the
@@ -192,35 +202,23 @@ export const workflow = {
   ],
 }
 
-// Pricing while BILLING_ENABLED is false.
+// ── No pricing section, deliberately ────────────────────────────────────────
 //
-// The job of this section is no longer to sell a price — it's to remove the
-// last hesitation ("what's the catch?") while still anchoring what Gardnr is
-// worth. Naming $19 now, as intent rather than a charge, is what stops the day
-// we switch billing on from feeling like a bait-and-switch. Free with a named
-// future price is a normal, honest early-access posture; free with no mention
-// of ever charging is the one that burns your earliest supporters later.
-export const pricing = {
-  eyebrow: 'Pricing',
-  h2: 'Free while we’re in early access.',
-  lede:
-    'Gardnr is free to use right now — no card, no trial clock, no cap on how many clients you coach. When we do start charging it will be $19 a month, flat, with every client included. You’ll hear it from us well before that happens.',
-  amount: 'Free',
-  period: 'while in early access',
-  trialLine: 'Planned at launch: $19/month, flat',
-  includes: [
-    'Every client on your roster — no per-seat fee, ever',
-    'Clients use Gardnr free — they never pay anything',
-    'Compliance, reports, check-ins, messaging, and nudges',
-    'Delete your account, and everything in it, whenever you like',
-  ],
-  cta: 'Start free',
-  note: 'No card required. We’ll give you plenty of notice before Gardnr costs anything.',
-  // The free solo product was a 12px footer link — the lowest-commitment door
-  // Gardnr owns, hidden below the fold. It gets a real line here.
-  soloLine: 'Not coaching anyone? Gardnr is free for tracking your own nutrition.',
-  soloCta: 'Start free',
-}
+// There used to be one here: a price card, a paragraph explaining our future
+// monetisation, a promise to give notice, a "what's the catch" FAQ. All of it
+// is gone, and the section in Landing.jsx with it.
+//
+// A pricing section exists to answer a price objection. Gardnr has no price, so
+// there is no objection — and the only thing such a section can do is make the
+// page talk anxiously about our business model on real estate that belongs to
+// the coach's problem. Naming a future number was worse still: it anchors us to
+// a price the market says is far too low (Healthie charges $129/mo for the
+// unlimited-client tier we were about to price at $19), and it manufactures the
+// pricing objection at the exact moment the honest answer is "it's free".
+//
+// Free is a fact we state once — in `hero.trust`, and once more in the FAQ.
+// It is not a topic. Bring a pricing section back the day there's a number to
+// put in it, and see the BILLING_ENABLED warning at the top of this file.
 
 // Was "The proof plan — use the trial to run one real check-in". There is no
 // trial any more, but the section is the best on the page: it tells a coach
@@ -238,7 +236,7 @@ export const trial = {
     'Generate, edit, and send the weekly report',
   ],
   cta: 'Start free',
-  note: 'Free while we’re in early access. No card, and nothing to cancel.',
+  note: 'Free while we’re in early access. No card required.',
 }
 
 // Every objection below is one a coach will actually have, and an unanswered
@@ -248,21 +246,20 @@ export const faq = {
   eyebrow: 'Before you ask',
   h2: 'The questions coaches actually ask.',
   items: [
+    // One cost question, answered in one line. No future number, no explaining,
+    // and deliberately no "what's the catch?" — that question plants the doubt
+    // it pretends to settle, and nobody asked it.
     {
       q: 'What does Gardnr cost?',
-      a: 'Nothing right now. Gardnr is free while we’re in early access — no card, no trial clock, no limits. When we start charging it will be $19 a month, flat, and you’ll hear it from us well before it happens.',
-    },
-    {
-      q: 'What’s the catch?',
-      a: 'There isn’t one. Gardnr is new, and we would rather have coaches using it and telling us what’s wrong with it than have a payment page nobody reaches. That’s the whole trade.',
+      a: 'Nothing right now — it’s free while we’re in early access. No card, no limits.',
     },
     {
       q: 'How many clients can I coach?',
-      a: 'As many as you like. There is no per-client fee and no cap — and there won’t be one when we start charging either. The price is flat, so it doesn’t scale with the size of your book.',
+      a: 'As many as you like. There’s no per-client fee and no cap on your roster.',
     },
     {
       q: 'Do my clients pay anything?',
-      a: 'No. Clients use Gardnr free, and they always will. Whatever a coach pays, their clients pay nothing.',
+      a: 'No. Clients use Gardnr free, and they always will.',
     },
     {
       q: 'Do my clients need to download an app?',
@@ -290,9 +287,13 @@ export const faq = {
 
 export const finalCta = {
   h2: 'Start your next check-in from Gardnr.',
-  copy: 'Everything your coaching workflow needs, in one place. Free while we’re in early access — no card, every client included.',
+  copy: 'Everything your coaching workflow needs, in one place. Free while we’re in early access, and there’s no card to hand over.',
   cta: 'Start free',
   signIn: 'Sign in',
+  // Rehomed from the deleted pricing section. The free solo product is the
+  // lowest-commitment door Gardnr owns; it shouldn't only exist in the footer.
+  soloLine: 'Not coaching anyone? Gardnr is free for tracking your own nutrition.',
+  soloCta: 'Start free',
 }
 
 export const footer = {
