@@ -99,8 +99,18 @@ Deno.serve(async (req) => {
       ? `Adherence: ${checkIn.adherence}/10\nEnergy: ${checkIn.energy}/10${checkIn.obstacles ? `\nObstacles: ${checkIn.obstacles}` : ''}${checkIn.notes ? `\nClient notes: ${checkIn.notes}` : ''}`
       : 'No check-in submitted this week.'
 
+    // Messages are text and a timestamp. Nothing more.
+    //
+    // Reactions were removed from the product in 60cc27f (2026-06-13, "Reactions
+    // weren't worth the UX") — but this prompt was left behind, and the column is
+    // write-dead, so every message since has come through here as "[no reaction]".
+    // Which means we were handing Claude a section headed CLIENT REACTIONS, a
+    // client who had apparently never reacted to a single thing their coach said,
+    // and an instruction to treat "negative reactions" as a churn signal. That
+    // isn't merely wasted tokens: it invites the model to read disengagement into
+    // a client who was never given a way to react in the first place.
     const messagesText = recentMessages?.length
-      ? recentMessages.map((m: any) => `- "${m.content}"${m.reaction ? ` [client reacted: ${m.reaction}]` : ' [no reaction]'}`).join('\n')
+      ? recentMessages.map((m: any) => `- "${m.content}"`).join('\n')
       : 'No recent messages.'
 
     const prompt = `You are a fitness coach's assistant. Write a concise PRE-MEETING briefing to get the coach ready before they next talk to ${clientName} — whether that's a call, an in-person session, or a message. This is PRIVATE to the coach, so be candid: surface risks and things to probe, not a polished client-facing summary.
@@ -117,7 +127,7 @@ ${nutritionSummary}
 LATEST CHECK-IN:
 ${checkInText}
 
-RECENT COACH MESSAGES & CLIENT REACTIONS:
+RECENT MESSAGES:
 ${messagesText}
 
 Write the briefing with exactly these sections:
@@ -129,7 +139,7 @@ Write the briefing with exactly these sections:
 (genuine positives from the data)
 
 **Watch-outs**
-(missed logs / quiet logging, falling adherence, under-fueling, negative reactions, stated obstacles, any churn risk — candid, coach's eyes only)
+(missed logs / quiet logging, falling adherence, under-fueling, stated obstacles, any churn risk — candid, coach's eyes only)
 
 **Bring up / ask**
 (specific talking points + open-ended questions for the conversation)

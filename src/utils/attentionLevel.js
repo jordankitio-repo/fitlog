@@ -2,11 +2,16 @@
 // single red / yellow / green level plus the human reasons behind it.
 //
 // Doctrine (see Ai-context/decisions.md → "No fabricated-confidence numbers"):
-// every signal here is an OBSERVED FACT (days since log, lock state, a negative
-// reaction, a check-in that didn't happen, a weak compliance count). There is no
-// score, no percentage, no model — just facts the coach could verify by hand,
-// ranked so they don't have to. Reasons are ordered most- to least-urgent; the
-// UI shows reasons[0] as the badge label.
+// every signal here is an OBSERVED FACT (days since log, lock state, a check-in
+// that didn't happen, a weak compliance count). There is no score, no percentage,
+// no model — just facts the coach could verify by hand, ranked so they don't have
+// to. Reasons are ordered most- to least-urgent; the UI shows reasons[0] as the
+// badge label.
+//
+// This list used to include "a negative reaction". It shouldn't have: the branch
+// that read it was deleted with the rest of the reactions feature in 60cc27f, and
+// the column has been write-dead ever since. A doctrine that names a signal the
+// code cannot observe is worse than no doctrine — the next reader believes it.
 //
 // `stats` is one entry from CoachDashboard's clientStats:
 //   { daysSinceLog, checkIn, complianceItems, lockInfo }

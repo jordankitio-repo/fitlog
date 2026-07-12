@@ -332,7 +332,7 @@
 
 ### No emoji in AI-tool buttons; minimal emoji elsewhere
 **Reason:** Professional aesthetic for the coach-facing product.
-**Consequences:** Emoji removed from exercise types, empty states, barcode buttons, export, role picker. Kept only where they carry meaning: message reactions, checkmarks, streak milestones.
+**Consequences:** Emoji removed from exercise types, empty states, barcode buttons, export, role picker. Kept only where they carry meaning: checkmarks, streak milestones. (Message reactions were listed here too, but the feature was removed in 60cc27f.)
 
 ### Message thread scrolls, capped at 400px
 **Reason:** Prevent the card from stretching indefinitely with a long thread.

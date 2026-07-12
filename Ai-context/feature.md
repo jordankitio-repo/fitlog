@@ -72,7 +72,7 @@ Join page
 Target setting
 Calories, protein, carbs, fat, cardio, steps, weight goal
 Messaging
-Unified coach ↔ client thread with reactions
+Unified coach ↔ client thread
 Weekly check-ins
 Adherence rating, energy, obstacles, notes. Unique per client/week
 Coach private notes
@@ -594,7 +594,7 @@ Gardnr already captures enough data to create stronger coaching intelligence wit
 - Steps entries: steps, distance, date.
 - Targets: calories, macros, cardio minutes, steps, weight goal.
 - Weekly check-ins: adherence rating, energy level, obstacles, notes.
-- Messages: content, sender, read state, reactions.
+- Messages: content, sender, read state.
 - Reports: sent reports, read state, archived state, week.
 - Coach-client relationship metadata: last nutrition log, nudge timing, lock state.
 
@@ -728,7 +728,7 @@ Product angle:
 
 Priority: High 
 Friction: None 
-Data source: logs, check-ins, messages, reactions, nudges
+Data source: logs, check-ins, messages, nudges
 
 Flag clients who may need coach intervention.
 
@@ -739,7 +739,6 @@ Suggested triggers:
 - Steps/cardio drop-off.
 - Check-in not submitted.
 - Low energy rating.
-- Negative message reaction.
 - Nudge sent but no logging afterward.
 
 Why coaches care:
@@ -817,19 +816,29 @@ Product angle:
 
 "Measure whether reminders actually bring clients back."
 
-### 10. Message Sentiment / Reaction Signal
+### 10. Message Sentiment / Reaction Signal — ⛔ PREMISE IS FALSE, DO NOT BUILD ON IT
 
-Priority: Medium 
-Friction: Low to none 
-Data source: existing message reactions, optional future simple sentiment classification
+> **This proposal rested on a claim that is not true.** It said "Gardnr already
+> stores message reactions and uses negative reactions in coach call prep."
+> Reactions were removed from the product on 2026-06-13 (`60cc27f` — "Reactions
+> weren't worth the UX"). Nothing in the product can set a reaction: the column
+> is write-dead, and every message has carried `reaction = NULL` ever since.
+>
+> So there is no "existing" reaction data to build on. There never will be unless
+> someone first rebuilds the feature the founder deliberately deleted — and he
+> deleted it nine minutes after shipping an upgrade to it, which is about as
+> clear a verdict as a commit log ever gives you.
+>
+> Left here, corrected rather than deleted, because the underlying *question* is
+> still fair: **how do you tell whether coaching is landing?** Just don't answer
+> it with reactions. The signals that already exist and already work: check-in
+> ratings (the coach can ask anything they like — see CheckinBuilder), report
+> read-receipts, whether a client replies at all, and whether they log after a
+> nudge. Start there.
 
-Gardnr already stores message reactions and uses negative reactions in coach call prep. Build this into coach-facing risk context.
-
-Useful outputs:
-
-- Negative reaction this week.
-- Client mood concern.
-- Positive response after coach feedback.
+Priority: ~~Medium~~ — blocked on a feature that no longer exists 
+Friction: ~~Low to none~~ — would require rebuilding reactions first 
+Data source: ~~existing message reactions~~ — **there are none**
 
 Why coaches care:
 
@@ -939,7 +948,7 @@ Use mostly existing data:
 - Weight trend reliability.
 - Check-in submitted/on-time.
 - Missed logs.
-- Low energy or negative reaction.
+- Low energy rating.
 - Report unread.
 - Nudge response.
 
@@ -1001,8 +1010,8 @@ Initial recommendations focused heavily on nutrition, weight, steps, cardio, hun
 - Check-in timeliness.
 - Report read status.
 - Nudge responsiveness.
-- Message reaction/sentiment signal.
+- Message sentiment signal (NOTE: reactions were removed in 60cc27f — there is no reaction data to build on).
 
-These were added because Gardnr already has messages, reports, check-ins, reactions, and nudge metadata. They are valuable to coaches and do not require new client logging behavior.
+These were added because Gardnr already has messages, reports, check-ins, and nudge metadata. They are valuable to coaches and do not require new client logging behavior.
 
 

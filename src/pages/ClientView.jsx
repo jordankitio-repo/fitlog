@@ -1003,8 +1003,10 @@ async function addNoteEntry() {
     const { data: checkInData } = await supabase
       .from('check_ins').select('*').eq('client_id', clientId).eq('week_of', weekOf).maybeSingle()
 
+    // No `reaction`: it was fetched only to feed the call-prep prompt, and it has
+    // been write-dead since reactions were removed in 60cc27f. See call-prep.
     const { data: messagesData } = await supabase
-      .from('messages').select('content, reaction, created_at')
+      .from('messages').select('content, created_at')
       .eq('coach_id', session.user.id).eq('client_id', clientId)
       .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })

@@ -149,7 +149,8 @@ supabase/
 - A left relationship is `status='offboarded'` + `offboarded_at`. Client-initiated leave (`offboard-self`) sets no `profiles.offboard_reason`; coach-initiated (`offboard-client`) sets `coach_offboarded` — that's the discriminator.
 
 **messages** (unified — replaced old coach_messages + client_messages)
-- `id`, `coach_id`, `client_id`, `sender_id`, `content`, `reaction`, `read_at`, `created_at`
+- `id`, `coach_id`, `client_id`, `sender_id`, `content`, `read_at`, `created_at`
+- `reaction` (text) also exists in the DB but is **dead**: reactions were removed in `60cc27f` (2026-06-13). Nothing writes it; nothing should read it. Left in place rather than dropped — see current-state.md.
 - RLS: `coach_id = auth.uid() OR client_id = auth.uid()` (WITH CHECK same)
 - GRANT: SELECT, INSERT, UPDATE, DELETE TO authenticated
 
