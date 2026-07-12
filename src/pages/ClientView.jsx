@@ -491,13 +491,33 @@ function ClientView({ profile }) {
     if (error) console.error('Error fetching weight:', error)
     else setWeightEntry(data?.[0] ?? null)
   }
+  // Each history row carries BOTH forms of its date:
+  //   iso  — '2026-07-12', the full date. Sort and key on this, always.
+  //   date — '07-12', for the axis label only.
+  //
+  // They used to be the same value: the date was truncated to MM-DD at fetch,
+  // and then SORTED as a string. Which works for eleven months of the year and
+  // then, every January, puts '01-05' before '12-20' — scrambling the x-axis of
+  // every chart on this page and drawing the weight line backwards through time.
+  // Truncate for display; never for arithmetic.
+  const shortDate = (iso) => iso.slice(5)
+
   async function fetchWeightHistory() {
+  // The most recent 30 weigh-ins, put back in chronological order.
+  //
+  // This was `.order('logged_date', { ascending: true }).limit(30)` — which takes
+  // the OLDEST thirty. Any client with more than 30 weigh-ins had a weight chart
+  // frozen on their first month FOREVER: it never showed recent weight, and a
+  // coach reading it would conclude the client had stopped moving. It is the
+  // single most load-bearing chart on the page, and it was lying.
   const { data, error } = await supabase
     .from('weight_log').select('logged_date, weight')
     .eq('user_id', clientId)
-    .order('logged_date', { ascending: true }).limit(30)
+    .order('logged_date', { ascending: false }).limit(30)
   if (error) console.error(error)
-  else setWeightHistory(data.map(d => ({ date: d.logged_date.slice(5), weight: parseFloat(d.weight) })))
+  else setWeightHistory(
+    [...data].reverse().map(d => ({ iso: d.logged_date, date: shortDate(d.logged_date), weight: parseFloat(d.weight) }))
+  )
 }
 
 async function fetchCalorieHistory() {
@@ -513,9 +533,9 @@ async function fetchCalorieHistory() {
   else {
     const grouped = {}
     data.forEach(e => { grouped[e.logged_date] = (grouped[e.logged_date] || 0) + e.calories })
-    setCalorieHistory(Object.entries(grouped).map(([date, calories]) => ({
-      date: date.slice(5), calories
-    })).sort((a, b) => a.date.localeCompare(b.date)))
+    setCalorieHistory(Object.entries(grouped).map(([iso, calories]) => ({
+      iso, date: shortDate(iso), calories
+    })).sort((a, b) => a.iso.localeCompare(b.iso)))
   }
 }
 
@@ -532,9 +552,9 @@ async function fetchCardioHistory() {
   else {
     const grouped = {}
     data.forEach(e => { grouped[e.logged_date] = (grouped[e.logged_date] || 0) + e.duration })
-    setCardioHistory(Object.entries(grouped).map(([date, minutes]) => ({
-      date: date.slice(5), minutes
-    })).sort((a, b) => a.date.localeCompare(b.date)))
+    setCardioHistory(Object.entries(grouped).map(([iso, minutes]) => ({
+      iso, date: shortDate(iso), minutes
+    })).sort((a, b) => a.iso.localeCompare(b.iso)))
   }
 }
 
@@ -549,8 +569,8 @@ async function fetchStepsHistory() {
     .lte('logged_date', end.toISOString().split('T')[0])
   if (error) console.error(error)
   else setStepsHistory(data.map(d => ({
-    date: d.logged_date.slice(5), steps: d.steps
-  })).sort((a, b) => a.date.localeCompare(b.date)))
+    iso: d.logged_date, date: shortDate(d.logged_date), steps: d.steps
+  })).sort((a, b) => a.iso.localeCompare(b.iso)))
 }
 
   async function fetchClientCheckIn(interval = checkinInterval) {
@@ -1109,10 +1129,12 @@ async function sendMessage(text) {
   const isToday = selectedDate === toLocalDateString(new Date())
 
   function getCorrelatedChartData() {
+    // Union and sort on the FULL date. Sorting the MM-DD label instead is what
+    // put January to the left of the previous December.
     const allDates = [...new Set([
-      ...weightHistory.map(d => d.date),
-      ...calorieHistory.map(d => d.date),
-      ...cardioHistory.map(d => d.date),
+      ...weightHistory.map(d => d.iso),
+      ...calorieHistory.map(d => d.iso),
+      ...cardioHistory.map(d => d.iso),
     ])].sort((a, b) => a.localeCompare(b))
 
     const calTarget = parseInt(clientTargets.calories) || null
@@ -1122,15 +1144,15 @@ async function sendMessage(text) {
     if (weightHistory.length > 0) {
       datasets.push({
         type: 'line', label: 'Weight',
-        data: allDates.map(date => weightHistory.find(d => d.date === date)?.weight ?? null),
+        data: allDates.map(iso => weightHistory.find(d => d.iso === iso)?.weight ?? null),
         borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)',
         tension: 0.3, fill: false, yAxisID: 'yWeight', pointRadius: 3, spanGaps: true,
       })
     }
 
     if (calorieHistory.length > 0 && calTarget) {
-      const pct = allDates.map(date => {
-        const cal = calorieHistory.find(d => d.date === date)?.calories
+      const pct = allDates.map(iso => {
+        const cal = calorieHistory.find(d => d.iso === iso)?.calories
         return cal ? Math.round((cal / calTarget) * 100) : null
       })
       // Color each bar by the same buckets as the heatmap/summary: green on
@@ -1152,8 +1174,8 @@ async function sendMessage(text) {
     if (cardioHistory.length > 0 && cardioTarget) {
       datasets.push({
         type: 'bar', label: 'Cardio %',
-        data: allDates.map(date => {
-          const mins = cardioHistory.find(d => d.date === date)?.minutes
+        data: allDates.map(iso => {
+          const mins = cardioHistory.find(d => d.iso === iso)?.minutes
           return mins ? Math.round((mins / cardioTarget) * 100) : null
         }),
         backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6',
@@ -1171,7 +1193,8 @@ async function sendMessage(text) {
       })
     }
 
-    return { labels: allDates, datasets }
+    // Full dates for the maths above; the short label only at the axis.
+    return { labels: allDates.map(shortDate), datasets }
   }
 
   // Raw "Calories — last 30 days" bar chart: same bucket colors as the heatmap/
