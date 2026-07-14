@@ -49,7 +49,7 @@ Role is set on first login via RolePicker. New users (including OAuth) see RoleP
 - **Inter** font from Google Fonts; type scale via CSS vars (`--text-xl` … `--text-xs`)
 - **PWA:** `vite-plugin-pwa` (`registerType:'prompt'`, `injectRegister:false`) + service worker; `PWAUpdatePrompt` surfaces updates; build stamp (`__BUILD_TIME__` via Vite `define`) shown in Profile for cache diagnosis. Scrollbar chrome hidden in the installed app via `@media (display-mode: standalone)` (`index.css`).
 - Deployed on **Vercel** (project `gardnr`), **Git-integrated: push to `main` auto-deploys to Production** (branch push → Preview). **Don't run `vercel deploy` manually** — it stacks on top of the auto-deploy (triple-deploys per change) and burned the free-tier **100 deploys/day** cap on Jun 16. Just push to `main`. (Details in `[[deploy-targets]]`.)
-- **Security headers (`vercel.json`, Jun 24):** a strict **CSP** + HSTS + nosniff + `X-Frame-Options: DENY` + `frame-ancestors 'none'` + Referrer-Policy + Permissions-Policy (`camera=(self)` for the scanner). The CSP `connect-src`/`img-src` allow-list is **scoped to the app's real origins** (`*.supabase.co` incl. `wss`, `fonts.g*`, `world.openfoodfacts.org`) — **adding a new external API/origin means updating the CSP in `vercel.json`** or it gets blocked. The two inline `index.html` scripts (theme + splash) are allowed via **SHA-256 hashes** — **edit them → regenerate the hashes** (sha256 of each `<script>` body in `dist/index.html`) or they're blocked (splash trap).
+- **Security headers (`vercel.json`, Jun 24):** a strict **CSP** + HSTS + nosniff + `X-Frame-Options: DENY` + `frame-ancestors 'none'` + Referrer-Policy + Permissions-Policy (`camera=(self)` for the scanner). The CSP `connect-src`/`img-src` allow-list is **scoped to the app's real origins** (`*.supabase.co` incl. `wss`, `fonts.g*`, `world.openfoodfacts.org`) — **adding a new external API/origin means updating the CSP in `vercel.json`** or it gets blocked. The two inline `index.html` scripts (theme + splash) are allowed via **SHA-256 hashes** — **edit them → regenerate the hashes** (sha256 of each `<script>` body in `dist/index.html`) or they're blocked (splash trap). **Exactly two hashes, and only two:** the `<script type="application/ld+json">` block needs none — a data block is never executed, so `script-src` never applies to it. (A third hash for it was carried until Jul 13 and had gone stale the moment the landing meta changed. Harmless, but it made the list look wrong. Don't re-add it.) **If you edit either script, regenerate its hash from `dist/index.html`** — and note the splash one is a trap: block it and there is no `hideSplash`, no safety-net timer, and a permanent black screen.
 
 ### Backend
 - **Supabase** (Postgres + Auth + Edge Functions + Storage)
@@ -83,7 +83,12 @@ src/
     RolePicker.jsx    — first-login role selection
     Join.jsx          — client invite acceptance flow
     ResetPassword.jsx — password reset handler
-    Landing.jsx       — public landing page (Gardnr responsive rewrite; lp- namespace; DM Sans; landing.css co-located)
+    Landing.jsx       — public landing page: MARKUP ONLY. lp- namespace; always-dark; landing.css co-located.
+                        Renders landingContent.js and MUST NOT define copy of its own.
+    landingContent.js — ALL landing copy. No markup, no logic, no styling. The content/presentation
+                        seam: positioning changes here, never in the component. Carries, at the top,
+                        every load-bearing claim on the page and HOW EACH WAS VERIFIED against the
+                        code — because three of the Jul-12 bugs were the page lying about the product.
     Terms.jsx         — Terms of Service (public)
     Privacy.jsx       — Privacy Policy (public)
     BillingSuccess.jsx — Stripe checkout success page (/billing/success)
@@ -253,7 +258,7 @@ All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsec
 - `solo` — free tier, or Solo Premium (~$7.99/mo)
 
 ### Access control
-- `BILLING_ENABLED = true` in `App.jsx` — gates coaches
+- `BILLING_ENABLED = **false**` in `App.jsx` — the coach paywall is **OFF** (pre-public). `CoachPaywall` is the only coach path to `create-checkout-session`, and it **never renders**: coaches sign up free, no card, no charge. (This line previously said `true`, which was wrong, and the landing page was written from it — it advertised a $19/mo card-required trial that does not exist.) **⚠️ Both billing flags have a SERVER twin — flipping one side alone is a bug, and it shipped as one:** see `SOLO_BILLING_ENABLED` on the `nutrition-coach` edge function.
 - `PAID_STATUSES = ['trialing', 'active', 'past_due']` — shared allow-list used everywhere for access checks
 - `canceled` → no access, upgrade prompt shown, data preserved
 - `cancel_at_period_end` flag → access continues until period end
@@ -294,7 +299,7 @@ All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsec
 - Offboard marker written to `profiles.offboarded_at` + `profiles.offboard_reason` — survives coach row deletion. Reason values: `coach_offboarded` (offboard-client), `coach_deleted` (delete-account coach branch). Self-leave writes no marker.
 
 ### Live mode
-- Founding $19/mo: `price_1TemKxAYmISHFVlMiNx7SWQy`
+- Founding $19/mo: `price_1TemKxAYmISHFVlMiNx7SWQy` — **now a Supabase function secret (`STRIPE_COACH_PRICE_ID`), NOT a `VITE_` var.** All four `VITE_STRIPE_*` vars were deleted from Vercel on Jul 13; nothing in `src/` reads them. **Do not re-introduce a client-side price ID** — that was the hole. And note the $19 itself is now considered ~3–5× too low; see `decisions.md`.
 - Standard $29/mo: `price_1TemKwAYmISHFVlMnz5NENY8`
 - Live keys in Vercel (`pk_live_…`) + Supabase secrets (`sk_live_…`, `whsec_live_…`)
 - Live webhook → `https://mlqaurxefttbqsrllbyj.supabase.co/functions/v1/stripe-webhook`
@@ -332,7 +337,7 @@ All AI features run as Supabase Edge Functions calling the model provider, retur
 |---|---|---|
 | `weekly-report` | Generates AI weekly coaching report from 7-day data + check-in. Edge fn prepends a deterministic week-range header. | Coach generates → edits → sends to client |
 | `call-prep` | Generates AI call briefing for a coach | Private to coach |
-| `nutrition-coach` | AI nutrition advice. Gated: auth + role + solo-subscription check. | Coach + Solo Premium |
+| `nutrition-coach` | AI nutrition advice. Gated: auth + role. **The solo-subscription check now sits behind a `SOLO_BILLING_ENABLED` env var on the function and DEFAULTS TO FREE** — it used to be unconditional, which 403'd every free solo user (the whole funnel) while the client happily showed them the button. What guards this endpoint is the **30/hr rate cap + 6h response cache**, not a paywall. | Coach + Solo Premium |
 
 ---
 
@@ -412,6 +417,23 @@ Milestones: 7, 14, 30, 60, 90 days. `milestone-reached` edge fn guard: fires onl
 
 ---
 
+## Chart Data Invariants (ClientView)
+
+Two bugs on Jul 12 both came from the same neighbourhood; both are easy to reintroduce.
+
+**1. Every history row carries BOTH forms of its date.**
+```js
+{ iso: '2026-07-12',  // the full date — SORT AND KEY ON THIS, ALWAYS
+  date: '07-12',      // MM-DD — for the axis label ONLY
+  weight: 71.4 }
+```
+They used to be the same value: the date was truncated to `MM-DD` at fetch and then **sorted as a string**. That works for eleven months of the year and then, every January, puts `'01-05'` before `'12-20'` — scrambling the x-axis of **every chart on the client record** and drawing the weight line backwards through time. **Truncate for display; never for arithmetic.**
+
+**2. `fetchWeightHistory` takes the MOST RECENT 30 weigh-ins, then reverses.**
+It used to be `.order('logged_date', { ascending: true }).limit(30)` — which takes the **OLDEST** thirty. Any client past 30 weigh-ins had a weight chart **frozen on their first month, forever**: it never showed recent weight, so a coach could read a losing client as stalled. It is the most load-bearing chart on the page and it was lying. This also explains the long-noticed half-empty "Progress overview": the weight line came from the oldest 30 weigh-ins while the calorie bars covered the last 30 *days*, so the two series barely overlapped. Not a window mismatch — **stale data**.
+
+---
+
 ## Display Helpers
 
 ### Weight time display
@@ -437,7 +459,7 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 |---|---|---|
 | `delete-account` | user | Role-aware deletion. Coach: offboard clients → delete data → cancel Stripe + delete subscriptions row → auth delete. Solo/client: cancel Stripe + delete subscriptions row → fetch coach info → delete data → auth delete → send emails (client confirmation; coach notification if applicable) |
 | `check-trial-eligibility` | user | Returns { coach_trial_used, solo_trial_used } from trial_ledger. Called by CoachPaywall on mount. |
-| `nutrition-coach` | user + role + solo gate | AI nutrition advice |
+| `nutrition-coach` | user + role (**solo gate defaults OFF — free**) | AI nutrition advice; guarded by a 30/hr rate cap + response cache, not a paywall |
 | `food-search` | user (`verify_jwt`) | Food name search proxying USDA FoodData Central (key server-side). Generic foods only (Foundation/SR Legacy/FNDDS); normalizes to per-100g macros. Uses FDC's **POST** endpoint (GET 400s on URL-encoded commas in `dataType`). Barcode lookups stay on OpenFoodFacts. |
 | `weekly-report` | coach + owns `clientId` | AI weekly coaching report. Client passes `clientId`; fn verifies active coach↔client. |
 | `notify-report` | coach + owns `clientId` | Email client when report sent. Recipient email derived server-side from `clientId` (not client-supplied). |
@@ -447,7 +469,7 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 | `invite-info` | none (token is the credential) (Jun 16) | Public-safe invite details for the anon Join page: the inviting coach's name (profiles RLS hides it from anon), client email, account_exists. Validates the token via `get_invitation_by_token` (RPC, granted to anon), then reads the coach name via service_role. Best-effort — Join never blocks on it. |
 | `call-prep` | coach + owns `clientId` | AI call briefing (coach). Client passes `clientId`; fn verifies active coach↔client. |
 | `nudge-client` | coach | Nudge inactive client, 48hr cooldown |
-| `create-checkout-session` | user | Stripe checkout, 30-day trial, coach+solo branching |
+| `create-checkout-session` | user | Stripe checkout, 30-day trial, coach+solo branching. **The price is resolved SERVER-SIDE from the verified role** (`STRIPE_COACH_PRICE_ID` / `STRIPE_SOLO_PRICE_ID` in `Deno.env`), never from the request body — it used to be read off the browser, and both IDs shipped in the JS bundle, so a coach could subscribe at the solo rate. Fails closed if unconfigured. |
 | `stripe-webhook` | `--no-verify-jwt` (Stripe signature + 300s replay window) | Handle Stripe events, update subscriptions, offboard on cancel |
 | `pause-solo-subscription` | `--no-verify-jwt`, internal | Pause solo sub on joining coach |
 | `cancel-subscription` | `--no-verify-jwt`, internal | Cancel/resume at period end + email |
@@ -457,6 +479,35 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 | `weekly-digest` | `verify_jwt = true` + role=`service_role` | Monday coach digest. pg_cron job sends the service role key (was anon — i.e. effectively open — until Jun 8 2026). |
 
 > **Security fix (Jun 8 2026):** `weekly-report`, `notify-report`, `notify-checkin`, `call-prep` previously did **no caller verification** (`verify_jwt=false` + no in-function check) — open Anthropic proxies / email relays. `weekly-digest` was triggered by pg_cron with the **public anon key**, so it was effectively open. All now verify the caller (and, where a coach acts on a client, the active relationship), derive email recipients server-side, and `weekly-digest` requires a `service_role` JWT. See decisions.md.
+
+---
+
+## Marketing Surface (the landing page)
+
+**The seam:** `Landing.jsx` is markup. **`src/pages/landingContent.js` is every word on the page** — no markup, no logic. The component renders the content module and must not define copy of its own. This isn't tidiness: three of the ten bugs found on Jul 12–13 were **the page lying about the product** (it sold a $19 card-required trial that `BILLING_ENABLED = false` makes impossible). The content module documents, at the top, each load-bearing claim **and how it was verified against the code**. If you change billing or privacy behaviour, change that file in the *same PR*.
+
+**The hero is four REAL screenshots**, not a mock (`public/hero/{triage,evidence,composition,maintenance}-{wide,narrow}.webp`):
+
+```
+supabase start
+SERVICE_KEY=<local secret> node scripts/seed-hero-roster.mjs   # LOCAL ONLY — refuses any non-127.0.0.1 host
+npx vite --port 5173                                            # with .env.local pointed at the local stack
+node scripts/shoot-hero.mjs                                     # → 8 webp + public/hero/hotspots.json
+```
+
+- `seed-hero-roster.mjs` — **marketing** data: coach Alex Moreau + Maya Chen (GREEN) / Marcus Webb (AMBER) / Sam Rivera (RED), 8 weeks of logs, measurements, check-ins. The roster is built to land **one client on each triage level**, because a dashboard where everyone is green demonstrates nothing. Distinct from **`seed-demo-roster.mjs`**, which is **QA** data (9 clients spanning every edge case, names like "Ava — on track", no weight/steps/cardio).
+- `shoot-hero.mjs` — captures the frames **and measures the hotspot map**. Hotspot regions are read off the **live DOM** at capture time and written to `hotspots.json` as percentages, so the landing's hover-callouts **cannot drift from the picture**. Change the app's layout, re-run the shoot, the map regenerates with it.
+- ⚠️ **These images go stale silently.** They are true today and become a lie the day the coach dashboard, heatmap, measurements card or energy-balance read changes appearance. **Re-shoot after touching any of those screens.**
+- Two crops per frame, art-directed — a 1240px app screen scaled into a 375px phone is illegible, so the narrow file is a genuinely *tighter* frame, not the same picture shrunk.
+
+**Analytics containment (`Landing.jsx`) — this is a compliance boundary, not a preference.**
+Gardnr is bound by the FTC Health Breach Notification Rule and WA My Health My Data. Reporting `/log` or `/client/<uuid>` to a vendor is the **GoodRx / BetterHelp** fact pattern. Mounting `<Analytics>` inside `Landing` is **not sufficient**: `@vercel/analytics` `inject()` appends its script to `document.head` from an effect with **no cleanup**, so it outlives the component and keeps auto-tracking history changes into the authenticated app. Two guards, both load-bearing:
+1. **`route`/`path` props** on `<Analytics>` → sets `data-disable-auto-track` on the script tag, so it never patches the history API.
+2. **`beforeSend` path allowlist** (`MARKETING_PATHS`), **fail-closed** — no parseable URL, no send.
+
+Never mount it in `App.jsx` or `index.html`. No user IDs, no PII.
+
+**Crawlability:** `public/robots.txt` + `public/sitemap.xml` (Vercel checks the filesystem *before* applying the `vercel.json` catch-all rewrite — before these files existed, both paths returned the SPA's HTML). Canonical link + `SoftwareApplication` / `FAQPage` JSON-LD, injected at build time via placeholder substitution in `index.html` (`__LANDING_TITLE__` etc.) from `landingContent.js` → `meta`.
 
 ---
 

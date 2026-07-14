@@ -1,6 +1,15 @@
 Gardnr — Master Feature & Implementation List
 Last updated: June 16, 2026
 
+SHIPPED (live in prod, Jul 12–13) — do NOT re-propose:
+- **The landing page, rebuilt.** Mobile visitors and Googlebot were being served the **login form** as the homepage (the rule keyed off screen *width*, not launch context) — fixed. Entry JS chunk **1,580 KB → ~290 KB**. `robots.txt` + `sitemap.xml` + canonical + JSON-LD (all four previously absent; the first two returned the SPA's HTML). Copy moved to `src/pages/landingContent.js`. Pricing section **deleted** (there is no price). Instruments cut 12 → 3 + a chip list. **FAQ** and **founder note** added.
+- **Hero = an interactive tour of FOUR REAL SCREENS** of the running app (triage / 90-day heatmap / body composition / energy-balance read), with real ARIA tabs and DOM-measured hotspots. It replaced a hand-drawn *mock* of a dashboard that did not exist. Re-shoot with `scripts/shoot-hero.mjs` after changing any of those screens — **the images go stale silently.**
+- **Analytics** (Vercel Web Analytics — first-party, cookieless, **marketing routes only**). See `decisions.md`: this is a compliance boundary, not a preference.
+- **Stripe price resolved server-side** from the verified role — it used to be read from the browser, and both price IDs shipped in the JS bundle.
+- **Ten production bugs fixed** — full list at the top of `current-state.md` → Recently Shipped. Not one of them was in the Open Bugs table.
+
+**#1 PRIORITY IS NOT A FEATURE.** It's **coach outreach** — `docs/coach-outreach.md`. This page tells coaches their week is food screenshots and rebuilt spreadsheets; **that came from desk research, not from a coach's mouth.** Do not build the next thing on this list until five coaches have been asked. If they say their problem is *getting* clients rather than *seeing* compliance, this is an excellent tool for the wrong bottleneck — and everything below is moot.
+
 SHIPPED since (live in prod, Jun 17) — do NOT re-propose:
 - **Onboarding target calculator (#30)** + **body measurements (#27)** + **measurement trend charts** + **Profile→Charts visibility toggles** + chart **empty-state hints** + ClientView **status pill**. (See Tier 2 table + current-state.md.)
 - **Funnel/activation (Jun 16):** first-run/empty states, surfaced silent write errors (Toast), **invite email** (`notify-invite`) + **Join names the coach** (`invite-info`), roster skeleton, modal focus-trap a11y. Coach **paywall OFF** pre-public (`BILLING_ENABLED=false`).
@@ -152,7 +161,7 @@ Gate for coaches with no active subscription
 BillingSuccess page
 /billing/success — post-checkout redirect page
 BILLING_ENABLED flag
-true — live mode active. Gates COACHES ONLY currently
+**false** — the coach paywall is OFF (pre-public). `CoachPaywall` is the only coach path to checkout and it never renders: coaches sign up **free, no card, no charge**. This row said `true`, and the landing page was written from it — it advertised a $19/mo card-required trial that does not exist. ⚠️ **Both billing flags have a SERVER twin; flipping one side alone is a bug and it shipped as one** (`SOLO_BILLING_ENABLED` on `nutrition-coach`).
 Stripe live mode
 Webhook registered, live keys in Vercel + Supabase
 Subscriptions table
@@ -319,7 +328,7 @@ Notes
 Solo tier feature gating
 IN PROGRESS — gate pattern is live: hasSoloPremium prop + SoloUpgrade.jsx (Stripe checkout CTA). Gated on solo Dashboard: rolling 7-day weight avg, plus the "Logging consistency" card (best week + weekday/weekend split + 90-day heatmap). Remaining to gate when built on Dashboard: TDEE.
 Gate AI nutrition advice
-Currently ungated. Should require Solo Premium or Coach
+**DECIDED: keep it free, cap it.** The server gate now sits behind a `SOLO_BILLING_ENABLED` env var on `nutrition-coach` and **defaults to FREE**. What guards the endpoint is a **30/hr per-user rate cap + a 6h response cache**, not a paywall. (Until Jul 12 the server demanded a paid subscription while the client showed the button to everyone — so every free solo user, i.e. **the entire free funnel**, got a 403 "Solo Premium required".)
 
 
 Tier Access Matrix (source of truth for gating)
@@ -332,9 +341,9 @@ Note: Coaches do NOT log their own nutrition/weight/cardio data. The coach role 
 
 Feature
 Solo Free
-Solo Premium ($7–9/mo)
+Solo Premium (~~$7–9/mo~~ — **retired; solo is FREE**)
 Client (free)
-Coach ($19–29/mo)
+Coach (~~$19–29/mo~~ — **PRICING DEFERRED; nothing is charged today. $19 is likely 3–5× too low — see decisions.md**)
 Daily logging (all metrics)
 ✅
 ✅
@@ -455,7 +464,7 @@ Open product decisions (not yet made):
 🔧 Technical Debt — Deferred
 Item
 Notes
-Large Vite chunk warning
+Large Vite chunk warning — **mostly fixed Jul 12**: entry chunk 1,580 KB → ~290 KB (React.lazy + manualChunks). Warning now fires only for the lazy, auth-only Log chunk
 Deferred
 Lint errors (4 errors / 9 warnings)
 Deferred
