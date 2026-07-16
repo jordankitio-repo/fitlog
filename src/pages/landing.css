@@ -505,6 +505,28 @@
   .lp-footer { padding: 48px 20px 32px; }
   .lp-footer-top { grid-template-columns: 1fr 1fr; gap: 32px 24px; }
   .lp-footer-brand { grid-column: 1 / -1; }
+
+  /* Mobile touch targets. Scoped to touch widths so the desktop mouse layout is
+     untouched. Tiers (deliberately NOT "44px on everything"):
+       • Primary + icon-only + tour controls -> 44x44  (Apple HIG 44pt;
+         Material/Lighthouse 48dp) — nav CTA, nav/sign-in links, tour tabs,
+         social icons, the "see the workflow" link.
+       • Secondary link lists (footer) -> >=24px height + spacing
+         (WCAG 2.5.8 AA minimum + spacing exception; 44 each would bloat the
+         footer and fight the design).
+       • The solo-line "Start free" is a link inside a sentence -> LEFT as-is
+         (WCAG 2.5.8 inline exception; padding it would break the sentence).
+     Fonts: only small *interactive/reading* text is nudged up; labels, chips,
+     eyebrows and micro-notes stay small by design (all already >=12.48px, so
+     Lighthouse's legible-font audit already passes). */
+  .lp-nav-link, .lp-signin { min-height: 44px; display: inline-flex; align-items: center; }
+  .lp-cta-sm { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .lp-link-arrow { min-height: 44px; display: inline-flex; align-items: center; }
+  .lp-tour-tab { min-height: 44px; display: inline-flex; align-items: center; font-size: 0.86rem; }
+  .lp-tour-caption { font-size: 0.85rem; }
+  .lp-footer-social-link { width: 44px; height: 44px; }
+  .lp-footer-link { padding: 6px 0; }          /* ~32px tap height, >= WCAG 2.5.8 AA */
+  .lp-footer-col { gap: 6px; }                  /* re-tighten the padded link rows */
 }
 
 @media (max-width: 480px) {
@@ -515,7 +537,10 @@
   .lp-cta-sm { padding: 8px 12px; }
   .lp-hero { padding-left: 16px; padding-right: 16px; }
   .lp-cap-grid { grid-template-columns: 1fr; }
-  .lp-contrast-table { overflow: visible; }
+  /* Each row becomes its own card here, so drop the outer table frame — its
+     border/radius otherwise wraps all the cards in a "case" with lines running
+     down the sides connecting them. */
+  .lp-contrast-table { overflow: visible; border: none; border-radius: 0; }
   .lp-contrast-head { display: none; }
   .lp-contrast-row { gap: 0; margin-bottom: 12px; border: 1px solid #161616; border-radius: 10px; overflow: hidden; }
   .lp-contrast-before, .lp-contrast-after { padding: 14px 16px; }
