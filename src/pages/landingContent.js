@@ -349,12 +349,14 @@ export const finalCta = {
 export const footer = {
   blurb: 'Nutrition-coaching software for online coaches.',
   status: 'Early access',
-  // Social links. Empty until the real accounts exist — a footer icon that goes
-  // nowhere is worse than no icon, and this ships to production. To turn the row
-  // back on, add entries like { label: 'X', icon: 'x', href: 'https://x.com/…' };
-  // supported icons: x, linkedin, instagram (see SOCIAL_PATHS in Landing.jsx).
-  // The footer renders the row only when this array is non-empty.
-  social: [],
+  // Social links — real accounts. The Instagram href is the clean profile URL;
+  // the QR share link's igsh/utm_source params are dropped. No LinkedIn yet —
+  // add { label: 'LinkedIn', icon: 'linkedin', href: … } when it exists (the
+  // icon is already in SOCIAL_PATHS). The row renders only when non-empty.
+  social: [
+    { label: 'X', icon: 'x', href: 'https://x.com/gardnr_fit' },
+    { label: 'Instagram', icon: 'instagram', href: 'https://www.instagram.com/gardnr.fit' },
+  ],
   // What's inside — a full-width chip band, not links: there are no per-feature
   // pages to point at, and minting an anchor for each would be dishonest padding.
   //
