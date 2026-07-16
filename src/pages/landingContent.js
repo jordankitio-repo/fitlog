@@ -325,7 +325,10 @@ export const faq = {
 
 export const finalCta = {
   h2: 'Start your next check-in from Gardnr.',
-  copy: 'Everything your coaching workflow needs, in one place. Free while we’re in early access, and there’s no card to hand over.',
+  copy: 'Everything your coaching workflow needs, in one place.',
+  // Small reassurance line under the copy. The "no card" half was dropped: the
+  // hero note and the FAQ both say it, so a third time here just read repetitive.
+  note: 'Free while we’re in early access',
   cta: 'Start free',
   signIn: 'Sign in',
   // Rehomed from the deleted pricing section. The free solo product is the

@@ -527,6 +527,7 @@ export default function Landing() {
         <div className="lp-final-inner">
           <h2 className="lp-final-h2">{finalCta.h2}</h2>
           <p className="lp-final-copy">{finalCta.copy}</p>
+          <p className="lp-final-note">{finalCta.note}</p>
           <div className="lp-final-row">
             <Link to={signupPath} className="lp-cta" onClick={() => track('cta_click', { location: 'final' })}>{finalCta.cta}</Link>
             <Link to="/login" className="lp-signin">{finalCta.signIn}</Link>
