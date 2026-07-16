@@ -4,12 +4,10 @@ import { Analytics } from '@vercel/analytics/react'
 import { track } from '@vercel/analytics'
 import Logo from '../components/Logo'
 import {
-  alsoIncluded,
   contrast as contrastContent,
   faq,
   finalCta,
   footer,
-  founder,
   hero,
   heroTour,
   instruments,
@@ -25,6 +23,29 @@ import './landing.css'
 const signupPath = '/login?mode=signup&role=coach'
 const soloSignupPath = '/login?mode=signup&role=solo'
 const brandName = meta.title.split(' — ')[0]
+
+// Monochrome social glyphs, drawn in currentColor so the footer's hover state
+// tints them without extra rules. Add a platform by adding a case + a content
+// entry in footer.social.
+const SOCIAL_PATHS = {
+  x: <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />,
+  linkedin: <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z" />,
+  instagram: (
+    <>
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="17.4" cy="6.6" r="1.2" />
+    </>
+  ),
+}
+
+function SocialIcon({ name }) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      {SOCIAL_PATHS[name]}
+    </svg>
+  )
+}
 
 // ── Analytics containment ───────────────────────────────────────────────────
 //
@@ -321,6 +342,8 @@ export default function Landing() {
     track('landing_view')
   }, [])
 
+  const year = new Date().getFullYear()
+
   const faqJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -446,12 +469,6 @@ export default function Landing() {
               </div>
             ))}
           </div>
-          <div className="lp-also">
-            <p className="lp-also-label">{alsoIncluded.label}</p>
-            <div className="lp-also-list">
-              {alsoIncluded.items.map((item) => <span key={item} className="lp-also-chip">{item}</span>)}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -471,23 +488,6 @@ export default function Landing() {
           early access" is stated once in the hero and answered once in the FAQ;
           that is the whole of it. Bring this section back the day there is a
           number to put in it. */}
-
-      {/* FOUNDER — placed AFTER the workflow, deliberately. A coach should meet
-          the person only once they've seen the product work; a founder note up
-          front is a stranger asking to be trusted before he's shown you anything.
-          It's the only thing on this page that vouches for Gardnr — there are no
-          testimonials yet, because there are no users yet. */}
-      <section className="lp-section">
-        <div className="lp-founder">
-          <p className="lp-eyebrow-text lp-eyebrow-green">{founder.eyebrow}</p>
-          <h2 className="lp-founder-h2">{founder.h2}</h2>
-          {founder.body.map((para) => (
-            <p key={para.slice(0, 24)} className="lp-founder-p">{para}</p>
-          ))}
-          <p className="lp-founder-kicker">{founder.kicker}</p>
-          <p className="lp-founder-sig">{founder.signature}</p>
-        </div>
-      </section>
 
       {/* TRIAL */}
       <section id="trial" className="lp-section">
@@ -537,19 +537,64 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* FOOTER — a brand block with a live status pill, three real link
+          columns, and a legal base line. Anchors and mailto render as <a>;
+          everything else is a router <Link>. See landingContent.js. */}
       <footer className="lp-footer">
-        <div className="lp-footer-brand">
-          <Logo size={24} />
-          <span className="lp-footer-name">{brandName.toLowerCase()}</span>
+        <div className="lp-footer-top">
+          <div className="lp-footer-brand">
+            <div className="lp-footer-brand-row">
+              <Logo size={26} />
+              <span className="lp-footer-name">{brandName.toLowerCase()}</span>
+            </div>
+            <p className="lp-footer-blurb">{footer.blurb}</p>
+            <span className="lp-footer-status">
+              <span className="lp-footer-status-dot" aria-hidden="true" />
+              {footer.status}
+            </span>
+            {footer.social.length > 0 && (
+              <div className="lp-footer-social">
+                {footer.social.map((s) => (
+                  <a
+                    key={s.label}
+                    href={s.href}
+                    className="lp-footer-social-link"
+                    aria-label={s.label}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <SocialIcon name={s.icon} />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+          {footer.columns.map((col) => (
+            <div key={col.title} className="lp-footer-col">
+              <p className="lp-footer-col-title">{col.title}</p>
+              {col.links.map(([label, to]) => (
+                to.startsWith('#') || to.startsWith('mailto:')
+                  ? <a key={to} href={to} className="lp-footer-link">{label}</a>
+                  : <Link key={to} to={to} className="lp-footer-link">{label}</Link>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="lp-footer-features">
+          <p className="lp-footer-features-title">{footer.features.title}</p>
+          <div className="lp-footer-chips">
+            {footer.features.items.map((item) => (
+              <span key={item} className="lp-footer-chip">
+                <span className="lp-footer-chip-dot" aria-hidden="true" />
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="lp-footer-base">
+          <span className="lp-footer-copy">© {year} {footer.entity}</span>
           <span className="lp-footer-tag">{footer.tagline}</span>
         </div>
-        <nav className="lp-footer-nav">
-          {footer.links.map(([label, path]) => (
-            <Link key={path} to={path} className="lp-footer-link">{label}</Link>
-          ))}
-          <Link to={soloSignupPath} className="lp-footer-solo">{footer.solo}</Link>
-        </nav>
       </footer>
 
     </div>

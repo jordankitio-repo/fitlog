@@ -206,9 +206,9 @@ export const contrast = {
 
 // Cut from twelve equally-weighted cards to three. Twelve features with equal
 // visual weight means none of them lands; a visitor takes one idea off a page,
-// not twelve. These three are the ones a spreadsheet cannot do. Everything else
-// moved to `alsoIncluded` below — still visible, so the product reads as deep,
-// but no longer competing with the argument.
+// not twelve. These three are the ones a spreadsheet cannot do — the rest of the
+// product's depth is carried by the interactive hero tour and the contrast table,
+// not spelled out in a feature list that competes with the argument.
 export const instruments = {
   eyebrow: 'The layer between tracking and coaching',
   h2: 'Three things a spreadsheet will never do for you.',
@@ -225,21 +225,6 @@ export const instruments = {
       title: 'Their real maintenance, not a formula',
       copy: 'Empirical maintenance calories and weight trajectory, read from what your client actually ate and actually weighed — not a calculator that assumes an average human.',
     },
-  ],
-}
-
-export const alsoIncluded = {
-  label: 'Also included',
-  items: [
-    'Body composition — neck to thigh, with per-site trends',
-    '90-day adherence map',
-    'Custom check-in questions',
-    'Per-client check-in cadence',
-    'Meeting-prep briefs',
-    'One-tap contextual nudges',
-    'Private coach notes',
-    'Weekday vs weekend compliance breakdown',
-    'Re-engagement pause when a client goes quiet',
   ],
 }
 
@@ -327,53 +312,15 @@ export const faq = {
       q: 'Do my clients pay anything?',
       a: 'No. Clients use Gardnr free, and they always will.',
     },
-    {
-      q: 'Do my clients need to download an app?',
-      a: 'No App Store, no download. Gardnr installs to their home screen straight from the browser, and opens to a logging screen.',
-    },
+    // "Do my clients need to download an app?" lived here and was cut: the hero
+    // trust badge and Workflow step 02 both already say "installs like an app,
+    // no App Store" — an FAQ that restates above-the-fold copy is padding. The
+    // four questions that remain each answer an objection with no other home.
     {
       q: 'What happens to my clients’ health data?',
       a: 'It’s theirs. We don’t sell it, and we don’t share it with advertisers. Clients can permanently delete their account and everything in it at any time. The details are in our Consumer Health Data Policy.',
     },
   ],
-}
-
-// The founder note. Currently the only thing on this page that vouches for
-// Gardnr — there are no testimonials, no coach count, no logos, because there
-// are no users yet.
-//
-// ⚠️ EVERY LINE HERE IS A FACT ABOUT A REAL PERSON. It is the one section that
-// cannot be improved by writing it better, only by it being true.
-//
-// The first draft of this was fiction. It opened "I'm not a coach — I'm the
-// client who kept letting his coach down", and built to "my coach couldn't
-// notice". Jordan has never had a coach. It would have shipped a fabricated
-// origin story on the one part of the page whose entire job is to make him
-// trustworthy — and a coach who found out would have been right to disbelieve
-// everything else on the page too.
-//
-// What is true, and all of it is load-bearing:
-//   - he is not a coach; he's the person who needs one
-//   - training is easy for him, adherence is not
-//   - accountability with real follow-up is what works on him
-//   - he researched what coaches actually have to work with, and built for the gap
-//   - the first ten commits of this repo are a solo tracker he built for himself;
-//     the coach role came later (verifiable: git log --reverse)
-//
-// If you edit this, the test is not "does it read well". It's "would he say this
-// out loud to a coach who then checked".
-export const founder = {
-  eyebrow: 'Who built this',
-  h2: 'I’m not a coach. I’m the guy who needed one who could actually see.',
-  body: [
-    'Training was never my problem — I like being in the gym. It’s the diet. And the plan, and the schedule, and most things I have to hold myself to on my own.',
-    'The only thing that reliably works on me is being accountable to someone. Not encouragement. Follow-up. Someone I can’t quietly disappoint.',
-    'But to hold a client to a plan, a coach has to be able to see them break it. So I went and looked at what coaches actually have to work with — food photos buried in a DM thread, a spreadsheet rebuilt every Sunday, and a check-in that opens with “how did your week go?”, asked of the least reliable witness in the room.',
-  ],
-  // The closer. It turns "not a coach" from a liability into the reason to trust
-  // him: he is the demand side, and he knows exactly what a client hides.
-  kicker: 'Gardnr is the tool I’d want my coach to have.',
-  signature: '— Jordan',
 }
 
 export const finalCta = {
@@ -387,13 +334,79 @@ export const finalCta = {
   soloCta: 'Start free',
 }
 
+// A fuller footer, in the mould of other early-access products (visibilityradar,
+// plainwork): a brand block with a live status pill, three link columns, and a
+// legal base line. Everything here points somewhere real — in-page anchors, live
+// routes, or the contact address used across the legal pages. No social links,
+// because there are no accounts yet; inventing them would be the one dishonest
+// thing on the page. Add them here the day they exist.
+//
+// Link convention consumed by Landing.jsx: a target starting with '#' or
+// 'mailto:' renders as a plain <a>; anything else renders as a router <Link>.
 export const footer = {
-  tagline: 'Create conditions for growth.',
-  links: [
-    ['Sign in', '/login'],
-    ['Terms', '/terms'],
-    ['Privacy', '/privacy'],
-    ['Health Data', '/health-data-privacy'],
+  blurb: 'Nutrition-coaching software for online coaches.',
+  status: 'Early access',
+  // Social links. Empty until the real accounts exist — a footer icon that goes
+  // nowhere is worse than no icon, and this ships to production. To turn the row
+  // back on, add entries like { label: 'X', icon: 'x', href: 'https://x.com/…' };
+  // supported icons: x, linkedin, instagram (see SOCIAL_PATHS in Landing.jsx).
+  // The footer renders the row only when this array is non-empty.
+  social: [],
+  // What's inside — a full-width chip band, not links: there are no per-feature
+  // pages to point at, and minting an anchor for each would be dishonest padding.
+  //
+  // ⚠️ Every chip below is a SHIPPED capability, verified against product code
+  // (edge functions, DB tables + RLS, computed utils, coach-facing UI) — not a
+  // claim borrowed from marketing copy. A 12th chip, "Re-engagement pauses", was
+  // removed here: no feature pauses check-ins/cadence when a client goes quiet
+  // (the nearest real things are a 48h nudge cooldown and a client-side progress
+  // lock), and it doubled up on "Attention triage". Same rule if you add one:
+  // point at the code that implements it, or don't ship the chip.
+  features: {
+    title: 'Key features',
+    items: [
+      'Attention triage',
+      'Weekly reports, drafted',
+      'Empirical maintenance',
+      'Body composition — neck to thigh',
+      '90-day adherence map',
+      'Custom check-in questions',
+      'Per-client check-in cadence',
+      'Meeting-prep briefs',
+      'One-tap contextual nudges',
+      'Private coach notes',
+      'Weekday vs weekend splits',
+    ],
+  },
+  columns: [
+    {
+      title: 'Product',
+      links: [
+        ['Workflow', '#how'],
+        ['What changes', '#contrast'],
+        ['What a spreadsheet can’t do', '#instruments'],
+        ['FAQ', '#faq'],
+      ],
+    },
+    {
+      title: 'Get started',
+      links: [
+        ['Start free', '/login?mode=signup&role=coach'],
+        ['Track solo, free', '/login?mode=signup&role=solo'],
+        ['Sign in', '/login'],
+      ],
+    },
+    {
+      title: 'Company',
+      links: [
+        ['Contact', 'mailto:digigardenllc@gmail.com'],
+        ['Terms', '/terms'],
+        ['Privacy', '/privacy'],
+        ['Consumer Health Data', '/health-data-privacy'],
+      ],
+    },
   ],
-  solo: 'Training solo? Start free →',
+  // Rendered as "© <year> Digigarden LLC" — the entity named in the Terms.
+  entity: 'Digigarden LLC',
+  tagline: 'Create conditions for growth.',
 }
