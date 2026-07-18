@@ -530,6 +530,16 @@ supabase functions deploy <name>               # deploy edge function
 supabase db push --linked                      # apply migrations to remote
 ```
 
+### Demo sandbox — `scripts/sandbox.sh`
+
+One command spins a fully self-contained, hosted copy of the app **from any branch**, for recording walkthroughs and letting coaches/prospects touch the product on their own devices: **https://gardnr-demo.vercel.app**. Each run (~40s): resets an **isolated** Supabase project (`gardnr-demo`, ref `zcleierckgbemsgzjqwg`, us-east-1) to the current branch's schema (`drop schema public cascade` + re-grant → reload `supabase/schema/prod_public.sql` baseline + post-baseline migrations from the checkout), seeds it (coach Alex + Maya green / Marcus amber / Sam red, 8wk data re-anchored to *today*), builds the branch frontend (`vite build --mode demo`), and deploys the prebuilt `dist/` to a **separate** Vercel project (`gardnr-demo`) — headless via `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` + `--cwd <tmp>`, so the repo's prod `.vercel` link is never used.
+
+- **Prod is never touched.** Prod is Supabase `mlqaurxefttbqsrllbyj` + the `gardnr` Vercel project; the sandbox is a wholly separate project/DB/URL. Guards: sandbox config names only the sandbox host, and `scripts/sandbox-seed.mjs` (a remote-allowed copy of `seed-hero-roster.mjs`) refuses unless `ALLOW_REMOTE_HOST` exactly equals the host it seeds.
+- **No gate** — login is the access control; hand out a seed account (`alex@gardnr.demo` / `Demo!Passw0rd123`, open Marcus Webb). An earlier `src/DemoGate.jsx` was reverted to keep app code untouched.
+- **One sandbox at a time** — single reusable backend + URL (Supabase free tier caps an org at 2 projects: prod + demo). Reusing it from a new branch replaces what was there.
+- **Secrets** live in gitignored `.env.demo` (frontend `VITE_` vars) + `.env.demo.seed` (`SERVICE_KEY`, IPv4 **session-pooler** DB URL — the direct host is IPv6-only, Vercel IDs). A fresh clone must hand-carry those two files. `scripts/sandbox-fill.sql` re-anchors seed dates to today and fills reports/messages/notifications/custom check-in questionnaire/measurements/coach notes/milestone; add a few lines there when a new feature would otherwise render empty.
+- Requires Colima/Docker + Vercel CLI login (the script preflights both). Full runbook: `docs/SANDBOX.md`.
+
 ---
 
 ## Testing
