@@ -114,6 +114,28 @@ populated, nothing looks empty.
   - `scripts/sandbox-fill.sql` — fills the data + fixes the dates
   - `.env.demo` / `.env.demo.seed` — sandbox keys + deploy target (secrets)
 
+## Built a new feature? Extend the seed
+
+The sandbox always rebuilds this branch's **schema** and **frontend**, and always
+re-dates the data to today. The one thing it can't guess is **new data**: if you add
+a feature (a new table, a new screen), the sandbox will have the schema but the seed
+won't fill it — so that screen may look empty.
+
+Fix: add a few lines to **`scripts/sandbox-fill.sql`** — the same file that already
+fills reports, messages, notifications, check-ins, measurements, coach notes, etc.
+It follows one pattern:
+
+- A temp table `_ids` holds the seeded people:
+  `coach`, `maya` (green), `marcus` (amber), `sam` (red).
+- Each section is just an `INSERT` that references them, e.g.
+  `insert into <your_new_table> (user_id, ...) values ((select marcus from _ids), ...);`
+- Use `current_date` / `current_date - N` for any dates so they stay "today"-relative
+  on every run (never hardcode a date).
+
+Then re-run `./scripts/sandbox.sh` and the new screen is populated. (For anything
+that needs a brand-new **auth user**, add it in `scripts/sandbox-seed.mjs` instead —
+that's where the coach + clients are created.)
+
 ## Setting it up on another machine
 
 `git pull` brings the **scripts**, but the sandbox keys live in two **gitignored**
