@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { energyBalanceRead, linearFit } from './energyBalanceRead'
+import { energyBalanceRead, linearFit, WINDOW_OPTIONS } from './energyBalanceRead'
 import { toLocalDateString } from './dateHelpers'
 
 function dateAgo(days) {
@@ -46,6 +46,25 @@ describe('energyBalanceRead', () => {
     // 21-day window but only 10 logged days
     const r = energyBalanceRead({ calorieSeries: cals(10, 2000), weightSeries: weights(21, 183, 181), calorieTarget: 2000 })
     expect(r.hasData).toBe(false)
+  })
+
+  it('readiness names the real gap: weigh-ins fine, nutrition logging short', () => {
+    // The confusing case — plenty of weigh-ins but sparse food logging.
+    const r = energyBalanceRead({ calorieSeries: cals(10, 2000), weightSeries: weights(21, 183, 181), calorieTarget: 2000 })
+    expect(r.hasData).toBe(false)
+    expect(r.readiness.weighIns.ok).toBe(true)
+    expect(r.readiness.span.ok).toBe(true)
+    expect(r.readiness.logging.ok).toBe(false)
+    expect(r.readiness.logging.have).toBe(10)
+    expect(r.readiness.logging.need).toBe(15) // ceil(0.7 * 21)
+  })
+
+  it('readiness flags weigh-ins short when there are too few', () => {
+    const r = energyBalanceRead({ calorieSeries: cals(21, 2000), weightSeries: weights(6, 183, 182), calorieTarget: 2000 })
+    expect(r.readiness.weighIns.ok).toBe(false)
+    expect(r.readiness.weighIns.have).toBe(6)
+    expect(r.readiness.weighIns.need).toBe(8)
+    expect(r.readiness.logging.ok).toBe(true) // logging is fine here — the inverse case
   })
 
   it('estimates maintenance above intake during a deficit', () => {
@@ -103,6 +122,21 @@ describe('energyBalanceRead', () => {
   it('tones the rate "neutral" with no goal set', () => {
     const r = energyBalanceRead({ calorieSeries: cals(21, 2000), weightSeries: weights(21, 183, 181), calorieTarget: 2000 })
     expect(r.rateTone).toBe('neutral')
+  })
+
+  it('honors a custom analysis window (modular span)', () => {
+    const r14 = energyBalanceRead({ calorieSeries: cals(30, 2000), weightSeries: weights(30, 183, 181), calorieTarget: 2000, windowDays: 14 })
+    expect(r14.windowDays).toBe(14)
+    expect(r14.hasData).toBe(true)
+    const r28 = energyBalanceRead({ calorieSeries: cals(30, 2000), weightSeries: weights(30, 183, 181), calorieTarget: 2000, windowDays: 28 })
+    expect(r28.windowDays).toBe(28)
+    // Longer window folds in more days → coverage denominator is the chosen span.
+    expect(r28.coverage).toBeCloseTo(28 / 28, 2)
+  })
+
+  it('offers sane window options (default included, floor at 14)', () => {
+    expect(WINDOW_OPTIONS).toContain(21)
+    expect(Math.min(...WINDOW_OPTIONS)).toBe(14)
   })
 
   it('reports loggedVsTarget', () => {

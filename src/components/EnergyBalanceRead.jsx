@@ -1,4 +1,4 @@
-import { energyBalanceRead } from '../utils/energyBalanceRead'
+import { energyBalanceRead, WINDOW_OPTIONS } from '../utils/energyBalanceRead'
 import InfoTip from './InfoTip'
 
 // Coach-only instrument. We state only what we measured — maintenance (derived
@@ -29,8 +29,8 @@ function Row({ label, value, note, tip }) {
   )
 }
 
-export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorieTarget, weightGoal, weightGoalUnit }) {
-  const r = energyBalanceRead({ calorieSeries, weightSeries, calorieTarget, weightGoal, weightGoalUnit })
+export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorieTarget, weightGoal, weightGoalUnit, windowDays = 21, onWindowChange }) {
+  const r = energyBalanceRead({ calorieSeries, weightSeries, calorieTarget, weightGoal, weightGoalUnit, windowDays })
   if (!r.hasTarget) return null
 
   const num = (n) => n.toLocaleString()
@@ -71,13 +71,16 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
         <p style={{ fontSize: '0.7rem', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
           Energy balance read
         </p>
-        <p style={{ fontSize: '0.72rem', color: MUTED, margin: 0 }}>coach-only · last {r.windowDays} days</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.72rem', color: MUTED }}>coach-only</span>
+          {onWindowChange
+            ? <WindowSelector windowDays={windowDays} onWindowChange={onWindowChange} />
+            : <span style={{ fontSize: '0.72rem', color: MUTED }}>· last {r.windowDays} days</span>}
+        </div>
       </div>
 
       {!r.hasData ? (
-        <p style={{ fontSize: '0.8rem', color: MUTED, margin: 0 }}>
-          Need a couple weeks of logging + regular weigh-ins to read energy balance.
-        </p>
+        <ReadinessBlock readiness={r.readiness} windowDays={r.windowDays} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Row
@@ -98,9 +101,11 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
             tip="Average logged calories vs the set target, and the gap. Green within ±10% of target, amber when off it."
           />
           {r.trajectory && (
-            <p style={{ fontSize: '0.78rem', color: TEXT, margin: '2px 0 0' }}>
-              Vs the prior window: maintenance ~{num(r.trajectory.prevMaintenance)} → ~{num(r.maintenance.mid)}, rate {fmtRateWord(r.trajectory.prevRateLbPerWk)} → {fmtRateWord(r.rateLbPerWk)}.
-            </p>
+            <Row
+              label="Trajectory"
+              value={<TrajectoryDeltas r={r} num={num} />}
+              tip="How this 21-day window compares with the one before it — is the maintenance estimate and the weight-change rate drifting? Direction only; small moves are usually just logging noise."
+            />
           )}
         </div>
       )}
@@ -108,7 +113,93 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
   )
 }
 
-function fmtRateWord(r) {
-  if (r > -0.05 && r < 0.05) return 'flat'
-  return `${r < 0 ? 'down' : 'up'} ${Math.abs(r).toFixed(1)} lb/wk`
+// Window picker — trade recency for confidence. Compact week pills; the read
+// recomputes over the chosen span (the util is window-agnostic). An InfoTip on
+// the label carries the "why 21 by default" so the choice isn't a mystery.
+function WindowSelector({ windowDays, onWindowChange }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: '0.72rem', color: MUTED }}>
+        · window<InfoTip text="How far back to read. Shorter = more recent but noisier (the band widens); longer = steadier but reflects older behavior. 21 days is the default — long enough that daily water swings don't dominate the weight trend, short enough to track the current phase." />
+      </span>
+      <span role="group" aria-label="Energy balance window" style={{ display: 'inline-flex', gap: 4 }}>
+        {WINDOW_OPTIONS.map((d) => {
+          const active = d === windowDays
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => onWindowChange(d)}
+              aria-pressed={active}
+              style={{
+                fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999, lineHeight: 1.5,
+                border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                background: active ? 'var(--color-primary-dim)' : 'transparent',
+                color: active ? 'var(--color-primary)' : MUTED,
+                cursor: 'pointer',
+              }}
+            >
+              {d / 7}w
+            </button>
+          )
+        })}
+      </span>
+    </span>
+  )
+}
+
+// Trajectory as two glanceable deltas (vs the prior 21-day window): an arrow +
+// magnitude for the maintenance estimate and the weight-change rate, so the
+// direction reads at a glance instead of parsing a "was → now" sentence.
+function TrajectoryDeltas({ r, num }) {
+  // Diff the values as they're rounded for display (maintenance to 25 cal, rate
+  // to 0.1 lb/wk), so the delta a coach sees equals the one they'd compute by eye.
+  const r1 = (n) => Math.round(n * 10) / 10
+  const dMaint = r.maintenance.mid - r.trajectory.prevMaintenance
+  const dRate = r1(r1(r.rateLbPerWk) - r1(r.trajectory.prevRateLbPerWk))
+  const delta = (d, eps, fmt, unit) =>
+    Math.abs(d) < eps
+      ? <span style={{ color: MUTED, fontWeight: 400 }}>→ steady</span>
+      : <span style={{ color: TEXT }}>{d > 0 ? '↑' : '↓'} {fmt(Math.abs(d))}{unit}</span>
+  const lbl = { color: MUTED, fontWeight: 400 }
+  return (
+    <span style={{ fontWeight: 400 }}>
+      <span style={lbl}>Maint. </span>{delta(dMaint, 25, (v) => num(Math.round(v / 25) * 25), ' cal')}
+      <span style={{ ...lbl, margin: '0 7px' }}>·</span>
+      <span style={lbl}>Rate </span>{delta(dRate, 0.05, (v) => v.toFixed(1), ' lb/wk')}
+    </span>
+  )
+}
+
+// Empty state as an honest checklist: each requirement is a met/unmet fact with
+// its own numbers, so the coach sees exactly what the read is waiting on rather
+// than a catch-all that (wrongly) implicates weigh-ins when logging is the gap.
+function ReadyRow({ ok, label, detail }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+      <span style={{ color: ok ? GOOD : WEAK, fontWeight: 700, fontSize: '0.8rem', width: 12, flexShrink: 0, textAlign: 'center' }}>{ok ? '✓' : '•'}</span>
+      <span style={{ fontSize: '0.8rem', color: ok ? MUTED : TEXT }}>
+        {label} <span style={{ color: ok ? MUTED : WEAK, fontWeight: ok ? 400 : 600 }}>{detail}</span>
+      </span>
+    </div>
+  )
+}
+
+function ReadinessBlock({ readiness: rd, windowDays }) {
+  if (!rd) {
+    return (
+      <p style={{ fontSize: '0.8rem', color: MUTED, margin: 0 }}>
+        Need a couple weeks of logging + regular weigh-ins to read energy balance.
+      </p>
+    )
+  }
+  const need = (row, unit) => (row.ok ? '' : ` · need ${row.need}${unit}`)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <p style={{ fontSize: '0.8rem', color: MUTED, margin: '0 0 2px' }}>Not enough logged yet to read energy balance:</p>
+      <ReadyRow ok={rd.weighIns.ok} label="Weigh-ins" detail={`${rd.weighIns.have} in ${windowDays} days${need(rd.weighIns, '')}`} />
+      <ReadyRow ok={rd.span.ok} label="Weigh-in span" detail={`${rd.span.have} days${need(rd.span, ' days')}`} />
+      <ReadyRow ok={rd.logging.ok} label="Nutrition logging" detail={`${rd.logging.have}/${windowDays} days${need(rd.logging, ' days')}`} />
+    </div>
+  )
 }

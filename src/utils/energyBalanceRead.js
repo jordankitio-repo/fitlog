@@ -19,6 +19,17 @@ const CAL_PER_LB = 3500
 const KG_TO_LB = 2.2046226218
 const WINDOW_DAYS = 21
 
+// Selectable analysis windows (days). 21 is the default: the shortest span where
+// the weight-slope's regression noise (daily water swings of ±1–2 lb) is small
+// next to a real trend, yet still recent enough to reflect the current phase —
+// and it matches the typical coaching check-in block. A coach can trade recency
+// for confidence (a longer window narrows the band) or the reverse; the band
+// width, not the window, is what carries the honesty. 14 (= MIN_SPAN_DAYS) is the
+// floor below which a weight line is mostly noise. Max 42 → keep ≥84 days of data
+// on hand so the prior-window trajectory still computes.
+export const WINDOW_OPTIONS = [14, 21, 28, 42]
+export const WINDOW_DATA_DAYS = 90
+
 // Coarse garbage-guards (not the trust gate — the visible band is that):
 const MIN_WEIGH_INS = 8      // below this the slope SE itself is unreliable
 const MIN_SPAN_DAYS = 14     // weigh-ins must span enough calendar time to fit a line
@@ -26,6 +37,11 @@ const MIN_COVERAGE = 0.7     // logged days / window days — bounds under-loggi
 const MIN_BAND_CAL = 50      // floor on the band — a clean fit still isn't ±1 cal
                              // (3500/lb is a heuristic + systematic water error)
 const WIDE_BAND_CAL = 200    // band wider than this → soft "still settling" label
+
+// Weigh-ins must span most of the window to fit a line, but a 14-day window can
+// only ever span 13 days — so the 14-day floor is capped to what the chosen
+// window can physically hold. Longer windows keep the absolute 2-week minimum.
+const minSpanFor = (windowDays) => Math.min(MIN_SPAN_DAYS, windowDays - 1)
 
 // Ordinary least squares on [{x, y}]. Returns null when a line can't be fit
 // (fewer than 2 points, or no variance in x). slopeSE = standard error of slope.
@@ -80,22 +96,47 @@ function readWindow({ calorieSeries, dailyWeights, today, startAgo, endAgo }) {
     span = Math.max(...agos) - Math.min(...agos)
   }
 
-  const enough = weighIns >= MIN_WEIGH_INS && span >= MIN_SPAN_DAYS && coverage >= MIN_COVERAGE && avgIntake !== null
-  if (!enough) return { ok: false }
+  // Measured inputs travel with every result — even the insufficient one — so the
+  // empty state can name WHICH requirement is short instead of a vague catch-all.
+  const stats = { weighIns, span, loggedDays, coverage, avgIntake, windowDays }
+
+  const enough = weighIns >= MIN_WEIGH_INS && span >= minSpanFor(windowDays) && coverage >= MIN_COVERAGE && avgIntake !== null
+  if (!enough) return { ok: false, ...stats }
 
   // x increases with recency (most recent edge = endAgo), so slope>0 = gaining.
+  // Equal-weight OLS over the window — chosen for interpretability (the coach
+  // knows exactly which days are in the line). The state-of-the-art upgrade, if a
+  // coach ever needs the extra accuracy, is recency-weighting within the window
+  // (exponential decay, à la MacroFactor V3) — see decisions.md (Jul 18).
   const fit = linearFit(ws.map(w => ({ x: endAgo - agoOf(w.date), y: w.lb })))
-  if (!fit) return { ok: false }
+  if (!fit) return { ok: false, ...stats }
 
   const slopeLbDay = fit.slope
   return {
     ok: true,
-    avgIntake,
-    coverage,
+    ...stats,
     rateLbPerWk: slopeLbDay * 7,
     maintMid: avgIntake - slopeLbDay * CAL_PER_LB,
     maintErr: Math.abs(fit.slopeSE * CAL_PER_LB),
     recentLb: fit.intercept + fit.slope * endAgo,
+  }
+}
+
+// Per-requirement readiness for the empty state, built from a window's measured
+// inputs. Each row is a plain fact (have vs need) so the coach sees exactly what
+// the read is waiting on — e.g. "weigh-ins are fine, nutrition logging is short".
+function readinessFrom(win, windowDays) {
+  const loggedNeed = Math.ceil(MIN_COVERAGE * windowDays)
+  return {
+    windowDays,
+    weighIns: { have: win.weighIns || 0, need: MIN_WEIGH_INS, ok: (win.weighIns || 0) >= MIN_WEIGH_INS },
+    span: { have: win.span || 0, need: minSpanFor(windowDays), ok: (win.span || 0) >= minSpanFor(windowDays) },
+    logging: {
+      have: win.loggedDays || 0,
+      need: loggedNeed,
+      coverage: win.coverage || 0,
+      ok: (win.coverage || 0) >= MIN_COVERAGE && win.avgIntake !== null,
+    },
   }
 }
 
@@ -109,7 +150,7 @@ export function energyBalanceRead({ calorieSeries = [], weightSeries = [], calor
   const dailyWeights = dailyWeightsLb(weightSeries)
 
   const cur = readWindow({ calorieSeries, dailyWeights, today, startAgo: 0, endAgo: windowDays })
-  if (!cur.ok) return { hasTarget: true, hasData: false, windowDays }
+  if (!cur.ok) return { hasTarget: true, hasData: false, windowDays, readiness: readinessFrom(cur, windowDays) }
 
   const err = Math.max(cur.maintErr, MIN_BAND_CAL)
   const maintenance = { low: round25(cur.maintMid - err), mid: round25(cur.maintMid), high: round25(cur.maintMid + err) }

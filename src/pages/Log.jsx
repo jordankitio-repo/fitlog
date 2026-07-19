@@ -9,6 +9,7 @@ import Toast from '../components/Toast'
 import Modal from '../components/Modal'
 import SoloUpgrade from '../components/SoloUpgrade'
 import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
+import { measurementStatus } from '../utils/measurementCadence'
 import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
@@ -169,6 +170,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [meas, setMeas] = useState({ unit: 'in', neck: '', chest: '', waist: '', hips: '', arm: '', thigh: '' })
   const [savedMeas, setSavedMeas] = useState(null)
   const [measExpanded, setMeasExpanded] = useState(false)
+  // Most recent measurement across ALL days (for the "time to re-measure" nudge).
+  // The client's reminder uses the steadier ~monthly cadence so it never nags;
+  // the coach's ClientView read is the phase-precise one.
+  const [lastMeasuredIso, setLastMeasuredIso] = useState(null)
 
   useEffect(() => {
     fetchEntries()
@@ -179,6 +184,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchCardioEntries()
     fetchSteps()
     fetchMeasurements()
+    fetchLastMeasured()
     setFeedback('')
   }, [selectedDate])
 
@@ -919,6 +925,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchSteps()
   }
 
+  async function fetchLastMeasured() {
+    if (!session?.user?.id) return
+    const { data } = await supabase.from('body_measurements').select('logged_date')
+      .eq('user_id', session.user.id).order('logged_date', { ascending: false }).limit(1).maybeSingle()
+    setLastMeasuredIso(data?.logged_date ?? null)
+  }
+
   async function fetchMeasurements() {
     if (!session?.user?.id) return
     const { data, error } = await supabase.from('body_measurements').select('*')
@@ -950,6 +963,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) { console.error(error); showToast('Couldn\'t save measurements — try again.', 'error'); return }
     setMeasExpanded(false)
     fetchMeasurements()
+    fetchLastMeasured()
   }
 
   // Nav functions
@@ -1806,6 +1820,23 @@ function Log({ session, profile, hasSoloPremium = true }) {
       {/* Body measurements */}
       <div style={sectionStyle}>
         <h2 style={{ borderLeft: '3px solid var(--color-weight)', paddingLeft: '10px' }}>Measurements</h2>
+
+        {/* Gentle re-measure reminder once the latest is past ~monthly (steady
+            cadence — deliberately not nagging; the coach view is phase-precise). */}
+        {(() => {
+          const r = measurementStatus({ lastMeasuredIso, cadenceDays: 28 })
+          if (!r.due || measExpanded) return null
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 'var(--radius)', background: 'var(--color-primary-dim)' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
+                It's been {r.daysSince} days since your last measurements — a good time to update them.
+              </span>
+            </div>
+          )
+        })()}
 
         {savedMeas && !measExpanded && (
           MEASUREMENT_SITES.some(s => savedMeas[s.key] != null) ? (

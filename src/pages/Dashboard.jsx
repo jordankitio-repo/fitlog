@@ -19,6 +19,7 @@ import ReportBody from '../components/ReportBody'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { checkinPeriod, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
+import { measurementStatus } from '../utils/measurementCadence'
 import { cadenceLabel } from '../utils/cadence'
 import { blankValue, validateAnswers, buildAnswers, formatAnswer } from '../utils/checkinQuestions'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -100,6 +101,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [offboardReason, setOffboardReason] = useState(null)
   const [showNudgeNotice, setShowNudgeNotice] = useState(false)
   const [nudgeTimestamp, setNudgeTimestamp] = useState('')
+  // Re-measure reminder: surfaced here (their home) so it's actually seen, not
+  // just on the Log page. Steady ~monthly cadence — a gentle prompt, never nags.
+  const [lastMeasuredIso, setLastMeasuredIso] = useState(null)
+  const [showMeasReminder, setShowMeasReminder] = useState(false)
   const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
   const [selfOffboarding, setSelfOffboarding] = useState(false)
   const [selfOffboardError, setSelfOffboardError] = useState('')
@@ -175,6 +180,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       }
       if (profile?.role === 'solo') {
         await fetchOffboardNotice()
+      }
+      if (profile?.role === 'client' || profile?.role === 'solo') {
+        await fetchLastMeasured()
       }
       setPageLoading(false)
     }
@@ -610,6 +618,18 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     setShowOffboardNotice(true)
   }
 
+  async function fetchLastMeasured() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const uid = currentSession?.user?.id
+    if (!uid) return
+    const { data } = await supabase.from('body_measurements').select('logged_date')
+      .eq('user_id', uid).order('logged_date', { ascending: false }).limit(1).maybeSingle()
+    const iso = data?.logged_date ?? null
+    setLastMeasuredIso(iso)
+    const dismissed = iso && localStorage.getItem(`meas_reminder_dismissed_${uid}_${iso}`) === 'true'
+    setShowMeasReminder(measurementStatus({ lastMeasuredIso: iso, cadenceDays: 28 }).due && !dismissed)
+  }
+
   async function fetchNudgeNotice() {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     if (!currentSession?.user?.id) return
@@ -876,6 +896,28 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	              setShowNudgeNotice(false)
 	            }}
 	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
+	          >
+	            ✕
+	          </button>
+	        </div>
+	      )}
+
+	      {showMeasReminder && (
+	        <div style={{ ...cardStyle, background: 'var(--color-primary-dim)', flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '14px 18px' }}>
+	          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+	            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+	          </svg>
+	          <p style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
+	            It's been {measurementStatus({ lastMeasuredIso, cadenceDays: 28 }).daysSince} days since your last measurements — a good time for a fresh set.
+	          </p>
+	          <Button onClick={() => navigate('/log')} variant="outline" size="sm">Update</Button>
+	          <button
+	            onClick={() => {
+	              if (lastMeasuredIso) localStorage.setItem(`meas_reminder_dismissed_${profile.id}_${lastMeasuredIso}`, 'true')
+	              setShowMeasReminder(false)
+	            }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
+	            aria-label="Dismiss"
 	          >
 	            ✕
 	          </button>

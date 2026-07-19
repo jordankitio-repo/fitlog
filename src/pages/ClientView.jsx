@@ -17,6 +17,9 @@ import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
+import { computeWeightTarget, convertWeight, normUnit } from '../utils/weightTarget'
+import { measurementCadenceDays, measurementStatus } from '../utils/measurementCadence'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import Reorderable from '../components/Reorderable'
 import SectionRail from '../components/SectionRail'
 import TargetCalculator from '../components/TargetCalculator'
@@ -24,7 +27,7 @@ import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
 import { ageFromBirthDate } from '../utils/biometrics'
 import Avatar from '../components/Avatar'
-import { energyBalanceRead } from '../utils/energyBalanceRead'
+import { energyBalanceRead, WINDOW_OPTIONS, WINDOW_DATA_DAYS } from '../utils/energyBalanceRead'
 import { computeClientStats } from '../utils/clientStats'
 import { attentionLevel } from '../utils/attentionLevel'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
@@ -120,6 +123,12 @@ function ClientView({ profile }) {
   const [weightHistory, setWeightHistory] = useState([])
   const [measHistory, setMeasHistory] = useState([])
   const [plainCharts, togglePlain] = usePlainCharts()
+  // Column budget for the body-measurement small-multiples (3 desktop / 2 tablet
+  // / 1 phone). The actual count is balanced against the number of sites below,
+  // so the trend charts always tile into even rows with no trailing gap.
+  const measViewWide = useMediaQuery('(min-width: 1000px)')
+  const measViewMid = useMediaQuery('(min-width: 640px)')
+  const measColsMax = measViewWide ? 3 : measViewMid ? 2 : 1
   const [calorieHistory, setCalorieHistory] = useState([])
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
@@ -156,6 +165,16 @@ function ClientView({ profile }) {
   })
   const [heatmapData, setHeatmapData] = useState({})
   const [energySeries, setEnergySeries] = useState({ calories: [], weights: [] })
+  // Coach's chosen energy-balance window (persisted). The read is window-agnostic;
+  // this just picks the span. Default 21 (see WINDOW_OPTIONS rationale).
+  const [ebWindowDays, setEbWindowDays] = useState(() => {
+    try { const v = parseInt(localStorage.getItem('gardnr-eb-window'), 10); if (WINDOW_OPTIONS.includes(v)) return v } catch { /* ignore */ }
+    return 21
+  })
+  const changeEbWindow = (d) => {
+    setEbWindowDays(d)
+    try { localStorage.setItem('gardnr-eb-window', String(d)) } catch { /* ignore */ }
+  }
   const [cardOrder, setCardOrder] = useState(profile?.layout?.clientView || [])
   const canReorder = profile?.role === 'coach'
   const [activeSection, setActiveSection] = useState(null) // scroll-spy: section currently in view
@@ -511,12 +530,12 @@ function ClientView({ profile }) {
   // coach reading it would conclude the client had stopped moving. It is the
   // single most load-bearing chart on the page, and it was lying.
   const { data, error } = await supabase
-    .from('weight_log').select('logged_date, weight')
+    .from('weight_log').select('logged_date, weight, unit')
     .eq('user_id', clientId)
     .order('logged_date', { ascending: false }).limit(30)
   if (error) console.error(error)
   else setWeightHistory(
-    [...data].reverse().map(d => ({ iso: d.logged_date, date: shortDate(d.logged_date), weight: parseFloat(d.weight) }))
+    [...data].reverse().map(d => ({ iso: d.logged_date, date: shortDate(d.logged_date), weight: parseFloat(d.weight), unit: d.unit }))
   )
 }
 
@@ -764,10 +783,12 @@ async function fetchClientMeasurements() {
   setMeasHistory(data || [])
 }
 
-// Dedicated 45-day pull for the Energy Balance Read — full dates + weight unit,
-// recent window (the chart fetches are year-stripped, 30-day, and earliest-30).
+// Dedicated pull for the Energy Balance Read — full dates + weight unit. Fetches
+// WINDOW_DATA_DAYS (≥ 2× the longest selectable window) so switching windows and
+// the prior-window trajectory never need a re-fetch. (Chart fetches are separate:
+// year-stripped, 30-day, and earliest-30.)
 async function fetchEnergyBalance() {
-  const start = new Date(); start.setDate(start.getDate() - 44)
+  const start = new Date(); start.setDate(start.getDate() - (WINDOW_DATA_DAYS - 1))
   const startStr = toLocalDateString(start)
   const [nut, wt] = await Promise.all([
     supabase.from('nutrition_log').select('logged_date, calories').eq('user_id', clientId).gte('logged_date', startStr),
@@ -1028,12 +1049,14 @@ async function addNoteEntry() {
 
     // Recent intelligence (same reads the panels show) → a candid signals block,
     // so the brief is a real readiness read, not just a re-summary of the logs.
+    // Uses the coach's chosen window so the brief matches the panel on screen.
     const eb = energyBalanceRead({
       calorieSeries: energySeries.calories,
       weightSeries: energySeries.weights,
       calorieTarget: clientTargets.calories,
       weightGoal: clientTargets.weight_goal,
       weightGoalUnit: clientTargets.weight_goal_unit,
+      windowDays: ebWindowDays,
     })
     const cb = complianceBreakdown(heatmapData, clientTargets.calories)
     const sig = []
@@ -1339,6 +1362,18 @@ async function sendMessage(text) {
       y: { ticks: { color: CHART.tick, maxTicksLimit: 4, font: { size: 9 } }, grid: { color: CHART.grid } },
     },
   }
+
+  // Body-measurement freshness: recommended re-measure cadence is phase-derived
+  // (cutting → 2 wk, else 4 wk — measurementCadence.js) from the client's weight
+  // goal, and compared to their latest measurement so the coach sees at a glance
+  // whether the tape data is current or stale (measurements move slowly, so a
+  // frozen trend is easy to miss otherwise).
+  const measDirection = computeWeightTarget({
+    weightHistory, weightGoal: clientTargets.weight_goal, weightGoalUnit: clientTargets.weight_goal_unit,
+  })?.direction ?? null
+  const measStatus = measHistory.length
+    ? measurementStatus({ lastMeasuredIso: measHistory[measHistory.length - 1].logged_date, cadenceDays: measurementCadenceDays(measDirection) })
+    : null
 
   // Shown inside a chart section when the client hasn't logged that data yet —
   // uses the app's EmptyState (icon + title + hint), not bare text.
@@ -2065,6 +2100,8 @@ async function sendMessage(text) {
                     calorieTarget={clientTargets.calories}
                     weightGoal={clientTargets.weight_goal}
                     weightGoalUnit={clientTargets.weight_goal_unit}
+                    windowDays={ebWindowDays}
+                    onWindowChange={changeEbWindow}
                   />
                 </div>
               ) : chartEmpty('No progress data yet', 'Appears once weight or nutrition is logged.')
@@ -2076,35 +2113,111 @@ async function sendMessage(text) {
       {!hiddenCharts.includes('weightChart') && (
         <div key="weightChart" id="section-weightChart" style={sectionCardStyle}>
           <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
-            {!sectionsCollapsed.weightChart && (weightHistory.length > 1 ? (
-              <Line
-                data={{
-                  labels: weightHistory.map(d => d.date),
-                  datasets: [
-                    {
-                      label: 'Weight',
-                      data: weightHistory.map(d => d.weight),
-                      borderColor: '#34d399',
-                      backgroundColor: 'rgba(52, 211, 153, 0.15)',
-                      pointRadius: 3,
-                      tension: 0.3,
-                      fill: true,
-                    },
-                    {
-                      label: '7-day avg',
-                      data: computeRollingAverage(weightHistory),
-                      borderColor: 'rgba(52, 211, 153, 0.45)',
-                      backgroundColor: 'transparent',
-                      borderDash: [4, 4],
-                      pointRadius: 0,
-                      tension: 0.3,
-                      fill: false,
-                    },
-                  ]
-                }}
-                options={chartOptions}
-              />
-            ) : chartEmpty('No weight logged yet', 'Appears once your client logs weight.'))}
+            {!sectionsCollapsed.weightChart && (weightHistory.length > 1 ? (() => {
+              // The chart follows the weight-GOAL unit when a goal is set (so the
+              // coach's unit choice drives the axis live), else the unit the
+              // weigh-ins were logged in. Every weigh-in is converted into that
+              // display unit — the axis, line, 7-day avg, goal line and marker all
+              // share it — so the chart is never "stuck" in whatever unit the raw
+              // rows happen to use.
+              const displayUnit = clientTargets.weight_goal
+                ? normUnit(clientTargets.weight_goal_unit)
+                : normUnit(weightHistory[weightHistory.length - 1]?.unit)
+              const round1 = (n) => Math.round(n * 10) / 10
+              const dispHistory = weightHistory.map(d => ({
+                ...d,
+                unit: displayUnit,
+                weight: round1(convertWeight(d.weight, normUnit(d.unit || displayUnit), displayUnit)),
+              }))
+              // Goal reference line + the first weigh-in that reached it, computed
+              // in the same display unit (weightTarget.js converts the goal in).
+              const wt = computeWeightTarget({
+                weightHistory: dispHistory,
+                weightGoal: clientTargets.weight_goal,
+                weightGoalUnit: clientTargets.weight_goal_unit,
+              })
+              const rIdx = wt?.reached ? wt.reachedIndex : -1
+              const isMark = (i) => i === rIdx
+              const datasets = [
+                {
+                  label: 'Weight',
+                  data: dispHistory.map(d => d.weight),
+                  borderColor: '#34d399',
+                  backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                  // Reached-goal marker: on-brand green (NOT gold — gold is the
+                  // product's warning color), a clean dot not a generic star; the
+                  // growth-motif leaf lives in the caption below. Theme-agnostic
+                  // pop on both cards: a deep-green fill (#15803d) carries contrast
+                  // on the light card, a white ring carries it on the dark card —
+                  // each does its job on the theme where the other washes out.
+                  pointRadius: dispHistory.map((_, i) => (isMark(i) ? 7 : 3)),
+                  pointStyle: 'circle',
+                  pointBackgroundColor: dispHistory.map((_, i) => (isMark(i) ? '#15803d' : '#34d399')),
+                  pointBorderColor: dispHistory.map((_, i) => (isMark(i) ? '#ffffff' : '#34d399')),
+                  pointBorderWidth: dispHistory.map((_, i) => (isMark(i) ? 2.5 : 1)),
+                  tension: 0.3,
+                  fill: true,
+                },
+                {
+                  label: '7-day avg',
+                  data: computeRollingAverage(dispHistory),
+                  borderColor: 'rgba(52, 211, 153, 0.45)',
+                  backgroundColor: 'transparent',
+                  borderDash: [4, 4],
+                  pointRadius: 0,
+                  tension: 0.3,
+                  fill: false,
+                },
+              ]
+              if (wt) datasets.push({
+                label: `Goal (${wt.goal} ${wt.displayUnit})`,
+                data: dispHistory.map(() => wt.goal),
+                borderColor: CHART.targetLine,
+                backgroundColor: 'transparent',
+                borderDash: [6, 4],
+                borderWidth: 1.5,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                tension: 0,
+                fill: false,
+              })
+              // Weight-specific tooltip so hovered points carry the unit.
+              const weightChartOptions = {
+                ...chartOptions,
+                plugins: {
+                  ...chartOptions.plugins,
+                  tooltip: {
+                    ...chartOptions.plugins.tooltip,
+                    callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${displayUnit}` },
+                  },
+                },
+              }
+              return (
+                <>
+                  <Line data={{ labels: dispHistory.map(d => d.date), datasets }} options={weightChartOptions} />
+                  {wt && (
+                    <p style={{ fontSize: 'var(--text-sm)', margin: '10px 2px 0', color: 'var(--color-muted)' }}>
+                      {wt.reached ? (
+                        <>
+                          <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }}>
+                              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+                              <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+                            </svg>
+                            Reached goal
+                          </span>
+                          {wt.direction === 'maintain'
+                            ? <> — holding at {wt.goal} {wt.displayUnit}</>
+                            : <> — first hit {wt.goal} {wt.displayUnit} on {new Date(wt.reachedIso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</>}
+                        </>
+                      ) : (
+                        <><strong style={{ color: 'var(--color-text)', fontWeight: 600 }}>{wt.remainingAbs} {wt.displayUnit}</strong> {wt.direction === 'up' ? 'to gain' : 'to lose'} to reach the {wt.goal} {wt.displayUnit} goal</>
+                      )}
+                    </p>
+                  )}
+                </>
+              )
+            })() : chartEmpty('No weight logged yet', 'Appears once your client logs weight.'))}
           </SectionHeader>
         </div>
       )}
@@ -2141,7 +2254,18 @@ async function sendMessage(text) {
 
       {!hiddenCharts.includes('measurements') && (
         <div key="measurements" id="section-measurements" style={sectionCardStyle}>
-          <SectionHeader title="Body measurements" collapsed={sectionsCollapsed.measurements} onToggle={() => toggleSection('measurements')}>
+          <SectionHeader
+            title="Body measurements"
+            collapsed={sectionsCollapsed.measurements}
+            onToggle={() => toggleSection('measurements')}
+            info="Recommended re-measure cadence — about every 2 weeks while cutting, every 4 weeks otherwise (industry standard; circumference moves slowly and tape error is ~1–1.5 cm). Flags when the client's tape data is overdue."
+            action={measStatus?.due ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600, background: 'var(--color-warning-dim)', border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: 'var(--color-warning)' }} />
+                Re-measure due · {measStatus.daysSince}d
+              </span>
+            ) : null}
+          >
             {!sectionsCollapsed.measurements && (measHistory.length === 0
               ? chartEmpty("No measurements yet — added on the client's Log page.")
               : (() => {
@@ -2152,7 +2276,7 @@ async function sendMessage(text) {
               return (
                 <>
                   <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '12px' }}>
-                    Latest {new Date(latest.logged_date + 'T00:00:00').toLocaleDateString()}{measHistory.length > 1 ? ' · change since first recorded' : ''}
+                    Latest {new Date(latest.logged_date + 'T00:00:00').toLocaleDateString()}{measStatus ? ` · ${measStatus.daysSince === 0 ? 'today' : `${measStatus.daysSince}d ago`}` : ''}{measHistory.length > 1 ? ' · change since first recorded' : ''}
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                     {sites.map(s => {
@@ -2173,19 +2297,25 @@ async function sendMessage(text) {
                       )
                     })}
                   </div>
-                  {/* Trend small-multiples: one line chart per site (≥2 points),
-                      all equal-sized in one responsive grid. */}
+                  {/* Trend small-multiples: one line chart per logged site (≥2
+                      points). The column count is balanced against the number of
+                      sites so the charts always tile into even rows — never a
+                      half-empty last row of leftover negative space. */}
                   {(() => {
                     const trendSites = MEASUREMENT_SITES.filter(s => measHistory.filter(r => r[s.key] != null).length >= 2)
                     if (!trendSites.length) return null
+                    // Fit within the viewport budget, but drop a column rather
+                    // than strand a single chart alone on the final row.
+                    let cols = Math.min(measColsMax, trendSites.length)
+                    if (cols > 1 && trendSites.length % cols === 1) cols -= 1
                     return (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '16px', marginTop: '16px' }}>
                         {trendSites.map(s => {
                           const pts = measHistory.filter(r => r[s.key] != null)
                           return (
                             <div key={s.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px' }}>
                               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 6px' }}>{s.label} <span style={{ color: 'var(--color-faint)' }}>({unit})</span></p>
-                              <div style={{ height: '150px' }}>
+                              <div style={{ height: '180px' }}>
                                 <Line
                                   data={{ labels: pts.map(r => r.logged_date.slice(5)), datasets: [{ label: s.label, data: pts.map(r => r[s.key]), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.12)', pointRadius: 3, tension: 0.3, fill: true }] }}
                                   options={miniChartOptions}

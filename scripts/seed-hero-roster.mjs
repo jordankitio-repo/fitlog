@@ -90,7 +90,7 @@ const CLIENTS = [
     name: 'Maya Chen',
     goal: 'Cut phase',
     sex: 'female', height: 168, startWeight: 71.4, perDay: -0.055,
-    targets: { calories: 1850, protein: 140, carbs: 165, fat: 60, cardio_minutes: 35, steps: 9000 },
+    targets: { calories: 1850, protein: 140, carbs: 165, fat: 60, cardio_minutes: 35, steps: 9000, weight_goal: 71, weight_goal_unit: 'kg' },
     // GREEN. Logged today, checked in, and every metric clears 3/7 — including
     // cardio, which needs 4+ sessions inside the 7-day window to get there.
     // Near-perfect adherence over eight weeks, so the heatmap and the energy
@@ -108,7 +108,7 @@ const CLIENTS = [
     name: 'Marcus Webb',
     goal: 'Reverse diet',
     sex: 'male', height: 179, startWeight: 80.9, perDay: 0.012,
-    targets: { calories: 2600, protein: 175, carbs: 280, fat: 80, cardio_minutes: 30, steps: 10000 },
+    targets: { calories: 2600, protein: 175, carbs: 280, fat: 80, cardio_minutes: 30, steps: 10000, weight_goal: 83, weight_goal_unit: 'kg' },
     // YELLOW. Weight holding flat, which is what a reverse should do, and he has
     // checked in — but his cardio and steps have quietly stopped. Exactly the
     // drift a spreadsheet hides and the pills surface.
@@ -121,7 +121,7 @@ const CLIENTS = [
     name: 'Sam Rivera',
     goal: 'Maintenance',
     sex: 'male', height: 175, startWeight: 78.2, perDay: 0.02,
-    targets: { calories: 2400, protein: 160, carbs: 250, fat: 80, cardio_minutes: 30, steps: 8000 },
+    targets: { calories: 2400, protein: 160, carbs: 250, fat: 80, cardio_minutes: 30, steps: 8000, weight_goal: 172, weight_goal_unit: 'lbs' },
     // RED. Went quiet five days ago — past the 4-day threshold — and never
     // checked in. The client the dashboard exists to catch, and the one a
     // spreadsheet lets you forget about until the call.
