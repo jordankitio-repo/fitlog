@@ -5,6 +5,7 @@ import { track } from '@vercel/analytics'
 import Logo from '../components/Logo'
 import {
   contrast as contrastContent,
+  demo,
   faq,
   finalCta,
   footer,
@@ -335,6 +336,34 @@ function TrialChecklist() {
   )
 }
 
+// Interactive coach walkthrough. The demo is a self-contained page served from
+// public/coach-demo.html and embedded in an iframe so its broad, generic class
+// names (.card, .btn, .row…) can never collide with the app's global styles.
+// It posts its content height back so the frame sizes itself with no scrollbar.
+function CoachDemo() {
+  const [height, setHeight] = useState(1040)
+  useEffect(() => {
+    function onMessage(e) {
+      const d = e.data
+      if (d && d.type === 'gardnr-demo-height' && typeof d.height === 'number') {
+        setHeight(Math.max(560, Math.min(2200, Math.round(d.height))))
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
+  return (
+    <div className="lp-demo-frame">
+      <iframe
+        src="/coach-demo.html"
+        title="Interactive coach walkthrough"
+        loading="lazy"
+        style={{ width: '100%', height, border: 0, display: 'block', background: '#060606' }}
+      />
+    </div>
+  )
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Landing() {
@@ -478,6 +507,16 @@ export default function Landing() {
           <p className="lp-eyebrow-text lp-eyebrow-green">{workflow.eyebrow}</p>
           <h2 className="lp-h2">{workflow.h2}</h2>
           <WorkflowSteps />
+        </div>
+      </section>
+
+      {/* INTERACTIVE COACH DEMO */}
+      <section id="demo" className="lp-section">
+        <div className="lp-demo-inner">
+          <p className="lp-eyebrow-text lp-eyebrow-green">{demo.eyebrow}</p>
+          <h2 className="lp-h2">{demo.h2}</h2>
+          <p className="lp-demo-sub">{demo.sub}</p>
+          <CoachDemo />
         </div>
       </section>
 

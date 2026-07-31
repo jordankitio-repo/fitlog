@@ -253,6 +253,12 @@ export const workflow = {
   ],
 }
 
+export const demo = {
+  eyebrow: 'See it work',
+  h2: "The coach's side, click by click.",
+  sub: "A hands-on walkthrough of the five things a spreadsheet can't do — triage the roster, draft the weekly report, review the check-in, read empirical maintenance, and invite a client. Follow the green highlight, or skip the tour and poke around.",
+}
+
 // ── No pricing section, deliberately ────────────────────────────────────────
 //
 // There used to be one here: a price card, a paragraph explaining our future

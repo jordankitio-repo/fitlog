@@ -331,6 +331,21 @@
 .lp-step-grid.is-playing .lp-viz-bar { animation: vizBarIn 0.8s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: calc(var(--i) * 0.1s); }
 @keyframes vizBarIn { from { height: 0; } to { height: var(--h); } }
 
+/* ---------- INTERACTIVE COACH DEMO ---------- */
+/* A little wider than the reading columns so the app mock has room to breathe.
+   The demo is an iframe (public/coach-demo.html) that reports its own height. */
+.lp-demo-inner { max-width: 1080px; margin: 0 auto; }
+.lp-demo-sub {
+  max-width: 640px; margin: -28px 0 8px; color: #9a9a9a;
+  font-size: 0.98rem; line-height: 1.7; letter-spacing: -0.01em;
+}
+.lp-demo-frame {
+  margin-top: 24px; border-radius: 16px; overflow: hidden;
+  border: 1px solid #161616; background: #060606;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+.lp-demo-frame iframe { width: 100%; border: 0; display: block; }
+
 /* ---------- PRICING ---------- */
 .lp-pricing-lede { max-width: 620px; margin: -24px 0 30px; color: #9a9a9a; font-size: 0.96rem; line-height: 1.7; }
 .lp-pricing-card { max-width: 620px; padding: 34px; border: 1px solid rgba(52,211,153,0.2); border-radius: 18px; background: linear-gradient(145deg, #0c1811, #0b0d0c); box-shadow: 0 20px 60px rgba(0,0,0,0.28); }

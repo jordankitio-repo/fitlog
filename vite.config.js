@@ -102,6 +102,9 @@ export default defineConfig({
         sourcemap: false,
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
+        // The embedded coach demo is a real static page, not an SPA route — keep
+        // the navigation fallback from serving index.html into its iframe.
+        navigateFallbackDenylist: [/^\/coach-demo\.html$/],
         runtimeCaching: [
           {
             // Google Fonts (Inter) — keep the app styled when offline.
