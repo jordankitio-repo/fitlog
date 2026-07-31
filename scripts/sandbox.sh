@@ -57,15 +57,23 @@ if [[ "$CMD" == down || "$CMD" == end || "$CMD" == stop || "$CMD" == terminate ]
   exit 0
 fi
 
+# ──────────────────────────────────────────────────────────────── url ──
+# Just print the link — no rebuild. Handy when you only want to copy/open it.
+if [[ "$CMD" == url || "$CMD" == link ]]; then
+  echo "$DEMO_URL"
+  exit 0
+fi
+
 if [[ "$CMD" == -h || "$CMD" == --help || "$CMD" == help ]]; then
-  echo "Usage: ./scripts/sandbox.sh [up|down]"
+  echo "Usage: ./scripts/sandbox.sh [up|down|url]"
   echo "  up   (default)  build the current branch and deploy to $DEMO_URL"
   echo "  down            take the sandbox offline (the url 404s)"
+  echo "  url             just print the link (no rebuild)"
   exit 0
 fi
 
 if [[ "$CMD" != up ]]; then
-  echo "✗ Unknown command '$CMD'. Usage: ./scripts/sandbox.sh [up|down]" >&2; exit 1
+  echo "✗ Unknown command '$CMD'. Usage: ./scripts/sandbox.sh [up|down|url]" >&2; exit 1
 fi
 
 # ───────────────────────────────────────────────────────────────── up ──
@@ -125,13 +133,23 @@ cp -R dist/. "$STAGE"/
 cat > "$STAGE/vercel.json" <<'JSON'
 { "rewrites": [{ "source": "/((?!.*\\.).*)", "destination": "/index.html" }] }
 JSON
-VERCEL_ORG_ID="$VERCEL_ORG_ID" VERCEL_PROJECT_ID="$VERCEL_PROJECT_ID" \
-  npx vercel deploy --prod --yes --cwd "$STAGE" >/dev/null 2>&1
+# Keep the deploy output so a failure surfaces a real error instead of silence.
+if ! DEPLOY_LOG=$(VERCEL_ORG_ID="$VERCEL_ORG_ID" VERCEL_PROJECT_ID="$VERCEL_PROJECT_ID" \
+     npx vercel deploy --prod --yes --cwd "$STAGE" 2>&1); then
+  rm -rf "$STAGE"
+  echo "✗ Deploy failed:" >&2
+  echo "$DEPLOY_LOG" | tail -20 >&2
+  exit 1
+fi
 rm -rf "$STAGE"
 
 echo
-echo "✓ Sandbox live for branch '$BRANCH'  →  $DEMO_URL"
-echo "  Coach:  alex@gardnr.demo  / Demo!Passw0rd123   (open Marcus Webb)"
-echo "  Client: maya@gardnr.demo  / Demo!Passw0rd123"
+echo "✓ Sandbox live for branch '$BRANCH'. Open this link:"
+echo
+echo "    $DEMO_URL"
+echo
+echo "  Logins:"
+echo "    Coach:  alex@gardnr.demo  / Demo!Passw0rd123   (open Marcus Webb)"
+echo "    Client: maya@gardnr.demo  / Demo!Passw0rd123"
 echo
 echo "  Take it down when you're done:  ./scripts/sandbox.sh down"
