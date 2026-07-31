@@ -72,6 +72,18 @@ a{ color:inherit; }
 .chapter[aria-current="true"]{ border-color:rgba(52,211,153,.5); background:linear-gradient(160deg,#0c1811,#0b0d0c); }
 .chapter[aria-current="true"] .num{ color:var(--g2); }
 .chapter[aria-current="true"] .title{ color:#eafff3; }
+/* Mobile: the 5-card stepper stacks ~500px tall — collapse it to a compact,
+   swipeable one-row strip (num + title chip), and give the app window more width. */
+@media (max-width:640px){
+  .wrap{ padding:12px 14px 10px; }
+  .chapters{ flex-wrap:nowrap; overflow-x:auto; gap:8px; margin:14px 0 12px; padding-bottom:6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity; }
+  .chapters::-webkit-scrollbar{ display:none; }
+  .chapter{ flex:0 0 auto; flex-direction:row; align-items:baseline; gap:8px; padding:9px 14px; scroll-snap-align:center; }
+  .chapter .title{ white-space:nowrap; }
+  .chapter .csub{ display:none; }
+  .callout{ padding:11px 13px; }
+  .pad{ padding:18px 16px 26px; }
+}
 
 /* callout */
 .callout{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:0 0 12px; padding:12px 16px; border-radius:12px; background:rgba(52,211,153,.045); border:1px solid rgba(52,211,153,.16); }

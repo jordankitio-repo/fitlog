@@ -289,7 +289,18 @@ function render(){
   el('prev').disabled=S.ch===0; el('next').disabled=S.ch===CH.length-1;
   el('next').textContent=S.ch===CH.length-1?'That’s the tour':'Next workflow →';
   el('dots').innerHTML=CH.map(function(_,i){ return '<i class="'+(i===S.ch?'on':'')+'"></i>'; }).join('');
+  centerActiveChapter();
   updateCallout();
+}
+/* On mobile the chapters are a horizontal strip; keep the active one centered.
+   Sets scrollLeft on the strip ONLY (never scrollIntoView — that would scroll
+   the parent landing page across the iframe boundary). */
+function centerActiveChapter(){
+  var wrap=el('chapters'); if(!wrap) return;
+  var act=wrap.querySelector('[aria-current="true"]');
+  if(!act || wrap.scrollWidth<=wrap.clientWidth+2) return; // not scrollable (desktop)
+  var wr=wrap.getBoundingClientRect(), ar=act.getBoundingClientRect();
+  wrap.scrollLeft += (ar.left - wr.left) - (wrap.clientWidth - act.offsetWidth)/2;
 }
 function setHint(t){ if(TOUR.active) return; el('hint').innerHTML=t; }
 function goChapter(i){ S.ch=i; resetChapterState(); render(); startTour(); }
