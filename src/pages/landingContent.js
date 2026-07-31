@@ -253,10 +253,17 @@ export const workflow = {
   ],
 }
 
+export const video = {
+  eyebrow: 'See it in motion',
+  h2: 'A full week of coaching, in under a minute.',
+  sub: 'The whole coach workflow end to end — triage the roster, draft a report, read the check-in, and see the trend a scale alone misses.',
+  duration: '0:59',
+}
+
 export const demo = {
-  eyebrow: 'See it work',
-  h2: "The coach's side, click by click.",
-  sub: "A hands-on walkthrough of the five things a spreadsheet can't do — triage the roster, draft the weekly report, review the check-in, read empirical maintenance, and invite a client. Follow the green highlight, or skip the tour and poke around.",
+  eyebrow: 'Try it yourself',
+  h2: "Now click through the coach's side.",
+  sub: "The same workflow, but you're driving. Follow the green highlight through each step — or skip the tour and poke around.",
 }
 
 // ── No pricing section, deliberately ────────────────────────────────────────

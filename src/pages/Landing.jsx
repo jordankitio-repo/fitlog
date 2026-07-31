@@ -6,6 +6,7 @@ import Logo from '../components/Logo'
 import {
   contrast as contrastContent,
   demo,
+  video,
   faq,
   finalCta,
   footer,
@@ -336,6 +337,45 @@ function TrialChecklist() {
   )
 }
 
+// The ~1-minute product video. preload="none" + a poster means nothing downloads
+// until the visitor presses play; the burned-in captions carry the narration, and
+// the VTT track (off by default) keeps them machine-readable for search/a11y.
+function ProductVideo() {
+  const videoRef = useRef(null)
+  const [playing, setPlaying] = useState(false)
+  function play() {
+    const v = videoRef.current
+    if (!v) return
+    v.play()
+    setPlaying(true)
+    track('video_play', { location: 'landing' })
+  }
+  return (
+    <div className="lp-video">
+      <video
+        ref={videoRef}
+        className="lp-video-el"
+        src="/video/gardnr-product.mp4"
+        poster="/video/gardnr-product-poster.jpg"
+        preload="none"
+        playsInline
+        controls={playing}
+        onEnded={(e) => { setPlaying(false); e.currentTarget.load() }}
+      >
+        <track kind="captions" srcLang="en" label="English" src="/video/gardnr-product.vtt" />
+      </video>
+      {!playing && (
+        <button type="button" className="lp-video-play" onClick={play} aria-label="Play the product video">
+          <span className="lp-video-play-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+          </span>
+          <span className="lp-video-play-label">Watch · {video.duration}</span>
+        </button>
+      )}
+    </div>
+  )
+}
+
 // Interactive coach walkthrough. The demo is a self-contained page served from
 // public/coach-demo.html and embedded in an iframe so its broad, generic class
 // names (.card, .btn, .row…) can never collide with the app's global styles.
@@ -455,6 +495,16 @@ export default function Landing() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* PRODUCT VIDEO — the solution reveal, right after the problem is felt */}
+      <section id="watch" className="lp-section">
+        <div className="lp-section-inner">
+          <p className="lp-eyebrow-text lp-eyebrow-green">{video.eyebrow}</p>
+          <h2 className="lp-h2">{video.h2}</h2>
+          <p className="lp-demo-sub">{video.sub}</p>
+          <ProductVideo />
         </div>
       </section>
 

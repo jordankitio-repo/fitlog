@@ -346,6 +346,41 @@
 }
 .lp-demo-frame iframe { width: 100%; border: 0; display: block; }
 
+/* ---------- PRODUCT VIDEO ---------- */
+/* Poster + preload="none": nothing loads until the visitor presses play. A big
+   green play button over a real product frame, in the same framed treatment as
+   the interactive demo below it. */
+.lp-video {
+  position: relative; margin-top: 24px; border-radius: 16px; overflow: hidden;
+  border: 1px solid #161616; background: #060606; aspect-ratio: 16 / 9;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+.lp-video-el { display: block; width: 100%; height: 100%; object-fit: cover; background: #060606; }
+.lp-video-play {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  background: radial-gradient(closest-side at 50% 46%, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.12));
+  border: 0; cursor: pointer; color: #fff; font-family: inherit;
+}
+.lp-video-play-icon {
+  width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center;
+  background: #22c55e; color: #052e16;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.5), 0 16px 40px rgba(34, 197, 94, 0.35);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.lp-video-play-icon svg { width: 34px; height: 34px; margin-left: 3px; }
+.lp-video-play:hover .lp-video-play-icon,
+.lp-video-play:focus-visible .lp-video-play-icon { transform: scale(1.06); filter: brightness(1.06); }
+.lp-video-play-label {
+  font-size: 0.82rem; font-weight: 600; letter-spacing: -0.01em; color: #eafff3;
+  background: rgba(0, 0, 0, 0.35); padding: 6px 14px; border-radius: 999px;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-video-play:hover .lp-video-play-icon,
+  .lp-video-play:focus-visible .lp-video-play-icon { transform: none; }
+}
+
 /* ---------- PRICING ---------- */
 .lp-pricing-lede { max-width: 620px; margin: -24px 0 30px; color: #9a9a9a; font-size: 0.96rem; line-height: 1.7; }
 .lp-pricing-card { max-width: 620px; padding: 34px; border: 1px solid rgba(52,211,153,0.2); border-radius: 18px; background: linear-gradient(145deg, #0c1811, #0b0d0c); box-shadow: 0 20px 60px rgba(0,0,0,0.28); }
