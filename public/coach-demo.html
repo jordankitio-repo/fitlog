@@ -593,7 +593,8 @@ function startTour(){ TOUR.active=true; TOUR.done=false; TOUR.i=0; el('tour').hi
 function endTour(){ TOUR.active=false; TOUR.done=false; el('tour').hidden=true; removeRepos(); updateCallout(); }
 function replayTour(){ resetChapterState(); render(); startTour(); }
 function advanceTour(){ if(TOUR.done) return; TOUR.i++; if(TOUR.i>=curSteps().length) showDone(); else showStep(); }
-function showStep(){ var s=curStep(); if(!s){ showDone(); return; } fillStep(s,TOUR.i,curSteps().length); var tg=curTarget(); if(tg) tg.scrollIntoView({block:'center',inline:'nearest'}); requestAnimationFrame(place); updateCallout(); }
+function scrollTargetIntoScreen(tg){ var sc=el('screen'); if(!sc||!tg) return; var sr=sc.getBoundingClientRect(), tr=tg.getBoundingClientRect(); sc.scrollTop += (tr.top - sr.top) - (sc.clientHeight/2 - tr.height/2); }
+function showStep(){ var s=curStep(); if(!s){ showDone(); return; } fillStep(s,TOUR.i,curSteps().length); scrollTargetIntoScreen(curTarget()); requestAnimationFrame(place); updateCallout(); }
 function showDone(){ TOUR.done=true; fillDone(curDef().done); requestAnimationFrame(place); updateCallout(); }
 function nudge(){ var r=el('tring'); if(!r) return; r.classList.remove('nudge'); void r.offsetWidth; r.classList.add('nudge'); }
 function fillStep(s,idx,total){ var foot=s.type==='info'?'<span></span><button class="ttip-btn" data-act="tour-next">Got it →</button>':'<span class="ttip-hint"><span class="pt"></span>Click the highlighted control</span>';

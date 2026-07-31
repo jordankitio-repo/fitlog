@@ -254,9 +254,7 @@ export const workflow = {
 }
 
 export const video = {
-  eyebrow: 'See it in motion',
-  h2: 'A full week of coaching, in under a minute.',
-  sub: 'The whole coach workflow end to end — triage the roster, draft a report, read the check-in, and see the trend a scale alone misses.',
+  // The product video is now the hero visual; only the play-button label is used.
   duration: '0:59',
 }
 
