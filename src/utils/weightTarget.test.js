@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeWeightTarget, convertWeight, normUnit } from './weightTarget'
+import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from './weightTarget'
 
 // Ascending series helper: weights on consecutive days from 2026-07-01.
 const series = (weights, unit = 'kg') =>
@@ -21,6 +21,26 @@ describe('normUnit / convertWeight', () => {
     expect(convertWeight(175, 'lbs', 'kg')).toBeCloseTo(79.38, 1)
     expect(convertWeight(79.38, 'kg', 'lbs')).toBeCloseTo(175, 0)
     expect(convertWeight(80, 'kg', 'kg')).toBe(80)
+  })
+})
+
+describe('convertGoalValue', () => {
+  it('converts the entered value to the new unit, rounded to 1 decimal, as a string', () => {
+    expect(convertGoalValue('140', 'lbs', 'kg')).toBe('63.5')
+    expect(convertGoalValue('63.5', 'kg', 'lbs')).toBe('140')
+    expect(convertGoalValue(140, 'lbs', 'kg')).toBe('63.5')
+  })
+
+  it('is a no-op when the unit is unchanged', () => {
+    expect(convertGoalValue('140', 'lbs', 'lbs')).toBe('140')
+    expect(convertGoalValue('140', 'lb', 'lbs')).toBe('140') // normalized equal
+  })
+
+  it('leaves blank or non-numeric input untouched', () => {
+    expect(convertGoalValue('', 'lbs', 'kg')).toBe('')
+    expect(convertGoalValue(null, 'lbs', 'kg')).toBe(null)
+    expect(convertGoalValue(undefined, 'lbs', 'kg')).toBe(undefined)
+    expect(convertGoalValue('abc', 'lbs', 'kg')).toBe('abc')
   })
 })
 

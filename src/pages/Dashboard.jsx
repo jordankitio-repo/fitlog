@@ -20,6 +20,7 @@ import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { checkinPeriod, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { measurementStatus } from '../utils/measurementCadence'
+import { convertWeight, normUnit } from '../utils/weightTarget'
 import { cadenceLabel } from '../utils/cadence'
 import { blankValue, validateAnswers, buildAnswers, formatAnswer } from '../utils/checkinQuestions'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -294,7 +295,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       .from('weight_log').select('logged_date, weight, unit')
       .order('logged_date', { ascending: true }).limit(30)
     if (error) console.error(error)
-    else setWeightHistory(data.map(d => ({ date: d.logged_date.slice(5), weight: parseFloat(d.weight) })))
+    else setWeightHistory(data.map(d => ({ date: d.logged_date.slice(5), weight: parseFloat(d.weight), unit: d.unit })))
   }
 
   async function fetchCalorieHistory() {
@@ -740,6 +741,38 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     ...baseCardStyle,
     display: 'flex', flexDirection: 'column', gap: '12px'
   }
+  // Plot the weight trend in the coach-set goal's unit (falling back to the most
+  // recent logged unit) so the chart tracks the goal instead of whatever unit
+  // each weigh-in happened to be logged in. Convert every point into that unit.
+  const weightDisplayUnit = targets?.weight_goal
+    ? normUnit(targets.weight_goal_unit)
+    : normUnit(weightHistory[weightHistory.length - 1]?.unit)
+  const weightHistoryDisplay = weightHistory.map(d => ({
+    ...d,
+    weight: Math.round(convertWeight(d.weight, normUnit(d.unit || weightDisplayUnit), weightDisplayUnit) * 10) / 10,
+  }))
+  // Weight-trend chart labels its y-axis with the active unit so the scale reads
+  // unambiguously (72 on a kg chart vs a lbs chart mean very different things).
+  const weightChartOptions = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      tooltip: { ...chartOptions.plugins.tooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${weightDisplayUnit}` } },
+    },
+    scales: {
+      ...chartOptions.scales,
+      y: { ...chartOptions.scales.y, title: { display: true, text: `Weight (${weightDisplayUnit})`, color: CHART.tick } },
+    },
+  }
+  // Value-axis title so every chart names its metric + unit (matches the
+  // weight-trend chart). Same base options; only the y-axis title differs.
+  const withYTitle = (base, text) => ({
+    ...base,
+    scales: { ...base.scales, y: { ...base.scales.y, title: { display: true, text, color: CHART.tick } } },
+  })
+  const calorieChartOptions = withYTitle(chartOptions, 'Calories (kcal)')
+  const cardioChartOptions = withYTitle(chartOptions, 'Cardio (min)')
+  const stepsChartOptions = withYTitle(chartOptions, 'Steps')
   const activeReports = reports.filter(r => !r.archived)
   const archivedReports = reports.filter(r => r.archived)
   const unreadCount = activeReports.filter(r => !r.read_at).length
@@ -1270,14 +1303,22 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   </div>
                 )
               })}
-              {targets.weight_goal && weightEntry && (
-                <div style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', paddingTop: '4px' }}>
-                  Weight goal: {targets.weight_goal} {targets.weight_goal_unit} · Current: {weightEntry.weight} {weightEntry.unit} ·{' '}
-                  <span style={{ color: Math.abs(weightEntry.weight - targets.weight_goal) < 1 ? 'var(--color-success)' : 'var(--color-primary)' }}>
-                    {weightEntry.weight > targets.weight_goal ? `${(weightEntry.weight - targets.weight_goal).toFixed(1)} to go` : weightEntry.weight < targets.weight_goal ? `${(targets.weight_goal - weightEntry.weight).toFixed(1)} below goal` : 'Goal reached! 🎉'}
-                  </span>
-                </div>
-              )}
+              {targets.weight_goal && weightEntry && (() => {
+                // Goal and weigh-in can carry different units; compare in the goal's
+                // unit so the delta is meaningful (a 63 kg weigh-in vs a 140 lb goal).
+                const goalUnit = normUnit(targets.weight_goal_unit)
+                const goal = Number(targets.weight_goal)
+                const current = Math.round(convertWeight(weightEntry.weight, normUnit(weightEntry.unit), goalUnit) * 10) / 10
+                const diff = Math.round((current - goal) * 10) / 10
+                return (
+                  <div style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', paddingTop: '4px' }}>
+                    Weight goal: {targets.weight_goal} {goalUnit} · Current: {current} {goalUnit} ·{' '}
+                    <span style={{ color: Math.abs(diff) < 1 ? 'var(--color-success)' : 'var(--color-primary)' }}>
+                      {diff > 0 ? `${diff.toFixed(1)} to go` : diff < 0 ? `${Math.abs(diff).toFixed(1)} below goal` : 'Goal reached! 🎉'}
+                    </span>
+                  </div>
+                )
+              })()}
           </SectionHeader>
         </div>
       )}
@@ -1290,11 +1331,11 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               <>
                 <Line
                   data={{
-                    labels: weightHistory.map(d => d.date),
+                    labels: weightHistoryDisplay.map(d => d.date),
                     datasets: [
                       {
                         label: 'Weight',
-                        data: weightHistory.map(d => d.weight),
+                        data: weightHistoryDisplay.map(d => d.weight),
                         borderColor: '#34d399',
                         backgroundColor: 'rgba(52, 211, 153, 0.15)',
                         pointBackgroundColor: '#34d399',
@@ -1304,7 +1345,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                       },
                       ...(hasSoloPremium ? [{
                         label: '7-day avg',
-                        data: computeRollingAverage(weightHistory),
+                        data: computeRollingAverage(weightHistoryDisplay),
                         borderColor: 'rgba(52, 211, 153, 0.45)',
                         backgroundColor: 'transparent',
                         borderDash: [4, 4],
@@ -1314,7 +1355,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                       }] : []),
                     ]
                   }}
-                  options={chartOptions}
+                  options={weightChartOptions}
                 />
                 {!hasSoloPremium && profile?.role !== 'client' && (
                   <div style={{ marginTop: 16 }}>
@@ -1426,7 +1467,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         <div key="calorieChart" style={cardStyle}>
           <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
-              <Bar data={metricBarData({ history: calorieHistory, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={chartOptions} />
+              <Bar data={metricBarData({ history: calorieHistory, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={calorieChartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1437,7 +1478,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         <div key="cardioChart" style={cardStyle}>
           <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
-              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={chartOptions} />
+              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
             )}
           </SectionHeader>
         </div>
@@ -1448,7 +1489,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         <div key="stepsChart" style={cardStyle}>
           <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
-              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
+              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
             )}
           </SectionHeader>
         </div>

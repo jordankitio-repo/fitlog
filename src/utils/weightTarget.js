@@ -20,6 +20,17 @@ export function convertWeight(value, from, to) {
   return t === 'kg' ? value * LB_TO_KG : value * KG_TO_LB
 }
 
+// Convert a goal-input value when its unit toggles in the editor, so the number
+// tracks the new unit (140 lb -> 63.5 kg) while staying fully editable. Blank or
+// non-numeric input is returned untouched; result is a string (inputs are
+// controlled) rounded to 1 decimal.
+export function convertGoalValue(value, from, to) {
+  if (normUnit(from) === normUnit(to)) return value
+  const n = Number(value)
+  if (value === '' || value == null || !Number.isFinite(n)) return value
+  return String(Math.round(convertWeight(n, from, to) * 10) / 10)
+}
+
 // weightHistory: [{ iso, date, weight, unit? }] in chronological order.
 // weightGoal / weightGoalUnit: the coach-set goal and its unit.
 // Returns null when there's no usable goal or no finite weigh-ins; otherwise the

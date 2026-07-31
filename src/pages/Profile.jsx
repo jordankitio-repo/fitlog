@@ -18,6 +18,7 @@ import TargetCalculator from '../components/TargetCalculator'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
+import { convertGoalValue } from '../utils/weightTarget'
 
 // Primary-goal options (mirrors Onboarding). Stored on profiles.primary_goal.
 const GOAL_OPTIONS = [
@@ -736,7 +737,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             />
             <select
               value={targets.weight_goal_unit}
-              onChange={(e) => setTargets({ ...targets, weight_goal_unit: e.target.value })}
+              onChange={(e) => {
+                const unit = e.target.value
+                setTargets(prev => ({ ...prev, weight_goal_unit: unit, weight_goal: convertGoalValue(prev.weight_goal, prev.weight_goal_unit, unit) }))
+              }}
               disabled={profile?.role === 'client'}
               style={{ ...inputStyle, width: '80px', cursor: profile?.role === 'client' ? 'default' : 'pointer', opacity: profile?.role === 'client' ? 0.7 : 1 }}
             >

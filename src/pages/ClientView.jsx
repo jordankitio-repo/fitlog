@@ -17,7 +17,7 @@ import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
-import { computeWeightTarget, convertWeight, normUnit } from '../utils/weightTarget'
+import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from '../utils/weightTarget'
 import { measurementCadenceDays, measurementStatus } from '../utils/measurementCadence'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import Reorderable from '../components/Reorderable'
@@ -1153,6 +1153,13 @@ async function sendMessage(text) {
 
   const isToday = selectedDate === toLocalDateString(new Date())
 
+  // Weight axes across this view render in the goal's unit (falling back to the
+  // latest logged unit) so every weight chart agrees; mirrors the weight-trend
+  // chart's display-unit rule.
+  const weightDisplayUnit = clientTargets.weight_goal
+    ? normUnit(clientTargets.weight_goal_unit)
+    : normUnit(weightHistory[weightHistory.length - 1]?.unit)
+
   function getCorrelatedChartData() {
     // Union and sort on the FULL date. Sorting the MM-DD label instead is what
     // put January to the left of the previous December.
@@ -1169,7 +1176,10 @@ async function sendMessage(text) {
     if (weightHistory.length > 0) {
       datasets.push({
         type: 'line', label: 'Weight',
-        data: allDates.map(iso => weightHistory.find(d => d.iso === iso)?.weight ?? null),
+        data: allDates.map(iso => {
+          const row = weightHistory.find(d => d.iso === iso)
+          return row ? Math.round(convertWeight(row.weight, normUnit(row.unit || weightDisplayUnit), weightDisplayUnit) * 10) / 10 : null
+        }),
         borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)',
         tension: 0.3, fill: false, yAxisID: 'yWeight', pointRadius: 3, spanGaps: true,
       })
@@ -1266,10 +1276,12 @@ async function sendMessage(text) {
       x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
       yWeight: {
         type: 'linear', position: 'left',
+        title: { display: true, text: `Weight (${weightDisplayUnit})`, color: 'var(--color-success)' },
         ticks: { color: 'var(--color-success)' }, grid: { color: CHART.grid },
       },
       yPct: {
         type: 'linear', position: 'right', min: 0, max: 150,
+        title: { display: true, text: '% of target', color: CHART.tick },
         ticks: { color: CHART.tick, callback: (v) => `${v}%` },
         grid: { display: false },
       }
@@ -1350,6 +1362,16 @@ async function sendMessage(text) {
       y: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } }
     }
   }
+
+  // Value-axis title so every chart names its metric + unit (matches the
+  // weight-trend chart). Same base options; only the y-axis title differs.
+  const withYTitle = (base, text) => ({
+    ...base,
+    scales: { ...base.scales, y: { ...base.scales.y, title: { display: true, text, color: CHART.tick } } },
+  })
+  const calorieChartOptions = withYTitle(chartOptions, 'Calories (kcal)')
+  const cardioChartOptions = withYTitle(chartOptions, 'Cardio (min)')
+  const stepsChartOptions = withYTitle(chartOptions, 'Steps')
 
   // Compact options for the measurement small-multiples (no legend, short).
   const miniChartOptions = {
@@ -1833,7 +1855,10 @@ async function sendMessage(text) {
               />
               <select
                 value={clientTargets.weight_goal_unit}
-                onChange={(e) => setClientTargets({ ...clientTargets, weight_goal_unit: e.target.value })}
+                onChange={(e) => {
+                  const unit = e.target.value
+                  setClientTargets(prev => ({ ...prev, weight_goal_unit: unit, weight_goal: convertGoalValue(prev.weight_goal, prev.weight_goal_unit, unit) }))
+                }}
                 style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', width: '80px', cursor: 'pointer' }}
               >
                 <option value="lbs">lbs</option>
@@ -2191,6 +2216,10 @@ async function sendMessage(text) {
                     callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${displayUnit}` },
                   },
                 },
+                scales: {
+                  ...chartOptions.scales,
+                  y: { ...chartOptions.scales.y, title: { display: true, text: `Weight (${displayUnit})`, color: CHART.tick } },
+                },
               }
               return (
                 <>
@@ -2226,7 +2255,7 @@ async function sendMessage(text) {
         <div key="calorieChart" id="section-calorieChart" style={sectionCardStyle}>
           <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (calorieHistory.length > 0 ? (
-              <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={chartOptions} />
+              <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={calorieChartOptions} />
             ) : chartEmpty('No nutrition logged yet', 'Appears once your client logs food.'))}
           </SectionHeader>
         </div>
@@ -2236,7 +2265,7 @@ async function sendMessage(text) {
         <div key="cardioChart" id="section-cardioChart" style={sectionCardStyle}>
           <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (cardioHistory.length > 0 ? (
-              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={chartOptions} />
+              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
             ) : chartEmpty('No cardio logged yet', 'Appears once your client logs cardio.'))}
           </SectionHeader>
         </div>
@@ -2246,7 +2275,7 @@ async function sendMessage(text) {
         <div key="stepsChart" id="section-stepsChart" style={sectionCardStyle}>
           <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (stepsHistory.length > 0 ? (
-              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={chartOptions} />
+              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
             ) : chartEmpty('No steps logged yet', 'Appears once your client logs steps.'))}
           </SectionHeader>
         </div>
@@ -2318,7 +2347,7 @@ async function sendMessage(text) {
                               <div style={{ height: '180px' }}>
                                 <Line
                                   data={{ labels: pts.map(r => r.logged_date.slice(5)), datasets: [{ label: s.label, data: pts.map(r => r[s.key]), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.12)', pointRadius: 3, tension: 0.3, fill: true }] }}
-                                  options={miniChartOptions}
+                                  options={withYTitle(miniChartOptions, unit)}
                                 />
                               </div>
                             </div>
