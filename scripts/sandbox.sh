@@ -36,10 +36,12 @@ require_vercel() {
 }
 
 # Echo the id of the demo project, or nothing if it doesn't exist.
-# NB: the Vercel CLI prints `project inspect` output on stderr, so merge it in (2>&1).
+# NB1: the Vercel CLI prints `project inspect` output on stderr, so merge it in (2>&1).
+# NB2: when the project is missing, `inspect` exits non-zero; `|| true` stops that from
+#      tripping `set -e`/`pipefail` at the call sites (a missing project is expected here).
 project_id() {
   VERCEL_ORG_ID="$VERCEL_ORG_ID" npx vercel project inspect "$DEMO_PROJECT" 2>&1 \
-    | awk '/^[[:space:]]*ID[[:space:]]/{print $2; exit}'
+    | awk '/^[[:space:]]*ID[[:space:]]/{print $2; exit}' || true
 }
 
 # ─────────────────────────────────────────────────────────────── down ──
@@ -91,7 +93,7 @@ PSQL() { docker run --rm -i postgres:15 psql "$DEMO_DBURL" -v ON_ERROR_STOP=1 -q
 PID="$(project_id)"
 if [ -z "$PID" ]; then
   echo "→ [0/4] Recreating the demo Vercel project…"
-  VERCEL_ORG_ID="$VERCEL_ORG_ID" npx vercel project add "$DEMO_PROJECT" >/dev/null 2>&1
+  VERCEL_ORG_ID="$VERCEL_ORG_ID" npx vercel project add "$DEMO_PROJECT" >/dev/null 2>&1 || true
   PID="$(project_id)"
 fi
 [ -n "$PID" ] || { echo "✗ Couldn't create or find the '$DEMO_PROJECT' Vercel project." >&2; exit 1; }
