@@ -14,11 +14,12 @@ and hand to coaches/prospects. One command. Same URL every time.
 ```bash
 cd ~/fitlog
 git checkout main            # or a feature branch — whatever you want to show
-./scripts/sandbox.sh         # ~40s, then prints the URL + logins
+./scripts/sandbox.sh         # UP:   ~40s, then prints the URL + logins
+./scripts/sandbox.sh down    # DOWN: takes it offline (the URL 404s)
 ```
 
-Hand the prospect the URL + one login below. Run the command again anytime to
-reset the sandbox to fresh data.
+Hand the prospect the URL + one login below. Run `sandbox.sh` again anytime to
+reset the sandbox to fresh data, or `sandbox.sh down` when you're done showing it.
 
 ---
 
@@ -65,6 +66,17 @@ phone they can "Add to Home Screen" and it feels native.
 ### 5. Reset between prospects (optional)
 Just run `./scripts/sandbox.sh` again — it wipes their edits and re-seeds fresh.
 (Or don't bother; it doesn't matter.)
+
+### 6. Take it down when you're done
+```bash
+./scripts/sandbox.sh down
+```
+`https://gardnr-demo.vercel.app` immediately 404s — nobody can reach it. Under the
+hood this deletes the demo **Vercel project**; the isolated **Supabase** backend is
+left alone. Nothing is lost: `./scripts/sandbox.sh` recreates the project (it
+reclaims the same URL — the URL is derived from the project name) and redeploys, so
+up ⇄ down cycles cleanly, as often as you like. `down` is safe to run twice; the
+second time it just says it's already down.
 
 ---
 
@@ -151,10 +163,12 @@ Mac you must also bring those over — otherwise `sandbox.sh` stops at
 5. `./scripts/sandbox.sh`
 
 **If you ever lose `.env.demo.seed`:** most of it is recoverable — the Supabase keys
-via `supabase projects api-keys --project-ref zcleierckgbemsgzjqwg`, and the Vercel
-IDs from the Vercel dashboard. The one exception is the database password inside
-`DEMO_DBURL`: reset it in Supabase → Project Settings → Database → Reset password,
-then update that line.
+via `supabase projects api-keys --project-ref zcleierckgbemsgzjqwg`, and `VERCEL_ORG_ID`
+from the Vercel dashboard. `VERCEL_PROJECT_ID` self-heals — `sandbox.sh` resolves it
+fresh each run (recreating the `gardnr-demo` project if needed) and rewrites the line,
+so a stale or missing value fixes itself on the next `up`. The one thing that can't be
+recovered is the database password inside `DEMO_DBURL`: reset it in Supabase →
+Project Settings → Database → Reset password, then update that line.
 
 ## Later, if you want (not needed now)
 
