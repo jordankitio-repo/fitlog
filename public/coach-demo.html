@@ -84,6 +84,15 @@ a{ color:inherit; }
   .callout{ padding:11px 13px; }
   .pad{ padding:18px 16px 26px; }
   .fab{ display:none !important; } /* decorative chat bubble — declutter on phones (base .fab rule is later in source) */
+  /* Swap the desktop browser chrome for the real mobile app chrome:
+     slim top bar (brand + bell + avatar) + a bottom tab bar. */
+  .winbar .traffic{ display:none; }
+  .winbar .app-brand .mark{ width:24px; height:24px; }
+  .winbar .app-brand .word{ font-size:1.02rem; }
+  .winnav{ gap:14px; }
+  .winnav a{ display:none; }        /* nav lives in the bottom tab bar on mobile */
+  .tabbar{ display:flex !important; } /* base .tabbar{display:none} is later in source */
+  .screen{ height:500px; }
 }
 
 /* callout */
@@ -118,6 +127,13 @@ a{ color:inherit; }
 .pad{ padding:22px 24px 32px; max-width:960px; margin:0 auto; }
 .fab{ position:absolute; bottom:16px; right:16px; width:46px; height:46px; border-radius:50%; background:var(--primary); color:var(--on-accent); border:none; display:grid; place-items:center; cursor:pointer; box-shadow:0 8px 24px rgba(34,197,94,.35); z-index:12; }
 .fab svg{ width:22px; height:22px; }
+/* Mobile app chrome: a bottom tab bar (the real Gardnr mobile nav). Hidden on desktop. */
+.tabbar{ display:none; align-items:stretch; border-top:1px solid var(--border); background:var(--surface); }
+.tabbar a{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:9px 0 10px; color:var(--muted); font-size:.64rem; font-weight:600; letter-spacing:-.01em; text-decoration:none; cursor:pointer; }
+.tabbar a svg{ width:22px; height:22px; }
+.tabbar a.active{ color:var(--primary); }
+.tabbar a.active .tabico{ background:var(--primary-dim); }
+.tabbar .tabico{ display:grid; place-items:center; width:52px; height:26px; border-radius:999px; }
 
 /* primitives */
 .h1{ font-size:1.7rem; font-weight:700; letter-spacing:-.02em; margin:0; }
@@ -278,6 +294,7 @@ a{ color:inherit; }
         <div class="winnav" id="winnav"></div>
       </div>
       <div class="screen" id="screen"><div class="pad"></div></div>
+      <nav class="tabbar" id="tabbar" aria-label="App navigation"></nav>
       <button class="fab" data-act="tease" aria-label="Messages"></button>
     </div>
 

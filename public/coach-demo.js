@@ -282,9 +282,15 @@ function screenHTML(){
   return recordHTML();
 }
 function navHTML(){ return '<a href="#" data-act="tease" class="active">Clients</a>'+BELL+'<span class="fbk">Feedback</span><span class="avatar grn">AM</span>'; }
+var TABICONS={
+ Clients: ic('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+ Profile: ic('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>')
+};
+function tabbarHTML(){ return '<a data-act="tease" class="active"><span class="tabico">'+TABICONS.Clients+'</span><span>Clients</span></a><a data-act="tease"><span class="tabico">'+TABICONS.Profile+'</span><span>Profile</span></a>'; }
 function render(){
   el('chapters').innerHTML=CH.map(function(c,i){ return '<button class="chapter" role="tab" aria-current="'+(i===S.ch)+'" data-act="chapter" data-i="'+i+'"><span class="num">'+c.num+'</span><span class="title">'+c.title+'</span><span class="csub">'+c.sub+'</span></button>'; }).join('');
   el('winnav').innerHTML=navHTML();
+  el('tabbar').innerHTML=tabbarHTML();
   el('screen').innerHTML=screenHTML(); el('screen').scrollTop=0;
   el('prev').disabled=S.ch===0; el('next').disabled=S.ch===CH.length-1;
   el('next').textContent=S.ch===CH.length-1?'That’s the tour':'Next workflow →';
@@ -338,9 +344,10 @@ function place(){
   setBox(panels[0],W.left,W.top,W.width,t-W.top); setBox(panels[1],W.left,b,W.width,W.bottom-b); setBox(panels[2],W.left,t,l-W.left,b-t); setBox(panels[3],rr,t,W.right-rr,b-t);
   ring.style.display='block'; setBox(ring,l,t,rr-l,b-t);
   var s=curStep(); var tip=el('ttip');
-  if(window.innerWidth<=640){ // mobile: pin the tooltip as a bottom sheet inside the app window (target sits up top)
+  if(window.innerWidth<=640){ // mobile: pin the tooltip as a bottom sheet above the tab bar (target sits up top)
+    var scr=el('screen').getBoundingClientRect();
     tip.style.maxWidth='none'; tip.style.left=(W.left+10)+'px'; tip.style.width=(W.width-20)+'px';
-    tip.style.top=(W.bottom - tip.offsetHeight - 12)+'px';
+    tip.style.top=(scr.bottom - tip.offsetHeight - 12)+'px';
     return;
   }
   tip.style.width=''; tip.style.maxWidth=Math.min(300,W.width-24)+'px'; var pl=s.place||'bottom';
