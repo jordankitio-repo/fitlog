@@ -315,7 +315,7 @@ function startTour(){ TOUR.active=true; TOUR.done=false; TOUR.i=0; el('tour').hi
 function endTour(){ TOUR.active=false; TOUR.done=false; el('tour').hidden=true; removeRepos(); updateCallout(); }
 function replayTour(){ resetChapterState(); render(); startTour(); }
 function advanceTour(){ if(TOUR.done) return; TOUR.i++; if(TOUR.i>=curSteps().length) showDone(); else showStep(); }
-function scrollTargetIntoScreen(tg){ var sc=el('screen'); if(!sc||!tg) return; var sr=sc.getBoundingClientRect(), tr=tg.getBoundingClientRect(); sc.scrollTop += (tr.top - sr.top) - (sc.clientHeight/2 - tr.height/2); }
+function scrollTargetIntoScreen(tg){ var sc=el('screen'); if(!sc||!tg) return; var sr=sc.getBoundingClientRect(), tr=tg.getBoundingClientRect(); var frac=window.innerWidth<=640?0.28:0.5; sc.scrollTop += (tr.top - sr.top) - (sc.clientHeight*frac - tr.height/2); }
 function showStep(){ var s=curStep(); if(!s){ showDone(); return; } fillStep(s,TOUR.i,curSteps().length); scrollTargetIntoScreen(curTarget()); requestAnimationFrame(place); updateCallout(); }
 function showDone(){ TOUR.done=true; fillDone(curDef().done); requestAnimationFrame(place); updateCallout(); }
 function nudge(){ var r=el('tring'); if(!r) return; r.classList.remove('nudge'); void r.offsetWidth; r.classList.add('nudge'); }
@@ -337,7 +337,13 @@ function place(){
   var l=Math.max(W.left,r.left-pad),t=Math.max(W.top,r.top-pad),rr=Math.min(W.right,r.right+pad),b=Math.min(W.bottom,r.bottom+pad);
   setBox(panels[0],W.left,W.top,W.width,t-W.top); setBox(panels[1],W.left,b,W.width,W.bottom-b); setBox(panels[2],W.left,t,l-W.left,b-t); setBox(panels[3],rr,t,W.right-rr,b-t);
   ring.style.display='block'; setBox(ring,l,t,rr-l,b-t);
-  var s=curStep(); var pl=s.place||'bottom'; var tip=el('ttip'); tip.style.maxWidth=Math.min(300,W.width-24)+'px';
+  var s=curStep(); var tip=el('ttip');
+  if(window.innerWidth<=640){ // mobile: pin the tooltip as a bottom sheet inside the app window (target sits up top)
+    tip.style.maxWidth='none'; tip.style.left=(W.left+10)+'px'; tip.style.width=(W.width-20)+'px';
+    tip.style.top=(W.bottom - tip.offsetHeight - 12)+'px';
+    return;
+  }
+  tip.style.width=''; tip.style.maxWidth=Math.min(300,W.width-24)+'px'; var pl=s.place||'bottom';
   var tw=tip.offsetWidth,th=tip.offsetHeight,vw=window.innerWidth,vh=window.innerHeight,x,y;
   if(pl==='top'){ y=t-th-12; x=l; if(y<8) y=b+12; }
   else if(pl==='left'){ x=l-tw-12; y=t+(b-t)/2-th/2; if(x<8) x=rr+12; }
