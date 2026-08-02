@@ -1,5 +1,5 @@
 Gardnr — Master Feature & Implementation List
-Last updated: June 16, 2026
+Last updated: July 31, 2026 (solo-pricing consistency pass — paid Solo tier retired, coach pricing deferred)
 
 SHIPPED (live in prod, Jul 12–13) — do NOT re-propose:
 - **The landing page, rebuilt.** Mobile visitors and Googlebot were being served the **login form** as the homepage (the rule keyed off screen *width*, not launch context) — fixed. Entry JS chunk **1,580 KB → ~290 KB**. `robots.txt` + `sitemap.xml` + canonical + JSON-LD (all four previously absent; the first two returned the SPA's HTML). Copy moved to `src/pages/landingContent.js`. Pricing section **deleted** (there is no price). Instruments cut 12 → 3 + a chip list. **FAQ** and **founder note** added.
@@ -100,7 +100,7 @@ Generated per client, editable, sent to client. Coach only
 AI call prep briefing
 Private to coach, not visible to client. Coach only
 AI nutrition advice
-Currently UNGATED — available to all logged-in users. To be gated when solo billing ships
+UNGATED **by decision** — free for all logged-in users, guarded by a 30/hr per-user rate cap + 6h response cache, NOT a paywall. (Solo billing is retired; see Billing & Access → Gate AI nutrition advice.)
 Notifications & Email
 Feature
 Notes
@@ -155,7 +155,7 @@ Billing & Access
 Feature
 Notes
 Stripe checkout
-30-day free trial → $19/month founding / $29/month standard
+30-day coach trial. **Price DEFERRED — $0 charged today** (`BILLING_ENABLED=false`). Historical $19 founding / $29 standard figures are NOT committed; $19 is likely 3–5× too low — see decisions.md.
 CoachPaywall
 Gate for coaches with no active subscription
 BillingSuccess page
@@ -324,7 +324,7 @@ Notes
 ~~Auto-offboard clients on coach cancel~~ ✅ SHIPPED — stripe-webhook handles customer.subscription.deleted; offboards all active coach clients, flips roles to solo, sends emails
 ~~Grace period flow~~ ✅ SHIPPED — offboarded clients resume solo plan; paused solo subs restored
 ~~Self-serve cancellation in Profile~~ ✅ SHIPPED — cancel-subscription edge fn, SubscriptionManager.jsx, cancel_at_period_end, confirmation email
-~~Paid solo Stripe product~~ ✅ SHIPPED — $7.99/mo, 14-day trial
+~~Paid solo Stripe product~~ ❌ **RETIRED** — built ($7.99/mo, 14-day trial), then removed. **Solo is FREE.** `SOLO_BILLING_ENABLED=false` (client + server twin). Dormant plumbing (`hasSoloPremium` / `SoloUpgrade` / `STRIPE_SOLO_PRICE_ID`) survives behind the flag but is not a product.
 Solo tier feature gating
 IN PROGRESS — gate pattern is live: hasSoloPremium prop + SoloUpgrade.jsx (Stripe checkout CTA). Gated on solo Dashboard: rolling 7-day weight avg, plus the "Logging consistency" card (best week + weekday/weekend split + 90-day heatmap). Remaining to gate when built on Dashboard: TDEE.
 Gate AI nutrition advice
@@ -334,8 +334,8 @@ Gate AI nutrition advice
 Tier Access Matrix (source of truth for gating)
 Two principles:
 
-	•	Solo Premium gets better self-analytics only. The coach-client interaction layer is hard-walled — never available to solo regardless of tier. A Solo Premium user who wants accountability still needs a coach.
-	•	Clients are always free. They are invited by a coach, not self-serve payers. The coach pays for the platform. Clients receive the coaching layer (targets, reports, check-ins, nudges) but NOT solo self-analytics — those are a coach-side view of client data, or a Solo Premium upsell.
+	•	Solo is now a SINGLE FREE tier. The paid "Solo Premium" tier is RETIRED, so the Solo Free / Solo Premium columns below have merged — everything marked ✅ in *either* solo column is free to all solo users (the two-column split is kept only to show what the old gate separated). The coach-client interaction layer is still hard-walled — never available to solo. A solo user who wants accountability still needs a coach.
+	•	Clients are always free. They are invited by a coach, not self-serve payers. The coach pays for the platform. Clients receive the coaching layer (targets, reports, check-ins, nudges) but NOT solo self-analytics — those are a coach-side view of client data. (The old "Solo Premium upsell" no longer exists — solo is free.)
 
 Note: Coaches do NOT log their own nutrition/weight/cardio data. The coach role manages clients. So self-analytics features (rolling average, heatmap on own data, etc.) do not apply to the coach's own profile — coaches see these computed over their clients' data inside ClientView.
 
@@ -457,7 +457,7 @@ Weekly digest email
 
 Open product decisions (not yet made):
 
-	•	Should the heatmap / rolling average appear for a client on their own Dashboard? Currently marked ❌ — client self-analytics would overlap with Solo Premium and could undercut its value. Defaulting to coach-side only for clients until decided.
+	•	Should the heatmap / rolling average appear for a client on their own Dashboard? Currently marked ❌ — client self-analytics were kept coach-side only for clients until decided. (Original rationale was "overlap with Solo Premium" — that tier is retired, so this is now a product-scoping question, not a revenue one.)
 	•	Body measurements & progress photos for clients: gated to "coach enables" — coach decides whether a client tracks these.
 
 
@@ -471,7 +471,7 @@ Deferred
 Google OAuth re-architecture
 Deferred
 AI nutrition advice ungated
-Currently free for all users — gate when solo billing built
+Free for all users **by decision** — the paid solo tier was retired, so there is nothing to gate. The `hasSoloPremium` gate is inert while `SOLO_BILLING_ENABLED=false`.
 Extract resumeSoloSubscription to _shared/
 Currently duplicated verbatim in offboard-self, offboard-client, delete-account. Extract to supabase/functions/_shared/resumeSoloSubscription.ts in a dedicated refactor pass.
 subscriptions FK on solo_id and coach_id are both NO ACTION
@@ -540,10 +540,10 @@ ToS Section 19
 ⬜ Add when built
 Solo tier feature differences
 ToS Section 6
-⬜ Add when built
+**N/A** — solo tier retired (single free tier; nothing to differentiate)
 Solo Premium data usage
 Privacy Policy Section 2
-⬜ Add when built
+**N/A** — Solo Premium retired
 AI nutrition advice gating
 Privacy Policy Section 8
 ⬜ Update when gated
@@ -557,26 +557,18 @@ Tier
 Price
 Who
 Notes
-Solo Free
+Solo
 $0
 Individual self-trackers
-Basic logging + 7-day charts only
-Solo Premium
-$7–9/month
-Serious self-trackers
-Full self-analytics, no coaching layer
+FREE — full self-analytics, no coaching layer. Paid "Solo Premium" tier RETIRED; solo billing OFF.
 Client
 $0
 Invited by coach
 Always free — coach pays for platform
-Coach Founding
-$19/month (locked forever)
-First coaches
-Currently active in live mode
-Coach Standard
-$29/month
-Future coaches
-After founding closes
+Coach
+DEFERRED — $0 charged today
+Coaches (the only payer)
+`BILLING_ENABLED=false`; landing names no price. Historical $19 founding / $29 standard NOT committed — $19 likely 3–5× too low. See decisions.md.
    # Gardnr Coach Metrics Roadmap
 
 Last updated: June 5, 2026
