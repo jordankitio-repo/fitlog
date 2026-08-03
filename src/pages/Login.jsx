@@ -76,7 +76,14 @@ function Login() {
           return
         }
 
-        const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          // Pass role + name in signup metadata so the handle_new_user trigger
+          // assigns them atomically with the auth user. The profile upsert below
+          // stays as a safety net, but the role no longer depends on it running.
+          options: { data: { role, full_name: fullName } },
+        })
         if (signUpError) {
           setError(friendlyError(signUpError.message))
           return

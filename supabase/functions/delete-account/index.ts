@@ -395,12 +395,21 @@ Deno.serve(async (req) => {
     // Best-effort: a storage hiccup must not block account deletion, but it is logged.
     try {
       const avatarPath = `${uid}/avatar.jpg`
+      // NB: no Content-Type header — a bodyless DELETE with `application/json`
+      // makes Supabase Storage 400 ("Body cannot be empty"), so the avatar would
+      // silently survive account erasure. Send only the auth headers.
       const purgeRes = await fetch(
         `${supabaseUrl}/storage/v1/object/avatars/${avatarPath}`,
-        { method: 'DELETE', headers },
+        { method: 'DELETE', headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey } },
       )
+      // A user with no avatar comes back "not found" (a 400 with a not_found body,
+      // or a 404) — nothing to purge, not an error. Only log real failures, so an
+      // erasure log never shows a false "avatar purge failed".
       if (!purgeRes.ok && purgeRes.status !== 404) {
-        console.error(`Failed to purge avatar for ${uid} (${purgeRes.status}):`, await purgeRes.text())
+        const purgeBody = await purgeRes.text()
+        if (!purgeBody.includes('not_found') && !purgeBody.includes('Object not found')) {
+          console.error(`Failed to purge avatar for ${uid} (${purgeRes.status}):`, purgeBody)
+        }
       }
     } catch (e) {
       console.error('Avatar storage purge failed:', e)

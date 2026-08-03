@@ -162,13 +162,20 @@ Deno.serve(async (req) => {
     // --- COACH FLOW ---
     if (role === 'coach') {
       const existingSubRes = await fetch(
-        `${supabaseUrl}/rest/v1/subscriptions?coach_id=eq.${user.id}&select=id,stripe_customer_id&limit=1`,
+        `${supabaseUrl}/rest/v1/subscriptions?coach_id=eq.${user.id}&select=id,stripe_customer_id,status&limit=1`,
         { headers: restHeaders },
       )
       const existingSubs = await existingSubRes.json()
       if (!existingSubRes.ok) return jsonResponse({ error: 'Unable to fetch subscription' }, 500)
 
       const existingSub = existingSubs?.[0]
+      // Refuse a second checkout if the coach already has a live subscription —
+      // otherwise a stale paywall tab / back-button / direct call opens a second
+      // Stripe subscription and double-charges them. `canceled` is intentionally
+      // allowed through so a lapsed coach can reactivate. Mirrors the solo guard.
+      if (existingSub && PAID_STATUSES.includes(existingSub.status)) {
+        return jsonResponse({ error: 'You already have an active subscription.' }, 400)
+      }
       let stripeCustomerId = existingSub?.stripe_customer_id
 
       if (stripeCustomerId && !(await customerIsUsable(stripeCustomerId, stripeSecretKey))) {
