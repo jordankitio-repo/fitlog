@@ -1,7 +1,33 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import Button from './Button'
+import Logo from './Logo'
 import FeedbackButton from './FeedbackButton'
+
+function CheckIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function LockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2.2" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// Real, shipped capabilities — no fabricated metrics or social proof.
+const FEATURES = [
+  'Unlimited clients — never pay per seat',
+  'AI weekly reports & call-prep briefings',
+  'Compliance triage + one-tap check-in review',
+  'Cancel anytime — your data stays yours',
+]
 
 function CoachPaywall({ subscription, profile, onSignOut }) {
   const [loading, setLoading] = useState(false)
@@ -18,9 +44,9 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
   // resolves the real Stripe price server-side from role + key (never a price from
   // the browser). Keep these keys in sync with COACH_CADENCE_PRICE_IDS there.
   const PLANS = [
-    { key: 'monthly', name: 'Monthly', amount: '$49', billed: '$49/month', badge: null },
-    { key: '6mo', name: '6-month', amount: '$264', billed: '$264 every 6 months ($44/mo)', badge: 'Save 10%' },
-    { key: 'annual', name: 'Annual', amount: '$490', billed: '$490/year ($41/mo)', badge: '2 months free' },
+    { key: 'monthly', name: 'Monthly', amount: '$49', period: 'per month', permo: '', badge: null },
+    { key: '6mo', name: '6 months', amount: '$264', period: 'per 6 months', permo: '$44/mo', badge: { text: 'Save 10%', tone: 'soft' } },
+    { key: 'annual', name: 'Annual', amount: '$490', period: 'per year', permo: '$41/mo', badge: { text: '2 months free', tone: 'solid' } },
   ]
   const plan = PLANS.find((p) => p.key === cadence) ?? PLANS[0]
 
@@ -119,147 +145,114 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
     }
   }
 
+  const headline = isCanceled ? 'Welcome back' : trialUsed ? 'Choose your plan' : 'Start your 14-day free trial'
+  const subhead = isCanceled
+    ? 'Reactivate to pick up right where you and your clients left off — all your data is safe.'
+    : trialUsed
+      ? 'Your free trial has been used. Pick a plan to keep coaching without a break.'
+      : 'Everything you need to run your coaching — unlimited clients, AI reports, and compliance at a glance.'
+
   const ctaLabel = loading
-    ? 'Redirecting...'
+    ? 'Redirecting…'
     : isCanceled
-      ? `Reactivate — ${plan.billed}`
+      ? `Reactivate — ${plan.amount}`
       : trialUsed
-        ? `Subscribe — ${plan.billed}`
+        ? `Subscribe — ${plan.amount}`
         : 'Start 14-day free trial'
 
-  const subtitle = isCanceled
-    ? "Your coaching access has ended. Your data and your clients' data are safe. Reactivate anytime to regain access."
-    : trialUsed
-      ? `You have already used your free trial. Subscribing will charge you ${plan.amount} immediately.`
-      : `Gardnr for coaches is ${plan.billed}, unlimited clients. Start with 14 days free — you will not be charged until your trial ends.`
+  const reassure = (isCanceled || trialUsed)
+    ? 'Secure checkout via Stripe · Cancel anytime'
+    : 'Secure checkout via Stripe · No charge for 14 days · Cancel anytime'
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'var(--color-bg)',
-      padding: 24,
-    }}>
-      <div style={{
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius)',
-        padding: '40px 32px',
-        maxWidth: 480,
-        width: '100%',
-        textAlign: 'center',
-      }}>
-        <h1 style={{ fontSize: 'var(--text-lg)', marginBottom: 8 }}>
-          {isCanceled ? 'Your subscription ended' : trialUsed ? 'Subscribe to Gardnr' : 'Start your free trial'}
-        </h1>
-        <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginBottom: 32, lineHeight: 1.6 }}>
-          {subtitle}
-        </p>
-
-        {error && (
-          <p style={{ color: '#f87171', fontSize: 'var(--text-sm)', marginBottom: 16 }}>{error}</p>
-        )}
-
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            {PLANS.map((p) => {
-              const selected = p.key === cadence
-              return (
-                <button
-                  key={p.key}
-                  type="button"
-                  onClick={() => setCadence(p.key)}
-                  aria-pressed={selected}
-                  style={{
-                    flex: 1,
-                    cursor: 'pointer',
-                    padding: '12px 8px',
-                    borderRadius: 'var(--radius)',
-                    border: selected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                    background: selected ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'transparent',
-                    color: 'var(--color-text)',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginBottom: 4 }}>{p.name}</div>
-                  <div style={{ fontSize: 'var(--text-base)', fontWeight: 600 }}>{p.amount}</div>
-                  <div style={{ fontSize: 10, color: 'var(--color-primary)', marginTop: 4, fontWeight: 600, minHeight: 13 }}>
-                    {p.badge || ''}
-                  </div>
-                </button>
-              )
-            })}
+    <div className="pw-page">
+      <div className="pw-card">
+        <div className="pw-head">
+          <span className="pw-head-logo"><Logo size={48} /></span>
+          <h1 className="pw-title">{headline}</h1>
+          <p className="pw-sub">{subhead}</p>
         </div>
 
-        <Button variant="primary" onClick={handleStartTrial} loading={loading} fullWidth style={{ marginBottom: 12 }}>
+        {error && <p className="pw-error">{error}</p>}
+
+        <div className="pw-plans" role="radiogroup" aria-label="Billing plan">
+          {PLANS.map((p) => {
+            const selected = p.key === cadence
+            return (
+              <button
+                key={p.key}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={`${p.name}, ${p.amount} ${p.period}${p.badge ? ', ' + p.badge.text : ''}`}
+                onClick={() => setCadence(p.key)}
+                className={`pw-plan${selected ? ' selected' : ''}`}
+              >
+                <span className={`pw-plan-badge ${p.badge ? p.badge.tone : 'ghost'}`}>
+                  {p.badge ? p.badge.text : ' '}
+                </span>
+                <span className="pw-plan-name">{p.name}</span>
+                <span className="pw-plan-price">{p.amount}</span>
+                <span className="pw-plan-period">{p.period}</span>
+                <span className="pw-plan-permo">{p.permo}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <ul className="pw-features">
+          {FEATURES.map((f) => (
+            <li className="pw-feature" key={f}><CheckIcon />{f}</li>
+          ))}
+        </ul>
+
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={handleStartTrial}
+          loading={loading}
+          fullWidth
+          style={{ fontWeight: 700, boxShadow: '0 10px 26px -10px color-mix(in srgb, var(--color-primary) 55%, transparent)' }}
+        >
           {ctaLabel}
         </Button>
+        <p className="pw-reassure"><LockIcon />{reassure}</p>
 
-        <button
-          onClick={onSignOut}
-          style={{ background: 'none', border: 'none', color: 'var(--color-muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', marginTop: 8 }}
-        >
-          Sign out
-        </button>
-        <br />
-        <button
-          onClick={() => setShowDeleteConfirm(true)}
-          disabled={deleting}
-          style={{ background: 'none', border: 'none', color: '#f87171', fontSize: 'var(--text-xs)', cursor: 'pointer', marginTop: 8 }}
-        >
-          {deleting ? 'Deleting…' : 'Delete account'}
-        </button>
-
-        <div style={{ marginTop: 16 }}>
+        <div className="pw-secondary">
+          <button type="button" className="pw-linkbtn" onClick={onSignOut}>Sign out</button>
+          <span className="pw-dot">·</span>
+          <button type="button" className="pw-linkbtn danger" onClick={() => setShowDeleteConfirm(true)} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete account'}
+          </button>
+        </div>
+        <div className="pw-feedback">
           <FeedbackButton userEmail={profile?.email || ''} userName={profile?.full_name || ''} />
         </div>
       </div>
 
-      <p style={{ marginTop: 24, fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
-        <a href="/terms" style={{ color: 'var(--color-muted)' }}>Terms</a>
-        {' | '}
-        <a href="/privacy" style={{ color: 'var(--color-muted)' }}>Privacy</a>
-        {' | '}
-        <a href="/health-data-privacy" style={{ color: 'var(--color-muted)' }}>Health Data</a>
+      <p className="pw-legal">
+        <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/health-data-privacy">Health Data</a>
       </p>
 
       {showConfirm && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24,
-        }}>
-          <div style={{
-            background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)', padding: '32px 28px', maxWidth: 400, width: '100%', textAlign: 'center',
-          }}>
-            <h2 style={{ fontSize: 'var(--text-base)', marginBottom: 12 }}>No trial remaining</h2>
-            <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6, marginBottom: 24 }}>
-              You've already used your 14-day free trial. Continuing will charge your card <strong style={{ color: 'var(--color-text)' }}>{plan.amount} immediately</strong>.
-            </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <div className="pw-modal-overlay">
+          <div className="pw-modal">
+            <h2>No trial remaining</h2>
+            <p>You&apos;ve already used your 14-day free trial. Continuing will charge your card <strong style={{ color: 'var(--color-text)' }}>{plan.amount} today</strong>.</p>
+            <div className="pw-modal-actions">
               <Button variant="ghost" onClick={() => setShowConfirm(false)}>Cancel</Button>
-              <Button variant="primary" onClick={proceedToCheckout}>Continue — {plan.billed}</Button>
+              <Button variant="primary" onClick={proceedToCheckout}>Continue — {plan.amount}</Button>
             </div>
           </div>
         </div>
       )}
 
       {showDeleteConfirm && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24,
-        }}>
-          <div style={{
-            background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)', padding: '32px 28px', maxWidth: 400, width: '100%', textAlign: 'center',
-          }}>
-            <h2 style={{ fontSize: 'var(--text-base)', marginBottom: 12 }}>Delete account</h2>
-            <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6, marginBottom: 24 }}>
-              Permanently delete your account and all associated data? <strong style={{ color: 'var(--color-text)' }}>This cannot be undone.</strong>
-            </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <div className="pw-modal-overlay">
+          <div className="pw-modal">
+            <h2>Delete account</h2>
+            <p>Permanently delete your account and all associated data? <strong style={{ color: 'var(--color-text)' }}>This cannot be undone.</strong></p>
+            <div className="pw-modal-actions">
               <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
               <Button variant="danger-solid" onClick={confirmDelete} loading={deleting}>
                 {deleting ? 'Deleting…' : 'Delete everything'}
