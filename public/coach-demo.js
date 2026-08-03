@@ -100,7 +100,7 @@ function dashHTML(){
   var banner='<div class="card row between" style="flex-wrap:wrap;gap:12px"><div class="row" style="gap:20px;flex-wrap:wrap">'
     +seg('--error',red+' at risk')+seg('--warning',yel+' needs review')+seg('--success',grn+' on track')+'</div>'
     +'<button class="btn sm ghost" data-act="open" data-id="mw" style="border-color:color-mix(in srgb,var(--success) 45%,transparent);color:var(--success)">'+review+' check-ins to review →</button></div>';
-  var summary='<div class="grid3">'+statc('Total clients',CLIENTS.length,'--text')
+  var summary='<div class="grid3 stats3">'+statc('Total clients',CLIENTS.length,'--text')
     +statc('Checked in this week','<span style="color:var(--success)">'+checkedIn+'</span><span class="muted" style="font-size:1.1rem">/'+CLIENTS.length+'</span>','--text')
     +statc('At risk',red,red>0?'--error':'--success',null,false,red>0)+'</div>';
   var sortRow='<div class="row between"><div class="row" style="gap:8px;flex-wrap:wrap"><span class="muted" style="font-size:.8rem">Sort:</span>'
@@ -121,7 +121,7 @@ function clientCard(c){
   var tr=c.id==='mc'?' data-tour="open-maya"':'';
   return '<div class="client'+(c.level==='red'?' red':'')+'" data-act="open" data-id="'+c.id+'"'+tr+'>'
     +'<div class="row between"><div class="row" style="gap:13px"><div class="avatar-lg grn">'+c.init+'</div><div><div style="font-weight:700;font-size:.98rem">'+c.name+'</div><div class="muted" style="font-size:.78rem">'+c.email+'</div></div></div>'
-    +'<div class="row" style="gap:8px">'+(c.nudge?'<button class="btn sm ghost" data-act="tease">Nudge</button>':'')+'<span class="btn sm ghost">View data →</span></div></div>'
+    +'<div class="row cli-actions" style="gap:8px">'+(c.nudge?'<button class="btn sm ghost" data-act="tease">Nudge</button>':'')+'<span class="btn sm ghost">View data →</span></div></div>'
     +'<div class="cpill-wrap">'+statusPill(c.level,c.triage)+checkin+'</div>'+comp+'</div>';
 }
 
@@ -175,7 +175,7 @@ function todayStatsCard(){
 }
 function statL(dot,label,val){ return '<div class="statL"><div class="k"><span class="dot2" style="background:var('+dot+')"></span>'+label+'</div><div class="v">'+val+'</div></div>'; }
 function consistencyCard(){
-  var cards='<div class="grid3">'+statc('Current streak','12','--success','days',true)+statc('Last 7 days','7<span class="muted" style="font-size:1rem">/7</span>','--success',null,true)+statc('Last 30 days','27<span class="muted" style="font-size:1rem">/30</span>','--success',null,true)+'</div>';
+  var cards='<div class="grid3 stats3">'+statc('Current streak','12','--success','days',true)+statc('Last 7 days','7<span class="muted" style="font-size:1rem">/7</span>','--success',null,true)+statc('Last 30 days','27<span class="muted" style="font-size:1rem">/30</span>','--success',null,true)+'</div>';
   return '<div class="card"><div class="cardhd"><h2 class="h2">Logging consistency</h2><span class="grip">⠿ ▾</span></div>'+cards
     +'<div class="label" style="margin:18px 0 8px">Calorie compliance · last 90 days</div>'+heatmap()
     +'<div class="hleg"><span><b style="background:#34d399"></b>90–110%</span><span><b style="background:#fb923c"></b>&gt;110%</span><span><b style="background:#fbbf24"></b>60–89%</span><span><b style="background:#f87171"></b>&lt;60%</span><span><b style="background:var(--border)"></b>No log</span></div></div>';
@@ -228,7 +228,7 @@ function eb2(k,v,info,tour){ var tr=tour?' data-tour="'+tour+'"':''; return '<di
 function energyCard(){
   var w=WINDOWS[S.win]; var gap=w.logged-EB_TARGET;
   var winPills=Object.keys(WINDOWS).map(function(kk){ var lbl=(parseInt(kk,10)/7)+'w'; var tr=kk==='28'?' data-tour="win-28"':''; return '<button class="win-pill'+(S.win==kk?' active':'')+'" data-act="win" data-w="'+kk+'"'+tr+'>'+lbl+'</button>'; }).join(' ');
-  return '<div class="card"><div class="cardhd" style="margin-bottom:6px"><span class="label">Energy balance read</span><div class="row" style="gap:9px"><span class="faint" style="font-size:.72rem">coach-only · last '+(S.win/7)+' weeks</span>'+winPills+'</div></div>'
+  return '<div class="card"><div class="cardhd eb-hd" style="margin-bottom:6px"><span class="label">Energy balance read</span><div class="row" style="gap:9px"><span class="faint" style="font-size:.72rem">coach-only · last '+(S.win/7)+' weeks</span>'+winPills+'</div></div>'
     +eb2('Est. maintenance','~'+fmt(w.lo)+'–'+fmt(w.hi)+' cal <span class="faint" style="font-weight:400">· '+w.note+'</span>',1,'eb-maint')
     +eb2('Weight trend','↓ '+w.trend.toFixed(1)+' lb/wk',2)
     +eb2('Logged vs target',fmt(w.logged)+' / '+fmt(EB_TARGET)+' <span style="color:var(--success);font-weight:600">· '+(gap<0?'−':'+')+Math.abs(gap)+'</span>',2)

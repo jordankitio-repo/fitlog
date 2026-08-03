@@ -74,26 +74,9 @@ a{ color:inherit; }
 .chapter[aria-current="true"] .title{ color:#eafff3; }
 /* Mobile: the 5-card stepper stacks ~500px tall — collapse it to a compact,
    swipeable one-row strip (num + title chip), and give the app window more width. */
-@media (max-width:640px){
-  .wrap{ padding:12px 14px 10px; }
-  .chapters{ flex-wrap:nowrap; overflow-x:auto; gap:8px; margin:14px 0 12px; padding-bottom:6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity; }
-  .chapters::-webkit-scrollbar{ display:none; }
-  .chapter{ flex:0 0 auto; flex-direction:row; align-items:baseline; gap:8px; padding:9px 14px; scroll-snap-align:center; }
-  .chapter .title{ white-space:nowrap; }
-  .chapter .csub{ display:none; }
-  .callout{ padding:11px 13px; }
-  .pad{ padding:18px 16px 26px; }
-  .fab{ display:none !important; } /* decorative chat bubble — declutter on phones (base .fab rule is later in source) */
-  /* Swap the desktop browser chrome for the real mobile app chrome:
-     slim top bar (brand + bell + avatar) + a bottom tab bar. */
-  .winbar .traffic{ display:none; }
-  .winbar .app-brand .mark{ width:24px; height:24px; }
-  .winbar .app-brand .word{ font-size:1.02rem; }
-  .winnav{ gap:14px; }
-  .winnav a{ display:none; }        /* nav lives in the bottom tab bar on mobile */
-  .tabbar{ display:flex !important; } /* base .tabbar{display:none} is later in source */
-  .screen{ height:500px; }
-}
+/* NOTE: the phone-layout overrides (@media max-width:640px) live at the END of
+   this stylesheet — after all base rules — so they win on source order without
+   needing !important on every line. See the bottom of <style>. */
 
 /* callout */
 .callout{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:0 0 12px; padding:12px 16px; border-radius:12px; background:rgba(52,211,153,.045); border:1px solid rgba(52,211,153,.16); }
@@ -275,6 +258,57 @@ a{ color:inherit; }
 .ttip-btn:hover{ filter:brightness(1.08); }
 .ttip-btn.ghost{ background:transparent; border:1px solid var(--border-strong); color:var(--text-dim); }
 @media (prefers-reduced-motion:reduce){ .tring{ animation:none; } }
+
+/* =========================================================================
+   PHONE LAYOUT — placed last so these win on source order. Goal: the demo
+   reads as a real mobile app, not a shrunk desktop. Full-bleed app screen,
+   the redundant tour callout dropped (the per-step tooltip covers it), and
+   content densified for touch.
+   ========================================================================= */
+@media (max-width:640px){
+  .wrap{ padding:8px 0 0; }                  /* window spans edge-to-edge */
+  .chapters{ flex-wrap:nowrap; overflow-x:auto; gap:8px; margin:10px 0; padding:0 14px 6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity; }
+  .chapters::-webkit-scrollbar{ display:none; }
+  .chapter{ flex:0 0 auto; flex-direction:row; align-items:baseline; gap:8px; padding:9px 14px; scroll-snap-align:center; }
+  .chapter .title{ white-space:nowrap; }
+  .chapter .csub{ display:none; }
+  .callout{ display:none; }                   /* redundant with the per-step tour tooltip */
+  .pad{ padding:16px 15px 26px; }
+  .fab{ display:none; }
+
+  /* Real mobile app chrome (slim top bar + bottom tab bar); drop the desktop
+     browser frame so the screen reads as a native phone screen. */
+  .window{ border-radius:0; border-left:0; border-right:0; box-shadow:none; }
+  .winbar{ height:52px; padding:0 15px; }
+  .winbar .traffic{ display:none; }
+  .winbar .app-brand .mark{ width:24px; height:24px; }
+  .winbar .app-brand .word{ font-size:1.05rem; }
+  .winnav a{ display:none; }                  /* nav lives in the bottom tab bar */
+  .tabbar{ display:flex; }
+  .screen{ height:560px; }                    /* taller = more immersive */
+
+  .stagenav{ padding:12px 14px 0; }           /* side breathing room (wrap has none now) */
+
+  /* Mobile-native content density */
+  .h1{ font-size:1.4rem; }
+  .statc{ padding:13px 11px; } .statc .v{ font-size:1.5rem; }
+  .statL{ padding:13px 15px; } .statL .v{ font-size:1.5rem; }
+  .card{ padding:15px; }
+  /* 3-up stat summaries stay compact across the row instead of orphaning the 3rd. */
+  .stats3{ grid-template-columns:repeat(3,1fr); gap:8px; }
+  .stats3 .statc{ padding:12px 8px; }
+  .stats3 .statc .v{ font-size:1.35rem; }
+  .stats3 .statc .k{ font-size:.56rem; }
+  /* Energy-balance header stacks: label on top, then window text + selector below
+     (higher specificity than the base .card .cardhd so it wins). */
+  .cardhd.eb-hd{ flex-direction:column; align-items:flex-start; gap:9px; }
+  .eb-hd > .row{ width:100%; justify-content:space-between; }
+  /* Client list rows: the whole card taps through — drop the crushed action
+     buttons and show a native chevron instead. */
+  .cli-actions{ display:none; }
+  .client{ position:relative; padding:15px 16px; }
+  .client::after{ content:'\203A'; position:absolute; top:14px; right:15px; color:var(--faint); font-size:1.5rem; line-height:1; }
+}
 </style>
 
 <div class="demo">
