@@ -9,6 +9,14 @@ function SubscriptionManager({ subscription, onChange }) {
 
   const periodEndDate = subscription?.current_period_end || subscription?.trial_end
   const isCanceling = subscription?.cancel_at_period_end
+  const isTrialing = subscription?.status === 'trialing'
+  // Maps the stored cadence key to a display amount. Undefined for older rows
+  // that predate billing_interval — the summary line just hides in that case.
+  const planAmount = {
+    monthly: '$49/month',
+    '6mo': '$264 every 6 months',
+    annual: '$490/year',
+  }[subscription?.billing_interval]
 
   async function callManage(action) {
     setLoading(true)
@@ -61,6 +69,13 @@ function SubscriptionManager({ subscription, onChange }) {
   return (
     <div style={{ marginTop: 12 }}>
       {error && <p style={{ color: '#f87171', fontSize: 'var(--text-sm)', marginBottom: 8 }}>{error}</p>}
+      {planAmount && (
+        <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginBottom: 8 }}>
+          {isTrialing
+            ? `Free trial — then ${planAmount}${periodEndDate ? ` on ${new Date(periodEndDate).toLocaleDateString()}` : ''}.`
+            : `${planAmount}${periodEndDate ? ` · renews ${new Date(periodEndDate).toLocaleDateString()}` : ''}.`}
+        </p>
+      )}
       {confirming ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>

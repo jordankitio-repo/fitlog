@@ -411,6 +411,9 @@ Deno.serve(async (req) => {
             status,
             trial_end: trialEnd,
             current_period_end: currentPeriodEnd,
+            // Coach billing cadence for display. Only written when present so a
+            // later metadata-less event can't wipe it; solo subs have none.
+            ...(sub?.metadata?.cadence ? { billing_interval: sub.metadata.cadence } : {}),
           },
         )
 
@@ -443,6 +446,7 @@ Deno.serve(async (req) => {
             current_period_end: fromUnixSeconds(object?.current_period_end),
             trial_end: fromUnixSeconds(object?.trial_end),
             cancel_at_period_end: object?.cancel_at_period_end ?? false,
+            ...(object?.metadata?.cadence ? { billing_interval: object.metadata.cadence } : {}),
           },
         )
         break

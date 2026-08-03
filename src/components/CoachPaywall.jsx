@@ -10,8 +10,19 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [cadence, setCadence] = useState('annual')
 
   const isCanceled = subscription?.status === 'canceled'
+
+  // Coach billing cadences. The client sends only the KEY; create-checkout-session
+  // resolves the real Stripe price server-side from role + key (never a price from
+  // the browser). Keep these keys in sync with COACH_CADENCE_PRICE_IDS there.
+  const PLANS = [
+    { key: 'monthly', name: 'Monthly', amount: '$49', billed: '$49/month', badge: null },
+    { key: '6mo', name: '6-month', amount: '$264', billed: '$264 every 6 months ($44/mo)', badge: 'Save 10%' },
+    { key: 'annual', name: 'Annual', amount: '$490', billed: '$490/year ($41/mo)', badge: '2 months free' },
+  ]
+  const plan = PLANS.find((p) => p.key === cadence) ?? PLANS[0]
 
   useEffect(() => {
     async function checkEligibility() {
@@ -87,10 +98,11 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          // No priceId. The server picks the price from our verified role — see
-          // create-checkout-session. Sending one from here meant the price lived
-          // in the JS bundle, where anyone could swap it for a cheaper one.
-          body: JSON.stringify({}),
+          // Send only the cadence KEY, never a price. The server resolves the
+          // Stripe price from our verified role + this key — see
+          // create-checkout-session. Sending a price meant it lived in the JS
+          // bundle, where anyone could swap it for a cheaper one.
+          body: JSON.stringify({ cadence }),
         }
       )
       const json = await res.json()
@@ -110,16 +122,16 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
   const ctaLabel = loading
     ? 'Redirecting...'
     : isCanceled
-      ? 'Reactivate — $19/month'
+      ? `Reactivate — ${plan.billed}`
       : trialUsed
-        ? 'Subscribe — $19/month'
-        : 'Start 30-day free trial'
+        ? `Subscribe — ${plan.billed}`
+        : 'Start 14-day free trial'
 
   const subtitle = isCanceled
     ? "Your coaching access has ended. Your data and your clients' data are safe. Reactivate anytime to regain access."
     : trialUsed
-      ? 'You have already used your free trial. Subscribing will charge you $19 immediately.'
-      : 'Gardnr for coaches is $19/month. Start with 30 days free. You will not be charged until your trial ends.'
+      ? `You have already used your free trial. Subscribing will charge you ${plan.amount} immediately.`
+      : `Gardnr for coaches is ${plan.billed}, unlimited clients. Start with 14 days free — you will not be charged until your trial ends.`
 
   return (
     <div style={{
@@ -150,6 +162,36 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
         {error && (
           <p style={{ color: '#f87171', fontSize: 'var(--text-sm)', marginBottom: 16 }}>{error}</p>
         )}
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            {PLANS.map((p) => {
+              const selected = p.key === cadence
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setCadence(p.key)}
+                  aria-pressed={selected}
+                  style={{
+                    flex: 1,
+                    cursor: 'pointer',
+                    padding: '12px 8px',
+                    borderRadius: 'var(--radius)',
+                    border: selected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                    background: selected ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'transparent',
+                    color: 'var(--color-text)',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginBottom: 4 }}>{p.name}</div>
+                  <div style={{ fontSize: 'var(--text-base)', fontWeight: 600 }}>{p.amount}</div>
+                  <div style={{ fontSize: 10, color: 'var(--color-primary)', marginTop: 4, fontWeight: 600, minHeight: 13 }}>
+                    {p.badge || ''}
+                  </div>
+                </button>
+              )
+            })}
+        </div>
 
         <Button variant="primary" onClick={handleStartTrial} loading={loading} fullWidth style={{ marginBottom: 12 }}>
           {ctaLabel}
@@ -194,11 +236,11 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
           }}>
             <h2 style={{ fontSize: 'var(--text-base)', marginBottom: 12 }}>No trial remaining</h2>
             <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6, marginBottom: 24 }}>
-              You've already used your 30-day free trial. Continuing will charge your card <strong style={{ color: 'var(--color-text)' }}>$19 immediately</strong>.
+              You've already used your 14-day free trial. Continuing will charge your card <strong style={{ color: 'var(--color-text)' }}>{plan.amount} immediately</strong>.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <Button variant="ghost" onClick={() => setShowConfirm(false)}>Cancel</Button>
-              <Button variant="primary" onClick={proceedToCheckout}>Continue — $19/month</Button>
+              <Button variant="primary" onClick={proceedToCheckout}>Continue — {plan.billed}</Button>
             </div>
           </div>
         </div>

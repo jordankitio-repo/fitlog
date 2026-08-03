@@ -90,25 +90,32 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'STRIPE_SECRET_KEY is not configured' }, 500)
     }
 
-    // The price is chosen HERE, from the caller's role, and never taken from the
-    // request. It used to be read straight off the request body — and both price
-    // IDs ship to the browser (VITE_* is public, it's in the JS bundle), so a
-    // coach could call this with the solo price ID and get coach access at the
-    // solo rate. `role` was verified against the database; the price wasn't
-    // verified against anything.
+    // The price is chosen HERE, server-side, from the caller's VERIFIED role —
+    // never taken from the request. The client may request a billing *cadence*
+    // (a label like 'annual'), but the actual Stripe Price ID is resolved from
+    // env here. Sending a price ID from the browser used to be the bug: VITE_*
+    // ships in the JS bundle, so a coach could pass the solo/cheapest price ID
+    // and get coach access at that rate. A tier whose price the client selects
+    // is not a tier. Cadence is validated against the fixed allow-list below and
+    // maps to a server-only Price ID; an unknown or missing cadence falls back to
+    // 'monthly', never to a caller-supplied value.
     //
-    // This also makes tiered pricing possible at all. A tier whose price the
-    // client selects is not a tier — a coach would pass the cheapest price ID and
-    // coach an unlimited roster on it. Server-side price resolution is the
-    // precondition for ever charging by roster size.
-    //
-    // Requires STRIPE_COACH_PRICE_ID / STRIPE_SOLO_PRICE_ID in the function's
-    // env (server-side, NOT VITE_*). When tiers arrive this becomes a map from a
-    // validated tier name to a price ID; the shape below already anticipates it.
-    const PRICE_IDS: Record<string, string | undefined> = {
-      coach: Deno.env.get('STRIPE_COACH_PRICE_ID'),
-      solo: Deno.env.get('STRIPE_SOLO_PRICE_ID'),
+    // Requires these in the function env (server-side, NOT VITE_*):
+    //   STRIPE_COACH_PRICE_MONTHLY / _6MO / _ANNUAL  (coach, per cadence)
+    //   STRIPE_SOLO_PRICE_ID                          (solo, single — dormant)
+    const COACH_CADENCE_PRICE_IDS: Record<string, string | undefined> = {
+      monthly: Deno.env.get('STRIPE_COACH_PRICE_MONTHLY'),
+      '6mo': Deno.env.get('STRIPE_COACH_PRICE_6MO'),
+      annual: Deno.env.get('STRIPE_COACH_PRICE_ANNUAL'),
     }
+
+    // Read the requested cadence from the body, validated against the allow-list.
+    // Anything unrecognized (or absent) resolves to 'monthly' — we trust a
+    // caller-supplied *label*, never a caller-supplied price.
+    const body = (await req.json().catch(() => ({}))) as { cadence?: string }
+    const cadence = ['monthly', '6mo', 'annual'].includes(body.cadence ?? '')
+      ? body.cadence!
+      : 'monthly'
 
     // Verify caller
     const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
@@ -139,12 +146,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Only coaches and solo users can start checkout' }, 403)
     }
 
-    // Resolve the price from the verified role. Fail closed: if the env var is
-    // missing we refuse to open a checkout rather than fall back to anything the
-    // caller supplied.
-    const stripePriceId = PRICE_IDS[role]
+    // Resolve the price from the verified role (+ cadence, for coaches). Fail
+    // closed: if the env var is missing we refuse to open a checkout rather than
+    // fall back to anything the caller supplied.
+    const stripePriceId = role === 'coach'
+      ? COACH_CADENCE_PRICE_IDS[cadence]
+      : Deno.env.get('STRIPE_SOLO_PRICE_ID')
     if (!stripePriceId) {
-      console.error(`No Stripe price configured for role "${role}"`)
+      console.error(`No Stripe price configured for role "${role}" cadence "${cadence}"`)
       return jsonResponse({ error: 'Billing is not configured' }, 500)
     }
 
@@ -190,8 +199,9 @@ Deno.serve(async (req) => {
         'metadata[plan_type]': 'coach',
         'subscription_data[metadata][coach_id]': user.id,
         'subscription_data[metadata][plan_type]': 'coach',
+        'subscription_data[metadata][cadence]': cadence,
       })
-      if (coachTrialEligible) sessionParams.set('subscription_data[trial_period_days]', '30')
+      if (coachTrialEligible) sessionParams.set('subscription_data[trial_period_days]', '14')
 
       const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
 
