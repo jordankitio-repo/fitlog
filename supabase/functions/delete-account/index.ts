@@ -160,6 +160,14 @@ async function resumeSoloSubscription(
   }
 }
 
+// SHA-256 of "<purpose>:<code>", matching request-step-up. The plaintext code
+// only ever exists in the user's inbox and this request body.
+async function hashStepUpCode(purpose: string, code: string) {
+  const data = new TextEncoder().encode(`${purpose}:${code}`)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
@@ -174,6 +182,9 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
+    const body = await req.json().catch(() => ({}))
+    const stepUpCode = typeof body?.stepUpCode === 'string' ? body.stepUpCode.trim() : ''
+
     // Verify user from token
     const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${token}`, 'apikey': anonKey }
@@ -186,6 +197,34 @@ Deno.serve(async (req) => {
       'Authorization': `Bearer ${serviceKey}`,
       'apikey': serviceKey,
       'Content-Type': 'application/json'
+    }
+
+    // --- Step-up: a live session is not enough to erase an account ---------
+    // Everything below this point is irreversible, so the account's own mailbox
+    // has to confirm it first (see request-step-up + verify_step_up). The check
+    // is single-use and server-side: the browser cannot skip it by not asking.
+    if (!/^\d{6}$/.test(stepUpCode)) {
+      return new Response(
+        JSON.stringify({ error: 'A confirmation code is required to delete your account.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+    const verifyRes = await fetch(`${supabaseUrl}/rest/v1/rpc/verify_step_up`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        p_user_id: uid,
+        p_purpose: 'delete_account',
+        p_code_hash: await hashStepUpCode('delete_account', stepUpCode),
+      }),
+    })
+    // Fails CLOSED, unlike the rate limiter: if we cannot confirm the code we
+    // must not delete the account.
+    if (!verifyRes.ok || (await verifyRes.json()) !== true) {
+      return new Response(
+        JSON.stringify({ error: 'That code is incorrect or has expired. Request a new one.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
     }
 
     // --- Coach deletion: offboard all clients BEFORE removing the coach ---

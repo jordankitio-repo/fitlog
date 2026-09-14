@@ -3,69 +3,46 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
-import PasswordInput from '../components/PasswordInput'
 import LoadingScreen from '../components/LoadingScreen'
-import { getPasswordValidationError } from '../utils/passwordValidation'
+import { inviteErrorMessage, DEAD_INVITE } from '../utils/inviteErrors'
 
+// Accepting a coach's invite, without a password.
+//
+// The token in the URL only ever reached the invitee's inbox, so holding it
+// proves control of that mailbox. `redeem-invite` spends that proof directly —
+// but only for an email with no account yet, so a forwarded link can create an
+// account and never enter one. An invitee who DOES already have an account
+// does a 6-digit code round trip first, then accepts as themselves.
+//
+// Three ways in, one atomic accept (accept_invitation) behind all of them:
+//   'accept'  — no session: name + one button (the common case, brand-new client)
+//   'code'    — that address already had an account: enter the emailed code
+//   'connect' — already signed in in this browser: one confirm
 function Join() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const urlToken = searchParams.get('token')
 
-  const [inviteToken, setInviteToken] = useState(urlToken || '')
   const [invitation, setInvitation] = useState(null)
   const [coachName, setCoachName] = useState('')
-  const [existingAccount, setExistingAccount] = useState(null)
   const [fullName, setFullName] = useState('')
-  const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [mode, setMode] = useState('accept')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
   const [existingSession, setExistingSession] = useState(null)
-  const [connecting, setConnecting] = useState(false)
-  const [authLoading, setAuthLoading] = useState(false)
-  // Set when sign-up reports the email already exists. We can't pre-detect this
-  // because profiles RLS hides every row from an unauthenticated visitor, so the
-  // "create account" form is shown by default and we pivot here on the error.
-  const [accountExists, setAccountExists] = useState(false)
-
-  useEffect(() => {
-    async function init() {
-      setLoading(true)
-      const activeToken = urlToken
-      setInviteToken(activeToken || '')
-
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) setExistingSession(session)
-
-      if (activeToken) await fetchInvitation(activeToken)
-      else {
-        setError('This invite link is missing a token.')
-        setLoading(false)
-      }
-    }
-
-    init()
-  }, [urlToken])
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setExistingSession(session)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
 
   async function fetchInvitation(activeToken) {
-    // Token-gated SECURITY DEFINER lookup. The invitations table is no longer
-    // world-readable (it exposed every invitee email + join token); this RPC
-    // returns the single pending invite only to a caller who already holds the
-    // secret token. See migration 20260615000000_invitations_token_rpc.
+    // Token-gated SECURITY DEFINER lookup — the invitations table is not
+    // readable by anon. It now also filters out expired and already-redeemed
+    // invites, so a dead link fails here rather than at redemption.
     const { data, error: inviteError } = await supabase
       .rpc('get_invitation_by_token', { p_token: activeToken })
       .maybeSingle()
 
     if (inviteError || !data) {
-      setError('This invite link is invalid or has already been used.')
+      setError(DEAD_INVITE)
       setLoading(false)
       return
     }
@@ -79,179 +56,160 @@ function Join() {
       .then(({ data: info }) => { if (info?.coachName) setCoachName(info.coachName) })
       .catch(() => {})
 
-    // Show "sign in to accept" vs "create account" from the flag the coach
-    // snapshotted at invite time — profiles RLS hides the row from this
-    // unauthenticated visitor, so we can't read it directly here. (The sign-up
-    // "already registered" pivot below is the fallback if the flag is stale.)
-    setExistingAccount(data.account_exists ? { exists: true } : null)
     setLoading(false)
   }
 
-  async function handleSignUp() {
-    if (!fullName.trim() || !password) {
-      setError('Please fill in all fields.')
-      return
-    }
+  useEffect(() => {
+    async function init() {
+      setLoading(true)
 
-    const passwordError = getPasswordValidationError(password)
-    if (passwordError) {
-      setError(passwordError)
-      return
-    }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) setExistingSession(session)
 
-    if (existingAccount) {
-      setError('This email already has a Gardnr account. Log in to accept your coach\'s invite.')
-      return
-    }
-
-    setAuthLoading(true)
-    setError('')
-
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: invitation.client_email,
-      password,
-    })
-
-    if (signUpError) {
-      // Returning user (e.g. a client who left coaching and went back to solo).
-      // Their auth account still exists, so sign-up fails — pivot to sign-in.
-      if (/already registered|already exists/i.test(signUpError.message || '')) {
-        setAccountExists(true)
-        setPassword('')
-        setError("You already have a Gardnr account with this email. Enter your password to sign in and accept.")
-        setAuthLoading(false)
+      if (!urlToken) {
+        setError('This invite link is missing a token.')
+        setLoading(false)
         return
       }
-      setError(signUpError.message)
-      setAuthLoading(false)
-      return
+      await fetchInvitation(urlToken)
     }
 
-    await acceptInvite(data.user.id, { fullName: fullName.trim() })
-    setAuthLoading(false)
-  }
+    init()
+  }, [urlToken])
 
-  async function handleLoginToAccept() {
-    if (!password) {
-      setError('Enter your password to accept this invite.')
-      return
-    }
-
-    setAuthLoading(true)
-    setError('')
-
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: invitation.client_email,
-      password,
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setExistingSession(session)
     })
 
-    if (signInError) {
-      setError(signInError.message)
-      setAuthLoading(false)
-      return
-    }
+    return () => subscription.unsubscribe()
+  }, [])
 
-    await acceptInvite(data.user.id)
-    setAuthLoading(false)
-  }
-
-  async function acceptInvite(userId, options = {}) {
-    setConnecting(true)
-    setError('')
-
-    // Now authenticated, so we can read our own profile — guard against a coach
-    // account accepting a client invite (the anon pre-check couldn't see this).
-    const { data: ownProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .maybeSingle()
-
-    if (ownProfile?.role === 'coach') {
-      setError('This email belongs to a coach account and cannot accept a client invite.')
-      setConnecting(false)
-      return
-    }
-
-    const { data: existingRelation } = await supabase
-      .from('coach_clients')
-      .select('id')
-      .eq('client_id', userId)
-      .eq('status', 'active')
-      .maybeSingle()
-
-    if (existingRelation) {
-      setError('You are already connected to a coach.')
-      setConnecting(false)
-      return
-    }
-
-    const profilePayload = {
-      id: userId,
-      email: invitation.client_email,
-      role: 'client',
-    }
-
-    if (options.fullName) profilePayload.full_name = options.fullName
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .upsert(profilePayload)
-
-    if (profileError) {
-      setError(profileError.message)
-      setConnecting(false)
-      return
-    }
-
-    const { error: relationshipError } = await supabase
-      .from('coach_clients')
-      .upsert({
-        coach_id: invitation.coach_id,
-        client_id: userId,
-        status: 'active',
-        offboarded_at: null,
-        lock_cleared_at: null,
-      }, { onConflict: 'coach_id,client_id' })
-
-    if (relationshipError) {
-      setError(relationshipError.message)
-      setConnecting(false)
-      return
-    }
-
-    const { error: invitationError } = await supabase
-      .from('invitations')
-      .update({ status: 'accepted' })
-      .eq('token', inviteToken)
-
-    if (invitationError) {
-      setError(invitationError.message)
-      setConnecting(false)
-      return
-    }
-
+  // A solo user who becomes a client stops paying for solo. Only reachable on
+  // the paths where an account already existed — a user created seconds ago by
+  // redeem-invite has nothing to pause.
+  async function pauseSoloSubscription() {
     try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession()
-      if (currentSession?.access_token) {
-        await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pause-solo-subscription`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${currentSession.access_token}`,
-            },
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pause-solo-subscription`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
           },
-        )
-      }
+        },
+      )
     } catch (e) {
       console.error('Failed to pause solo subscription:', e)
     }
+  }
+
+  // Shared tail for the two paths that finish in the browser as an authenticated
+  // user. The RPC is atomic: it claims the token, sets the client role and links
+  // the coach in one transaction, or does none of it.
+  async function acceptAsCurrentUser() {
+    const { error: rpcError } = await supabase.rpc('accept_invitation', { p_token: urlToken })
+    if (rpcError) {
+      setError(inviteErrorMessage(rpcError.message))
+      return false
+    }
+    await pauseSoloSubscription()
+    await supabase.auth.refreshSession()
+    navigate('/')
+    return true
+  }
+
+  async function handleAccept() {
+    if (!fullName.trim()) {
+      setError('Please enter your name.')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+
+    let payload
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/redeem-invite`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ token: urlToken, fullName: fullName.trim() }),
+        },
+      )
+      payload = await res.json()
+      if (!res.ok) {
+        setError(inviteErrorMessage(payload?.error))
+        setBusy(false)
+        return
+      }
+    } catch {
+      setError('Unable to connect to our servers. Please try again in a few minutes.')
+      setBusy(false)
+      return
+    }
+
+    // That address already has an account. The token was NOT spent — prove the
+    // mailbox with a code, then accept as the signed-in user.
+    if (payload.requiresOtp) {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: payload.email,
+        // Never create an account from this call: redeem-invite owns account
+        // creation, and shouldCreateUser would turn a typo into a live user.
+        options: { shouldCreateUser: false },
+      })
+      if (otpError) setError(otpError.message)
+      else setMode('code')
+      setBusy(false)
+      return
+    }
+
+    // Brand-new account: exchange the returned hash for a real session.
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      token_hash: payload.tokenHash,
+      type: 'magiclink',
+    })
+    if (verifyError) {
+      setError(verifyError.message)
+      setBusy(false)
+      return
+    }
 
     await supabase.auth.refreshSession()
-    setConnecting(false)
+    setBusy(false)
     navigate('/')
+  }
+
+  async function handleVerifyCode() {
+    if (!/^\d{6}$/.test(code.trim())) {
+      setError('Enter the 6-digit code from your email.')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: invitation.client_email,
+      token: code.trim(),
+      type: 'email',
+    })
+    if (verifyError) {
+      setError('That code is incorrect or has expired.')
+      setBusy(false)
+      return
+    }
+
+    await acceptAsCurrentUser()
+    setBusy(false)
   }
 
   async function handleConnect() {
@@ -264,12 +222,10 @@ function Join() {
       return
     }
 
-    if (existingAccount?.role === 'coach') {
-      setError('This email belongs to a coach account and cannot accept a client invite.')
-      return
-    }
-
-    await acceptInvite(existingSession.user.id)
+    setBusy(true)
+    setError('')
+    await acceptAsCurrentUser()
+    setBusy(false)
   }
 
   const inputStyle = {
@@ -289,6 +245,10 @@ function Join() {
       <p style={{ color: 'var(--color-error)' }}>{error}</p>
     </div>
   )
+
+  const errorLine = error
+    ? <p style={{ color: 'var(--color-error)', fontSize: '0.875rem', margin: 0 }}>{error}</p>
+    : null
 
   return (
     <div style={{
@@ -310,66 +270,59 @@ function Join() {
         Your email: <strong style={{ color: 'var(--color-text)' }}>{invitation?.client_email}</strong>
       </p>
 
-      {existingAccount?.role === 'coach' ? (
-        <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>
-          This email belongs to a coach account and cannot accept a client invite.
-        </p>
-      ) : existingSession ? (
+      {existingSession ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>
             You're logged in as <strong>{existingSession.user.email}</strong>. Accepting this invite will connect you to your coach as a client. Your existing data is preserved.
           </p>
-          {error && <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>{error}</p>}
-          <Button onClick={handleConnect} variant="primary" loading={connecting}>
+          {errorLine}
+          <Button onClick={handleConnect} variant="primary" loading={busy}>
             Accept invite
           </Button>
           <Button onClick={() => navigate('/')} variant="ghost">
             Cancel
           </Button>
         </div>
-      ) : (existingAccount || accountExists) ? (
+      ) : mode === 'code' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-            You already have a Gardnr account with this email. Log in to accept your coach's invite.
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>
+            You already have a Gardnr account with this email. We sent a 6-digit code to{' '}
+            <strong style={{ color: 'var(--color-text)' }}>{invitation?.client_email}</strong> — enter it to accept.
           </p>
-          <PasswordInput
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            placeholder="000000"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: '1.25rem' }}
           />
-          {error && <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>{error}</p>}
-          <Button onClick={handleLoginToAccept} variant="primary" fullWidth loading={authLoading || connecting}>
-            Log in and accept
+          {errorLine}
+          <Button onClick={handleVerifyCode} variant="primary" fullWidth loading={busy}>
+            Accept invite
           </Button>
-          <p style={{ textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
-            Forgot your password? <Link to="/login" style={{ color: 'var(--color-primary)' }}>Reset it</Link>, then reopen this invite link.
-          </p>
         </div>
       ) : (
         <>
           <input
             type="text"
             placeholder="Your full name"
+            autoComplete="name"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             style={inputStyle}
           />
-          <PasswordInput
-            placeholder="Create a password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-          />
 
-          {error && <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>{error}</p>}
+          {errorLine}
 
-          <Button onClick={handleSignUp} variant="primary" fullWidth loading={authLoading || connecting}>
-            Create account
+          <Button onClick={handleAccept} variant="primary" fullWidth loading={busy}>
+            Accept invite
           </Button>
 
           <p style={{ textAlign: 'center', marginTop: 16, fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.6 }}>
-            By creating an account, you confirm you're 18+ and agree to our{' '}
+            By accepting, you confirm you're 18+ and agree to our{' '}
             <Link to="/terms" style={{ color: 'var(--color-primary)' }}>Terms of Service</Link>
             {' '}and{' '}
             <Link to="/privacy" style={{ color: 'var(--color-primary)' }}>Privacy Policy</Link>.

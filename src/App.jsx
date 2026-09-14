@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
+import { useSessionPolicy } from './hooks/useSessionPolicy'
 import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
 import LoadingScreen from './components/LoadingScreen'
@@ -177,6 +178,10 @@ function App() {
   const [subLoading, setSubLoading] = useState(false)
   const [soloSubscription, setSoloSubscription] = useState(null)
   const [, setSoloSubLoading] = useState(false)
+
+  // Coach-tier session caps; clients are covered by the project-wide Supabase
+  // time-box and deliberately have no idle timeout.
+  useSessionPolicy(session, profile)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase

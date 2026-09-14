@@ -85,11 +85,21 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [avatarBusy, setAvatarBusy] = useState(false)
   const [avatarError, setAvatarError] = useState('')
   const avatarInputRef = useRef(null)
-  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordStatus, setPasswordStatus] = useState('')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  // Password changes go through GoTrue's own reauthentication nonce, so a live
+  // session alone can't set a new password. 'form' -> enter it, 'code' -> prove
+  // it's you with the emailed code.
+  const [pwStage, setPwStage] = useState('form')
+  const [pwCode, setPwCode] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
+  const [globalSignOutBusy, setGlobalSignOutBusy] = useState(false)
+  // 'idle' -> 'confirm' (are you sure) -> 'code' (emailed confirmation).
+  const [deleteStage, setDeleteStage] = useState('idle')
+  const [deleteCode, setDeleteCode] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+  const [codeSending, setCodeSending] = useState(false)
   const [showTargetCalc, setShowTargetCalc] = useState(false)
   const [hiddenCharts, setHiddenCharts] = useState(profile?.layout?.hiddenCharts || [])
 
@@ -305,8 +315,39 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     setExportLoading(false)
   }
 
+  // Ask the server to email a one-time code before an irreversible action.
+  async function requestDeleteCode() {
+    setCodeSending(true)
+    setDeleteError('')
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/request-step-up`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentSession.access_token}`,
+          },
+          body: JSON.stringify({ purpose: 'delete_account' }),
+        },
+      )
+      const data = await response.json()
+      if (data.sent) setDeleteStage('code')
+      else setDeleteError(data.error || 'Could not send a code. Please try again.')
+    } catch {
+      setDeleteError('Unable to connect to our servers. Please try again in a few minutes.')
+    }
+    setCodeSending(false)
+  }
+
   async function deleteAccount() {
+    if (!/^\d{6}$/.test(deleteCode.trim())) {
+      setDeleteError('Enter the 6-digit code from your email.')
+      return
+    }
     setDeleteLoading(true)
+    setDeleteError('')
     const { data: { session: currentSession } } = await supabase.auth.getSession()
 
     const response = await fetch(
@@ -316,7 +357,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${currentSession.access_token}`,
-        }
+        },
+        // The server verifies this and refuses without it — the code is not a
+        // client-side speed bump.
+        body: JSON.stringify({ stepUpCode: deleteCode.trim() }),
       }
     )
 
@@ -324,29 +368,63 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     if (data.success) {
       await supabase.auth.signOut()
     } else {
-      setNotice('Error deleting account: ' + data.error)
+      setDeleteError(data.error || 'Could not delete your account.')
       setDeleteLoading(false)
     }
   }
 
-  async function changePassword() {
+  // Step 1: validate the new password, then have GoTrue email a nonce.
+  async function startPasswordChange() {
     if (!newPassword) { setPasswordStatus('Enter a new password.'); return }
     if (newPassword !== confirmPassword) { setPasswordStatus('Passwords do not match.'); return }
     const passwordError = getPasswordValidationError(newPassword, { shortMessages: true })
     if (passwordError) { setPasswordStatus(passwordError); return }
 
+    setPwBusy(true)
+    setPasswordStatus('')
+    const { error } = await supabase.auth.reauthenticate()
+    if (error) setPasswordStatus(error.message)
+    else {
+      setPwStage('code')
+      setPasswordStatus('We emailed you a 6-digit code. Enter it to confirm.')
+    }
+    setPwBusy(false)
+  }
+
+  // Step 2: the nonce is what actually authorises the change. The old code
+  // passed `{ currentPassword }` here, which supabase-js does not support and
+  // silently ignored — so the "current password" box never checked anything,
+  // and a passwordless client had no way to set one at all.
+  async function confirmPasswordChange() {
+    if (!/^\d{6}$/.test(pwCode.trim())) {
+      setPasswordStatus('Enter the 6-digit code from your email.')
+      return
+    }
+    setPwBusy(true)
     const { error } = await supabase.auth.updateUser(
       { password: newPassword },
-      { currentPassword }
+      { nonce: pwCode.trim() },
     )
-
     if (error) setPasswordStatus(error.message)
     else {
       setPasswordStatus('Password updated successfully.')
-      setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
+      setPwCode('')
+      setPwStage('form')
       setTimeout(() => setPasswordStatus(''), 3000)
+    }
+    setPwBusy(false)
+  }
+
+  // Ends every session on every device, not just this browser — the control
+  // people actually want when a phone goes missing.
+  async function signOutEverywhere() {
+    setGlobalSignOutBusy(true)
+    const { error } = await supabase.auth.signOut({ scope: 'global' })
+    if (error) {
+      setNotice('Could not sign out everywhere: ' + error.message)
+      setGlobalSignOutBusy(false)
     }
   }
 
@@ -857,35 +935,88 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         gap: '16px'
       }}>
         <h2>Security</h2>
-        <PasswordInput
-          placeholder="Current password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          style={inputStyle}
-        />
-        <PasswordInput
-          placeholder="New password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          style={inputStyle}
-        />
-        <PasswordInput
-          placeholder="Confirm new password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          style={inputStyle}
-        />
-        {passwordStatus && (
-          <p style={{
-            fontSize: 'var(--text-base)',
-            color: passwordStatus.includes('successfully') ? 'var(--color-success)' : 'var(--color-error)'
-          }}>
-            {passwordStatus}
-          </p>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
+          A password is optional. If you sign in with emailed codes you can carry on doing that —
+          setting one here just gives you a second way in.
+        </p>
+
+        {pwStage === 'form' ? (
+          <>
+            <PasswordInput
+              placeholder="New password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              style={inputStyle}
+            />
+            <PasswordInput
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              style={inputStyle}
+            />
+            {passwordStatus && (
+              <p style={{
+                fontSize: 'var(--text-base)',
+                color: passwordStatus.includes('successfully') ? 'var(--color-success)' : 'var(--color-error)'
+              }}>
+                {passwordStatus}
+              </p>
+            )}
+            <Button onClick={startPasswordChange} variant="primary" loading={pwBusy}>
+              Update password
+            </Button>
+          </>
+        ) : (
+          <>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              aria-label="Confirmation code"
+              maxLength={6}
+              placeholder="000000"
+              value={pwCode}
+              onChange={(e) => setPwCode(e.target.value.replace(/\D/g, ''))}
+              style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: '1.25rem' }}
+            />
+            {passwordStatus && (
+              <p style={{
+                fontSize: 'var(--text-base)',
+                color: passwordStatus.includes('emailed') ? 'var(--color-muted)' : 'var(--color-error)'
+              }}>
+                {passwordStatus}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Button onClick={confirmPasswordChange} variant="primary" loading={pwBusy}>
+                Confirm change
+              </Button>
+              <Button
+                onClick={() => { setPwStage('form'); setPwCode(''); setPasswordStatus('') }}
+                variant="ghost"
+              >
+                Cancel
+              </Button>
+            </div>
+          </>
         )}
-        <Button onClick={changePassword} variant="primary">
-          Update password
-        </Button>
+
+        <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>
+            Sign out everywhere
+          </p>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+            Ends your session on every device, including ones you no longer have. Use this if a phone
+            or laptop goes missing.
+          </p>
+          <div>
+            <Button onClick={signOutEverywhere} variant="outline" loading={globalSignOutBusy}>
+              Sign out everywhere
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Data */}
@@ -911,22 +1042,59 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
             Permanently delete your account and all associated data. This cannot be undone.
           </p>
-          {!showDeleteConfirm ? (
+          {deleteStage === 'idle' ? (
             <div>
-              <Button onClick={() => setShowDeleteConfirm(true)} variant="danger">
+              <Button onClick={() => { setDeleteStage('confirm'); setDeleteError('') }} variant="danger">
                 Delete my account
               </Button>
             </div>
-          ) : (
+          ) : deleteStage === 'confirm' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', fontWeight: 600, margin: 0 }}>
                 Are you sure? This will delete all your data permanently.
               </p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+                We'll email you a 6-digit code to confirm it's really you.
+              </p>
+              {deleteError && (
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', margin: 0 }}>{deleteError}</p>
+              )}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <Button onClick={requestDeleteCode} variant="danger-solid" loading={codeSending}>
+                  {codeSending ? 'Sending code...' : 'Email me a code'}
+                </Button>
+                <Button onClick={() => { setDeleteStage('idle'); setDeleteError('') }} variant="ghost">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+                Enter the 6-digit code we emailed you. It expires in 10 minutes.
+              </p>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                aria-label="Deletion confirmation code"
+                maxLength={6}
+                placeholder="000000"
+                value={deleteCode}
+                onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, ''))}
+                style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: '1.25rem', maxWidth: '220px' }}
+              />
+              {deleteError && (
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', margin: 0 }}>{deleteError}</p>
+              )}
               <div style={{ display: 'flex', gap: '12px' }}>
                 <Button onClick={deleteAccount} variant="danger-solid" loading={deleteLoading}>
                   {deleteLoading ? 'Deleting...' : 'Yes, delete everything'}
                 </Button>
-                <Button onClick={() => setShowDeleteConfirm(false)} variant="ghost">
+                <Button
+                  onClick={() => { setDeleteStage('idle'); setDeleteCode(''); setDeleteError('') }}
+                  variant="ghost"
+                >
                   Cancel
                 </Button>
               </div>
