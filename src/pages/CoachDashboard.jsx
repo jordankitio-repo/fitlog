@@ -12,24 +12,14 @@ import { getInviteBlockReason } from '../utils/inviteValidation'
 import { attentionLevel, compareByAttention, summarizeRoster } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
 import { cardStyle } from '../utils/styles'
-import { Badge, Pill, Field, Icon } from '../components/ui'
+import { Badge, Pill, Field, Icon, Panel, Row, Tracker } from '../components/ui'
 
 const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
-// Summary-card styles. The label reserves a fixed two-line height so the big
-// numbers line up across all three cards even when a label wraps.
-const summaryLabelStyle = {
-  fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase',
-  letterSpacing: '0.08em', fontWeight: 600, margin: 0, textAlign: 'center',
-  lineHeight: 1.3, minHeight: '2.6em', display: 'flex', alignItems: 'center', justifyContent: 'center',
-}
-const summaryNumStyle = { fontSize: 'var(--text-display)', fontWeight: 700, margin: 0, lineHeight: 1 }
 
-// Portfolio triage headline — "who needs attention today" across the whole
-// roster (the "100 clients with the attention of 20" view). Counts come from
-// summarizeRoster, which is built on the same attentionLevel the per-client
-// badges use, so the banner and the badges can never disagree.
-function RosterBanner({ roster, onReviewClick }) {
+// Page-level triage headline — NOT a card. Rule 1: the page itself is never a
+// box, so this sits on the page ground with space separating it, not a border.
+function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
   const [reviewHover, setReviewHover] = useState(false)
   const seg = (color, n, label) => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -39,10 +29,14 @@ function RosterBanner({ roster, onReviewClick }) {
     </span>
   )
   return (
-    <div style={{ ...cardStyle, padding: '14px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '18px' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '18px' }}>
       {seg(attentionColors.red, roster.atRisk, 'at risk')}
       {seg(attentionColors.yellow, roster.review, 'needs review')}
       {seg(attentionColors.green, roster.onTrack, 'on track')}
+      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+        <span className="tnum" style={{ fontWeight: 700, color: 'var(--color-text)' }}>{checkedIn}</span>
+        <span className="tnum">/{total}</span> checked in
+      </span>
       <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '14px', flexWrap: 'wrap' }}>
         {roster.checkInsToReview > 0 && (
           <button
@@ -73,6 +67,18 @@ function RosterBanner({ roster, onReviewClick }) {
         )}
       </span>
     </div>
+  )
+}
+
+// One cell of a stat strip: mono label over a tabular value, hairline divider
+// between cells. The shape for "several facts about one subject" — a pill holds
+// exactly one fact.
+function StatCell({ k, v }) {
+  return (
+    <span className="ds-statcell">
+      <span style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-faint)', fontWeight: 600 }}>{k}</span>
+      <span className="tnum" style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }}>{v}</span>
+    </span>
   )
 }
 
@@ -294,10 +300,6 @@ function CoachDashboard({ profile }) {
     }
   }
 
-  const needsAttention = clients.filter(c =>
-    attentionLevel(clientStats[c.client_id]).level === 'red'
-  ).length
-
   // Clients with a check-in the coach hasn't reviewed yet, oldest submission
   // first — so the roster banner's "check-ins to review" can jump straight to
   // the most-waiting one, and drain the queue one click at a time at any scale.
@@ -306,12 +308,6 @@ function CoachDashboard({ profile }) {
     .sort((a, b) => (clientStats[a.client_id].checkIn.created_at || '').localeCompare(clientStats[b.client_id].checkIn.created_at || ''))
     .map(c => c.client_id)
 
-  const metricColors = {
-    Calories: 'var(--color-calories)',
-    Protein: 'var(--color-protein)',
-    Cardio: 'var(--color-cardio)',
-    Steps: 'var(--color-steps)',
-  }
 
   const sortedClients = [...clients].sort((a, b) => {
     const sa = clientStats[a.client_id]
@@ -357,35 +353,10 @@ function CoachDashboard({ profile }) {
       {clients.length > 0 && !loading && (
         <RosterBanner
           roster={summarizeRoster(clientStats)}
+          checkedIn={clients.filter(c => clientStats[c.client_id]?.checkIn).length}
+          total={clients.length}
           onReviewClick={reviewClientIds.length ? () => navigate(`/client/${reviewClientIds[0]}?focus=checkIn`) : undefined}
         />
-      )}
-
-      {/* Summary bar */}
-      {clients.length > 0 && !loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-          <div style={{ ...cardStyle, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-            <p style={summaryLabelStyle}>Total clients</p>
-            <p style={summaryNumStyle}>{clients.length}</p>
-          </div>
-          <div style={{ ...cardStyle, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-            <p style={summaryLabelStyle}>Checked in this week</p>
-            <p style={{ ...summaryNumStyle, color: 'var(--color-success)' }}>
-              {clients.filter(c => clientStats[c.client_id]?.checkIn).length}
-              <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{clients.length}</span>
-            </p>
-          </div>
-          {/* "At risk", not "Need attention". This tile counts RED only — which is
-              deliberate (attentionLevel.js pins the threshold to it) — but the
-              old label contradicted the banner directly above it: a coach with
-              three amber clients read "3 needs review" and, beside it, "Need
-              attention: 0" in the success colour. The count was right; the word
-              was a lie. "At risk" is the banner's own term for red. */}
-          <div style={{ ...cardStyle, border: `1px solid ${needsAttention > 0 ? 'var(--color-error)' : 'var(--color-border)'}`, padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-            <p style={summaryLabelStyle}>At risk</p>
-            <p style={{ ...summaryNumStyle, color: needsAttention > 0 ? 'var(--color-error)' : 'var(--color-success)' }}>{needsAttention}</p>
-          </div>
-        </div>
       )}
 
       {/* Client list */}
@@ -444,126 +415,85 @@ function CoachDashboard({ profile }) {
                 </>
               )}
                 <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
-                  <InfoTip text={`How to read a client card:
+                  <InfoTip text={`How to read a roster row:
 
-▸ Top pill (with a dot) — the single most pressing thing to look at. Colour = urgency: green on track · yellow watch · red intervene now.
+\u25b8 Status pill — the single most pressing thing. Green on track \u00b7 amber watch \u00b7 red intervene now.
 
-▸ Green "adherence · energy" pill — the client's latest check-in self-ratings, each out of 10.
+\u25b8 Adh / Nrg — the client's latest check-in self-ratings, each out of 10.
 
-▸ Obstacles — what the client typed in their check-in.
-
-▸ 7-day compliance — one pill per metric: days on target (≈90 %+ of goal) out of the last 7. Dimmer pill = fewer days hit.`} />
+\u25b8 The seven blocks — the last 7 days, oldest on the left. Green hit the calorie target, amber logged but short, grey nothing logged.`} />
                 </span>
               </div>
-            {sortedClients.map((c) => {
-              const s = clientStats[c.client_id]
-              const triage = attentionLevel(s)
-              const hasAlert = triage.level === 'red'
-              const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn, checkinDue: s?.checkinDue })
-              return (
-                <div key={c.id} style={{
-                  ...cardStyle,
-                  border: `1px solid ${hasAlert ? 'var(--color-error)' : 'var(--color-border)'}`,
-                  padding: '16px 20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px'
-                }}>
-                {/* Header row */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                    <Avatar url={c.client?.avatar_url} name={c.client?.full_name || ''} size={40} />
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>{c.client?.full_name || 'Unnamed'}</p>
-                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px', letterSpacing: '0.01em' }}>{c.client?.email}</p>
+            <Panel flush density="compact">
+              {sortedClients.map((c) => {
+                const s = clientStats[c.client_id]
+                const triage = attentionLevel(s)
+                const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn, checkinDue: s?.checkinDue })
+                return (
+                  <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 152px 96px 88px auto">
+                    {/* who */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                      <Avatar url={c.client?.avatar_url} name={c.client?.full_name || ''} size={30} />
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 'var(--text-base)', fontWeight: 600, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.client?.full_name || 'Unnamed'}
+                        </p>
+                        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.client?.email}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {nudge && (
-                      <Button
-                        onClick={() => nudgeClient(c, nudge)}
-                        variant="muted"
-                        size="sm"
-                        loading={Boolean(nudgeLoadingIds[c.client_id])}
-                        title={nudge.key === 'checkin' ? 'Nudge them to do this week’s check-in' : 'Nudge them to log — they’ve gone quiet'}
-                        style={{ padding: '5px 10px' }}
-                      >
-                        Nudge
-                      </Button>
-                    )}
-                    <Button
-                      onClick={() => navigate(`/client/${c.client_id}`)}
-                      variant="muted"
-                      size="sm"
-                      style={{ padding: '5px 10px' }}
-                    >
-                      View data <Icon name="arrowRight" />
-                    </Button>
-                  </div>
-                </div>
 
-                {/* Stats row */}
-                {s && (
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {/* Attention triage — owns overall status; the pills below are supporting evidence */}
-                    <Badge
-                      color={attentionColors[triage.level]}
-                      tone="strong"
-                      dot
-                      title={triage.reasons.length ? triage.reasons.join(' · ') : logLabel(s.daysSinceLog)}
-                      style={{ fontSize: 'var(--text-sm)', fontWeight: 700 }}
-                    >
-                      {triage.level === 'green' ? logLabel(s.daysSinceLog) : triage.reasons[0]}
-                    </Badge>
-
-                    {/* Check-in (positive only — a missing check-in surfaces via the triage badge) */}
-                    {s.checkIn && (
-                      <Badge
-                        color="var(--color-success)"
-                        title={`Check-in: ${s.checkIn.adherence_rating}/10 adherence · ${s.checkIn.energy_level}/10 energy`}
-                        style={{ fontSize: 'var(--text-sm)' }}
-                      >
-                        {s.checkIn.adherence_rating}/10 adherence · {s.checkIn.energy_level}/10 energy
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                {/* Obstacles preview */}
-                {s?.checkIn?.obstacles && (
-                  <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: '4px' }}>Obstacles</p>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>{s.checkIn.obstacles}</p>
-                  </div>
-                )}
-
-                {/* 7-day compliance pills */}
-                {(s?.complianceItems?.some(i => i.logged > 0) || s?.lockInfo?.locked) && (
-                  <div style={{ paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                      7-day compliance
-                    </p>
+                    {/* state — one fact, at a fixed x-position so it scans in one pass */}
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {s.lockInfo?.locked && (
-                        <Badge color="var(--color-error)" tone="strong" style={{ fontWeight: 700 }}>Locked</Badge>
+                      <Badge
+                        color={attentionColors[triage.level]}
+                        tone="strong"
+                        dot
+                        title={triage.reasons.length ? triage.reasons.join(' · ') : logLabel(s?.daysSinceLog)}
+                      >
+                        {triage.level === 'green' ? logLabel(s?.daysSinceLog) : triage.reasons[0]}
+                      </Badge>
+                      {s?.lockInfo?.locked && (
+                        <Badge color="var(--color-error)" tone="strong">Locked</Badge>
                       )}
-                      {s.complianceItems.map(({ label, value, logged }) => {
-                        if (logged === 0) return null
-                        const metricColor = metricColors[label] || 'var(--color-muted)'
-                        const opacity = value >= 5 ? 1 : value >= 3 ? 0.75 : 0.55
-                        return (
-                          <Badge key={label} color={metricColor} style={{ fontWeight: 700, opacity }}>
-                            {label} {value}/7
-                          </Badge>
-                        )
-                      })}
                     </div>
-                  </div>
-                )}
-              </div>
-            )
-          })
-          }
+
+                    {/* check-in self-ratings — several facts, so a strip, not a pill */}
+                    <div className="roster-strip" style={{ display: 'flex' }}>
+                      {s?.checkIn ? (
+                        <>
+                          <StatCell k="Adh" v={`${s.checkIn.adherence_rating}/10`} />
+                          <StatCell k="Nrg" v={`${s.checkIn.energy_level}/10`} />
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-faint)' }}>—</span>
+                      )}
+                    </div>
+
+                    {/* 7 days of logging, oldest left */}
+                    <Tracker days={s?.logDays || []} label={`Last 7 days: ${(s?.logDays || []).filter(d => d === 'on').length} on target`} />
+
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      {nudge && (
+                        <Button
+                          onClick={() => nudgeClient(c, nudge)}
+                          variant="muted"
+                          size="sm"
+                          loading={Boolean(nudgeLoadingIds[c.client_id])}
+                          title={nudge.key === 'checkin' ? 'Nudge them to do this week\u2019s check-in' : 'Nudge them to log \u2014 they\u2019ve gone quiet'}
+                        >
+                          Nudge
+                        </Button>
+                      )}
+                      <Button onClick={() => navigate(`/client/${c.client_id}`)} variant="muted" size="sm">
+                        Open
+                      </Button>
+                    </div>
+                  </Row>
+                )
+              })}
+            </Panel>
           </>
         )}
       </div>

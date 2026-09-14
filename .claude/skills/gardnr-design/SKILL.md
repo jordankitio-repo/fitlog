@@ -66,6 +66,61 @@ preferences; treat them as broken output.
 - **The growth motif** (leaf, laurel) on milestones, streaks, empty states and
   celebrations — not on every screen.
 
+## The layout layer — six rules
+
+The token layer (color, type) was never the problem; the layout layer was. These
+six rules are what stop screens reading as "assembled". Measured before the rule:
+71% of every bordered container on the roster sat inside another bordered
+container, and ClientView carried 8 distinct paddings.
+
+### 1. Three surfaces. A Panel never contains a Panel.
+- **page** — no border, no background. Sections separated by space + a heading.
+  A page-level headline (the roster's triage line) is NOT a card.
+- **panel** (`ui/Panel`) — the ONLY element that draws a border. One per logical
+  group.
+- **row** (`ui/Row`) — a record inside a Panel. No border, no background, no
+  radius; a hairline divider between rows and none after the last.
+
+Maximum nesting depth is **1**. Form controls (input/button/select) carry their
+own borders and don't count — they are controls, not surfaces.
+
+### 2. Two densities, and no third.
+`Panel density="compact"` → `12px 16px`, for repeating surfaces (rosters, stat
+rows, lists). `density="comfortable"` → `20px 24px`, for things people type into
+or read (forms, settings, prose). Every panel declares one.
+
+### 3. Spacing carries grouping; borders are the fallback.
+`--space-*` only. **≤12px within a group, ≥24px between groups.** Evenly spaced
+layouts read flat, randomly spaced ones read sloppy — the contrast is what makes
+structure visible without drawing it. Every border is an admission you couldn't
+group it with space.
+
+### 4. Three status shapes. "Pill" stops meaning everything.
+- **`Badge`** — ONE fact, two words max. `tone="strong"` when the badge is the
+  primary signal (triage), `soft` for supporting evidence, `solid` for counts.
+- **`StatCell` strip** — several facts about one subject: mono uppercase label
+  over a tabular value, hairline divider between cells. A pill holding four
+  dot-separated facts is a table in a costume.
+- **`Tracker`** — anything over time. Seven cells, oldest left.
+
+**If it carries more than one fact, it is not a Badge.**
+
+### 5. Color lives in the data; chrome stays neutral.
+Borders, dividers, panel backgrounds, resting icons and labels take neutral
+tokens ONLY. Metric tokens go on the number; semantic tokens go in the status
+cell; green is the only action color. **Never color an entire card border to
+signal state** — state belongs in the row's status cell, at a consistent
+x-position where it scans in one pass.
+
+### 6. Type does hierarchy, so boxes don't have to.
+Page title `--text-title` · panel heading `--text-body`/600 · eyebrow
+`--text-xs` uppercase · row primary `--text-base`/600 · row secondary
+`--text-sm` muted · data numeral `--text-lg`/700 with `.tnum`.
+
+**Migrated so far:** Profile (was already compliant), CoachDashboard roster
+(2266px → 1100px, 51 surfaces → 12, depth 2 → 1). Still to do: Log, Dashboard,
+ClientView (4693px, 38 surfaces, 23 nested).
+
 ## Color tokens
 
 Defined in `src/index.css` `:root`, with a `:root[data-theme="light"]` override

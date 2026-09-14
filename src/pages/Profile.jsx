@@ -11,7 +11,6 @@ import SubscriptionManager from '../components/SubscriptionManager'
 import CheckinBuilder from '../components/CheckinBuilder'
 import ThemeToggle from '../components/ThemeToggle'
 import { getPasswordValidationError } from '../utils/passwordValidation'
-import { cardStyle } from '../utils/styles'
 import { SOLO_BILLING_ENABLED } from '../App'
 import ConfirmDialog from '../components/ConfirmDialog'
 import TargetCalculator from '../components/TargetCalculator'
@@ -19,7 +18,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
 import { convertGoalValue } from '../utils/weightTarget'
-import { controlStyle, Icon } from '../components/ui'
+import { controlStyle, Icon, Panel } from '../components/ui'
 
 // Primary-goal options (mirrors Onboarding). Stored on profiles.primary_goal.
 const GOAL_OPTIONS = [
@@ -511,14 +510,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         <div className="cv-main">
       <h1 style={{ margin: 0 }}>Profile</h1>
 
-      <div id="section-account" style={{
-        ...cardStyle,
-        padding: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px'
-      }}>
-        <h2 style={{ margin: 0 }}>Account</h2>
+      <Panel id="section-account" title="Account">
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Avatar url={avatarUrl} name={profile?.full_name || ''} size={64} />
@@ -581,21 +573,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </p>
           </div>
         )}
-      </div>
+      </Panel>
 
-      <div id="section-appearance" style={{
-        ...cardStyle,
-        padding: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px'
-      }}>
-        <h2>Appearance</h2>
+      <Panel id="section-appearance" title="Appearance">
         <p style={{ fontSize: 'var(--text-base)', marginTop: '-6px', color: 'var(--color-muted)' }}>
           Auto follows your device's day/night setting.
         </p>
         <ThemeToggle />
-      </div>
+      </Panel>
 
       {profile?.role !== 'coach' && (() => {
         const metric = bio.unit_preference === 'metric'
@@ -609,13 +594,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         })
         const lbl = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
         return (
-          <div id="section-details" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <h2 style={{ margin: 0 }}>Your details</h2>
-              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: '6px 0 0' }}>
-                Used to estimate your targets.{profile?.role === 'client' ? ' Your coach can see these to fine-tune your plan.' : ''}
-              </p>
-            </div>
+          <Panel id="section-details" title="Your details">
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
+              Used to estimate your targets.{profile?.role === 'client' ? ' Your coach can see these to fine-tune your plan.' : ''}
+            </p>
 
             <div>
               <label style={lbl}>Units</label>
@@ -673,19 +655,12 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               <Button onClick={saveBio} variant="primary" loading={bioSaving}>Save details</Button>
               {bioSaved && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-sm)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>Saved <Icon name="check" /></span>}
             </div>
-          </div>
+          </Panel>
         )
       })()}
 
       {profile?.role !== 'coach' && (
-      <div id="section-targets" style={{
-        ...cardStyle,
-        padding: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px'
-      }}>
-        <h2>Daily targets</h2>
+      <Panel id="section-targets" title="Daily targets">
         <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px' }}>
           {profile?.role === 'client'
             ? 'These targets were set by your coach.'
@@ -827,19 +802,17 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             {saved ? <>Saved <Icon name="check" /></> : 'Save targets'}
           </Button>
         )}
-      </div>
+      </Panel>
       )}
 
       {profile?.role === 'coach' && (
-        <div id="section-questionnaire" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2>Check-in questionnaire</h2>
+        <Panel id="section-questionnaire" title="Check-in questionnaire">
           <CheckinBuilder coachId={profile.id} />
-        </div>
+        </Panel>
       )}
 
       {profile?.role === 'coach' && (
-        <div id="section-charts" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <h2>Charts</h2>
+        <Panel id="section-charts" title="Charts">
           <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px', color: 'var(--color-muted)' }}>
             Choose which charts appear on your clients' records. All shown by default.
           </p>
@@ -860,12 +833,11 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               </div>
             )
           })}
-        </div>
+        </Panel>
       )}
 
       {profile?.role === 'coach' && (
-        <div id="section-billing" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2>Billing</h2>
+        <Panel id="section-billing" title="Billing">
           {subscription ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
@@ -885,15 +857,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           ) : (
             <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>No active subscription.</p>
           )}
-        </div>
+        </Panel>
       )}
 
       {/* Solo billing is retired (Solo is free). Only show this card if the user
           still has a legacy active sub to manage, OR billing is re-enabled.
           When billing is off and there's nothing to manage, no dead paywall. */}
       {profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) && (
-        <div id="section-soloBilling" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2>Solo Premium</h2>
+        <Panel id="section-soloBilling" title="Solo Premium">
           {soloSubActive ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
@@ -918,17 +889,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               <SoloUpgrade feature="Advanced analytics and AI nutrition feedback" />
             </div>
           )}
-        </div>
+        </Panel>
       )}
 
-      <div id="section-security" style={{
-        ...cardStyle,
-        padding: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px'
-      }}>
-        <h2>Security</h2>
+      <Panel id="section-security" title="Security">
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
           A password is optional. If you sign in with emailed codes you can carry on doing that —
           setting one here just gives you a second way in.
@@ -1011,11 +975,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </Button>
           </div>
         </div>
-      </div>
+      </Panel>
 
       {/* Data */}
-      <div id="section-data" style={{ ...cardStyle, padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <h2>Data</h2>
+      <Panel id="section-data" title="Data">
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>Export</p>
@@ -1095,7 +1058,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </div>
           )}
         </div>
-      </div>
+      </Panel>
 
       {isMobile && (
         <div style={{ padding: '20px 0 0' }}>

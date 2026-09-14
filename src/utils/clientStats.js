@@ -58,6 +58,21 @@ export async function computeClientStats(clientIds, relationships = []) {
     const checkIn = checkIns.find(c => c.client_id === id && c.week_of === period.weekOf) || null
     const clientTargets = targetsData.find(t => t.user_id === id)
 
+    // Per-day logging state for the last 7 days, OLDEST first — the roster's
+    // tracker row. The aggregate counts below already walk these days and throw
+    // the per-day detail away; a coach wants to see WHICH days were missed
+    // (three scattered vs three consecutive are different problems), not just
+    // how many. 'on' = logged and within reach of the calorie target,
+    // 'part' = logged but short, 'none' = nothing logged.
+    const logDays = [...last7Days].reverse().map(date => {
+      const dayTotal = nutritionData
+        .filter(n => n.user_id === id && n.logged_date === date)
+        .reduce((sum, n) => sum + (n.calories || 0), 0)
+      if (dayTotal <= 0) return 'none'
+      if (!clientTargets?.calories) return 'on'
+      return dayTotal >= clientTargets.calories * 0.9 ? 'on' : 'part'
+    })
+
     const complianceItems = []
 
     if (clientTargets?.calories) {
@@ -104,7 +119,7 @@ export async function computeClientStats(clientIds, relationships = []) {
       complianceItems.push({ label: 'Steps', value: count, logged, hasData: logged > 0 })
     }
 
-    stats[id] = { lastLogDate, daysSinceLog, checkIn, complianceItems, lockInfo, checkinInterval: interval, checkinDue: period.dueWindow }
+    stats[id] = { lastLogDate, daysSinceLog, checkIn, complianceItems, logDays, lockInfo, checkinInterval: interval, checkinDue: period.dueWindow }
   })
 
   return stats
