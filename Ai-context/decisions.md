@@ -296,6 +296,54 @@
 **Reason:** A coach should set only `reviewed_at`/`coach_comment`, not edit a client's answers — and a client shouldn't fake a review on their own row. RLS is row-level, not column-level, so a coach-UPDATE policy couldn't enforce either.
 **Consequences:** `review_checkin(p_id, p_comment)` (SECURITY DEFINER, active-coach-only) is the only sanctioned path; a `guard_checkin_review` trigger raises if the review fields change and the caller isn't the active coach. **`service_role` must be exempted** (`auth.role()`) — caught when the guard first blocked admin/edge-function writes; the RPC itself passes because it runs with `auth.uid()` = the coach.
 
+### An accept is ONE atomic RPC, not a sequence of client-side writes (Aug 25 2026)
+**Reason:** `Join.jsx` did three sequential writes to finish an accept — `profiles` upsert, `coach_clients` upsert, `invitations` status flip. A closed tab between any two stranded a client with a profile but no coach: a broken account, in the exact flow where a new client's patience is thinnest. Worse, single-use became the *primary* defense once tokens started buying sessions (no IP rate limiting — see below), so the claim itself had to be atomic or two concurrent redeems both win.
+**Consequences:** `accept_invitation(p_token, p_user_id, p_full_name)` (SECURITY DEFINER) does every mutation in one transaction, claiming the token with `SELECT ... FOR UPDATE`. Two callers, one code path: `redeem-invite` as service_role, and the browser directly via `supabase.rpc()` once authenticated (email match enforced inside via `auth.jwt() ->> 'email'`). Written as lock-then-validate rather than one conditional `UPDATE ... RETURNING` so each failure mode raises its own symbol and the Join page can say something useful.
+**Gotcha:** **`role: 'client'` must never go in `user_metadata`.** `handle_new_user` whitelists role to `('coach','solo')` on purpose — client is invite-only, and self-serve signup metadata must not be able to claim it. The RPC sets the role as service_role instead, so the trigger stays untouched.
+
+### ~~Existing-account detection on invites uses a snapshot flag~~ — **AMENDED Aug 25 2026: `account_exists` is advisory only**
+**What changed:** The Jun 14 entry above (SECURITY DEFINER RPC + snapshot flag) still stands for the *coach* side (`invite_email_status`). On the Join side, the snapshotted `invitations.account_exists` went stale and the code recovered by pivoting on a **sign-up error string** — fragile, and it forced the password form to be the default view.
+**Consequences:** `redeem-invite` now does a live `auth_user_exists(email)` check (SECURITY DEFINER, **`service_role` grant only** — granting it to `anon`/`authenticated` would be an open user-enumeration oracle, and the test suite asserts it isn't). `account_exists` is kept as a hint but nothing branches on it, and the error-string pivot is deleted. The Jun 14 principle is unchanged and worth restating: to cross the RLS wall for one narrow fact, write a SECURITY DEFINER function scoped to exactly that fact — and grant it to the narrowest role that needs it.
+
+---
+
+## Authentication & Sessions
+
+> Full design, alternatives, and threat reasoning: `docs/passwordless-auth-design.md`. The six decisions below are the durable calls.
+
+### The invite token buys a session — new accounts only (Aug 25 2026)
+**Reason:** Client daily-use adoption is the gating risk on the whole coach product: a client who never logs is a coach who churns, and the invite accept is where they were being lost (forced signup, password rules, a second email). The token in the link is a 122-bit UUID that only reached the invitee's inbox — **that is already proof of email possession**, the same proof an OTP establishes. We were discarding it and then asking the user to prove the same thing again.
+**Consequences:** No account → `redeem-invite` creates the user with no password and mints a session. One tap. Account exists → **refused**, routed through a 6-digit code first. 14-day expiry, single-use. **The asymmetry is the entire security model:** a forwarded link can *create* an account (bounded and recoverable), never *enter* one (that would be takeover). Accepted trade-off: a forwarded invite can create an account.
+
+### Clients may never set a password — so OTP sign-in is load-bearing and PWA install is a dependency (Aug 25 2026)
+**Reason:** If passwordless accept is the default, a client who loses their session has no door back in unless one is built in the same release. Shipping the accept flow without OTP would have created lockouts, not adoption.
+**Consequences:** OTP sign-in shipped *with* Phase 1, not after. A password is optional and offered only in Profile, never during onboarding. **`shouldCreateUser: false` is mandatory** on `signInWithOtp` — without it `/login` is an open signup endpoint minting accounts from typos and bypassing the role picker. **6-digit code, never a magic link**: a link opens in the OS default browser, frequently not the one holding the installed PWA, so the session lands in the wrong place. **And PWA install becomes a real dependency** — Safari ITP evicts localStorage after 7 idle days for *tabs*, but installed PWAs are exempt, so an uninstalled client silently logs out weekly.
+
+### Single-use + expiry only; no IP rate limiting on redemption (Aug 25 2026)
+**Reason:** Each redemption attempt is one indexed lookup against a 122-bit space. Rate limiting buys little against that and costs real complexity (and false positives behind shared NAT — a gym's wifi is exactly where several clients accept at once).
+**Consequences:** The atomic claim in `accept_invitation` is now the load-bearing defense, so it has to be *proven*, not assumed — hence the both-directions test rule below. Revisit if abuse actually appears.
+
+### Passwordless is compliance-acceptable for the client tier (Aug 25 2026)
+**Reason:** Neither FTC HBNR nor WA MHMDA prescribes an authentication factor; the standard is "reasonable security" under FTC §5. NIST SP 800-63B does not permit email as an out-of-band channel at AAL2 — **but that binds federal agencies, and the previous password + email-reset design failed it identically.** Email was always the root credential; a password sitting in front of a self-serve email reset never changed that.
+**Consequences:** Documented as a deliberate call rather than drift. The genuine upgrade path is passkeys/TOTP, **not keeping passwords** — so effort goes there, not into defending a factor that was never load-bearing. (Passkeys/WebAuthn: no native Supabase support today. TOTP: coaches first.)
+
+### No idle timeout for clients; step-up re-auth on irreversible actions instead (Aug 25 2026)
+**Reason:** Idle timeouts exist to protect unattended **shared terminals** — the hospital floor PC, the bank branch desk — which is why they appear in HIPAA/FFIEC guidance. A client logging meals on a personal phone behind Face ID is not that threat, and a 48h timer would only ever fire on the lapsed client `nudge-client` exists to win back. Logging everyone out more often is friction billed to the wrong person.
+**Consequences:** Client: 90-day absolute cap (the project-wide Supabase setting), no inactivity timeout. Coach: 30-day cap + 14-day idle, enforced in `useSessionPolicy.js` because **Supabase session limits are project-wide, not per role** — the project carries the client tier and the hook enforces the tighter coach one. The in-app half is client-side and clearable; accepted, because the threat model is a lost device, not a coach evading their own timeout, and the Supabase time-box is the backstop. **A policy sign-out must write a reason `Login.jsx` shows once** — otherwise a security logout is indistinguishable from a bug and gets reported as one.
+
+### Step-up gates only what's irreversible AND server-enforceable — export and offboarding are deliberately ungated (Aug 25 2026)
+**Reason:** Two candidates were dropped during the build, and the reasoning is the reusable part. **Data export** runs entirely in the browser: `Profile.jsx` reads the user's own rows under their own RLS. There is no server call to gate, so a code prompt would be **security theatre** — the same session can already read every one of those rows just by using the app, so the prompt stops nobody while implying protection. **Coach offboarding** is reversible (re-invite) and routine; an email round trip on a routine action trains people to click through prompts, which makes the prompt on deletion worth *less*.
+**Consequences:** Gated: password change (GoTrue nonce) and account deletion (`step_up_challenges` + Resend code, verified inside `delete-account`, **failing closed**). Ungated: export, offboarding. Gating export for real means moving it server-side — that belongs to the compliance export/consent work, not here. General rule: **a prompt that can't be enforced server-side is theatre; don't ship it.**
+
+### `updateUser(attrs, { currentPassword })` was never a check — reauth is a nonce (Aug 25 2026)
+**Reason:** `currentPassword` is **not a supabase-js option** and was silently ignored. Profile's "Current password" field was decorative for its entire life: any live session could change the password without knowing the old one. Nothing errored, nothing logged — the bug was invisible precisely because the API accepted and dropped it.
+**Consequences:** Password changes go through `auth.reauthenticate()` → emailed nonce → `updateUser({ password }, { nonce })`. This also happens to be the only flow that works for a user who has no password yet, so "add a password" and "change a password" are one code path. **Enable Auth → "Secure password change"** so the nonce is enforced by the auth server, not just our client.
+**Gotcha:** the general lesson — an options object silently dropping an unknown key is the failure mode that produces *confident* security theatre. When an SDK option is load-bearing for a security control, verify it appears in the actual request, not just in our source.
+
+### Coaches keep passwords (Aug 25 2026)
+**Reason:** Different risk tier. One coach account reaches every one of their clients' health data; a client account reaches only their own. Coaches are also the payer, so auth friction is tolerable in a way it isn't for the client we're trying to get logging daily.
+**Consequences:** Coach auth is unchanged by the passwordless work. TOTP for coaches is the eventual upgrade — and doubles as a sales line.
+
 ---
 
 ## Time & Dates

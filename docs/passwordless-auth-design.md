@@ -1,6 +1,7 @@
 # Passwordless Client Auth & Session Policy — Design
 
-> **Status:** Phases 1 + 2 implemented 2026-08-25 (not yet deployed — see §6).
+> **Status:** Phases 1 + 2 implemented 2026-08-25; Phase 3 (the record) done 2026-09-14.
+> Committed on `feat/passwordless-client-auth` — **not merged, not deployed.** See §6 and §9.
 > **Scope:** Client-side auth only. Coaches keep passwords (see §8, D-6).
 > **Why now:** Client daily-use adoption is the gating risk on the coach product —
 > a client who never logs is a coach who churns. The invite path is where they are lost.
@@ -257,9 +258,21 @@ configured (§9.2).
 reauthentication nonce, "Sign out everywhere", and the policy-signout notice on `Login.jsx`.
 Data export and coach offboarding were deliberately left ungated — see §4.5.
 
-**Phase 3 — record.** Compliance memo, `decisions.md` entries, `architecture.md` wiring.
+**Phase 3 — record. DONE 2026-09-14.** `decisions.md` gained an **Authentication & Sessions** section
+carrying D-1…D-6, plus the atomic-accept entry and an amendment marking the Jun 14 `account_exists`
+snapshot advisory-only. `architecture.md` gained the two-tier Authentication section (step-up table,
+session-policy table, the SMTP and PWA warnings), a rewritten Invite flow, the new RPCs and
+`step_up_challenges` in the schema, `redeem-invite` + `request-step-up` in the edge-function table,
+and the both-directions testing rule. `current-state.md` carries the deploy gate. The compliance memo
+is deferred to the compliance program's Phase 2–4 work, where it belongs alongside the export/consent
+and legal drafts rather than duplicating D-4 here.
 
 Tests land with each phase, not at the end.
+
+**Re-verified 2026-09-14** (the build was three weeks old at commit time): 172 unit + 120 integration
+green against a freshly loaded local stack, `npm run build` passing, lint adding nothing to the
+repo's pre-existing count. The §7 teeth check was re-run, not assumed — `for update` stripped from
+`accept_invitation`, test 3 fails with both callers redeeming the same token; restored, 120/120.
 
 ---
 
