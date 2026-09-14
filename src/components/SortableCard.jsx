@@ -27,7 +27,7 @@ export default function SortableCard({ id, enabled, children }) {
         style={{
           position: 'absolute', top: 18, right: 46, zIndex: 5,
           background: 'transparent', border: 'none', padding: 4,
-          color: 'var(--color-muted)', fontSize: '1.05rem', lineHeight: 1,
+          color: 'var(--color-muted)', fontSize: 'var(--text-subhead)', lineHeight: 1,
           cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none',
         }}
       >

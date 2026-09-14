@@ -209,7 +209,7 @@ function Login() {
     borderRadius: 'var(--radius)',
     padding: '10px 14px',
     color: 'var(--color-text)',
-    fontSize: '1rem',
+    fontSize: 'var(--text-body)',
     width: '100%'
   }
 
@@ -220,7 +220,7 @@ function Login() {
     border: 'none',
     padding: '4px',
     font: 'inherit',
-    fontSize: '0.875rem',
+    fontSize: 'var(--text-base)',
     cursor: 'pointer',
     textAlign: 'center',
     width: '100%',
@@ -239,7 +239,7 @@ function Login() {
       <h1>{isSignUp ? 'Create account' : 'Sign in'}</h1>
       {signedOutReason && !isSignUp && (
         <p style={{
-          fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6,
+          fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6,
           padding: '10px 14px', borderRadius: 'var(--radius)',
           backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
         }}>
@@ -251,7 +251,7 @@ function Login() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {otpStage === 'email' ? (
           <>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
               We'll email you a 6-digit code. No password needed.
             </p>
             <input
@@ -263,14 +263,14 @@ function Login() {
               onChange={(e) => setOtpEmail(e.target.value)}
               style={inputStyle}
             />
-            {otpStatus && <p style={{ fontSize: '0.875rem', color: '#f87171', margin: 0 }}>{otpStatus}</p>}
+            {otpStatus && <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-error)', margin: 0 }}>{otpStatus}</p>}
             <Button onClick={sendLoginCode} variant="primary" fullWidth loading={otpBusy}>
               Send code
             </Button>
           </>
         ) : (
           <>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
               {NEUTRAL_CODE_SENT} Enter it below.
             </p>
             <input
@@ -282,10 +282,10 @@ function Login() {
               placeholder="000000"
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-              style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: '1.25rem' }}
+              style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: 'var(--text-lg)' }}
             />
             {otpStatus && otpStatus !== NEUTRAL_CODE_SENT && (
-              <p style={{ fontSize: '0.875rem', color: '#f87171', margin: 0 }}>{otpStatus}</p>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-error)', margin: 0 }}>{otpStatus}</p>
             )}
             <Button onClick={verifyLoginCode} variant="primary" fullWidth loading={otpBusy}>
               Sign in
@@ -308,7 +308,7 @@ function Login() {
             onChange={(e) => { setFullName(e.target.value); setErrors(p => ({ ...p, fullName: '' })) }}
             style={{ ...inputStyle, borderColor: errors.fullName ? '#f87171' : 'var(--color-border)' }}
           />
-          {errors.fullName && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.fullName}</p>}
+          {errors.fullName && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-8px' }}>{errors.fullName}</p>}
         </>
       )}
 
@@ -320,7 +320,7 @@ function Login() {
         onChange={(e) => { setEmail(e.target.value); setErrors(p => ({ ...p, email: '' })) }}
         style={{ ...inputStyle, borderColor: errors.email ? '#f87171' : 'var(--color-border)' }}
       />
-      {errors.email && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.email}</p>}
+      {errors.email && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-8px' }}>{errors.email}</p>}
       <PasswordInput
         aria-label="Password"
         placeholder="Password"
@@ -328,11 +328,11 @@ function Login() {
         onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}
         style={{ ...inputStyle, borderColor: errors.password ? '#f87171' : 'var(--color-border)' }}
       />
-      {errors.password && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.password}</p>}
+      {errors.password && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-8px' }}>{errors.password}</p>}
 
       {isSignUp && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>I am a...</p>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>I am a...</p>
           <div style={{ display: 'flex', gap: '8px' }}>
             {['solo', 'coach'].map((r) => (
               <button
@@ -350,7 +350,7 @@ function Login() {
                   color: role === r ? 'var(--color-text)' : 'var(--color-muted)',
                   cursor: 'pointer',
                   fontWeight: role === r ? 600 : 400,
-                  fontSize: '0.875rem'
+                  fontSize: 'var(--text-base)'
                 }}
               >
                 {r === 'solo' ? 'Individual' : 'Coach'}
@@ -358,7 +358,7 @@ function Login() {
             ))}
           </div>
           {role === 'coach' && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
               You'll be able to invite and manage clients from your dashboard.
             </p>
           )}
@@ -381,9 +381,9 @@ function Login() {
           </span>
         </label>
       )}
-      {errors.agreed && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-4px' }}>{errors.agreed}</p>}
+      {errors.agreed && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-4px' }}>{errors.agreed}</p>}
 
-      {error && <p style={{ color: '#f87171' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--color-error)' }}>{error}</p>}
 
       <Button type="submit" variant="primary" fullWidth>
         {isSignUp ? 'Create account' : 'Sign in'}
@@ -414,7 +414,7 @@ function Login() {
           Send reset link
         </Button>
         {forgotStatus && (
-          <p style={{ fontSize: '0.875rem', color: forgotStatus.includes('Check') ? 'var(--color-primary)' : '#f87171', textAlign: 'center' }}>
+          <p style={{ fontSize: 'var(--text-base)', color: forgotStatus.includes('Check') ? 'var(--color-primary)' : 'var(--color-error)', textAlign: 'center' }}>
             {forgotStatus}
           </p>
         )}

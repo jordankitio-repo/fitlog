@@ -52,7 +52,7 @@ function NavBar({ profile }) {
     }}>
       <Logo size={26} />
       <span style={{
-        fontWeight: 700, fontSize: '1.05rem', color: 'var(--color-primary)',
+        fontWeight: 700, fontSize: 'var(--text-subhead)', color: 'var(--color-primary)',
         letterSpacing: '-0.02em', whiteSpace: 'nowrap',
       }}>Gardnr</span>
     </Link>

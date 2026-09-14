@@ -33,7 +33,7 @@ export default function ReportBody({ content, color = 'var(--color-text)', headi
         style={{ position: 'relative', cursor: 'pointer' }}
       >
         <p style={{
-          color, lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.875rem',
+          color, lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: 'var(--text-base)',
           margin: 0, maxHeight: PREVIEW_MAX, overflow: 'hidden',
         }}>
           {content}
@@ -45,7 +45,7 @@ export default function ReportBody({ content, color = 'var(--color-text)', headi
         }} />
         <span style={{
           display: 'inline-block', marginTop: 8, color: 'var(--color-primary)',
-          fontWeight: 600, fontSize: '0.8rem',
+          fontWeight: 600, fontSize: 'var(--text-sm)',
         }}>
           Read full report →
         </span>
@@ -79,17 +79,17 @@ export default function ReportBody({ content, color = 'var(--color-text)', headi
               style={{
                 position: 'absolute', top: 12, right: 14, background: 'transparent',
                 border: 'none', color: 'var(--color-muted)', cursor: 'pointer',
-                fontSize: '1.4rem', lineHeight: 1,
+                fontSize: 'var(--text-title)', lineHeight: 1,
               }}
             >
               ×
             </button>
             {heading && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', marginBottom: 14, paddingRight: 28 }}>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginBottom: 14, paddingRight: 28 }}>
                 {heading}
               </p>
             )}
-            <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: '0.9rem', margin: 0 }}>
+            <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: 'var(--text-base)', margin: 0 }}>
               {content}
             </p>
           </div>

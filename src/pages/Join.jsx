@@ -234,7 +234,7 @@ function Join() {
     borderRadius: 'var(--radius)',
     padding: '10px 14px',
     color: 'var(--color-text)',
-    fontSize: '1rem',
+    fontSize: 'var(--text-body)',
     width: '100%',
   }
 
@@ -247,7 +247,7 @@ function Join() {
   )
 
   const errorLine = error
-    ? <p style={{ color: 'var(--color-error)', fontSize: '0.875rem', margin: 0 }}>{error}</p>
+    ? <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)', margin: 0 }}>{error}</p>
     : null
 
   return (
@@ -262,17 +262,17 @@ function Join() {
       <h1 style={{ margin: 0 }}>
         {coachName ? `${coachName} invited you to Gardnr` : "You're invited to Gardnr"}
       </h1>
-      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem', lineHeight: 1.6, margin: 0 }}>
+      <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)', lineHeight: 1.6, margin: 0 }}>
         Log your meals and progress here, and {coachName || 'your coach'} sees it and guides you week to week.
         It's free for you — your coach covers it.
       </p>
-      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem', margin: 0 }}>
+      <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)', margin: 0 }}>
         Your email: <strong style={{ color: 'var(--color-text)' }}>{invitation?.client_email}</strong>
       </p>
 
       {existingSession ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
             You're logged in as <strong>{existingSession.user.email}</strong>. Accepting this invite will connect you to your coach as a client. Your existing data is preserved.
           </p>
           {errorLine}
@@ -285,7 +285,7 @@ function Join() {
         </div>
       ) : mode === 'code' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
             You already have a Gardnr account with this email. We sent a 6-digit code to{' '}
             <strong style={{ color: 'var(--color-text)' }}>{invitation?.client_email}</strong> — enter it to accept.
           </p>
@@ -297,7 +297,7 @@ function Join() {
             placeholder="000000"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: '1.25rem' }}
+            style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: 'var(--text-lg)' }}
           />
           {errorLine}
           <Button onClick={handleVerifyCode} variant="primary" fullWidth loading={busy}>

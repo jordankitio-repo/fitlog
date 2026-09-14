@@ -41,6 +41,10 @@
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-warning-dim: rgba(251, 191, 36, 0.12); /* soft amber fill for attention/nudge cards */
+  /* "Over target" on the compliance scale (on-target/over/under/well-under).
+     success + warning + error covered three of the four buckets; this names the
+     fourth so the scale stops being re-declared as literals at each call site. */
+  --color-over: #fb923c;
   /* Dark mode accents are BRIGHT (green #22c55e, red #f87171), so white text on
      them fails WCAG AA (~2.3:1). Dark text reads ~7:1. Light mode flips this back
      to white (its accents are darker). */
@@ -54,12 +58,27 @@
   --space-lg: 24px;
   --space-xl: 32px;
 
-  --text-xl: 1.75rem;
-  --text-lg: 1.25rem;
-  --text-md: 0.9375rem;
-  --text-base: 0.875rem;  /* body default — the single most common size (91x) */
-  --text-sm: 0.8125rem;
-  --text-xs: 0.6875rem;
+  /* Type ramp — the ONLY allowed font sizes. Ten steps, ordered small→large.
+     Six steps (the original ramp) under-served real usage: the codebase had
+     grown 26 distinct raw sizes because 16px, 24px and 32px had no token. That
+     is below every mainstream system (Apple HIG 11 styles, Carbon 12, Material
+     3 15 roles), so the ramp was extended rather than the call sites squeezed.
+     --text-xs is the FLOOR: 11px is Apple HIG's minimum legible size (Material
+     says 12sp). Never ship type smaller than --text-xs.
+     NOTE the names are inherited and are NOT t-shirt-ordered (--text-base 14px
+     is SMALLER than --text-body 16px). Size order is exactly the order below —
+     that listing is the source of truth, not the name. */
+  --text-xs: 0.6875rem;      /* 11px — floor; labels, dot-grid captions */
+  --text-sm: 0.8125rem;      /* 13px — secondary/meta text */
+  --text-base: 0.875rem;     /* 14px — body default, the most common size */
+  --text-md: 0.9375rem;      /* 15px — emphasised body */
+  --text-body: 1rem;         /* 16px — comfortable reading / primary controls */
+  --text-subhead: 1.125rem;  /* 18px — one notch above body: modal/dialog titles,
+                                macro totals, nav brand */
+  --text-lg: 1.25rem;        /* 20px — section headings, stat values */
+  --text-title: 1.5rem;      /* 24px — page titles */
+  --text-xl: 1.75rem;        /* 28px — hero headings */
+  --text-display: 2rem;      /* 32px — display numerals, celebration counts */
 }
 
 /* Light theme — JS sets data-theme="light" on <html> (resolving the auto/system
@@ -92,6 +111,7 @@
   /* Bright dark-mode green/amber/red are low-contrast on white — darken for light. */
   --color-success: #16a34a;
   --color-warning: #b45309;
+  --color-over: #c2410c;   /* orange-700: the bright #fb923c washes out on white */
   --color-warning-dim: rgba(180, 83, 9, 0.10);
   /* red-700: white-on-error (danger buttons) and error text both pass AA on white. */
   --color-error: #b91c1c;
@@ -103,11 +123,30 @@
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
+  /* Inter is the PRODUCT UI face; DM Sans (landing.css) is the BRAND face. The
+     split is deliberate, not a leftover — Inter is drawn for interface text at
+     small sizes (tall x-height, disambiguated 1/l/I, real tabular figures),
+     which a numbers-dense tracker needs; DM Sans is a geometric display face
+     that carries the brand on marketing surfaces. Mainstream systems split the
+     same way (Apple SF Pro vs SF Display, Atlassian Charlie Text vs Display,
+     GitHub system-UI vs Mona Sans). Don't "unify" these without re-deciding. */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tabular (monospaced-width) figures. Required on any number that sits in a
+   column, updates in place, or is compared against a sibling — stat values,
+   macro rows, tables, timers, compliance grids. Proportional figures make those
+   jitter and mis-align as digits change. Prose keeps the default figures. */
+.tnum,
+.stat-card-value,          /* StatCard's big value */
+table,
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 h1 {
@@ -312,7 +351,7 @@ nav a:hover {
 .gnav-tab.active { color: var(--color-primary); }
 .gnav-tab.active .gnav-tab-pill { background-color: var(--color-primary-dim); }
 .gnav-tab-label {
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;
@@ -391,7 +430,7 @@ button, a, input, select, textarea {
     min-height: 0 !important;
   }
   .today-stats-grid .stat-card-value {
-    font-size: 1.4rem !important;
+    font-size: var(--text-title) !important;
   }
 }
 
@@ -490,7 +529,7 @@ button, a, input, select, textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 9px 12px;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: var(--color-muted);
   line-height: 1.45;
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
@@ -506,6 +545,8 @@ button, a, input, select, textarea {
 .info-tip-mark {
   width: 14px; height: 14px; border-radius: 50%;
   border: 1px solid var(--color-border); color: var(--color-muted);
+  /* 9px is below the --text-xs text floor ON PURPOSE: this is the "i" glyph
+     centred in a 14px icon circle, not body text. The floor governs text. */
   font-size: 9px; font-weight: 700; font-style: normal; line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
@@ -517,7 +558,7 @@ button, a, input, select, textarea {
   width: max-content; max-width: 300px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius); padding: 10px 12px;
-  font-size: 0.72rem; line-height: 1.5; color: var(--color-muted);
+  font-size: var(--text-xs); line-height: 1.5; color: var(--color-muted);
   font-weight: 400; text-transform: none; letter-spacing: normal; text-align: left;
   white-space: pre-line; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
   pointer-events: none; z-index: 3000;
@@ -618,14 +659,14 @@ button, a, input, select, textarea {
 .pw-plan:hover { border-color: var(--color-border-strong); transform: translateY(-2px); }
 .pw-plan.selected { border-color: var(--color-primary); background: var(--color-primary-dim); }
 .pw-plan-badge {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.01em;
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.01em;
   padding: 2px 8px; border-radius: 999px; margin-bottom: 7px; white-space: nowrap;
 }
 .pw-plan-badge.solid { background: var(--color-primary); color: var(--color-on-accent); }
 .pw-plan-badge.soft { background: var(--color-primary-dim); color: var(--color-primary); }
 .pw-plan-badge.ghost { visibility: hidden; }
 .pw-plan-name { font-size: var(--text-sm); color: var(--color-muted); }
-.pw-plan-price { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.pw-plan-price { font-size: var(--text-title); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
 .pw-plan-period { font-size: var(--text-xs); color: var(--color-muted); }
 .pw-plan-permo { font-size: var(--text-xs); font-weight: 700; color: var(--color-primary); min-height: 14px; }
 .pw-features { list-style: none; margin: 0 0 var(--space-lg); padding: 0; display: grid; gap: 11px; }

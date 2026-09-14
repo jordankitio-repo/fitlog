@@ -22,7 +22,7 @@ const summaryLabelStyle = {
   letterSpacing: '0.08em', fontWeight: 600, margin: 0, textAlign: 'center',
   lineHeight: 1.3, minHeight: '2.6em', display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
-const summaryNumStyle = { fontSize: '2rem', fontWeight: 700, margin: 0, lineHeight: 1 }
+const summaryNumStyle = { fontSize: 'var(--text-display)', fontWeight: 700, margin: 0, lineHeight: 1 }
 
 // Portfolio triage headline — "who needs attention today" across the whole
 // roster (the "100 clients with the attention of 20" view). Counts come from
@@ -609,7 +609,7 @@ function CoachDashboard({ profile }) {
 	              setInviteError('')
 	              setInviteLink('')
 	            }}
-	            style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem' }}
+	            style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-body)' }}
 	          />
 	          <Button onClick={checkAndInvite} variant="primary" loading={inviting} disabled={inviting}>Send invite</Button>
 	        </div>

@@ -706,7 +706,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const inputStyle = {
     backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius)', padding: '6px 12px',
-    color: 'var(--color-text)', fontSize: '1rem'
+    color: 'var(--color-text)', fontSize: 'var(--text-body)'
   }
   const chartOptions = {
     responsive: true,
@@ -854,7 +854,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	          gap: 16,
 	        }}>
 	          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-	            <span style={{ fontSize: '1.5rem' }}>🔥</span>
+	            <span style={{ fontSize: 'var(--text-title)' }}>🔥</span>
 	            <div>
 	              <p style={{ fontWeight: 700, color: 'var(--color-success)', margin: 0, fontSize: 'var(--text-md)' }}>
 	                {milestone}-day streak!
@@ -870,7 +870,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	          </div>
 	          <button
 	            onClick={() => setMilestone(null)}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: 4 }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: 4 }}
 	          >
 	            ✕
 	          </button>
@@ -907,7 +907,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	              }
 	              setShowOffboardNotice(false)
 	            }}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0', flexShrink: 0 }}
 	          >
 	            ✕
 	          </button>
@@ -928,7 +928,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	              localStorage.setItem(`nudge_dismissed_${profile.id}_${nudgeTimestamp}`, 'true')
 	              setShowNudgeNotice(false)
 	            }}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0', flexShrink: 0 }}
 	          >
 	            ✕
 	          </button>
@@ -949,7 +949,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	              if (lastMeasuredIso) localStorage.setItem(`meas_reminder_dismissed_${profile.id}_${lastMeasuredIso}`, 'true')
 	              setShowMeasReminder(false)
 	            }}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1rem', padding: '0', flexShrink: 0 }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0', flexShrink: 0 }}
 	            aria-label="Dismiss"
 	          >
 	            ✕
@@ -970,13 +970,14 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             <div>
               {/* eslint-disable-next-line no-restricted-syntax -- decorative streak palette (always-dark gradient card) */}
               <p style={{ fontSize: 'var(--text-sm)', color: '#86efac', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Logging streak</p>
-              <p style={{ fontWeight: 800, fontSize: '2rem', color: 'var(--color-primary)', lineHeight: 1 }}>
-                {streak} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{streak === 1 ? 'day' : 'days'}</span>
+              <p style={{ fontWeight: 800, fontSize: 'var(--text-display)', color: 'var(--color-primary)', lineHeight: 1 }}>
+                {streak} <span style={{ fontSize: 'var(--text-body)', fontWeight: 400 }}>{streak === 1 ? 'day' : 'days'}</span>
               </p>
               {/* eslint-disable-next-line no-restricted-syntax -- decorative streak palette (always-dark gradient card) */}
               {streak >= 7 && loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: '#6ee7b7', marginTop: '4px' }}>Keep it going — you're on a roll!</p>}
               {!loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-warning)', marginTop: '4px' }}>Log today to keep your streak!</p>}
             </div>
+            {/* eslint-disable-next-line no-restricted-syntax -- decorative emoji glyph, sized to the icon not the text ramp */}
             <span style={{ fontSize: streak >= 7 ? '2.5rem' : '2rem' }}>
               {streak >= 30 ? '🏆' : streak >= 14 ? '🔥' : streak >= 7 ? '⭐' : '💪'}
             </span>
@@ -1373,7 +1374,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           user's own consistency, never prescribes or adjusts a plan. */}
       {profile?.role !== 'client' && (
         <div key="consistency" style={cardStyle}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 4px' }}>Logging consistency</h3>
+          <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, margin: '0 0 4px' }}>Logging consistency</h3>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 14px' }}>
             How steadily you've logged over the last 90 days.
           </p>
@@ -1384,7 +1385,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
                     <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon–Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
-                    <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
+                    <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                       {consistency.weekdayLogged}
                       <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
                     </p>
@@ -1394,7 +1395,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   </div>
                   <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
                     <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat–Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
-                    <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
+                    <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                       {consistency.weekendLogged}
                       <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
                     </p>
@@ -1427,7 +1428,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   <div style={{ textAlign: 'right' }}>
                     <p style={{
                       fontWeight: 700,
-                      fontSize: '1.5rem',
+                      fontSize: 'var(--text-title)',
                       color: bestWeek.count === 7 ? 'var(--color-success)' : bestWeek.count >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
                       margin: 0,
                       lineHeight: 1,

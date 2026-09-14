@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { toLocalDateString } from '../utils/dateHelpers'
+import { COMPLIANCE as SCALE } from '../utils/complianceScale'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const WEEKS = 13
@@ -10,17 +11,18 @@ const DAY_LABEL_GAP = 4
 // phone but doesn't blow up into giant cells on a wide desktop card.
 const MAX_WIDTH = 440
 
+
 function getColor(calories, target, hasLog) {
-  if (!hasLog) return 'var(--color-border)'
-  if (!target) return '#22c55e'
+  if (!hasLog) return SCALE.noLog
+  if (!target) return SCALE.onTarget
 
   const pct = calories / target
   // On-target is a band (90-110%); over target gets its own color so a day of
   // overeating never reads as green. Matches summarizeCompliance buckets.
-  if (pct > 1.1) return '#fb923c'   // over
-  if (pct >= 0.9) return '#34d399'  // on target
-  if (pct >= 0.6) return '#fbbf24'  // under
-  return '#f87171'                  // well under
+  if (pct > 1.1) return SCALE.over
+  if (pct >= 0.9) return SCALE.onTarget
+  if (pct >= 0.6) return SCALE.under
+  return SCALE.wellUnder
 }
 
 function formatMonth(date) {
@@ -92,7 +94,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
           <div style={{ width: DAY_LABEL_WIDTH, flexShrink: 0 }} />
           <div style={{ display: 'flex', gap: GAP, flex: 1 }}>
             {weeks.map((_, weekIndex) => (
-              <div key={weekIndex} style={{ flex: 1, minWidth: 0, fontSize: '0.6rem', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>
+              <div key={weekIndex} style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-xs)', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>
                 {monthLabels.get(weekIndex) || ''}
               </div>
             ))}
@@ -109,7 +111,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'flex-end',
-                  fontSize: '0.55rem',
+                  fontSize: 'var(--text-xs)',
                   color: 'var(--color-muted)',
                   paddingRight: 4,
                 }}
@@ -171,15 +173,15 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
 
       <div style={{ display: 'flex', gap: 12, marginTop: 12, marginLeft: 28, alignItems: 'center', flexWrap: 'wrap' }}>
         {[
-          { color: '#34d399', label: '90-110%' },
-          { color: '#fb923c', label: '>110%' },
-          { color: '#fbbf24', label: '60-89%' },
-          { color: '#f87171', label: '<60%' },
+          { color: SCALE.onTarget,  label: '90-110%' },
+          { color: SCALE.over,      label: '>110%' },
+          { color: SCALE.under,     label: '60-89%' },
+          { color: SCALE.wellUnder, label: '<60%' },
           { color: 'var(--color-border)', label: 'No log' },
         ].map(({ color, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: color }} />
-            <span style={{ fontSize: '0.6rem', color: 'var(--color-muted)' }}>{label}</span>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{label}</span>
           </div>
         ))}
       </div>
@@ -194,7 +196,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
             border: '1px solid var(--color-border)',
             borderRadius: 6,
             padding: '4px 10px',
-            fontSize: '0.7rem',
+            fontSize: 'var(--text-xs)',
             color: 'var(--color-text)',
             pointerEvents: 'none',
             zIndex: 1000,

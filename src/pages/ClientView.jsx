@@ -1294,7 +1294,7 @@ async function sendMessage(text) {
     borderRadius: 'var(--radius)',
     padding: '6px 12px',
     color: 'var(--color-text)',
-    fontSize: '1rem'
+    fontSize: 'var(--text-body)'
   }
 
   const sectionCardStyle = {
@@ -1469,7 +1469,7 @@ async function sendMessage(text) {
               disabled={nudging}
               className="nudge-btn"
               title={nudge.key === 'checkin' ? 'Emails them a reminder to do this week’s check-in' : 'Emails them a prompt to get back to logging'}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: '999px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: '0.82rem', fontWeight: 600, cursor: nudging ? 'default' : 'pointer', opacity: nudging ? 0.6 : 1, whiteSpace: 'nowrap' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: '999px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: nudging ? 'default' : 'pointer', opacity: nudging ? 0.6 : 1, whiteSpace: 'nowrap' }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
               {nudging ? 'Nudging…' : label}
@@ -1502,7 +1502,7 @@ async function sendMessage(text) {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
+                  <span style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
                   <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI brief to walk in prepared — just for you</span>
                 </span>
               </button>
@@ -1513,7 +1513,7 @@ async function sendMessage(text) {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
+                  <span style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
                   <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI draft to review and send the client</span>
                 </span>
               </button>
@@ -1584,20 +1584,20 @@ async function sendMessage(text) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Current streak <InfoTip text={CONSISTENCY_TIPS.streak} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.streak > 0 ? 'var(--color-success)' : 'var(--color-muted)' }}>
+              <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.streak > 0 ? 'var(--color-success)' : 'var(--color-muted)' }}>
                 {consistency.streak}
                 <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}> days</span>
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 7 days <InfoTip text={CONSISTENCY_TIPS.last7} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)' }}>
+              <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)' }}>
                 {consistency.days7}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 30 days <InfoTip text={CONSISTENCY_TIPS.last30} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)' }}>
+              <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)' }}>
                 {consistency.days30}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
               </p>
             </div>
@@ -1605,7 +1605,7 @@ async function sendMessage(text) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon-Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
+              <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                 {consistency.weekdayLogged}
                 <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
               </p>
@@ -1615,7 +1615,7 @@ async function sendMessage(text) {
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat-Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
+              <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                 {consistency.weekendLogged}
                 <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
               </p>
@@ -1647,7 +1647,7 @@ async function sendMessage(text) {
               <div style={{ textAlign: 'right' }}>
                 <p style={{
                   fontWeight: 700,
-                  fontSize: '1.5rem',
+                  fontSize: 'var(--text-title)',
                   color: consistency.bestWeekCount === 7 ? 'var(--color-success)' : consistency.bestWeekCount >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
                   margin: 0,
                   lineHeight: 1,
@@ -1838,7 +1838,7 @@ async function sendMessage(text) {
                   placeholder={f.placeholder}
                   value={clientTargets[f.key]}
                   onChange={(e) => setClientTargets({ ...clientTargets, [f.key]: e.target.value })}
-                  style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', width: '100%' }}
+                  style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-body)', width: '100%' }}
                 />
               </div>
             ))}
@@ -1851,7 +1851,7 @@ async function sendMessage(text) {
                 placeholder="e.g. 175"
                 value={clientTargets.weight_goal}
                 onChange={(e) => setClientTargets({ ...clientTargets, weight_goal: e.target.value })}
-                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', flex: 1 }}
+                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-body)', flex: 1 }}
               />
               <select
                 value={clientTargets.weight_goal_unit}
@@ -1859,7 +1859,7 @@ async function sendMessage(text) {
                   const unit = e.target.value
                   setClientTargets(prev => ({ ...prev, weight_goal_unit: unit, weight_goal: convertGoalValue(prev.weight_goal, prev.weight_goal_unit, unit) }))
                 }}
-                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', width: '80px', cursor: 'pointer' }}
+                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-body)', width: '80px', cursor: 'pointer' }}
               >
                 <option value="lbs">lbs</option>
                 <option value="kg">kg</option>
@@ -1992,7 +1992,7 @@ async function sendMessage(text) {
                       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.prompt}</p>
                       {a.type === 'text'
                         ? <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{(a.value && String(a.value).trim()) ? a.value : '—'}</p>
-                        : <p style={{ fontWeight: 700, fontSize: '1.125rem' }}>{formatAnswer(a)}</p>}
+                        : <p style={{ fontWeight: 700, fontSize: 'var(--text-subhead)' }}>{formatAnswer(a)}</p>}
                     </div>
                   ))}
                 </div>
@@ -2289,7 +2289,7 @@ async function sendMessage(text) {
             onToggle={() => toggleSection('measurements')}
             info="Recommended re-measure cadence — about every 2 weeks while cutting, every 4 weeks otherwise (industry standard; circumference moves slowly and tape error is ~1–1.5 cm). Flags when the client's tape data is overdue."
             action={measStatus?.due ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600, background: 'var(--color-warning-dim)', border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, fontSize: 'var(--text-xs)', fontWeight: 600, background: 'var(--color-warning-dim)', border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}>
                 <span style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: 'var(--color-warning)' }} />
                 Re-measure due · {measStatus.daysSince}d
               </span>
@@ -2314,7 +2314,7 @@ async function sendMessage(text) {
                       return (
                         <div key={s.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
                           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>{s.label}</p>
-                          <p style={{ fontWeight: 700, fontSize: '1.5rem', color: 'var(--color-text)' }}>
+                          <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: 'var(--color-text)' }}>
                             {latest[s.key]}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}> {unit}</span>
                           </p>
                           {delta != null && delta !== 0 && (

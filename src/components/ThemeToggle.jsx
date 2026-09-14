@@ -47,10 +47,10 @@ export default function ThemeToggle() {
               borderRadius: 6,
               border: 'none',
               cursor: 'pointer',
-              fontSize: '0.8125rem',
+              fontSize: 'var(--text-sm)',
               fontWeight: active ? 600 : 500,
               background: active ? 'var(--color-primary)' : 'transparent',
-              color: active ? '#fff' : 'var(--color-muted)',
+              color: active ? 'var(--color-on-accent)' : 'var(--color-muted)',
               transition: 'background 0.15s ease, color 0.15s ease',
             }}
           >

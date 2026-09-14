@@ -34,7 +34,7 @@ function RolePicker({ session, onComplete, onCancel }) {
     borderRadius: 'var(--radius)',
     padding: '10px 14px',
     color: 'var(--color-text)',
-    fontSize: '1rem',
+    fontSize: 'var(--text-body)',
     width: '100%'
   }
 
@@ -47,7 +47,7 @@ function RolePicker({ session, onComplete, onCancel }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Your name</p>
+        <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>Your name</p>
         <input
           type="text"
           placeholder="Full name"
@@ -58,7 +58,7 @@ function RolePicker({ session, onComplete, onCancel }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>I am a...</p>
+        <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>I am a...</p>
         <div style={{ display: 'flex', gap: '8px' }}>
           {['solo', 'coach'].map((r) => (
             <button
@@ -73,7 +73,7 @@ function RolePicker({ session, onComplete, onCancel }) {
                 color: role === r ? 'var(--color-primary)' : 'var(--color-muted)',
                 cursor: 'pointer',
                 fontWeight: role === r ? 600 : 400,
-                fontSize: '0.875rem'
+                fontSize: 'var(--text-base)'
               }}
             >
               {r === 'solo' ? 'Individual' : 'Coach'}
@@ -81,7 +81,7 @@ function RolePicker({ session, onComplete, onCancel }) {
           ))}
         </div>
         {role === 'coach' && (
-          <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
             You'll be able to invite and manage clients from your dashboard.
           </p>
         )}
@@ -98,7 +98,7 @@ function RolePicker({ session, onComplete, onCancel }) {
           border: 'none',
           color: 'var(--color-muted)',
           cursor: 'pointer',
-          fontSize: '0.875rem',
+          fontSize: 'var(--text-base)',
           textDecoration: 'underline'
         }}
       >

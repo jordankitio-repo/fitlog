@@ -64,7 +64,10 @@ function BarcodeScanner({ onDetected, onClose }) {
       alignItems: 'center', justifyContent: 'center',
       zIndex: 1000, gap: '16px', padding: '20px',
     }}>
-      <p style={{ color: '#fff', fontWeight: 600, fontSize: '1rem', margin: 0 }}>
+      {/* White is literal on purpose: this overlay sits on a 92%-black scrim
+          over live camera video, not on a themed surface. */}
+      {/* eslint-disable-next-line no-restricted-syntax -- on camera scrim, not a themed surface */}
+      <p style={{ color: '#fff', fontWeight: 600, fontSize: 'var(--text-body)', margin: 0 }}>
         Point camera at a barcode
       </p>
       <video
@@ -77,9 +80,10 @@ function BarcodeScanner({ onDetected, onClose }) {
       <button
         onClick={handleCancel}
         style={{
+          // eslint-disable-next-line no-restricted-syntax -- on camera scrim, not a themed surface
           backgroundColor: 'transparent', color: '#fff',
           border: '1px solid #fff', borderRadius: '8px',
-          padding: '10px 24px', cursor: 'pointer', fontSize: '1rem', marginTop: '8px',
+          padding: '10px 24px', cursor: 'pointer', fontSize: 'var(--text-body)', marginTop: '8px',
         }}
       >
         Cancel

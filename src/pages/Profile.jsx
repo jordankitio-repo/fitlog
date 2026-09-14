@@ -436,7 +436,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     borderRadius: 'var(--radius)',
     padding: '10px 14px',
     color: 'var(--color-text)',
-    fontSize: '1rem',
+    fontSize: 'var(--text-body)',
     width: '100%'
   }
 
@@ -569,11 +569,11 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </div>
         <div>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Email</p>
-          <p style={{ color: 'var(--color-text)', fontSize: '1rem' }}>{session.user.email}</p>
+          <p style={{ color: 'var(--color-text)', fontSize: 'var(--text-body)' }}>{session.user.email}</p>
         </div>
         <div>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Member since</p>
-          <p style={{ color: 'var(--color-text)', fontSize: '1rem' }}>
+          <p style={{ color: 'var(--color-text)', fontSize: 'var(--text-body)' }}>
             {new Date(session.user.created_at).toLocaleDateString('en-US', {
               year: 'numeric', month: 'long', day: 'numeric'
             })}
@@ -582,7 +582,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         {profile?.role && (
           <div>
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Account type</p>
-            <p style={{ color: 'var(--color-text)', fontSize: '1rem', textTransform: 'capitalize' }}>
+            <p style={{ color: 'var(--color-text)', fontSize: 'var(--text-body)', textTransform: 'capitalize' }}>
               {profile.role}
             </p>
           </div>
@@ -875,7 +875,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           {subscription ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
-              <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
+              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
                 {subscription.status}
               </p>
               {subscriptionDate && !subscription.cancel_at_period_end && (
@@ -903,7 +903,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           {soloSubActive ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
-              <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
+              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
                 {soloSubscription.status}
               </p>
               {(soloSubscription.current_period_end || soloSubscription.trial_end) && !soloSubscription.cancel_at_period_end && (
@@ -977,7 +977,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               placeholder="000000"
               value={pwCode}
               onChange={(e) => setPwCode(e.target.value.replace(/\D/g, ''))}
-              style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: '1.25rem' }}
+              style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: 'var(--text-lg)' }}
             />
             {passwordStatus && (
               <p style={{
@@ -1082,7 +1082,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
                 placeholder="000000"
                 value={deleteCode}
                 onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, ''))}
-                style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: '1.25rem', maxWidth: '220px' }}
+                style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: 'var(--text-lg)', maxWidth: '220px' }}
               />
               {deleteError && (
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', margin: 0 }}>{deleteError}</p>

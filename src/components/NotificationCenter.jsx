@@ -217,7 +217,7 @@ export default function NotificationCenter({ profile }) {
         {unread > 0 && (
           <span style={{
             position: 'absolute', top: 5, right: 5, minWidth: 16, height: 16, padding: '0 4px',
-            borderRadius: 8, background: '#f87171', color: '#fff', fontSize: '0.62rem', fontWeight: 700,
+            borderRadius: 8, background: 'var(--color-error)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: '2px solid var(--color-surface)',
           }}>{unread > 9 ? '9+' : unread}</span>
@@ -233,12 +233,12 @@ export default function NotificationCenter({ profile }) {
             background: 'var(--color-surface)', border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius)', boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
           }}>
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--color-border)', fontWeight: 700, fontSize: '0.9rem' }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--color-border)', fontWeight: 700, fontSize: 'var(--text-base)' }}>
               Notifications
             </div>
 
             {empty ? (
-              <p style={{ padding: '20px 14px', fontSize: '0.85rem', color: 'var(--color-muted)', margin: 0, textAlign: 'center' }}>
+              <p style={{ padding: '20px 14px', fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, textAlign: 'center' }}>
                 You're all caught up.
               </p>
             ) : (
@@ -267,8 +267,8 @@ export default function NotificationCenter({ profile }) {
                             <span style={{ width: 7, height: 7, borderRadius: '50%', background: LEVEL_COLOR[a.level], marginTop: 5, flexShrink: 0 }} />
                           )}
                           <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{a.title}</span>
-                            {a.sub && <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>{a.sub}</span>}
+                            <span style={{ fontSize: 'var(--text-base)', fontWeight: 600 }}>{a.title}</span>
+                            {a.sub && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{a.sub}</span>}
                           </span>
                         </button>
                       )
@@ -291,9 +291,9 @@ export default function NotificationCenter({ profile }) {
                       >
                         {i.avatarName && <Avatar url={i.avatarUrl} name={i.avatarName} size={30} style={{ marginTop: 1 }} />}
                         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{i.title}</span>
-                          {i.sub && <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>{i.sub}</span>}
-                          <span style={{ fontSize: '0.68rem', color: 'var(--color-muted)' }}>{relTime(i.time)}</span>
+                          <span style={{ fontSize: 'var(--text-base)', fontWeight: 600 }}>{i.title}</span>
+                          {i.sub && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{i.sub}</span>}
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{relTime(i.time)}</span>
                         </span>
                       </button>
                     ))}
@@ -311,7 +311,7 @@ export default function NotificationCenter({ profile }) {
 function GroupLabel({ children }) {
   return (
     <div style={{
-      padding: '8px 14px 4px', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em',
+      padding: '8px 14px 4px', fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: '0.08em',
       textTransform: 'uppercase', color: 'var(--color-muted)',
     }}>
       {children}

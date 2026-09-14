@@ -57,7 +57,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
 
   const macro = (label, value, unit, color) => (
     <div style={{ flex: 1, minWidth: 64, textAlign: 'center', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 6px' }}>
-      <div style={{ fontWeight: 700, fontSize: '1.05rem', color }}>{value}{unit}</div>
+      <div style={{ fontWeight: 700, fontSize: 'var(--text-subhead)', color }}>{value}{unit}</div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 2 }}>{label}</div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { summarizeCompliance } from '../utils/complianceSummary'
+import { COMPLIANCE } from '../utils/complianceScale'
 
 // Quantified totals that pair with the 90-day ComplianceHeatmap: the grid shows
 // the shape, these show the magnitude. Descriptive only.
@@ -18,8 +19,8 @@ const tileStyle = {
   justifyContent: 'center',
 }
 
-const numStyle = { fontWeight: 700, fontSize: '1.35rem', margin: 0, lineHeight: 1 }
-const labelStyle = { fontSize: '0.65rem', color: 'var(--color-muted)', marginTop: 4 }
+const numStyle = { fontWeight: 700, fontSize: 'var(--text-lg)', margin: 0, lineHeight: 1 }
+const labelStyle = { fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 4 }
 
 export default function ComplianceSummary({ logsByDate, calorieTarget, variant = 'solo' }) {
   const s = summarizeCompliance(logsByDate, calorieTarget)
@@ -31,16 +32,16 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
     ? [
         { num: `${s.logged}/${s.elapsed}`, label: 'Days logged', color: 'var(--color-text)', wide: true },
         ...(s.hasTarget ? [
-          { num: s.onTarget, label: 'On-target', color: '#34d399' },
-          { num: s.over, label: 'Over', color: '#fb923c' },
-          { num: s.partial + s.under, label: 'Under', color: '#f87171' },
+          { num: s.onTarget, label: 'On-target', color: COMPLIANCE.onTarget },
+          { num: s.over, label: 'Over', color: COMPLIANCE.over },
+          { num: s.partial + s.under, label: 'Under', color: COMPLIANCE.wellUnder },
           { num: `${s.avgOfTarget}%`, label: 'Avg of target', color: 'var(--color-text)' },
         ] : []),
       ]
     : [
-        { num: `${s.logged}/${s.elapsed}`, label: `Days logged (${s.coverage}%)`, color: '#34d399', wide: true },
+        { num: `${s.logged}/${s.elapsed}`, label: `Days logged (${s.coverage}%)`, color: COMPLIANCE.onTarget, wide: true },
         ...(s.hasTarget ? [
-          { num: s.onTarget, label: 'On-track days', color: '#34d399', wide: true },
+          { num: s.onTarget, label: 'On-track days', color: COMPLIANCE.onTarget, wide: true },
         ] : []),
       ]
 
@@ -48,7 +49,7 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, height: '100%' }}>
       {tiles.map(t => (
         <div key={t.label} style={{ ...tileStyle, gridColumn: t.wide ? '1 / -1' : 'auto' }}>
-          <p style={{ ...numStyle, color: t.color }}>{t.num}</p>
+          <p className="tnum" style={{ ...numStyle, color: t.color }}>{t.num}</p>
           <p style={labelStyle}>{t.label}</p>
         </div>
       ))}

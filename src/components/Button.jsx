@@ -45,9 +45,9 @@ function Button({
   }
 
   const sizes = {
-    sm: { padding: '6px 12px', fontSize: '0.8rem' },
-    md: { padding: '10px 20px', fontSize: '0.875rem' },
-    lg: { padding: '12px 24px', fontSize: '1rem' },
+    sm: { padding: '6px 12px', fontSize: 'var(--text-sm)' },
+    md: { padding: '10px 20px', fontSize: 'var(--text-base)' },
+    lg: { padding: '12px 24px', fontSize: 'var(--text-body)' },
   }
 
   const variants = {

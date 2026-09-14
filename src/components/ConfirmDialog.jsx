@@ -34,8 +34,8 @@ export default function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
         style={{ ...cardStyle, maxWidth: 380, width: '100%', padding: 20, display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 16px 48px rgba(0, 0, 0, 0.5)' }}
       >
-        {title && <h3 style={{ margin: 0, fontSize: '1.05rem' }}>{title}</h3>}
-        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-muted)', lineHeight: 1.5 }}>{message}</p>
+        {title && <h3 style={{ margin: 0, fontSize: 'var(--text-subhead)' }}>{title}</h3>}
+        <p style={{ margin: 0, fontSize: 'var(--text-base)', color: 'var(--color-muted)', lineHeight: 1.5 }}>{message}</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           {isConfirm && <Button onClick={onCancel} variant="muted" size="sm">{cancelLabel}</Button>}
           <Button onClick={onConfirm} variant={danger ? 'danger-solid' : 'primary'} size="sm">{confirmLabel}</Button>

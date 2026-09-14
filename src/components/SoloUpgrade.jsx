@@ -74,7 +74,7 @@ export default function SoloUpgrade({ feature = 'this feature', compact = false 
         border: '1px solid var(--color-border)',
         borderRadius: 'var(--radius)',
       }}>
-        <span style={{ fontSize: '0.9rem' }}>🔒</span>
+        <span style={{ fontSize: 'var(--text-base)' }}>🔒</span>
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text)' }}>
             Solo Premium
@@ -86,7 +86,7 @@ export default function SoloUpgrade({ feature = 'this feature', compact = false 
         <Button onClick={handleUpgrade} variant="primary" loading={loading}>
           Upgrade
         </Button>
-        {error && <span style={{ fontSize: 'var(--text-xs)', color: '#f87171' }}>{error}</span>}
+        {error && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-error)' }}>{error}</span>}
       </div>
     )
   }
@@ -99,7 +99,7 @@ export default function SoloUpgrade({ feature = 'this feature', compact = false 
       padding: '24px',
       textAlign: 'center',
     }}>
-      <p style={{ fontSize: '1.25rem', marginBottom: 8 }}>🔒</p>
+      <p style={{ fontSize: 'var(--text-lg)', marginBottom: 8 }}>🔒</p>
       <p style={{
         fontWeight: 600,
         color: 'var(--color-text)',
@@ -118,7 +118,7 @@ export default function SoloUpgrade({ feature = 'this feature', compact = false 
         {trialUsed && " You've already used your free trial, so you'll be charged immediately."}
       </p>
       {error && (
-        <p style={{ color: '#f87171', fontSize: 'var(--text-sm)', marginBottom: 12 }}>{error}</p>
+        <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)', marginBottom: 12 }}>{error}</p>
       )}
       <Button variant="primary" onClick={handleUpgrade} loading={loading} fullWidth>
         {loading ? 'Redirecting...' : trialUsed ? 'Subscribe to Solo Premium' : 'Start 14-day free trial'}

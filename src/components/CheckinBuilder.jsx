@@ -117,21 +117,21 @@ export default function CheckinBuilder({ coachId }) {
 
   const inputStyle = {
     backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)',
-    padding: '8px 10px', color: 'var(--color-text)', fontSize: '0.875rem', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
+    padding: '8px 10px', color: 'var(--color-text)', fontSize: 'var(--text-base)', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
   }
-  const iconBtn = { background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--color-muted)', padding: '2px 8px', fontSize: '0.85rem' }
-  const gripStyle = { background: 'none', border: 'none', cursor: 'grab', touchAction: 'none', color: 'var(--color-muted)', fontSize: '1rem', letterSpacing: '-2px', padding: '2px 4px', flexShrink: 0 }
+  const iconBtn = { background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--color-muted)', padding: '2px 8px', fontSize: 'var(--text-base)' }
+  const gripStyle = { background: 'none', border: 'none', cursor: 'grab', touchAction: 'none', color: 'var(--color-muted)', fontSize: 'var(--text-body)', letterSpacing: '-2px', padding: '2px 4px', flexShrink: 0 }
 
-  if (loading) return <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Loading…</p>
+  if (loading) return <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>Loading…</p>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: 640, width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>
+        <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
           These questions replace the default check-in for every client. Leave it empty to keep the standard
           Adherence / Energy / Obstacles / Notes form.
         </p>
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#34d399', opacity: saved ? 1 : 0, transition: 'opacity 200ms', whiteSpace: 'nowrap' }}>✓ Saved</span>
+        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-success)', opacity: saved ? 1 : 0, transition: 'opacity 200ms', whiteSpace: 'nowrap' }}>✓ Saved</span>
       </div>
 
       {questions.length === 0 ? (
@@ -149,7 +149,7 @@ export default function CheckinBuilder({ coachId }) {
                     <div ref={setNodeRef} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--color-surface)', marginBottom: '10px', ...style }}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button {...handleProps} style={gripStyle} title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)', fontWeight: 700, width: 18 }}>{i + 1}.</span>
+                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', fontWeight: 700, width: 18 }}>{i + 1}.</span>
                         <input
                           value={q.prompt}
                           placeholder="Question prompt"
@@ -165,7 +165,7 @@ export default function CheckinBuilder({ coachId }) {
                         </select>
 
                         {q.type === 'rating' && (
-                          <label style={{ fontSize: '0.8rem', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             Scale
                             <select value={q.config?.max || 10} onChange={(e) => patch(q.id, { config: { ...q.config, max: Number(e.target.value) } })} style={{ ...inputStyle, width: 'auto' }}>
                               <option value={5}>1–5</option>
@@ -180,7 +180,7 @@ export default function CheckinBuilder({ coachId }) {
                           <input defaultValue={(q.config?.options || []).join(', ')} placeholder="options, comma-separated" onBlur={(e) => patch(q.id, { config: { ...q.config, options: parseOptions(e.target.value) } })} style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
                         )}
 
-                        <label style={{ fontSize: '0.8rem', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                        <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
                           <input type="checkbox" checked={q.required} onChange={() => patch(q.id, { required: !q.required })} />
                           Required
                         </label>

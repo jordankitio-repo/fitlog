@@ -19,7 +19,7 @@ function StatCard({ label, value, color, sub }) {
           <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: color, flex: '0 0 auto' }} />
         )}
         <p style={{
-          fontSize: '0.65rem',
+          fontSize: 'var(--text-xs)',
           color: 'var(--color-muted)',
           fontWeight: 600,
           textTransform: 'uppercase',
@@ -30,7 +30,7 @@ function StatCard({ label, value, color, sub }) {
         </p>
       </div>
       <p className="stat-card-value" style={{
-        fontSize: '1.75rem',
+        fontSize: 'var(--text-xl)',
         fontWeight: 700,
         color: 'var(--color-text)',
         lineHeight: 1.1,
@@ -39,7 +39,7 @@ function StatCard({ label, value, color, sub }) {
         {value}
       </p>
       {sub && (
-        <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', margin: 0 }}>{sub}</p>
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>{sub}</p>
       )}
     </div>
   )

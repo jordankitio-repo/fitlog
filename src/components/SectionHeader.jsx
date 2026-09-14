@@ -16,13 +16,13 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, info, ac
             </span>
           )}
           {badge && (
-            <span style={{ backgroundColor: badgeColor || 'var(--color-primary)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>{badge}</span>
+            <span style={{ backgroundColor: badgeColor || 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>{badge}</span>
           )}
           {/* Action sits in the title cluster (not the right) so it never
               collides with the absolutely-positioned drag grip. */}
           {!collapsed && action}
         </div>
-        <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>{collapsed ? '▶' : '▼'}</span>
+        <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{collapsed ? '▶' : '▼'}</span>
       </div>
       {animated ? (
         <div style={{

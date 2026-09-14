@@ -981,7 +981,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const inputStyle = {
     backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius)', padding: '10px 14px',
-    color: 'var(--color-text)', fontSize: '1rem', minWidth: 0
+    color: 'var(--color-text)', fontSize: 'var(--text-body)', minWidth: 0
   }
 
   const sectionStyle = {
@@ -1046,11 +1046,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
                 setBaseServingSize(null); setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
               }}
-              style={{ ...iconBtnStyle, fontSize: '1rem' }}
+              style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }}
               title="Re-log"
             >↻</button>
             {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
             )}
             <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
             <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }}>✕</button>
@@ -1100,7 +1100,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
           </button>
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal" aria-label="Repeat meal">↻</button>
+            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal">↻</button>
             <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -1109,7 +1109,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               </svg>
             </button>
             {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
             )}
             <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete meal">✕</button>
           </div>
@@ -1139,7 +1139,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
         <h1>Daily Log</h1>
         <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
-          <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: '1rem', lineHeight: 1 }}>←</button>
+          <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}>←</button>
           <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
             <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
             <input
@@ -1151,7 +1151,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
             />
           </label>
-          <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: '1rem', lineHeight: 1 }}>→</button>
+          <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}>→</button>
         </div>
       </div>
 
@@ -1167,8 +1167,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {savedWeight && !weightExpanded ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div>
-              <span style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-text)' }}>{savedWeight.weight}</span>
-              <span style={{ fontSize: '1rem', color: 'var(--color-muted)', marginLeft: '6px' }}>{savedWeight.unit}</span>
+              <span style={{ fontSize: 'var(--text-display)', fontWeight: 700, color: 'var(--color-text)' }}>{savedWeight.weight}</span>
+              <span style={{ fontSize: 'var(--text-body)', color: 'var(--color-muted)', marginLeft: '6px' }}>{savedWeight.unit}</span>
             </div>
             {savedWeight.weighed_at && <p style={{ fontSize: 'var(--text-sm)' }}>{formatTime(savedWeight.weighed_at)}</p>}
             <Button onClick={() => setWeightExpanded(true)} variant="outline" size="sm" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>+ Log Weight</Button>
@@ -1195,23 +1195,23 @@ function Log({ session, profile, hasSoloPremium = true }) {
         <h2 style={{ borderLeft: '3px solid var(--color-calories)', paddingLeft: '10px' }}>Nutrition</h2>
 
         {/* Macro totals */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${hideCalories ? 3 : 4}, 1fr)`, gap: '8px' }}>
+        <div className="tnum" style={{ display: 'grid', gridTemplateColumns: `repeat(${hideCalories ? 3 : 4}, 1fr)`, gap: '8px' }}>
           {!hideCalories && (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-calories)' }}>{totalCalories}</div>
+              <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 700, color: 'var(--color-calories)' }}>{totalCalories}</div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Calories</div>
             </div>
           )}
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-protein)' }}>{totalProtein}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 700, color: 'var(--color-protein)' }}>{totalProtein}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Protein</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-carbs)' }}>{totalCarbs}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 700, color: 'var(--color-carbs)' }}>{totalCarbs}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Carbs</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-fat)' }}>{totalFat}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 700, color: 'var(--color-fat)' }}>{totalFat}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Fat</div>
           </div>
         </div>

@@ -37,8 +37,8 @@ export default function Modal({ open, title, onClose, children, maxWidth = 520 }
         style={{ ...cardStyle, maxWidth, width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, boxShadow: '0 16px 48px rgba(0, 0, 0, 0.5)' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{ margin: 0, fontSize: '1.05rem' }}>{title}</h3>
-          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--color-muted)', fontSize: '1.1rem', cursor: 'pointer', padding: 4, lineHeight: 1 }}>✕</button>
+          <h3 style={{ margin: 0, fontSize: 'var(--text-subhead)' }}>{title}</h3>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--color-muted)', fontSize: 'var(--text-subhead)', cursor: 'pointer', padding: 4, lineHeight: 1 }}>✕</button>
         </div>
         <div style={{ padding: '16px 20px', overflowY: 'auto' }}>{children}</div>
       </div>

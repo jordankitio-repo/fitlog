@@ -47,7 +47,7 @@ function ResetPassword() {
     borderRadius: '8px',
     padding: '10px 14px',
     color: 'var(--color-text)',
-    fontSize: '1rem',
+    fontSize: 'var(--text-body)',
     width: '100%'
   }
 
@@ -60,7 +60,7 @@ function ResetPassword() {
       gap: '16px'
     }}>
       <h1>Reset password</h1>
-      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
+      <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>
         Enter your new password below.
       </p>
 
@@ -77,11 +77,11 @@ function ResetPassword() {
         style={inputStyle}
       />
 
-      {error && <p style={{ color: '#f87171' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--color-error)' }}>{error}</p>}
 
       <button onClick={handleReset} disabled={loading} style={{
-        backgroundColor: '#22c55e',
-        color: '#fff',
+        backgroundColor: 'var(--color-primary)',
+        color: 'var(--color-on-accent)',
         border: 'none',
         borderRadius: '8px',
         padding: '10px 20px',

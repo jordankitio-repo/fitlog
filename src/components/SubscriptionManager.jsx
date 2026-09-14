@@ -53,12 +53,12 @@ function SubscriptionManager({ subscription, onChange }) {
   if (isCanceling) {
     return (
       <div style={{ marginTop: 12 }}>
-        <p style={{ color: '#fbbf24', fontSize: 'var(--text-sm)', marginBottom: 8 }}>
+        <p style={{ color: 'var(--color-warning)', fontSize: 'var(--text-sm)', marginBottom: 8 }}>
           Your plan will end on{' '}
           {periodEndDate ? new Date(periodEndDate).toLocaleDateString() : 'the end of the current period'}.
           You'll keep access until then.
         </p>
-        {error && <p style={{ color: '#f87171', fontSize: 'var(--text-sm)', marginBottom: 8 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)', marginBottom: 8 }}>{error}</p>}
         <Button variant="primary" onClick={() => callManage('resume')} loading={loading}>
           Resume subscription
         </Button>
@@ -68,7 +68,7 @@ function SubscriptionManager({ subscription, onChange }) {
 
   return (
     <div style={{ marginTop: 12 }}>
-      {error && <p style={{ color: '#f87171', fontSize: 'var(--text-sm)', marginBottom: 8 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)', marginBottom: 8 }}>{error}</p>}
       {planAmount && (
         <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginBottom: 8 }}>
           {isTrialing
