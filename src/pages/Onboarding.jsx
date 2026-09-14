@@ -4,6 +4,7 @@ import Button from '../components/Button'
 import Logo from '../components/Logo'
 import { estimateTargets, ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, ftInToCm, todayStr } from '../utils/biometrics'
+import { controlStyle } from '../components/ui'
 
 // First-run setup for brand-new tracked users (solo + clients who weren't
 // already solo). Collects the stable biometrics the target math needs — stored
@@ -118,11 +119,8 @@ export default function Onboarding({ session, profile, onComplete }) {
     onComplete()
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '10px 12px', color: 'var(--color-text)',
-    fontSize: 'var(--text-base)', width: '100%', fontFamily: 'inherit',
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
   const labelStyle = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
 
   const pill = (active) => ({

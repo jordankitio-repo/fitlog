@@ -1,10 +1,14 @@
 import { useEffect } from 'react'
 
-function Toast({ message, type = 'success', onClose }) {
+// `action` is an optional { label, onClick } — used for undo after a delete.
+// A toast carrying an action gets longer on screen, because the user has to
+// read it AND decide before it disappears.
+function Toast({ message, type = 'success', onClose, action = null }) {
   useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
+    if (!message) return
+    const timer = setTimeout(onClose, action ? 7000 : 3000)
     return () => clearTimeout(timer)
-  }, [message])
+  }, [message, action, onClose])
 
   if (!message) return null
 
@@ -24,7 +28,7 @@ function Toast({ message, type = 'success', onClose }) {
   const c = colors[type]
 
   return (
-    <div style={{
+    <div role="status" aria-live="polite" style={{
       position: 'fixed',
       bottom: '24px',
       right: '24px',
@@ -39,8 +43,24 @@ function Toast({ message, type = 'success', onClose }) {
       boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
       animation: 'fadeIn 0.2s ease forwards',
       maxWidth: '320px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '14px',
     }}>
-      {message}
+      <span>{message}</span>
+      {action && (
+        <button
+          onClick={() => { action.onClick(); onClose() }}
+          style={{
+            background: 'none', border: 'none', padding: '4px 2px', cursor: 'pointer',
+            color: 'inherit', font: 'inherit', fontWeight: 700,
+            textDecoration: 'underline', textUnderlineOffset: '3px',
+            whiteSpace: 'nowrap', flexShrink: 0,
+          }}
+        >
+          {action.label}
+        </button>
+      )}
     </div>
   )
 }

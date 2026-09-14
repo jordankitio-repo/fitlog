@@ -1,17 +1,7 @@
-// Form control primitives — replace the inputStyle object duplicated across 9
-// files. <Field> renders an input (or textarea/select via `as`), optionally
-// wrapped with a label + error. Textarea/Select are thin presets.
-const controlStyle = {
-  backgroundColor: 'var(--color-bg)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius)',
-  padding: '10px 12px',
-  color: 'var(--color-text)',
-  fontSize: 'var(--text-base)',
-  fontFamily: 'inherit',
-  width: '100%',
-  boxSizing: 'border-box',
-}
+// Form control primitives. <Field> renders an input (or textarea/select via
+// `as`), optionally wrapped with a label + error. Textarea/Select are thin
+// presets. The shared style object lives in ./controlStyle.js.
+import { controlStyle } from './controlStyle'
 
 export function Field({ as = 'input', label, error, style, children, ...rest }) {
   const Tag = as

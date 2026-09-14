@@ -12,6 +12,7 @@ import { getInviteBlockReason } from '../utils/inviteValidation'
 import { attentionLevel, compareByAttention, summarizeRoster } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
 import { cardStyle } from '../utils/styles'
+import { Badge, Pill, Field, Icon } from '../components/ui'
 
 const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
@@ -62,7 +63,7 @@ function RosterBanner({ roster, onReviewClick }) {
             }}
           >
             {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
-            <span aria-hidden="true" style={{ transform: reviewHover ? 'translateX(2px)' : 'none', transition: 'transform 120ms' }}>→</span>
+            <Icon name="arrowRight" style={{ transform: reviewHover ? 'translateX(2px)' : 'none', transition: 'transform 120ms' }} />
           </button>
         )}
         {roster.noTargets > 0 && (
@@ -98,6 +99,7 @@ function CoachDashboard({ profile }) {
   const [nudgeLoadingIds, setNudgeLoadingIds] = useState({})
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [sortBy, setSortBy] = useState('attention')
+  const [linkCopied, setLinkCopied] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -414,7 +416,7 @@ function CoachDashboard({ profile }) {
             )}
             title="Add your first client"
             description="Invite someone you coach by email. They get a link to join, and their logging shows up here for you to track."
-            action={<Button variant="primary" onClick={focusInvite}>Invite your first client →</Button>}
+            action={<Button variant="primary" onClick={focusInvite}>Invite your first client <Icon name="arrowRight" /></Button>}
           />
         ) : (
           <>
@@ -430,22 +432,14 @@ function CoachDashboard({ profile }) {
                   { key: 'recent', label: 'Last logged' },
                   { key: 'checkin', label: 'Check-in' },
                 ].map(({ key, label }) => (
-                  <button
+                  <Pill
                     key={key}
+                    active={sortBy === key}
+                    aria-pressed={sortBy === key}
                     onClick={() => setSortBy(key)}
-                    style={{
-                      background: sortBy === key ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: sortBy === key ? 'var(--color-on-accent)' : 'var(--color-muted)',
-                      border: `1px solid ${sortBy === key ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                      borderRadius: 'var(--radius)',
-                      padding: '4px 12px',
-                      fontSize: 'var(--text-xs)',
-                      cursor: 'pointer',
-                      fontWeight: sortBy === key ? 600 : 400,
-                    }}
                   >
                     {label}
-                  </button>
+                  </Pill>
                 ))}
                 </>
               )}
@@ -488,22 +482,22 @@ function CoachDashboard({ profile }) {
                     {nudge && (
                       <Button
                         onClick={() => nudgeClient(c, nudge)}
-                        variant="ghost"
+                        variant="muted"
                         size="sm"
                         loading={Boolean(nudgeLoadingIds[c.client_id])}
                         title={nudge.key === 'checkin' ? 'Nudge them to do this week’s check-in' : 'Nudge them to log — they’ve gone quiet'}
-                        style={{ border: '1px solid var(--color-control-border)', padding: '5px 10px' }}
+                        style={{ padding: '5px 10px' }}
                       >
                         Nudge
                       </Button>
                     )}
                     <Button
                       onClick={() => navigate(`/client/${c.client_id}`)}
-                      variant="ghost"
+                      variant="muted"
                       size="sm"
-                      style={{ border: '1px solid var(--color-control-border)', padding: '5px 10px' }}
+                      style={{ padding: '5px 10px' }}
                     >
-                      View data →
+                      View data <Icon name="arrowRight" />
                     </Button>
                   </div>
                 </div>
@@ -512,33 +506,25 @@ function CoachDashboard({ profile }) {
                 {s && (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {/* Attention triage — owns overall status; the pills below are supporting evidence */}
-                    <span
+                    <Badge
+                      color={attentionColors[triage.level]}
+                      tone="strong"
+                      dot
                       title={triage.reasons.length ? triage.reasons.join(' · ') : logLabel(s.daysSinceLog)}
-                      style={{
-                        fontSize: 'var(--text-sm)', fontWeight: 700, padding: '3px 10px',
-                        borderRadius: '999px',
-                        backgroundColor: triage.level === 'green' ? 'var(--color-bg)' : `color-mix(in srgb, ${attentionColors[triage.level]} 15%, transparent)`,
-                        border: `1px solid ${attentionColors[triage.level]}`,
-                        color: attentionColors[triage.level],
-                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                      }}
+                      style={{ fontSize: 'var(--text-sm)', fontWeight: 700 }}
                     >
-                      <span style={{ width: 7, height: 7, borderRadius: '999px', backgroundColor: attentionColors[triage.level] }} />
                       {triage.level === 'green' ? logLabel(s.daysSinceLog) : triage.reasons[0]}
-                    </span>
+                    </Badge>
 
                     {/* Check-in (positive only — a missing check-in surfaces via the triage badge) */}
                     {s.checkIn && (
-                      <span
+                      <Badge
+                        color="var(--color-success)"
                         title={`Check-in: ${s.checkIn.adherence_rating}/10 adherence · ${s.checkIn.energy_level}/10 energy`}
-                        style={{
-                          fontSize: 'var(--text-sm)', fontWeight: 600, padding: '3px 10px',
-                          borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                          border: '1px solid var(--color-success)', color: 'var(--color-success)'
-                        }}
+                        style={{ fontSize: 'var(--text-sm)' }}
                       >
                         {s.checkIn.adherence_rating}/10 adherence · {s.checkIn.energy_level}/10 energy
-                      </span>
+                      </Badge>
                     )}
                   </div>
                 )}
@@ -559,29 +545,16 @@ function CoachDashboard({ profile }) {
                     </p>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {s.lockInfo?.locked && (
-                        <span style={{
-                          fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 10px',
-                          borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                          border: '1px solid var(--color-error)', color: 'var(--color-error)'
-                        }}>
-                          Locked
-                        </span>
+                        <Badge color="var(--color-error)" tone="strong" style={{ fontWeight: 700 }}>Locked</Badge>
                       )}
                       {s.complianceItems.map(({ label, value, logged }) => {
                         if (logged === 0) return null
                         const metricColor = metricColors[label] || 'var(--color-muted)'
                         const opacity = value >= 5 ? 1 : value >= 3 ? 0.75 : 0.55
                         return (
-                          <span key={label} style={{
-                            fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 10px',
-                            borderRadius: '999px',
-                            backgroundColor: value < 3 ? `color-mix(in srgb, ${metricColor} 15%, transparent)` : 'var(--color-bg)',
-                            border: `1px solid ${metricColor}`,
-                            color: metricColor,
-                            opacity,
-                          }}>
+                          <Badge key={label} color={metricColor} style={{ fontWeight: 700, opacity }}>
                             {label} {value}/7
-                          </span>
+                          </Badge>
                         )
                       })}
                     </div>
@@ -599,61 +572,62 @@ function CoachDashboard({ profile }) {
       <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h2>Invite a client</h2>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <input
+          <Field
             ref={inviteInputRef}
             type="email"
             placeholder="Client email"
+            aria-label="Client email"
             value={inviteEmail}
-	            onChange={(e) => {
-	              setInviteEmail(e.target.value)
-	              setInviteError('')
-	              setInviteLink('')
-	            }}
-	            style={{ flex: 1, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-body)' }}
-	          />
-	          <Button onClick={checkAndInvite} variant="primary" loading={inviting} disabled={inviting}>Send invite</Button>
-	        </div>
-	        {soloAccountDetected && (
-	          <div style={{
-	            padding: '14px 16px',
-	            border: '1px solid var(--color-border)',
-	            borderRadius: 'var(--radius)',
-	            backgroundColor: 'var(--color-bg)',
-	            display: 'flex',
-	            flexDirection: 'column',
-	            gap: '10px'
-	          }}>
-	            <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
-	              <strong>{pendingInviteEmail}</strong> already has a Gardnr account. Send them an invite to connect as your client? Their existing data will be preserved.
-	            </p>
-	            <div style={{ display: 'flex', gap: '8px' }}>
-	              <Button
-	                onClick={() => sendInvite(pendingInviteEmail, true)}
-	                variant="primary"
-	                size="sm"
-	                loading={inviting}
-	                disabled={inviting}
-	              >
-	                Send invite anyway
-	              </Button>
-	              <Button
-	                onClick={() => { setSoloAccountDetected(false); setPendingInviteEmail('') }}
-	                variant="ghost"
-	                size="sm"
-	              >
-	                Cancel
-	              </Button>
-	            </div>
-	          </div>
-	        )}
-	        {inviteError && (
+            onChange={(e) => {
+              setInviteEmail(e.target.value)
+              setInviteError('')
+              setInviteLink('')
+            }}
+            style={{ flex: 1, width: 'auto' }}
+          />
+          <Button onClick={checkAndInvite} variant="primary" loading={inviting} disabled={inviting}>Send invite</Button>
+        </div>
+        {soloAccountDetected && (
+          <div style={{
+            padding: '14px 16px',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius)',
+            backgroundColor: 'var(--color-bg)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
+              <strong>{pendingInviteEmail}</strong> already has a Gardnr account. Send them an invite to connect as your client? Their existing data will be preserved.
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button
+                onClick={() => sendInvite(pendingInviteEmail, true)}
+                variant="primary"
+                size="sm"
+                loading={inviting}
+                disabled={inviting}
+              >
+                Send invite anyway
+              </Button>
+              <Button
+                onClick={() => { setSoloAccountDetected(false); setPendingInviteEmail('') }}
+                variant="ghost"
+                size="sm"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+        {inviteError && (
           <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)' }}>{inviteError}</p>
         )}
         {inviteLink && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {inviteEmailedTo && (
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 600, margin: 0 }}>
-                ✓ Invite emailed to {inviteEmailedTo}
+                <Icon name="check" /> Invite emailed to {inviteEmailedTo}
               </p>
             )}
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>
@@ -662,10 +636,18 @@ function CoachDashboard({ profile }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', wordBreak: 'break-all', margin: 0 }}>{inviteLink}</p>
             <button
-              onClick={() => navigator.clipboard.writeText(inviteLink)}
-              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-sm)', color: 'var(--color-text)', whiteSpace: 'nowrap' }}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(inviteLink)
+                  setLinkCopied(true)
+                  setTimeout(() => setLinkCopied(false), 2000)
+                } catch {
+                  showToast('Couldn\'t copy — select the link and copy it manually.', 'error')
+                }
+              }}
+              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-sm)', color: linkCopied ? 'var(--color-success)' : 'var(--color-text)', whiteSpace: 'nowrap', transition: 'color 120ms' }}
             >
-              Copy
+              {linkCopied ? 'Copied' : 'Copy'}
             </button>
             </div>
           </div>

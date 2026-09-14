@@ -7,6 +7,7 @@ import Button from '../components/Button'
 import Logo from '../components/Logo'
 import PasswordInput from '../components/PasswordInput'
 import { getPasswordValidationError } from '../utils/passwordValidation'
+import { controlStyle } from '../components/ui'
 
 function Login() {
   const [searchParams] = useSearchParams()
@@ -203,15 +204,8 @@ function Login() {
 
   const otpMode = !isSignUp && otpStage !== 'none'
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '10px 14px',
-    color: 'var(--color-text)',
-    fontSize: 'var(--text-body)',
-    width: '100%'
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   // Text-styled button: keyboard- and screen-reader-accessible, looks like the
   // plain centered links it replaced (mode toggle, forgot-password).

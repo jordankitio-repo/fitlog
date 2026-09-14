@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import PasswordInput from '../components/PasswordInput'
 import { getPasswordValidationError } from '../utils/passwordValidation'
+import { controlStyle } from '../components/ui'
 
 function ResetPassword() {
   const navigate = useNavigate()
@@ -41,15 +42,8 @@ function ResetPassword() {
     setLoading(false)
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface-2)',
-    border: '1px solid var(--color-border-strong)',
-    borderRadius: '8px',
-    padding: '10px 14px',
-    color: 'var(--color-text)',
-    fontSize: 'var(--text-body)',
-    width: '100%'
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   return (
     <div style={{

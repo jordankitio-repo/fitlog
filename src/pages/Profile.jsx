@@ -19,6 +19,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
 import { convertGoalValue } from '../utils/weightTarget'
+import { controlStyle, Icon } from '../components/ui'
 
 // Primary-goal options (mirrors Onboarding). Stored on profiles.primary_goal.
 const GOAL_OPTIONS = [
@@ -430,15 +431,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
   const subscriptionDate = subscription?.current_period_end || subscription?.trial_end
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '10px 14px',
-    color: 'var(--color-text)',
-    fontSize: 'var(--text-body)',
-    width: '100%'
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   // --- In-page section rail (desktop) + deep-link scroll ---
   // The rail mirrors which cards actually render for this role, in order. Other
@@ -558,7 +552,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               loading={nameSaving}
               disabled={!nameDirty}
             >
-              {nameSaved ? 'Saved ✓' : 'Save'}
+              {nameSaved ? <>Saved <Icon name="check" /></> : 'Save'}
             </Button>
           </div>
           {profile?.role === 'client' && (
@@ -677,7 +671,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <Button onClick={saveBio} variant="primary" loading={bioSaving}>Save details</Button>
-              {bioSaved && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-sm)', fontWeight: 600 }}>Saved ✓</span>}
+              {bioSaved && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-sm)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>Saved <Icon name="check" /></span>}
             </div>
           </div>
         )
@@ -830,7 +824,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
         {profile?.role !== 'client' && (
           <Button onClick={saveTargets} variant="primary">
-            {saved ? 'Saved ✓' : 'Save targets'}
+            {saved ? <>Saved <Icon name="check" /></> : 'Save targets'}
           </Button>
         )}
       </div>

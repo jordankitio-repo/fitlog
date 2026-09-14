@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { cardStyle } from '../utils/styles'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { Icon } from './ui'
 
 // Branded content modal: a centered tile over a dimmed, blurred backdrop, with
 // a header (title + ✕) and a scrollable body. Dismiss via backdrop, ✕, or Esc.
@@ -38,7 +39,7 @@ export default function Modal({ open, title, onClose, children, maxWidth = 520 }
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px', borderBottom: '1px solid var(--color-border)' }}>
           <h3 style={{ margin: 0, fontSize: 'var(--text-subhead)' }}>{title}</h3>
-          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--color-muted)', fontSize: 'var(--text-subhead)', cursor: 'pointer', padding: 4, lineHeight: 1 }}>✕</button>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}><Icon name="x" size={18} /></button>
         </div>
         <div style={{ padding: '16px 20px', overflowY: 'auto' }}>{children}</div>
       </div>

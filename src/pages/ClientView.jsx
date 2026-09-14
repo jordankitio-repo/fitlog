@@ -57,6 +57,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
+import { controlStyle, Icon } from '../components/ui'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -1288,14 +1289,8 @@ async function sendMessage(text) {
     }
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '6px 12px',
-    color: 'var(--color-text)',
-    fontSize: 'var(--text-body)'
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   const sectionCardStyle = {
     ...cardStyle,
@@ -1415,7 +1410,7 @@ async function sendMessage(text) {
     <>
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div className="cv-titlerow">
-        <div><Button onClick={() => navigate('/')} variant="ghost" size="sm">← Back</Button></div>
+        <div><Button onClick={() => navigate('/')} variant="ghost" size="sm"><Icon name="left" /> Back</Button></div>
         <div style={{ flex: 1, minWidth: '180px', display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
         <Avatar url={clientProfile?.avatar_url} name={clientProfile?.full_name || ''} size={52} style={{ marginTop: '4px' }} />
         <div style={{ flex: 1, minWidth: '180px' }}>
@@ -1550,7 +1545,7 @@ async function sendMessage(text) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
+        <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
 
         <input
           type="date"
@@ -1560,7 +1555,7 @@ async function sendMessage(text) {
           style={inputStyle}
         />
 
-        <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
+        <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
 
         {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
       </div>
@@ -1730,7 +1725,7 @@ async function sendMessage(text) {
                   {!isCollapsed && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
                       {weekReports.map(r => (
-                        <div key={r.id} style={{ borderLeft: `3px solid ${r.read_at ? 'var(--color-success)' : 'var(--color-primary)'}`, backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div key={r.id} style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                               Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -1741,7 +1736,7 @@ async function sendMessage(text) {
                               )}
                               {/* eslint-disable-next-line no-restricted-syntax -- decorative read/unread report-status palette */}
                               <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', backgroundColor: r.read_at ? '#064e3b' : '#1e3a5f', color: r.read_at ? 'var(--color-success)' : '#93c5fd' }}>
-                                {r.read_at ? '✓ Read' : 'Unread'}
+                                {r.read_at ? <><Icon name="check" /> Read</> : 'Unread'}
                               </span>
                             </div>
                           </div>
@@ -1868,7 +1863,7 @@ async function sendMessage(text) {
           </div>
           <div style={{ marginTop: '8px' }}>
             <Button onClick={saveClientTargets} variant="primary">
-              {targetsSaved ? 'Saved ✓' : 'Save targets'}
+              {targetsSaved ? <>Saved <Icon name="check" /></> : 'Save targets'}
             </Button>
           </div>
         </SectionHeader>
@@ -1885,7 +1880,7 @@ async function sendMessage(text) {
               backgroundColor: dayComplete ? 'rgba(52,211,153,0.12)' : 'var(--color-bg)',
               border: `1px solid ${dayComplete ? 'rgba(52,211,153,0.4)' : 'var(--color-border)'}`,
             }}>
-              {dayComplete ? '✓ Client marked this day complete' : 'Day not marked complete — totals may be partial'}
+              {dayComplete ? <><Icon name="check" /> Client marked this day complete</> : 'Day not marked complete — totals may be partial'}
             </span>
           </div>
           {entries.length === 0 ? (
@@ -1976,7 +1971,7 @@ async function sendMessage(text) {
               title="Check-in questions apply to all your clients — edit them on your Profile"
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-primary)', padding: 0 }}
             >
-              Customize questions →
+              Customize questions <Icon name="arrowRight" />
             </button>
           </div>
           {!clientCheckIn ? (
@@ -2025,7 +2020,7 @@ async function sendMessage(text) {
               <div style={{ paddingTop: '12px', marginTop: '4px', borderTop: '1px solid var(--color-border)' }}>
                 {clientCheckIn.reviewed_at ? (
                   <>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 600 }}>✓ Reviewed</p>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="check" /> Reviewed</p>
                     {clientCheckIn.coach_comment && (
                       <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6', marginTop: '6px' }}>{clientCheckIn.coach_comment}</p>
                     )}
@@ -2091,7 +2086,7 @@ async function sendMessage(text) {
               />
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <Button onClick={addNoteEntry} variant="primary" size="sm">
-                  {notesSaved ? 'Saved ✓' : 'Add note'}
+                  {notesSaved ? <>Saved <Icon name="check" /></> : 'Add note'}
                 </Button>
                 {!editingNotes ? (
                   <Button onClick={() => setEditingNotes(true)} variant="ghost" size="sm">

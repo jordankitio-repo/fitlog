@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Button from './Button'
 import { estimateTargets, ACTIVITY_LEVELS, PACES } from '../utils/targetEstimate'
+import { controlStyle } from './ui'
 
 // A compact onboarding assessment → suggested daily macros. Collects sex/age/
 // height/current+goal weight/activity/pace, computes starting targets (the same
@@ -36,11 +37,8 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
 
   const metric = units === 'metric'
   const wUnit = metric ? 'kg' : 'lb'
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '9px 12px', color: 'var(--color-text)',
-    fontSize: 'var(--text-base)', width: '100%', fontFamily: 'inherit',
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
   const labelStyle = { fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginBottom: '4px', display: 'block' }
 
   function compute() {

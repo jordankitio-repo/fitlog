@@ -42,6 +42,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
+import { controlStyle, Icon } from '../components/ui'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -703,11 +704,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   function goToPrevDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
   function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '6px 12px',
-    color: 'var(--color-text)', fontSize: 'var(--text-body)'
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
   const chartOptions = {
     responsive: true,
     animation: false,
@@ -870,9 +868,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	          </div>
 	          <button
 	            onClick={() => setMilestone(null)}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: 4 }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+	            aria-label="Dismiss"
 	          >
-	            ✕
+	            <Icon name="x" size={18} />
 	          </button>
 	        </div>
 	      )}
@@ -881,15 +880,17 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	        <div style={{
 	          padding: '14px 16px',
 	          border: '1px solid var(--color-border)',
-	          borderLeft: '4px solid var(--color-error)',
 	          borderRadius: 'var(--radius)',
-	          backgroundColor: 'rgba(248,113,113,0.05)',
+	          backgroundColor: 'var(--color-warning-dim)',
 	          display: 'flex',
-	          justifyContent: 'space-between',
 	          alignItems: 'flex-start',
 	          gap: '12px'
 	        }}>
-	          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
+	          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
+	            <circle cx="12" cy="12" r="10" />
+	            <path d="M12 16v-4M12 8h.01" />
+	          </svg>
+	          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6', flex: 1 }}>
 	            {offboardReason === 'coach_deleted'
 	              ? "Your coach's account was closed. Your data is preserved — you're now on a solo plan and can keep tracking on your own."
 	              : "Your coach ended the coaching relationship. Your data is preserved — you're now on a solo plan and can keep tracking on your own."
@@ -907,9 +908,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	              }
 	              setShowOffboardNotice(false)
 	            }}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0', flexShrink: 0 }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', flexShrink: 0, minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+	            aria-label="Dismiss"
 	          >
-	            ✕
+	            <Icon name="x" size={18} />
 	          </button>
 	        </div>
 	      )}
@@ -928,9 +930,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	              localStorage.setItem(`nudge_dismissed_${profile.id}_${nudgeTimestamp}`, 'true')
 	              setShowNudgeNotice(false)
 	            }}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0', flexShrink: 0 }}
+	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', flexShrink: 0, minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+	            aria-label="Dismiss"
 	          >
-	            ✕
+	            <Icon name="x" size={18} />
 	          </button>
 	        </div>
 	      )}
@@ -952,7 +955,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0', flexShrink: 0 }}
 	            aria-label="Dismiss"
 	          >
-	            ✕
+	            <Icon name="x" size={18} />
 	          </button>
 	        </div>
 	      )}
@@ -985,9 +988,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day">←</Button>
+          <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
           <input type="date" aria-label="Selected date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
-          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day">→</Button>
+          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
           {isToday && <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
           {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
 	        </div>
@@ -1011,7 +1014,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               : 'Nothing logged yet. Log your first meal to start your charts and streak, then set your daily targets so we can track how you’re trending.'}
           </p>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal →</Button>
+            <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal <Icon name="arrowRight" /></Button>
             {profile?.role !== 'client' && (
               <Button variant="outline" onClick={() => navigate('/profile?focus=targets')}>Set your targets</Button>
             )}
@@ -1084,7 +1087,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                 {!isWeekCollapsed && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
                     {weekReports.map((r) => (
-                      <div key={r.id} style={{ borderLeft: '3px solid var(--color-primary)', backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div key={r.id} style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                             Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -1135,7 +1138,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                     {!isArchivedWeekCollapsed && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
                         {weekReports.map((r) => (
-                          <div key={r.id} style={{ borderLeft: '3px solid var(--color-border)', backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div key={r.id} style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                                 Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -1174,7 +1177,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           >
               <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: '8px', marginBottom: '8px' }}>
                 {existingCheckIn
-                  ? (checkinInterval > 1 ? '✓ Submitted this period' : '✓ Submitted this week')
+                  ? (checkinInterval > 1 ? <><Icon name="check" /> Submitted this period</> : <><Icon name="check" /> Submitted this week</>)
                   : 'Let your coach know how your week went.'}
               </p>
               <Button
@@ -1255,7 +1258,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   <Button onClick={saveCheckIn} variant="primary">Submit check-in</Button>
                 </div>
               )}
-              {checkInSaved && <p style={{ color: 'var(--color-success)', fontSize: 'var(--text-base)' }}>✓ Check-in submitted successfully.</p>}
+              {checkInSaved && <p style={{ color: 'var(--color-success)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" /> Check-in submitted successfully.</p>}
           </SectionHeader>
         </div>
       )}

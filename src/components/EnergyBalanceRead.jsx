@@ -1,5 +1,6 @@
 import { energyBalanceRead, WINDOW_OPTIONS } from '../utils/energyBalanceRead'
 import InfoTip from './InfoTip'
+import { Icon } from './ui'
 
 // Coach-only instrument. We state only what we measured — maintenance (derived
 // transparently from the two rows below it), the weight trend, and compliance
@@ -177,7 +178,7 @@ function TrajectoryDeltas({ r, num }) {
 function ReadyRow({ ok, label, detail }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-      <span style={{ color: ok ? GOOD : WEAK, fontWeight: 700, fontSize: 'var(--text-sm)', width: 12, flexShrink: 0, textAlign: 'center' }}>{ok ? '✓' : '•'}</span>
+      <span style={{ color: ok ? GOOD : WEAK, fontWeight: 700, fontSize: 'var(--text-sm)', width: 12, flexShrink: 0, textAlign: 'center' }}>{ok ? <Icon name="check" size={12} strokeWidth={3} /> : '•'}</span>
       <span style={{ fontSize: 'var(--text-sm)', color: ok ? MUTED : TEXT }}>
         {label} <span style={{ color: ok ? MUTED : WEAK, fontWeight: ok ? 400 : 600 }}>{detail}</span>
       </span>

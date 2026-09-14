@@ -14,6 +14,7 @@ import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
 import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '../utils/savedMeals'
+import { controlStyle, Icon } from '../components/ui'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -115,7 +116,32 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [dialog, setDialog] = useState(null) // branded confirm/notice modal config, or null
   const [toast, setToast] = useState(null)   // transient error/success toast, or null
   // Surface a failed write so a save never fails silently (trust on the core loop).
-  function showToast(message, type = 'success') { setToast({ message, type }) }
+  function showToast(message, type = 'success', action = null) { setToast({ message, type, action }) }
+
+  // Deleting a logged row is one tap on a small ✕ and used to be silent and
+  // irreversible. Re-inserting the captured row verbatim (same id, same
+  // created_at) restores it in its original position.
+  async function deleteWithUndo({ table, match, rows, label, refresh }) {
+    const { error } = await supabase.from(table).delete().match(match)
+    if (error) {
+      console.error(`Error deleting from ${table}:`, error)
+      showToast('Couldn\'t delete that — try again.', 'error')
+      return
+    }
+    refresh()
+    showToast(`${label} deleted.`, 'success', {
+      label: 'Undo',
+      onClick: async () => {
+        const { error: restoreErr } = await supabase.from(table).insert(rows)
+        if (restoreErr) {
+          console.error(`Error restoring ${table}:`, restoreErr)
+          showToast('Couldn\'t undo that.', 'error')
+        } else {
+          refresh()
+        }
+      },
+    })
+  }
   const [showSavedMeals, setShowSavedMeals] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
@@ -490,9 +516,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   async function deleteLoggedMeal(id) {
-    const { error } = await supabase.from('nutrition_log').delete().eq('logged_meal_id', id)
-    if (error) { console.error('Error deleting logged meal:', error); showToast('Something went wrong — try again.', 'error') }
-    else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
+    const rows = entries.filter(e => e.logged_meal_id === id)
+    if (!rows.length) return
+    await deleteWithUndo({
+      table: 'nutrition_log', match: { logged_meal_id: id }, rows,
+      label: rows.length === 1 ? 'Meal' : `Meal (${rows.length} items)`,
+      refresh: () => { fetchEntries(); fetchFrequentFoods(); refreshNotifications() },
+    })
   }
 
   // Save a logged-meal container's foods as a reusable saved meal (named from
@@ -726,9 +756,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   async function deleteEntry(id) {
-    const { error } = await supabase.from('nutrition_log').delete().eq('id', id)
-    if (error) { console.error('Error deleting:', error); showToast('Couldn\'t delete that — try again.', 'error') }
-    else { setFeedback(''); fetchEntries(); refreshNotifications() }
+    const row = entries.find(e => e.id === id)
+    if (!row) return
+    setFeedback('')
+    await deleteWithUndo({
+      table: 'nutrition_log', match: { id }, rows: [row], label: row.food_name || 'Entry',
+      refresh: () => { fetchEntries(); refreshNotifications() },
+    })
   }
 
   async function getAIFeedback() {
@@ -874,8 +908,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   async function deleteCardio(id) {
-    const { error } = await supabase.from('cardio_log').delete().eq('id', id)
-    if (error) { console.error(error); showToast('Couldn\'t delete that — try again.', 'error') } else fetchCardioEntries()
+    const row = cardioEntries.find(e => e.id === id)
+    if (!row) return
+    await deleteWithUndo({
+      table: 'cardio_log', match: { id }, rows: [row], label: row.activity || 'Cardio entry',
+      refresh: fetchCardioEntries,
+    })
   }
 
   function startEditCardio(entry) {
@@ -978,11 +1016,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const totalCarbs = entries.reduce((s, e) => s + (e.carbs || 0), 0)
   const totalFat = entries.reduce((s, e) => s + (e.fat || 0), 0)
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '10px 14px',
-    color: 'var(--color-text)', fontSize: 'var(--text-body)', minWidth: 0
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   const sectionStyle = {
     ...cardStyle,
@@ -1025,7 +1060,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: selectMode ? 'pointer' : 'default' }}
       >
         {selectMode && (
-          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: 'var(--color-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-xs)' }}>{checked ? '✓' : ''}</span>
+          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: 'var(--color-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-xs)' }}>{checked ? <Icon name="check" size={12} strokeWidth={3} /> : ''}</span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{entry.food}</p>
@@ -1048,12 +1083,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
               }}
               style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }}
               title="Re-log"
-            >↻</button>
+            ><Icon name="repeat" /></button>
             {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
             )}
-            <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
-            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }}>✕</button>
+            <button onClick={() => startEdit(entry)} style={iconBtnStyle} aria-label="Edit entry" title="Edit"><Icon name="pencil" /></button>
+            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete entry" title="Delete"><Icon name="x" /></button>
           </div>
         )}
        </div>
@@ -1100,7 +1135,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
           </button>
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal">↻</button>
+            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal"><Icon name="repeat" /></button>
             <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -1109,9 +1144,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
               </svg>
             </button>
             {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
             )}
-            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete meal">✕</button>
+            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete meal" title="Delete meal"><Icon name="x" /></button>
           </div>
         </div>
         {moveOpen && moveTargets.length > 0 && (
@@ -1139,7 +1174,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
         <h1>Daily Log</h1>
         <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
-          <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}>←</button>
+          <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="left" /></button>
           <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
             <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
             <input
@@ -1151,7 +1186,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
             />
           </label>
-          <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}>→</button>
+          <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="right" /></button>
         </div>
       </div>
 
@@ -1233,7 +1268,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             cursor: dayCompleteSaving ? 'default' : 'pointer', opacity: dayCompleteSaving ? 0.6 : 1,
           }}
         >
-          {dayComplete ? '✓ Day marked complete — tap to undo' : 'Mark day complete'}
+          {dayComplete ? <><Icon name="check" /> Day marked complete — tap to undo</> : 'Mark day complete'}
         </button>
         )}
 
@@ -1656,10 +1691,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
                       </p>
                     </div>
                     {!editing && (
-                      <button onClick={() => { setEditingSavedMealId(m.id); setSavedMealDraft(m.name) }} style={iconBtnStyle} title="Rename saved meal">✎</button>
+                      <button onClick={() => { setEditingSavedMealId(m.id); setSavedMealDraft(m.name) }} style={iconBtnStyle} title="Rename saved meal" aria-label="Rename saved meal"><Icon name="pencil" /></button>
                     )}
                     <button onClick={() => setLogPickId(picking ? null : m.id)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: picking ? 'var(--color-surface)' : 'var(--color-primary)', color: picking ? 'var(--color-text)' : 'var(--color-on-accent)', border: picking ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>{picking ? 'Cancel' : '+ Log'}</button>
-                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete saved meal">✕</button>
+                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete saved meal" title="Delete saved meal"><Icon name="x" /></button>
                   </div>
                   {picking && (
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '2px' }}>
@@ -1740,8 +1775,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
               </p>
             </div>
             <div style={{ display: 'flex', gap: '2px' }}>
-              <button onClick={() => startEditCardio(e)} style={iconBtnStyle}>✎</button>
-              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }}>✕</button>
+              <button onClick={() => startEditCardio(e)} style={iconBtnStyle} aria-label="Edit cardio entry" title="Edit"><Icon name="pencil" /></button>
+              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete cardio entry" title="Delete"><Icon name="x" /></button>
             </div>
           </div>
         ))}
@@ -1894,7 +1929,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         onConfirm={() => { const fn = dialog?.onConfirm; setDialog(null); fn?.() }}
         onCancel={() => setDialog(null)}
       />
-      <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
+      <Toast message={toast?.message} type={toast?.type} action={toast?.action} onClose={() => setToast(null)} />
     </div>
   )
 }

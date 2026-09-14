@@ -5,6 +5,7 @@ import Button from '../components/Button'
 import Logo from '../components/Logo'
 import LoadingScreen from '../components/LoadingScreen'
 import { inviteErrorMessage, DEAD_INVITE } from '../utils/inviteErrors'
+import { controlStyle } from '../components/ui'
 
 // Accepting a coach's invite, without a password.
 //
@@ -228,15 +229,8 @@ function Join() {
     setBusy(false)
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '10px 14px',
-    color: 'var(--color-text)',
-    fontSize: 'var(--text-body)',
-    width: '100%',
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   if (loading) return <LoadingScreen />
 

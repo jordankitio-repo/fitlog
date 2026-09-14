@@ -137,6 +137,25 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Skip link — off-screen until focused, then pinned top-left over the nav. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -64px;
+  z-index: 5000;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: var(--color-primary);
+  color: var(--color-on-accent);
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 120ms ease;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
 /* Tabular (monospaced-width) figures. Required on any number that sits in a
    column, updates in place, or is compared against a sibling — stat values,
    macro rows, tables, timers, compliance grids. Proportional figures make those

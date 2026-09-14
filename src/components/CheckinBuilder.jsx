@@ -6,6 +6,7 @@ import { supabase } from '../supabase'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import { QUESTION_TYPES, DEFAULT_QUESTIONS, MAX_QUESTIONS, parseOptions } from '../utils/checkinQuestions'
+import { controlStyle, Icon } from './ui'
 
 // A drag-reorderable question row. Render-prop so the row markup (with all its
 // handlers) stays in the builder; the ⠿ grip is the drag handle, matching the
@@ -115,10 +116,8 @@ export default function CheckinBuilder({ coachId }) {
     if (results.every(r => !r.error)) flashSaved()
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)',
-    padding: '8px 10px', color: 'var(--color-text)', fontSize: 'var(--text-base)', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
   const iconBtn = { background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--color-muted)', padding: '2px 8px', fontSize: 'var(--text-base)' }
   const gripStyle = { background: 'none', border: 'none', cursor: 'grab', touchAction: 'none', color: 'var(--color-muted)', fontSize: 'var(--text-body)', letterSpacing: '-2px', padding: '2px 4px', flexShrink: 0 }
 
@@ -131,7 +130,7 @@ export default function CheckinBuilder({ coachId }) {
           These questions replace the default check-in for every client. Leave it empty to keep the standard
           Adherence / Energy / Obstacles / Notes form.
         </p>
-        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-success)', opacity: saved ? 1 : 0, transition: 'opacity 200ms', whiteSpace: 'nowrap' }}>✓ Saved</span>
+        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-success)', opacity: saved ? 1 : 0, transition: 'opacity 200ms', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" /> Saved</span>
       </div>
 
       {questions.length === 0 ? (
@@ -148,7 +147,7 @@ export default function CheckinBuilder({ coachId }) {
                   {({ setNodeRef, style, handleProps }) => (
                     <div ref={setNodeRef} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--color-surface)', marginBottom: '10px', ...style }}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button {...handleProps} style={gripStyle} title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
+                        <button {...handleProps} style={gripStyle} title="Drag to reorder" aria-label="Drag to reorder"><Icon name="grip" /></button>
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', fontWeight: 700, width: 18 }}>{i + 1}.</span>
                         <input
                           value={q.prompt}
@@ -157,7 +156,7 @@ export default function CheckinBuilder({ coachId }) {
                           onBlur={(e) => patch(q.id, { prompt: e.target.value })}
                           style={{ ...inputStyle, flex: 1 }}
                         />
-                        <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} title="Remove question">✕</button>
+                        <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} aria-label="Remove question" title="Remove question"><Icon name="x" /></button>
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', paddingLeft: 30 }}>
                         <select value={q.type} onChange={(e) => changeType(q, e.target.value)} style={{ ...inputStyle, width: 'auto' }}>

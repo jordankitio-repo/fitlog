@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
+import { controlStyle, Icon } from '../components/ui'
 
 function RolePicker({ session, onComplete, onCancel }) {
   const userId = session.user.id
@@ -28,15 +29,8 @@ function RolePicker({ session, onComplete, onCancel }) {
     setLoading(false)
   }, [fullName, metadataFullName, onComplete, userEmail, userId])
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '10px 14px',
-    color: 'var(--color-text)',
-    fontSize: 'var(--text-body)',
-    width: '100%'
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   return (
     <div style={{ maxWidth: '400px', margin: '80px auto', display: 'flex', flexDirection: 'column', gap: '24px', padding: '0 16px' }}>
@@ -102,7 +96,7 @@ function RolePicker({ session, onComplete, onCancel }) {
           textDecoration: 'underline'
         }}
       >
-        ← Back
+        <Icon name="left" /> Back
       </button>
     </div>
   )

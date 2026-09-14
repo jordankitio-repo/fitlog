@@ -138,8 +138,11 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
 
   return (
     <>
+      {/* Keyboard users had to tab the whole nav on every route (H13). Visible
+          only on focus, so it costs sighted users nothing. */}
+      {session && <a href="#main" className="skip-link">Skip to main content</a>}
       {session && <NavBar profile={profile} />}
-      <main style={mainStyle}>
+      <main id="main" style={mainStyle}>
         <Suspense fallback={<LoadingScreen />}>
           <Routes>
             <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
