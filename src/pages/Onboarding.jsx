@@ -74,7 +74,7 @@ export default function Onboarding({ session, profile, onComplete }) {
       primary_goal: goal || null,
     }
     const { error: pErr } = await supabase.from('profiles').update(profilePatch).eq('id', uid)
-    if (pErr) { console.error('onboarding profile save:', pErr); setError('Something went wrong — try again.'); setSaving(false); return }
+    if (pErr) { console.error('onboarding profile save:', pErr); setError('Something went wrong. Try again.'); setSaving(false); return }
 
     // Auto-apply the suggested macros (+ goal weight) as starting targets. The
     // coach can override these freely later (ClientView upserts the same row).
@@ -114,7 +114,7 @@ export default function Onboarding({ session, profile, onComplete }) {
     const { error: e } = await supabase.from('profiles')
       .update({ onboarded_at: new Date().toISOString(), unit_preference: units })
       .eq('id', session.user.id)
-    if (e) { console.error('onboarding skip:', e); setError('Something went wrong — try again.'); setSaving(false); return }
+    if (e) { console.error('onboarding skip:', e); setError('Something went wrong. Try again.'); setSaving(false); return }
     setSaving(false)
     onComplete()
   }

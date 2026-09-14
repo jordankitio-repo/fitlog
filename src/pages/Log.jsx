@@ -125,7 +125,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { error } = await supabase.from(table).delete().match(match)
     if (error) {
       console.error(`Error deleting from ${table}:`, error)
-      showToast('Couldn\'t delete that — try again.', 'error')
+      showToast('Couldn\'t delete that. Try again.', 'error')
       return
     }
     refresh()
@@ -359,10 +359,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { data: { session: cs } } = await supabase.auth.getSession()
     const { data: created, error } = await supabase
       .from('saved_meals').insert({ user_id: cs.user.id, name }).select('id').single()
-    if (error) { console.error('Error saving meal:', error); showToast('Couldn\'t save the meal — try again.', 'error'); setSavingMeal(false); return }
+    if (error) { console.error('Error saving meal:', error); showToast('Couldn\'t save the meal. Try again.', 'error'); setSavingMeal(false); return }
     const { error: itemsErr } = await supabase
       .from('saved_meal_items').insert(itemsFromEntries(chosen, { savedMealId: created.id, userId: cs.user.id }))
-    if (itemsErr) { console.error('Error saving meal items:', itemsErr); showToast('Couldn\'t save the meal — try again.', 'error') }
+    if (itemsErr) { console.error('Error saving meal items:', itemsErr); showToast('Couldn\'t save the meal. Try again.', 'error') }
     setSavingMeal(false); exitSelect(); fetchSavedMeals()
   }
 
@@ -372,7 +372,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (ids.length === 0) return
     const { error } = await supabase.from('nutrition_log')
       .update({ meal: mealKey === 'other' ? null : mealKey }).in('id', ids)
-    if (error) { console.error('Error moving entries:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error moving entries:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     exitSelect()
   }
@@ -381,7 +381,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   async function moveEntryToMeal(entryId, mealKey) {
     const { error } = await supabase.from('nutrition_log')
       .update({ meal: mealKey === 'other' ? null : mealKey }).eq('id', entryId)
-    if (error) { console.error('Error moving entry:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error moving entry:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     setMoveItemId(null)
   }
@@ -390,7 +390,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   async function moveLoggedMealToMeal(item, mealKey) {
     const { error } = await supabase.from('nutrition_log')
       .update({ meal: mealKey === 'other' ? null : mealKey }).in('id', item.entries.map(e => e.id))
-    if (error) { console.error('Error moving meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error moving meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     setMoveItemId(null)
   }
@@ -425,7 +425,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { error } = await supabase.from('nutrition_log')
       .update({ logged_meal_id: crypto.randomUUID(), logged_meal_name: name, meal: first?.meal ?? null })
       .in('id', ids)
-    if (error) { console.error('Error grouping meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error grouping meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     setSavingMeal(false); exitSelect()
   }
@@ -465,7 +465,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { error } = await supabase.from('nutrition_log')
       .update({ logged_meal_id: container.id, logged_meal_name: container.name, meal: container.entries[0]?.meal ?? null })
       .in('id', ids)
-    if (error) { console.error('Error adding to meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error adding to meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     exitSelect()
   }
@@ -474,7 +474,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const ids = [...selectedIds]
     if (ids.length === 0) return
     const { error } = await supabase.from('nutrition_log').delete().in('id', ids)
-    if (error) { console.error('Error deleting entries:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error deleting entries:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
     exitSelect()
   }
@@ -490,7 +490,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         loggedMealId: crypto.randomUUID(), loggedMealName: m.name,
       }),
     )
-    if (error) { console.error('Error logging saved meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error logging saved meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications(); setShowSavedMeals(false) }
     setLoggingMealId(null); setLogPickId(null)
   }
@@ -511,7 +511,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       logged_meal_id: newId, logged_meal_name: item.name,
     }))
     const { error } = await supabase.from('nutrition_log').insert(rows)
-    if (error) { console.error('Error repeating meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error repeating meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
   }
 
@@ -535,7 +535,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { data: { session: cs } } = await supabase.auth.getSession()
     const { data: created, error } = await supabase
       .from('saved_meals').insert({ user_id: cs.user.id, name: item.name }).select('id').single()
-    if (error) { console.error('Error saving meal:', error); showToast('Couldn\'t save the meal — try again.', 'error'); return }
+    if (error) { console.error('Error saving meal:', error); showToast('Couldn\'t save the meal. Try again.', 'error'); return }
     const { error: itemsErr } = await supabase
       .from('saved_meal_items').insert(itemsFromEntries(item.entries, { savedMealId: created.id, userId: cs.user.id }))
     if (itemsErr) console.error('Error saving meal items:', itemsErr)
@@ -554,7 +554,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   async function deleteSavedMeal(id) {
     const { error } = await supabase.from('saved_meals').delete().eq('id', id)
-    if (error) { console.error('Error deleting saved meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error deleting saved meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else fetchSavedMeals()
   }
 
@@ -563,7 +563,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setEditingSavedMealId(null)
     if (!trimmed) return
     const { error } = await supabase.from('saved_meals').update({ name: trimmed }).eq('id', id)
-    if (error) { console.error('Error renaming saved meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error renaming saved meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else fetchSavedMeals()
   }
 
@@ -582,12 +582,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (dayComplete) {
       const { error } = await supabase.from('day_complete')
         .delete().eq('user_id', cs.user.id).eq('logged_date', selectedDate)
-      if (error) { console.error('Error clearing day-complete:', error); showToast('Something went wrong — try again.', 'error') }
+      if (error) { console.error('Error clearing day-complete:', error); showToast('Something went wrong. Try again.', 'error') }
       else setDayComplete(false)
     } else {
       const { error } = await supabase.from('day_complete')
         .upsert({ user_id: cs.user.id, logged_date: selectedDate }, { onConflict: 'user_id,logged_date' })
-      if (error) { console.error('Error marking day complete:', error); showToast('Something went wrong — try again.', 'error') }
+      if (error) { console.error('Error marking day complete:', error); showToast('Something went wrong. Try again.', 'error') }
       else { setDayComplete(true); refreshNotifications() }
     }
     setDayCompleteSaving(false)
@@ -674,7 +674,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       }))
 
     const { error } = await supabase.from('nutrition_log').insert(inserts)
-    if (error) { console.error('Error copying entries:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error copying entries:', error); showToast('Something went wrong. Try again.', 'error') }
     else {
       fetchEntries()
       refreshNotifications()
@@ -709,7 +709,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
           serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal
         }).eq('id', editingEntry.id)
-        if (error) { console.error('Error updating:', error); showToast('Couldn\'t save that food — try again.', 'error') }
+        if (error) { console.error('Error updating:', error); showToast('Couldn\'t save that food. Try again.', 'error') }
         else { setEditingEntry(null); clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
       } else {
         const { error } = await supabase.from('nutrition_log').insert([{
@@ -719,7 +719,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           logged_date: selectedDate, user_id: currentSession.user.id,
           ...(addingToMeal ? { logged_meal_id: addingToMeal.id, logged_meal_name: addingToMeal.name } : {}),
         }])
-        if (error) { console.error('Error saving:', error); showToast('Couldn\'t save that food — try again.', 'error') }
+        if (error) { console.error('Error saving:', error); showToast('Couldn\'t save that food. Try again.', 'error') }
         else { clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
       }
     } finally {
@@ -775,13 +775,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
       )
       const data = await response.json().catch(() => ({}))
       if (!response.ok || data.error) {
-        showToast(data.error || 'Something went wrong — please try again.', 'error')
+        showToast(data.error || 'Something went wrong. Please try again.', 'error')
         return
       }
       setFeedback(data.message)
     } catch (error) {
       console.error('AI feedback error:', error)
-      showToast('Something went wrong — please try again.', 'error')
+      showToast('Something went wrong. Please try again.', 'error')
     } finally {
       setLoading(false)
     }
@@ -859,7 +859,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         .from('weight_log')
         .update({ weight: parseFloat(weight), unit: weightUnit, weighed_at })
         .eq('id', savedWeight.id)
-      if (error) { console.error(error); showToast('Couldn\'t save your weight — try again.', 'error') } else fetchWeight()
+      if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
     } else {
       const { error } = await supabase
         .from('weight_log')
@@ -870,7 +870,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           user_id: currentSession.user.id,
           weighed_at,
         }])
-      if (error) { console.error(error); showToast('Couldn\'t save your weight — try again.', 'error') } else fetchWeight()
+      if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
     }
   }
 
@@ -893,7 +893,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         calories_burned: parseInt(caloriesBurned) || null,
         avg_heart_rate: parseInt(avgHeartRate) || null
       }).eq('id', editingCardio.id)
-      if (error) { console.error(error); showToast('Couldn\'t save your cardio — try again.', 'error') }
+      if (error) { console.error(error); showToast('Couldn\'t save your cardio. Try again.', 'error') }
       else { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
     } else {
       const { error } = await supabase.from('cardio_log').insert([{
@@ -902,7 +902,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         avg_heart_rate: parseInt(avgHeartRate) || null,
         logged_date: selectedDate, user_id: currentSession.user.id
       }])
-      if (error) { console.error(error); showToast('Couldn\'t save your cardio — try again.', 'error') }
+      if (error) { console.error(error); showToast('Couldn\'t save your cardio. Try again.', 'error') }
       else { setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
     }
   }
@@ -957,7 +957,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
     if (error) {
       console.error(error)
-      showToast('Couldn\'t save your steps — try again.', 'error')
+      showToast('Couldn\'t save your steps. Try again.', 'error')
       return
     }
     fetchSteps()
@@ -998,7 +998,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const row = { user_id: cs.user.id, logged_date: selectedDate, unit: meas.unit }
     sites.forEach(k => { row[k] = meas[k] === '' ? null : parseFloat(meas[k]) })
     const { error } = await supabase.from('body_measurements').upsert(row, { onConflict: 'user_id,logged_date' })
-    if (error) { console.error(error); showToast('Couldn\'t save measurements — try again.', 'error'); return }
+    if (error) { console.error(error); showToast('Couldn\'t save measurements. Try again.', 'error'); return }
     setMeasExpanded(false)
     fetchMeasurements()
     fetchLastMeasured()
@@ -1268,7 +1268,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             cursor: dayCompleteSaving ? 'default' : 'pointer', opacity: dayCompleteSaving ? 0.6 : 1,
           }}
         >
-          {dayComplete ? <><Icon name="check" /> Day marked complete — tap to undo</> : 'Mark day complete'}
+          {dayComplete ? <><Icon name="check" /> Day marked complete. Tap to undo</> : 'Mark day complete'}
         </button>
         )}
 
@@ -1452,7 +1452,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                   <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>Searching…</p>
                 )}
                 {!foodSearching && foodResults.length === 0 && (
-                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>No matches — enter it manually below.</p>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>No matches. Enter it manually below.</p>
                 )}
                 {foodResults.map((r, i) => {
                   const macros = [

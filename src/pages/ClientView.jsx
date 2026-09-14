@@ -1498,7 +1498,7 @@ async function sendMessage(text) {
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                   <span style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI brief to walk in prepared — just for you</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI brief to walk in prepared, just for you</span>
                 </span>
               </button>
 
@@ -1880,7 +1880,7 @@ async function sendMessage(text) {
               backgroundColor: dayComplete ? 'rgba(52,211,153,0.12)' : 'var(--color-bg)',
               border: `1px solid ${dayComplete ? 'rgba(52,211,153,0.4)' : 'var(--color-border)'}`,
             }}>
-              {dayComplete ? <><Icon name="check" /> Client marked this day complete</> : 'Day not marked complete — totals may be partial'}
+              {dayComplete ? <><Icon name="check" /> Client marked this day complete</> : 'Day not marked complete. Totals may be partial'}
             </span>
           </div>
           {entries.length === 0 ? (

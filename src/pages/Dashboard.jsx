@@ -552,7 +552,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           obstacles: checkIn.obstacles, notes: checkIn.notes,
         }
     const { error } = await supabase.from('check_ins').upsert(payload, { onConflict: 'client_id,week_of' })
-    if (error) { console.error(error); setNotice('Could not submit your check-in — please try again.') }
+    if (error) { console.error(error); setNotice('Could not submit your check-in. Please try again.') }
     else {
       setCheckInSaved(true); setShowCheckIn(false); fetchCheckIn(); refreshNotifications(); setTimeout(() => setCheckInSaved(false), 3000)
       // Notify coach by email
@@ -892,8 +892,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	          </svg>
 	          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6', flex: 1 }}>
 	            {offboardReason === 'coach_deleted'
-	              ? "Your coach's account was closed. Your data is preserved — you're now on a solo plan and can keep tracking on your own."
-	              : "Your coach ended the coaching relationship. Your data is preserved — you're now on a solo plan and can keep tracking on your own."
+	              ? "Your coach's account was closed. Your data is preserved. You're now on a solo plan and can keep tracking on your own."
+	              : "Your coach ended the coaching relationship. Your data is preserved. You're now on a solo plan and can keep tracking on your own."
 	            }
 	          </p>
 	          <button
@@ -977,7 +977,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                 {streak} <span style={{ fontSize: 'var(--text-body)', fontWeight: 400 }}>{streak === 1 ? 'day' : 'days'}</span>
               </p>
               {/* eslint-disable-next-line no-restricted-syntax -- decorative streak palette (always-dark gradient card) */}
-              {streak >= 7 && loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: '#6ee7b7', marginTop: '4px' }}>Keep it going — you're on a roll!</p>}
+              {streak >= 7 && loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: '#6ee7b7', marginTop: '4px' }}>Keep it going, you're on a roll!</p>}
               {!loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-warning)', marginTop: '4px' }}>Log today to keep your streak!</p>}
             </div>
             {/* eslint-disable-next-line no-restricted-syntax -- decorative emoji glyph, sized to the icon not the text ramp */}
@@ -1238,7 +1238,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   ) : (
                     <>
                       <div>
-                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Adherence — how well did you follow the plan? <strong>{checkIn.adherence_rating}/10</strong></p>
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Adherence: how well did you follow the plan? <strong>{checkIn.adherence_rating}/10</strong></p>
                         <input type="range" min="1" max="10" value={checkIn.adherence_rating} onChange={(e) => setCheckIn({ ...checkIn, adherence_rating: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
                       </div>
                       <div>

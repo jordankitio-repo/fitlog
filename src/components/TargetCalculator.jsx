@@ -115,7 +115,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
       </div>
 
       <div>
-        <label style={labelStyle}>Body fat % <span style={{ color: 'var(--color-faint)' }}>— optional, more accurate</span></label>
+        <label style={labelStyle}>Body fat % <span style={{ color: 'var(--color-faint)' }}>optional, more accurate</span></label>
         <input type="number" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="e.g. 20" style={inputStyle} />
       </div>
 
@@ -154,7 +154,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
                 (result.weeksToGoal ? ` · ~${result.weeksToGoal} wks at this rate.` : '.')}
           </p>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)', margin: 0, lineHeight: 1.5 }}>
-            Based on {result.method === 'katch' ? 'Katch–McArdle (lean mass)' : 'Mifflin–St Jeor'}. A starting point — review and adjust{result.direction === 'lose' ? '; the rate slows as you get lighter' : ''}.
+            Based on {result.method === 'katch' ? 'Katch–McArdle (lean mass)' : 'Mifflin–St Jeor'}. A starting point. Review and adjust{result.direction === 'lose' ? '; the rate slows as you get lighter' : ''}.
           </p>
           <Button onClick={() => onApply(result)} variant="primary" size="sm">Use these targets</Button>
         </div>

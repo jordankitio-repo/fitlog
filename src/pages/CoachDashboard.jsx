@@ -12,7 +12,7 @@ import { getInviteBlockReason } from '../utils/inviteValidation'
 import { attentionLevel, compareByAttention, summarizeRoster } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
 import { cardStyle } from '../utils/styles'
-import { Badge, Pill, Field, Icon, Panel, Row, Tracker } from '../components/ui'
+import { Pill, Field, Icon, Panel, Row, Tracker } from '../components/ui'
 
 const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
@@ -22,10 +22,9 @@ const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warnin
 function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
   const [reviewHover, setReviewHover] = useState(false)
   const seg = (color, n, label) => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-      <span style={{ fontWeight: 700 }}>{n}</span>
-      <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-xs)' }}>{label}</span>
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
+      <span className="tnum" style={{ fontWeight: 700, color, fontSize: 'var(--text-md)' }}>{n}</span>
+      <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{label}</span>
     </span>
   )
   return (
@@ -291,7 +290,7 @@ function CoachDashboard({ profile }) {
         } catch (err) {
           console.error('notify-invite failed:', err)
           setInviteEmailedTo('')
-          setToast({ message: "Couldn't email the invite — copy the link below to share it.", type: 'error' })
+          setToast({ message: "Couldn't email the invite. Copy the link below to share it.", type: 'error' })
         }
       }
     } finally {
@@ -430,7 +429,7 @@ function CoachDashboard({ profile }) {
                 const triage = attentionLevel(s)
                 const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn, checkinDue: s?.checkinDue })
                 return (
-                  <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 152px 96px 88px auto">
+                  <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 168px 104px 100px 152px">
                     {/* who */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                       <Avatar url={c.client?.avatar_url} name={c.client?.full_name || ''} size={30} />
@@ -445,17 +444,20 @@ function CoachDashboard({ profile }) {
                     </div>
 
                     {/* state — one fact, at a fixed x-position so it scans in one pass */}
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      <Badge
-                        color={attentionColors[triage.level]}
-                        tone="strong"
-                        dot
-                        title={triage.reasons.length ? triage.reasons.join(' · ') : logLabel(s?.daysSinceLog)}
-                      >
+                    <div
+                      style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}
+                      title={triage.reasons.length ? triage.reasons.join(' \u00b7 ') : logLabel(s?.daysSinceLog)}
+                    >
+                      <span style={{
+                        fontSize: 'var(--text-sm)',
+                        fontWeight: triage.level === 'green' ? 500 : 700,
+                        color: triage.level === 'green' ? 'var(--color-muted)' : attentionColors[triage.level],
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
                         {triage.level === 'green' ? logLabel(s?.daysSinceLog) : triage.reasons[0]}
-                      </Badge>
+                      </span>
                       {s?.lockInfo?.locked && (
-                        <Badge color="var(--color-error)" tone="strong">Locked</Badge>
+                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--color-error)' }}>Locked</span>
                       )}
                     </div>
 
@@ -572,7 +574,7 @@ function CoachDashboard({ profile }) {
                   setLinkCopied(true)
                   setTimeout(() => setLinkCopied(false), 2000)
                 } catch {
-                  showToast('Couldn\'t copy — select the link and copy it manually.', 'error')
+                  showToast('Couldn\'t copy. Select the link and copy it manually.', 'error')
                 }
               }}
               style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-sm)', color: linkCopied ? 'var(--color-success)' : 'var(--color-text)', whiteSpace: 'nowrap', transition: 'color 120ms' }}

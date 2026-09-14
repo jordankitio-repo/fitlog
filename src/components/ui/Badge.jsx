@@ -1,4 +1,8 @@
-// Status / compliance badge — the colored pills with an optional leading dot.
+// Status / compliance badge.
+//
+// NO LEADING DOT. "Tinted pill with a coloured dot in it" is a rejected pattern
+// on this project — it reads as generic AI dashboard, and the dot never carried
+// information the label didn't already state. Do not add it back.
 //   tone="soft"   (default) tinted, 35% border — compliance + supporting status
 //   tone="strong"           tinted, FULL-opacity border — triage/alert, where the
 //                           badge is the primary signal and must out-shout its
@@ -7,7 +11,7 @@
 //                           system beats an inline override at each call site.
 //   tone="solid"            filled — the count badge in SectionHeader
 // `color` is any token or CSS color.
-export default function Badge({ color = 'var(--color-primary)', tone = 'soft', dot = false, style, children, ...rest }) {
+export default function Badge({ color = 'var(--color-primary)', tone = 'soft', style, children, ...rest }) {
   const solid = tone === 'solid'
   const strong = tone === 'strong'
   return (
@@ -28,7 +32,6 @@ export default function Badge({ color = 'var(--color-primary)', tone = 'soft', d
       }}
       {...rest}
     >
-      {dot && <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: solid ? 'var(--color-on-accent)' : color }} />}
       {children}
     </span>
   )

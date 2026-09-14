@@ -32,15 +32,15 @@ async function makeUser(email, full_name, role) {
 // log = which of the last N days have a nutrition entry; onTarget hits >=90% of
 // targets; weak = logs but well under. Designed to span red / yellow / green.
 const SPECS = [
-  { first: 'Ava',  name: 'Ava — on track',       log: [0, 1, 2, 3, 4, 5, 6], onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Ben',  name: 'Ben — on track',       log: [0, 1, 2, 3, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Cara', name: 'Cara — on track',      log: [0, 1, 2, 4, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Dan',  name: 'Dan — weak macros',    log: [0, 1, 2, 3, 4, 5, 6], onTarget: false, targets: true,  checkIn: true },
-  { first: 'Eve',  name: 'Eve — no check-in',    log: [0, 1, 2, 3, 4],        onTarget: true,  targets: true,  checkIn: false },
-  { first: 'Finn', name: 'Finn — no targets set', log: [0, 1, 2, 3],          onTarget: true,  targets: false, checkIn: true },
-  { first: 'Gia',  name: 'Gia — 3 days quiet',   log: [3, 4, 5],              onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Hugo', name: 'Hugo — 5 days quiet',  log: [5, 6],                 onTarget: true,  targets: true,  checkIn: false },
-  { first: 'Iris', name: 'Iris — never logged',  log: [],                     onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Ava',  name: 'Ava Lindqvist',       log: [0, 1, 2, 3, 4, 5, 6], onTarget: true,  targets: true,  checkIn: true },
+  { first: 'Ben',  name: 'Ben Osei',       log: [0, 1, 2, 3, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
+  { first: 'Cara', name: 'Cara Whitfield',      log: [0, 1, 2, 4, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
+  { first: 'Dan',  name: 'Dan Moreau',    log: [0, 1, 2, 3, 4, 5, 6], onTarget: false, targets: true,  checkIn: true },
+  { first: 'Eve',  name: 'Eve Nakamura',    log: [0, 1, 2, 3, 4],        onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Finn', name: 'Finn Halloran', log: [0, 1, 2, 3],          onTarget: true,  targets: false, checkIn: true },
+  { first: 'Gia',  name: 'Gia Ferrante',   log: [3, 4, 5],              onTarget: true,  targets: true,  checkIn: true },
+  { first: 'Hugo', name: 'Hugo Bennett',  log: [5, 6],                 onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Iris', name: 'Iris Calder',  log: [],                     onTarget: true,  targets: true,  checkIn: false },
 ]
 
 const coachId = await makeUser(COACH_EMAIL, 'Demo Coach', 'coach')

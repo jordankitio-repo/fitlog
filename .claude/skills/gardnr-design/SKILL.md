@@ -23,6 +23,13 @@ does it is usually faster than reasoning from scratch.
 
 ## Rejected patterns — do not produce these
 
+0. **The em dash in UI copy.** In a two-clause UI string it is a full stop
+   wearing a costume ("Something went wrong — try again." → "Something went
+   wrong. Try again."); introducing a list, it's a colon. Long-form legal prose
+   keeps them. Demo/seed fixtures must read like real records — clients are
+   named "Hugo Bennett", never "Hugo — 5 days quiet".
+
+
 These have each been sent back more than once. They are not stylistic
 preferences; treat them as broken output.
 
@@ -96,8 +103,13 @@ structure visible without drawing it. Every border is an admission you couldn't
 group it with space.
 
 ### 4. Three status shapes. "Pill" stops meaning everything.
-- **`Badge`** — ONE fact, two words max. `tone="strong"` when the badge is the
-  primary signal (triage), `soft` for supporting evidence, `solid` for counts.
+- **Status text** — the DEFAULT for row status. Plain coloured text, weight 700
+  for red/amber and muted 500 for green. No container, no dot. It aligns down a
+  column, which a pill never does, and the label ("5 days no log", "Logged
+  today") already carries the meaning, so colour only reinforces it.
+- **`Badge`** — ONE fact, two words max, and only where a container earns its
+  keep. `tone="strong"` for a primary signal, `soft` for supporting evidence,
+  `solid` for counts.
 - **`StatCell` strip** — several facts about one subject: mono uppercase label
   over a tabular value, hairline divider between cells. A pill holding four
   dot-separated facts is a table in a costume.
@@ -105,12 +117,24 @@ group it with space.
 
 **If it carries more than one fact, it is not a Badge.**
 
+**NEVER a coloured pill with a dot inside it.** Rejected outright — it is the
+single most recognisable AI-dashboard tell, and the dot never says anything the
+label hasn't. `Badge` has no `dot` prop; don't add one back, and don't hand-roll
+the shape. The same goes for legend dots beside a number: colour the number.
+
 ### 5. Color lives in the data; chrome stays neutral.
 Borders, dividers, panel backgrounds, resting icons and labels take neutral
 tokens ONLY. Metric tokens go on the number; semantic tokens go in the status
 cell; green is the only action color. **Never color an entire card border to
 signal state** — state belongs in the row's status cell, at a consistent
 x-position where it scans in one pass.
+
+### 5b. Grid columns are declared ONCE, never per row.
+Every `<Row>` is its own CSS grid, so an `auto` or content-sized column resolves
+against THAT row's content. A roster where some rows have an extra button will
+silently misalign every column to its left. **Give every column a fixed width**
+(or define one grid on the container) so the layout is identical on every row.
+This is the bug that made the first roster's status column jump around.
 
 ### 6. Type does hierarchy, so boxes don't have to.
 Page title `--text-title` · panel heading `--text-body`/600 · eyebrow

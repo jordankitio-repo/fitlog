@@ -235,7 +235,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       onProfileUpdate?.()
     } catch (err) {
       console.error('avatar upload:', err)
-      setAvatarError(err.message || 'Upload failed — try again.')
+      setAvatarError(err.message || 'Upload failed. Try again.')
     } finally {
       setAvatarBusy(false)
     }
@@ -252,7 +252,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       onProfileUpdate?.()
     } catch (err) {
       console.error('avatar remove:', err)
-      setAvatarError('Could not remove — try again.')
+      setAvatarError('Could not remove. Try again.')
     } finally {
       setAvatarBusy(false)
     }
