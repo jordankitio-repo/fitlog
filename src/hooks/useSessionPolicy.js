@@ -32,9 +32,33 @@ const COACH_MAX_IDLE = 14 * DAY
 const CHECK_INTERVAL = 5 * 60 * 1000
 const SEEN_THROTTLE = 60 * 1000
 
-function readStamp(key) {
+// Exported for tests: localStorage holds strings a user can edit, so anything
+// non-numeric, zero or negative is treated as "no stamp" rather than trusted.
+// Number('') is 0 and Number(null) is 0, so the > 0 check carries both.
+export function readStamp(key) {
   const raw = Number(localStorage.getItem(key))
   return Number.isFinite(raw) && raw > 0 ? raw : null
+}
+
+// The whole policy decision, as a pure function — the part with edge cases
+// (missing stamps, threshold boundaries, which reason wins) separated from the
+// event wiring, which has none. `started`/`seen` are epoch ms or null.
+//
+// A null stamp never expires a session. That's deliberate: a missing stamp
+// means "we haven't seen this session before" (first load after deploy, or
+// cleared storage), not "infinitely old". Treating it as expired would sign
+// out every coach on release day.
+export function evaluateCoachSession({ started, seen, now }) {
+  const tooOld = started !== null && now - started > COACH_MAX_AGE
+  const tooIdle = seen !== null && now - seen > COACH_MAX_IDLE
+
+  if (tooOld) {
+    return { expired: true, reason: 'For security, coach sessions end after 30 days. Please sign in again.' }
+  }
+  if (tooIdle) {
+    return { expired: true, reason: 'For security, coach sessions end after 14 days without use. Please sign in again.' }
+  }
+  return { expired: false, reason: null }
 }
 
 export function clearSessionStamps() {
@@ -74,21 +98,15 @@ export function useSessionPolicy(session, profile) {
     }
 
     async function enforce() {
-      const started = readStamp(STARTED_KEY)
-      const seen = readStamp(SEEN_KEY)
-      const t = Date.now()
-
-      const tooOld = started !== null && t - started > COACH_MAX_AGE
-      const tooIdle = seen !== null && t - seen > COACH_MAX_IDLE
-      if (!tooOld && !tooIdle) return
+      const { expired, reason } = evaluateCoachSession({
+        started: readStamp(STARTED_KEY),
+        seen: readStamp(SEEN_KEY),
+        now: Date.now(),
+      })
+      if (!expired) return
 
       try {
-        localStorage.setItem(
-          SIGNED_OUT_REASON_KEY,
-          tooOld
-            ? 'For security, coach sessions end after 30 days. Please sign in again.'
-            : 'For security, coach sessions end after 14 days without use. Please sign in again.',
-        )
+        localStorage.setItem(SIGNED_OUT_REASON_KEY, reason)
       } catch { /* private mode */ }
       clearSessionStamps()
       await supabase.auth.signOut()

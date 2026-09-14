@@ -617,14 +617,29 @@ One command spins a fully self-contained, hosted copy of the app **from any bran
 
 ## Testing
 
-**172 unit tests** across `src/utils/*.test.js` (pure helpers: lock state, dates, compliance breakdown/summary, attention level + `summarizeRoster`, nudge reason, energy balance, card order, password/invite validation, `meals`, `savedMeals`). Run with `npm test` (watch) / `npx vitest run`. Config in `vite.config.js`; the RLS suite is excluded from the unit run.
+**195 unit tests** across `src/utils/*.test.js` (pure helpers: lock state, dates, compliance breakdown/summary, attention level + `summarizeRoster`, nudge reason, energy balance, card order, password/invite validation, `meals`, `savedMeals`). Run with `npm test` (watch) / `npx vitest run`. Config in `vite.config.js`; the RLS suite is excluded from the unit run.
 
 ### RLS + billing integration harness (`tests/rls/`, Jun 15)
-`npm run rls:setup` boots a **local Supabase stack** (Colima/Docker), loads `supabase/schema/prod_public.sql` (the prod baseline) + post-baseline migrations, then `npm run test:rls` runs **120 tests** (`vitest --config vitest.integration.config.js`) that exercise **real RLS** as real signed-in users (service-role seeds; anon-key clients carry each user's JWT). Covers tenant isolation across every table (cross-tenant reads return empty; forbidden writes error), coach-private notes, billing invariants (trial-ledger abuse prevention, subscription idempotency), the invitations token-RPC, owner-only saved meals, active-only `day_complete`, the check-in review RPC + guard trigger, and (Aug 25) the passwordless invite + step-up RPCs.
+`npm run rls:setup` boots a **local Supabase stack** (Colima/Docker), loads `supabase/schema/prod_public.sql` (the prod baseline) + post-baseline migrations, then `npm run test:rls` runs **136 tests** (`vitest --config vitest.integration.config.js`) that exercise **real RLS** as real signed-in users (service-role seeds; anon-key clients carry each user's JWT). Covers tenant isolation across every table (cross-tenant reads return empty; forbidden writes error), coach-private notes, billing invariants (trial-ledger abuse prevention, subscription idempotency), the invitations token-RPC, owner-only saved meals, active-only `day_complete`, the check-in review RPC + guard trigger, and (Aug 25) the passwordless invite + step-up RPCs.
 
 **Testing a lock requires a direct `pg` connection, not PostgREST** (`tests/rls/env.js` exposes `dbUrl`; `pg` is a devDependency). PostgREST gives every request its own transaction and ends it before responding, so lock/visibility behaviour can't be exercised through the REST API. Two traps, both of which produced a **green test over a broken guarantee** and are worth knowing before writing another one:
 - *Racing N calls through PostgREST proves nothing* — whether the transactions actually overlap is a timing accident. The first version passed against a function with **no locking at all**. Replaced by a pinned interleaving: a direct `pg` connection holds the row mid-claim, the accept is fired, and only then does the holder commit.
 - *supabase-js query builders are lazy thenables* — `const p = admin.rpc(...)` sends nothing until something subscribes, so the call reached the database only at the final `await`, i.e. *after* the commit, and again passed against the unlocked function. The test now calls `.then()` to force dispatch before the sleep.
+
+### Testing the edge FUNCTIONS, not just the RPCs they call (Sep 14)
+
+`redeemInviteFn.test.js` (7) + `stepUpFn.test.js` (9) drive the functions over real HTTP. They need **edge-runtime + inbucket**, which the default stack excludes, so `scripts/rls-local-setup.sh` takes an `EXCLUDES` override:
+
+```bash
+EXCLUDES="vector,analytics,imgproxy,realtime,storage,studio,meta" npm run rls:setup
+```
+
+Both files probe the endpoint first and **skip** (not fail) when it isn't served, so the default run is unaffected. Two things they cover that an RPC test structurally cannot:
+
+- **The session handoff** — that `admin/generate_link`'s `hashed_token` is actually accepted by `verifyOtp({ type: 'magiclink' })`. The entire one-tap invite promise rests on that pairing, and nothing else asserts it.
+- **`delete-account` fails closed** — an HTTP request that simply *omits* the code is refused. "The browser can't skip the step by not asking" is only true if that's tested through the function. Every negative case asserts **the account still exists afterwards**; a gate returning 403 while deleting anyway would pass a status-code-only test. The valid-code case (200, user gone) is what keeps the negatives from passing vacuously.
+
+Not covered, deliberately: **email delivery**. `request-step-up` needs `RESEND_API_KEY`, which a local stack has no business holding — the test asserts a challenge row is issued and stops short of claiming the mail works.
 
 **Rule: a test guarding an atomicity claim must be checked in both directions** — remove the guarantee and watch it fail. `passwordlessInvite.test.js` test 3 and `stepUp.test.js`'s concurrent-consume test both are (re-verified Sep 14 2026: with `for update` stripped from `accept_invitation`, test 3 fails and both callers redeem the same token). `scripts/seed-demo-roster.mjs` (+ `shoot-roster.mjs`) seeds a realistic demo roster for manual/visual QA (demo coach `demo.coach@gardnr.test`). This harness caught the world-readable-invitations leak and the missing-grant / service-role-guard bugs before they shipped.
 

@@ -269,10 +269,37 @@ and legal drafts rather than duplicating D-4 here.
 
 Tests land with each phase, not at the end.
 
-**Re-verified 2026-09-14** (the build was three weeks old at commit time): 172 unit + 120 integration
-green against a freshly loaded local stack, `npm run build` passing, lint adding nothing to the
-repo's pre-existing count. The §7 teeth check was re-run, not assumed — `for update` stripped from
-`accept_invitation`, test 3 fails with both callers redeeming the same token; restored, 120/120.
+**Re-verified 2026-09-14** (the build was three weeks old at commit time): green against a freshly
+loaded local stack, `npm run build` passing, lint adding nothing to the repo's pre-existing count.
+The §7 teeth check was re-run, not assumed — `for update` stripped from `accept_invitation`, test 3
+fails with both callers redeeming the same token; restored, all pass.
+
+**Phase 4 — the coverage gap, closed 2026-09-14.** §7's claim that the tests "exercise the RPCs, not
+the HTTP function" because `redeem-invite` is "thin orchestration" did not survive contact: the
+function also does shape validation, the live account-exists branch, admin user creation, error
+mapping, orphan cleanup, and the session handoff — ~1,250 lines of function and UI code had never
+executed once. Added:
+
+- `tests/rls/redeemInviteFn.test.js` (7) and `tests/rls/stepUpFn.test.js` (9) — the functions over
+  real HTTP. **The handoff works**: `generate_link`'s `hashed_token` is accepted by
+  `verifyOtp({ type: 'magiclink' })` and returns a session for the right user (confirmed non-vacuous —
+  `verifyOtp` rejects garbage hashes). **`delete-account` genuinely fails closed**: omitting the code
+  is refused *and the account still exists*, while a valid code deletes, so the negatives aren't
+  passing because deletion is broken. A code issued for a different user is refused.
+- `src/utils/inviteErrors.test.js` (13), including a **parity check against `redeem-invite`'s own
+  mapping** — the two tables are maintained by hand and drift silently otherwise.
+- `src/hooks/useSessionPolicy.test.js` (10). The threshold decision was extracted into a pure
+  `evaluateCoachSession()` so it could be tested without adding a component-test dependency; the
+  hook keeps the event wiring. Covers the boundaries, which reason wins when both trip, future-dated
+  stamps (a clock moved backwards must not read as expired), and the release-day case where a coach
+  already signed in has no stamps yet.
+- `scripts/rls-local-setup.sh` takes an `EXCLUDES` override so the stack can come up with
+  edge-runtime + inbucket. The HTTP suites skip, rather than fail, when it isn't served.
+
+Totals now **195 unit + 136 integration**. Still untested: the React pages themselves (`Join.jsx`,
+`Login.jsx`, `Profile.jsx`) — no component-test harness exists in this repo — and email delivery,
+which needs the real Resend key. A Playwright click-through of `/join` reading codes out of inbucket
+is the remaining gap worth closing.
 
 ---
 
