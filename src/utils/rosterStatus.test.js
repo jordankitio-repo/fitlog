@@ -1,10 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { rosterStatus, LENS_HEADERS } from './rosterStatus'
+import { rosterStatus, LENS_HEADERS, lensToneRank } from './rosterStatus'
 
 const comp = (label, value, hasData = true) => ({ label, value, logged: 7, hasData })
 const stats = (o = {}) => ({
   daysSinceLog: 0, checkIn: { adherence_rating: 8, energy_level: 7, reviewed_at: '2026-01-01' },
   complianceItems: [], lockInfo: { locked: false }, ...o,
+})
+
+describe('lensToneRank', () => {
+  it('ranks by severity everywhere except compliance', () => {
+    for (const lens of ['attention', 'recent', 'checkin']) {
+      expect(lensToneRank(lens, 'red')).toBeLessThan(lensToneRank(lens, 'setup'))
+    }
+  })
+
+  it('puts blind spots above red in the compliance lens', () => {
+    // You can coach a red. You cannot see a grey at all.
+    expect(lensToneRank('compliance', 'setup')).toBeLessThan(lensToneRank('compliance', 'red'))
+    expect(lensToneRank('compliance', 'red')).toBeLessThan(lensToneRank('compliance', 'yellow'))
+    expect(lensToneRank('compliance', 'yellow')).toBeLessThan(lensToneRank('compliance', 'green'))
+  })
 })
 
 describe('rosterStatus', () => {

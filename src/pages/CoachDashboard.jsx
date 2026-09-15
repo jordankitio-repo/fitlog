@@ -9,9 +9,9 @@ import Skeleton from '../components/Skeleton'
 import InfoTip from '../components/InfoTip'
 import { computeClientStats } from '../utils/clientStats'
 import { getInviteBlockReason } from '../utils/inviteValidation'
-import { compareByAttention, summarizeRoster, TONE_RANK } from '../utils/attentionLevel'
+import { compareByAttention, summarizeRoster } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
-import { rosterStatus, LENS_HEADERS, LENS_GRADERS } from '../utils/rosterStatus'
+import { rosterStatus, LENS_HEADERS, LENS_GRADERS, lensToneRank } from '../utils/rosterStatus'
 
 // Fraction of target days hit, for ordering within a compliance tone.
 function complianceRatio(s) {
@@ -387,7 +387,7 @@ function CoachDashboard({ profile }) {
 
     const grade = LENS_GRADERS[sortBy]
     if (!grade) return 0
-    const byTone = TONE_RANK[grade(sa).tone] - TONE_RANK[grade(sb).tone]
+    const byTone = lensToneRank(sortBy, grade(sa).tone) - lensToneRank(sortBy, grade(sb).tone)
     if (byTone !== 0) return byTone
 
     // Within a tone, order by how bad it actually is.

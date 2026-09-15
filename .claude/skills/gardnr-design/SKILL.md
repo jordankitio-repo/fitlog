@@ -171,7 +171,13 @@ is always the client's worst dimension, and a grey setup gap never outranks a
 client who is actually slipping.
 
 **Sorting uses the grade the column renders** (`TONE_RANK`), never a parallel
-calculation. They had drifted: compliance sorted by descending score and Last
+calculation. One exception, deliberate: the **Compliance
+lens ranks grey ABOVE red** (`lensToneRank`). With a red you know the problem
+and can coach it; with "No targets set" you can know nothing — that client could
+be the worst on the roster and nothing would show it. A blind spot outranks a
+known bad number, and it is a five-second fix that unblocks measurement. This
+never applies to Attention, where grey must stay below red or "finish
+onboarding Finn" outranks "Hugo hasn't logged in five days". They had drifted: compliance sorted by descending score and Last
 logged by ascending days, so both put the HEALTHIEST client on top while the
 header said worst-first. One `TONE_RANK` comparison with a magnitude tiebreak
 makes the order and the colours agree by construction.
