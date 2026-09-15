@@ -66,7 +66,8 @@ export function attentionLevel(stats) {
   }
   if (!checkIn) yellow.push('No check-in')
   const weak = (complianceItems || []).filter(i => i.hasData && i.value < WEAK_COMPLIANCE)
-  weak.forEach(i => yellow.push(`${i.label} ${i.value}/7`))
+  // "Calories 0/7" never said 0 of 7 what. It is days on target in the last week.
+  weak.forEach(i => yellow.push(`${i.label} ${i.value}/7 days`))
 
   if (red.length > 0) {
     const reasons = red.concat(yellow)

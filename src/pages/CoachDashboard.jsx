@@ -473,20 +473,27 @@ function CoachDashboard({ profile }) {
                 <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
                   <InfoTip text={`How to read a row
 
-STATUS — one line per client, the single most pressing thing:
+NEEDS ATTENTION is not one measurement — it is the single most pressing
+thing about that client, whichever kind that happens to be:
 
-  RED     Intervene now. "Never logged", "4 days no log", "Locked".
-  AMBER   Watch. "2 days no log", "No check-in".
-  GREEN   On track. Logging as expected.
-  GREY    Nothing to grade yet — "No targets set". Not the client
-          falling behind; you haven't set what to measure against.
+  "5 days no log"      how recently they logged
+  "No check-in"        they haven't submitted this period's check-in
+  "Calories 2/7 days"  days on target in the last week
+  "No targets set"     you haven't set what to measure against
+  "Logged today"       nothing needs you
 
-Colour is a grade. Grey means no grade exists.
+So read DOWN the column for who needs you, not to compare clients on the
+same metric. Sorting by Attention puts the most pressing at the top.
 
-CHECK-IN — their latest self-ratings, adherence and energy, each out of 10.
-A dash means they haven't submitted one this period.
+COLOUR IS A GRADE, GREY MEANS NO GRADE EXISTS:
 
-Rows are sorted so whoever needs you most is at the top.`} />
+  RED     Intervene now.
+  AMBER   Watch.
+  GREEN   On track.
+  GREY    Nothing to grade yet — no targets set.
+
+CHECK-IN shows their latest self-ratings, adherence and energy, out of 10.
+A dash means none submitted this period.`} />
                 </span>
               </div>
             <Panel flush density="compact">
@@ -497,7 +504,7 @@ Rows are sorted so whoever needs you most is at the top.`} />
                   cannot tell which end is today. */}
               <Row className="roster-row roster-head" cols="minmax(0, 1fr) 200px 104px 152px">
                 <span className="ds-colhead">Client</span>
-                <span className="ds-colhead">Status</span>
+                <span className="ds-colhead">Needs attention</span>
                 <span className="ds-colhead">Check-in</span>
                 <span />
               </Row>

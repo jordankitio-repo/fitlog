@@ -136,6 +136,20 @@ silently misalign every column to its left. **Give every column a fixed width**
 (or define one grid on the container) so the layout is identical on every row.
 This is the bug that made the first roster's status column jump around.
 
+### 5d. A column header names what the column HOLDS.
+"Status" implies one uniform dimension the reader can compare down the page. The
+roster's column holds `reasons[0]` — the single most pressing fact about a
+client, of whatever kind: logging recency, a missed check-in, weak compliance,
+or a setup gap. Four different questions in one column, which is right for
+triage and wrong for a header that promises a metric. It is called **Needs
+attention**, which is what it is.
+
+The test: if two cells in a column answer different questions, the header must
+say so — or the column should be split. Don't let a generic label paper over it.
+
+Reason strings must also name their own unit. "Calories 0/7" never said 0 of 7
+WHAT; it is "Calories 0/7 days".
+
 ### 5a. Colour is a grade. Grey is the absence of one.
 The rule that keeps the roster from becoming a rainbow: **colour encodes a
 graded state; grey encodes that no grade exists.**

@@ -60,9 +60,9 @@ describe('attentionLevel', () => {
       complianceItems: [comp('Calories', 2), comp('Protein', 0, false), comp('Steps', 5)],
     }))
     expect(r.level).toBe('yellow')
-    expect(r.reasons).toContain('Calories 2/7')
-    expect(r.reasons).not.toContain('Protein 0/7')
-    expect(r.reasons).not.toContain('Steps 5/7')
+    expect(r.reasons).toContain('Calories 2/7 days')
+    expect(r.reasons).not.toContain('Protein 0/7 days')
+    expect(r.reasons).not.toContain('Steps 5/7 days')
   })
 
   it('appends yellow reasons after red ones when both are present', () => {
