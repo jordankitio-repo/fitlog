@@ -292,6 +292,13 @@ Exact parity is not reachable: a green matched precisely to the neutral label's
 luminance stops looking green (near-white in dark, near-black in light). Land
 close, same direction, and say where the gap is rather than claiming a match.
 
+**Where they conflict, chroma wins.** Tuning the LIGHT hover surface to the
+neutral's exact lightness produced a 2.8%-saturated green — no green at all, and
+the signal simply vanished. It now carries ~11.5% and so darkens about twice as
+far as the neutral hover (lum 236 vs 247). That is the right trade: a rule that
+makes its own signal invisible has failed. The constraint only binds on
+near-white surfaces, where there is no headroom above the page.
+
 Measure rather than eyeball. Green's G channel dominates luminance, so a green
 chosen to *look* equivalent comes out noticeably stronger.
 

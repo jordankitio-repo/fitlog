@@ -164,7 +164,12 @@
   --control-shadow-active: inset 0 1px 2px rgba(16, 24, 40, 0.12);
   --control-shadow-accent: 0 1px 2px rgba(16, 24, 40, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   --control-bg-accent: linear-gradient(180deg, #f2fbf5 0%, #e9f6ed 100%);
-  --control-bg-accent-hover: linear-gradient(180deg, #f1f8f3 0%, #e9f1eb 100%);
+  /* Chroma beats luminance parity HERE. On a near-white panel a green tint held
+     to the neutral hover's exact lightness comes out at ~3% saturation, which is
+     no green at all — the rule made the signal invisible. These carry a real
+     mint cast (~12%) and so darken about twice as far as the neutral hover.
+     Still a light tint, and a signal you can see beats a ratio you cannot. */
+  --control-bg-accent-hover: linear-gradient(180deg, #d7f3e2 0%, #cbecd8 100%);
   /* Light: the neutral label DARKENS (#5f6459 -> #16181c), so the accent label
      darkens too — deeper than --color-primary, which is too light to match. */
   --control-fg-accent-hover: #0a3018;
