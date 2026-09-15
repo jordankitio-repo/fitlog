@@ -224,15 +224,12 @@ body {
    table must look pressable — but it stays at header weight so it never
    competes with the row content it describes. */
 .ds-sortbtn {
-  /* Hug the label. As a grid child it stretched to the full column width, so
-     the hover fill ran far past the text and read as a stray block. */
+  /* Hug the label: as a grid child it would stretch to the full column width. */
   justify-self: start;
   width: fit-content;
   background: none;
   border: none;
-  padding: 2px 6px 2px 0;
-  margin: -2px 0 -2px -2px;
-  border-radius: 5px;
+  padding: 0 6px 0 0;
   cursor: pointer;
   font: inherit;
   font-size: var(--text-xs);
@@ -240,12 +237,14 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-faint);
-  transition: color 140ms ease, background 140ms ease;
+  transition: color 140ms ease;
 }
-.ds-sortbtn:hover {
-  color: var(--color-text-dim);
-  background: color-mix(in srgb, var(--color-text) 7%, transparent);
-}
+/* No fill on hover: a column header is a label first and a control second, and
+   a box appearing behind it drags the eye away from the rows it describes. Only
+   the type and its chevron respond — stronger on hover, strongest while held,
+   back to the resting weight on release. */
+.ds-sortbtn:hover { color: var(--color-text-dim); }
+.ds-sortbtn:active { color: var(--color-text); }
 .ds-sortbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 /* Roster row — the coach's scanning surface. Columns collapse to a two-line

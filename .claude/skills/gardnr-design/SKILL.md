@@ -248,6 +248,13 @@ on the top edge, a 1px drop shadow.
 
 **D2. Every control needs a visible hover AND a pressed state — that ANIMATE.**
 
+**A label that is also a control responds with its TYPE, not a fill.** A
+sortable column header is a label first: a box appearing behind it on hover
+drags the eye away from the rows it describes. The text and its chevron go
+`--color-faint` → `--color-text-dim` on hover → `--color-text` while held, and
+back on release. Reserve surface fills for things that are buttons first.
+
+
 **Never put a gradient on a property you intend to transition.**
 `background-image` is a DISCRETE property: it snaps to its final value the
 instant a hover begins while `color` interpolates over 140ms, so the box
