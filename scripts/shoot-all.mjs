@@ -67,7 +67,7 @@ try {
   const future = new Date(Date.now() + 25 * 864e5).toISOString()
   await fetch(`${SUPA}/rest/v1/subscriptions`, { method: 'POST', headers: { ...sh, Prefer: 'return=minimal' }, body: JSON.stringify({ coach_id: C.id, status: 'trialing', trial_end: future, current_period_end: future, stripe_price_id: PRICE }) }).then(r => console.log('sub inject', r.status))
   await pC.reload({ waitUntil: 'networkidle' })
-  await pC.waitForSelector('text=Coach Dashboard', { timeout: 15000 })
+  await pC.waitForSelector('text=Invite a client', { timeout: 15000 })
   await shoot(pC, 'coach-dashboard-empty')
 
   // ---------- Client linked to coach ----------

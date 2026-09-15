@@ -399,7 +399,7 @@ function CoachDashboard({ profile }) {
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
-        <h1>Coach Dashboard</h1>
+        <h1>Clients</h1>
         <p style={{ marginTop: '4px', color: 'var(--color-muted)' }}>Welcome, {profile.full_name}</p>
       </div>
 

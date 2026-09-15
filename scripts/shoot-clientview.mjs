@@ -16,7 +16,7 @@ for (const [name, vw] of [['cv-desktop', { width: 1480, height: 1400 }], ['cv-mo
   await page.getByPlaceholder('Email').fill('demo.coach@gardnr.test')
   await page.getByPlaceholder('Password').fill('Demo!Passw0rd123')
   await page.getByRole('button', { name: /sign in|log in|continue/i }).first().click()
-  await page.waitForSelector('text=Coach Dashboard', { timeout: 25000 })
+  await page.waitForSelector('text=Invite a client', { timeout: 25000 })
   await page.waitForTimeout(1000)
   // Open the first client with data (Ava — on track)
   const link = page.getByRole('button', { name: /view data/i }).first()

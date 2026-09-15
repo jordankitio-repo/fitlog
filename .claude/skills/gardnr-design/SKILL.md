@@ -144,6 +144,19 @@ silently misalign every column to its left. **Give every column a fixed width**
 (or define one grid on the container) so the layout is identical on every row.
 This is the bug that made the first roster's status column jump around.
 
+### 5e. Name pages from the reader's side, and make the nav agree.
+"Coach Dashboard" named the page from the SYSTEM's side — the word "Coach" only
+ever distinguished it from `Dashboard.jsx` in the codebase. A coach never sees
+the other one, so the qualifier told them nothing. It is **Clients**, which is
+also what the nav item says.
+
+**A page whose heading and nav label disagree makes the reader check they are in
+the right place.** Still outstanding: the client side navigates to "Dashboard"
+and lands on a heading reading "My Progress".
+
+"Dashboard" is a placeholder word — it is what you call a page before deciding
+what it is. Name the thing: Clients, Daily Log, Profile.
+
 ### 5d. A column header names what the column HOLDS — and a sort must show its key.
 **If the reader can re-sort by a value, that value has to be on screen.** The
 roster once let a coach sort by Compliance while the column kept showing
