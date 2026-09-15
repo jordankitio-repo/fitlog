@@ -136,6 +136,26 @@ silently misalign every column to its left. **Give every column a fixed width**
 (or define one grid on the container) so the layout is identical on every row.
 This is the bug that made the first roster's status column jump around.
 
+### 5c. Controls sit on a raised surface. They are never flat outlines.
+A transparent button with a 1px border is the "dead" look. The recipe every
+serious dashboard uses — and what `--control-*` in `src/index.css` encodes — is
+three things that are invisible alone and read as a physical surface together:
+a barely-perceptible vertical gradient, a hairline highlight on the top edge,
+and a 1px drop shadow.
+
+- `--control-bg` / `--control-bg-hover` — the surface and its hover
+- `--control-bd` / `--control-bd-hover` — hairline border
+- `--control-shadow` / `--control-shadow-active` / `--control-shadow-accent`
+
+**Every interactive control needs a visible hover AND a pressed state.** The old
+`Button` used one `filter: brightness(1.12)` hover for all variants, which is a
+literal no-op on a transparent background — every secondary button in the app
+had no hover feedback at all. Pressed sinks the surface
+(`--control-shadow-active` + `translateY(0.5px)`); one frame of physics is what
+makes a control feel like a control.
+
+Navigable rows get a direction cue (a chevron), not just a label.
+
 ### 6. Type does hierarchy, so boxes don't have to.
 Page title `--text-title` · panel heading `--text-body`/600 · eyebrow
 `--text-xs` uppercase · row primary `--text-base`/600 · row secondary

@@ -36,7 +36,7 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
         <span className="tnum" style={{ fontWeight: 700, color: 'var(--color-text)' }}>{checkedIn}</span>
         <span className="tnum">/{total}</span> checked in
       </span>
-      <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '14px', flexWrap: 'wrap' }}>
+      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
         {roster.checkInsToReview > 0 && (
           <button
             onClick={onReviewClick}
@@ -47,12 +47,13 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
             style={{
               fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
               color: reviewHover ? 'var(--color-on-accent)' : 'var(--color-primary)',
-              background: reviewHover ? 'var(--color-primary)' : 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--color-primary) 35%, transparent)',
-              borderRadius: '999px', padding: '5px 12px',
+              background: reviewHover ? 'var(--color-primary)' : 'var(--control-bg)',
+              border: `1px solid ${reviewHover ? 'var(--color-primary)' : 'color-mix(in srgb, var(--color-primary) 40%, transparent)'}`,
+              boxShadow: reviewHover ? 'var(--control-shadow-accent)' : 'var(--control-shadow)',
+              borderRadius: '999px', padding: '6px 13px',
               cursor: onReviewClick ? 'pointer' : 'default',
               display: 'inline-flex', alignItems: 'center', gap: '6px',
-              transition: 'background 120ms, color 120ms',
+              transition: 'background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease',
             }}
           >
             {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
@@ -489,7 +490,7 @@ function CoachDashboard({ profile }) {
                         </Button>
                       )}
                       <Button onClick={() => navigate(`/client/${c.client_id}`)} variant="muted" size="sm">
-                        Open
+                        Open <Icon name="right" />
                       </Button>
                     </div>
                   </Row>
