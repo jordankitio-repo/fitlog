@@ -20,6 +20,14 @@ const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warnin
 // exists to give. "No targets set" is grey because there is no target — nothing
 // to measure against, so nothing to colour. This keeps amber meaning exactly one
 // thing (this client is slipping) instead of three, without adding a colour.
+// Oldest-first day names for the tracker's per-cell tooltips, rebuilt on render
+// so they stay correct across midnight.
+const DAY_LABELS = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date()
+  d.setDate(d.getDate() - (6 - i))
+  return i === 6 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
+})
+
 const STATUS_TONES = {
   red: 'var(--color-error)',
   yellow: 'var(--color-warning)',
@@ -480,6 +488,18 @@ function CoachDashboard({ profile }) {
                 </span>
               </div>
             <Panel flush density="compact">
+              {/* Column header. One row, not per-row noise — and it earns its
+                  place by anchoring the tracker in TIME. Seven cells with no
+                  axis are unreadable: "two green then grey" could mean a client
+                  who just started or one who stopped four days ago, and a coach
+                  cannot tell which end is today. */}
+              <Row className="roster-row roster-head" cols="minmax(0, 1fr) 168px 104px 100px 152px">
+                <span className="ds-colhead">Client</span>
+                <span className="ds-colhead">Status</span>
+                <span className="ds-colhead">Check-in</span>
+                <span className="ds-colhead">7d ago <Icon name="right" /> today</span>
+                <span />
+              </Row>
               {sortedClients.map((c) => {
                 const s = clientStats[c.client_id]
                 const triage = attentionLevel(s)
@@ -530,7 +550,11 @@ function CoachDashboard({ profile }) {
                     </div>
 
                     {/* 7 days of logging, oldest left */}
-                    <Tracker days={s?.logDays || []} label={`Last 7 days: ${(s?.logDays || []).filter(d => d === 'on').length} on target`} />
+                    <Tracker
+                      days={s?.logDays || []}
+                      label={`Last 7 days, oldest first: ${(s?.logDays || []).filter(d => d === 'on').length} on target`}
+                      dayTitles={DAY_LABELS}
+                    />
 
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                       {/* Rank 3 (pale). Open is what a coach does on every row, so it
