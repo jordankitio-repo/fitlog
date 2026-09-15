@@ -12,7 +12,7 @@ import { getInviteBlockReason } from '../utils/inviteValidation'
 import { attentionLevel, compareByAttention, summarizeRoster } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
 import { cardStyle } from '../utils/styles'
-import { Pill, Field, Icon, Panel, Row, Tracker } from '../components/ui'
+import { Pill, Field, Icon, Panel, Row } from '../components/ui'
 
 const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
@@ -20,19 +20,12 @@ const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warnin
 // exists to give. "No targets set" is grey because there is no target — nothing
 // to measure against, so nothing to colour. This keeps amber meaning exactly one
 // thing (this client is slipping) instead of three, without adding a colour.
-// Oldest-first day names for the tracker's per-cell tooltips, rebuilt on render
-// so they stay correct across midnight.
-const DAY_LABELS = Array.from({ length: 7 }, (_, i) => {
-  const d = new Date()
-  d.setDate(d.getDate() - (6 - i))
-  return i === 6 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
-})
 
 const STATUS_TONES = {
-  red: 'var(--color-error)',
-  yellow: 'var(--color-warning)',
-  setup: 'var(--color-muted)',
-  green: 'var(--color-muted)',
+  red: 'var(--color-error)',      // intervene now
+  yellow: 'var(--color-warning)', // watch this client
+  green: 'var(--color-success)',  // graded, and the grade is good
+  setup: 'var(--color-muted)',    // NOT a grade — nothing to measure against
 }
 
 
@@ -478,13 +471,22 @@ function CoachDashboard({ profile }) {
                 </>
               )}
                 <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
-                  <InfoTip text={`How to read a roster row:
+                  <InfoTip text={`How to read a row
 
-\u25b8 Status pill — the single most pressing thing. Green on track \u00b7 amber watch \u00b7 red intervene now.
+STATUS — one line per client, the single most pressing thing:
 
-\u25b8 Adh / Nrg — the client's latest check-in self-ratings, each out of 10.
+  RED     Intervene now. "Never logged", "4 days no log", "Locked".
+  AMBER   Watch. "2 days no log", "No check-in".
+  GREEN   On track. Logging as expected.
+  GREY    Nothing to grade yet — "No targets set". Not the client
+          falling behind; you haven't set what to measure against.
 
-\u25b8 The seven blocks — the last 7 days, oldest on the left. Green hit the calorie target, amber logged but short, grey nothing logged.`} />
+Colour is a grade. Grey means no grade exists.
+
+CHECK-IN — their latest self-ratings, adherence and energy, each out of 10.
+A dash means they haven't submitted one this period.
+
+Rows are sorted so whoever needs you most is at the top.`} />
                 </span>
               </div>
             <Panel flush density="compact">
@@ -493,11 +495,10 @@ function CoachDashboard({ profile }) {
                   axis are unreadable: "two green then grey" could mean a client
                   who just started or one who stopped four days ago, and a coach
                   cannot tell which end is today. */}
-              <Row className="roster-row roster-head" cols="minmax(0, 1fr) 168px 104px 100px 152px">
+              <Row className="roster-row roster-head" cols="minmax(0, 1fr) 200px 104px 152px">
                 <span className="ds-colhead">Client</span>
                 <span className="ds-colhead">Status</span>
                 <span className="ds-colhead">Check-in</span>
-                <span className="ds-colhead">7d ago <Icon name="right" /> today</span>
                 <span />
               </Row>
               {sortedClients.map((c) => {
@@ -505,7 +506,7 @@ function CoachDashboard({ profile }) {
                 const triage = attentionLevel(s)
                 const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn, checkinDue: s?.checkinDue })
                 return (
-                  <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 168px 104px 100px 152px">
+                  <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 200px 104px 152px">
                     {/* who */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                       <Avatar url={c.client?.avatar_url} name={c.client?.full_name || ''} size={30} />
@@ -550,12 +551,6 @@ function CoachDashboard({ profile }) {
                     </div>
 
                     {/* 7 days of logging, oldest left */}
-                    <Tracker
-                      days={s?.logDays || []}
-                      label={`Last 7 days, oldest first: ${(s?.logDays || []).filter(d => d === 'on').length} on target`}
-                      dayTitles={DAY_LABELS}
-                    />
-
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                       {/* Rank 3 (pale). Open is what a coach does on every row, so it
                           holds rank 2; Nudge appears only on some rows and emails a real

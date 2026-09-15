@@ -13,8 +13,14 @@ const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 const PASSWORD = 'Demo!Passw0rd123'
 const COACH_EMAIL = 'demo.coach@gardnr.test'
 
-const dstr = (off) => { const d = new Date(); d.setDate(d.getDate() - off); return d.toISOString().slice(0, 10) }
-const weekSunday = () => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().slice(0, 10) }
+// LOCAL date formatting, never toISOString(). toISOString() converts to UTC, so
+// west of Greenwich an evening run rolls every date forward a day: seeded
+// check-ins landed on week_of 09-14 while the app (which computes the week
+// start locally) looked for 09-13, and every client showed "No check-in"
+// despite having one. The app's own toLocalDateString does exactly this.
+const local = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const dstr = (off) => { const d = new Date(); d.setDate(d.getDate() - off); return local(d) }
+const weekSunday = () => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return local(d) }
 
 async function delUser(email) {
   const { data } = await admin.auth.admin.listUsers({ perPage: 1000 })

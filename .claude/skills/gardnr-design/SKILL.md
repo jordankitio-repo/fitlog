@@ -144,7 +144,7 @@ graded state; grey encodes that no grade exists.**
 |---|---|---|
 | red | graded, intervene now | `Never logged`, `4 days no log` |
 | amber | graded, watch this client | `2 days no log`, `No check-in` |
-| muted | graded, fine | `Logged today` |
+| green | graded, fine | `Logged today` |
 | **grey** | **nothing to grade against** | `No targets set` |
 
 `No targets set` is grey because there IS no target — no scale, no performance
@@ -158,8 +158,17 @@ gap still ranks for attention instead of sinking to the bottom with the greens),
 `tone` is how it is painted. Severity and grade-ability are different questions.
 Setup reasons live in `SETUP_REASONS`.
 
-Logging keeps the full scale, because logging IS graded — high / medium / low,
-in the status text and in the 7-day `Tracker`.
+Green must NOT share grey. They collided once: `green` and `setup` were both
+`--color-muted`, so a healthy client and an unconfigured one looked identical
+and the whole distinction existed only in the code.
+
+**The roster deliberately has no 7-day tracker.** It was tried and removed:
+seven cells needed an axis label, then per-cell tooltips, then arithmetic, to
+say something the status text already says in a phrase. A tracker is the right
+shape when the SHAPE of a series is the point (ClientView's compliance grid);
+on a triage row, where the question is "who needs me now", it cost more reading
+than it gave. If you add one anywhere, it needs an axis — a strip where the
+reader cannot tell which end is now is decoration.
 
 ### 5a. Semantic colour has a rule, or it is decoration.
 Never introduce a colour on a control without stating what governs it. For a
