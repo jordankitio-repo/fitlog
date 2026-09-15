@@ -40,8 +40,10 @@ function Button({
     opacity: disabled || loading ? 0.6 : 1,
     border: 'none',
     fontFamily: 'inherit',
-    transition: 'background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, filter 140ms ease',
+    transition: 'background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, filter 140ms ease',
     width: fullWidth ? '100%' : 'fit-content',
+    // Constant overlay — never animates, so the colour underneath is free to.
+    backgroundImage: 'var(--control-sheen)',
     whiteSpace: 'nowrap',
   }
 
@@ -99,7 +101,7 @@ function Button({
   // which is most of why they read as dead.
   const variants = {
     primary: {
-      rest: { background: 'var(--color-primary)', color: 'var(--color-on-accent)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
+      rest: { backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
       hover: { filter: 'brightness(1.08)' },
     },
     // Acts on a client: sends a nudge, sends an invite. IDENTICAL to `muted` at
@@ -108,31 +110,31 @@ function Button({
     // moment it is worth saying: this one reaches a real person. Consequence is
     // revealed as you commit, not advertised while you scan.
     action: {
-      rest: { background: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
+      rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
       // Surface and label only. The border never changes on hover — that rule
       // applies here as much as anywhere, and a brightening outline was exactly
       // what made `muted` feel wrong before.
-      hover: { background: 'var(--control-bg-accent-hover)', color: 'var(--control-fg-accent-hover)' },
+      hover: { backgroundColor: 'var(--control-bg-accent-hover)', color: 'var(--control-fg-accent-hover)' },
     },
     muted: {
-      rest: { background: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
-      hover: { background: 'var(--control-bg-hover)', color: 'var(--color-text)' },
+      rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
+      hover: { backgroundColor: 'var(--control-bg-hover)', color: 'var(--color-text)' },
     },
     outline: {
-      rest: { background: 'var(--control-bg)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
-      hover: { background: 'var(--color-primary-dim)', borderColor: 'var(--color-primary)' },
+      rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
+      hover: { backgroundColor: 'var(--color-primary-dim)', borderColor: 'var(--color-primary)' },
     },
     danger: {
-      rest: { background: 'var(--control-bg)', color: 'var(--color-error)', border: '1px solid color-mix(in srgb, var(--color-error) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
-      hover: { background: 'color-mix(in srgb, var(--color-error) 12%, transparent)', borderColor: 'var(--color-error)' },
+      rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-error)', border: '1px solid color-mix(in srgb, var(--color-error) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
+      hover: { backgroundColor: 'color-mix(in srgb, var(--color-error) 12%, transparent)', borderColor: 'var(--color-error)' },
     },
     'danger-solid': {
-      rest: { background: 'var(--color-error)', color: 'var(--color-on-accent)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
+      rest: { backgroundColor: 'var(--color-error)', color: 'var(--color-on-accent)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
       hover: { filter: 'brightness(1.08)' },
     },
     ai: {
-      rest: { background: 'var(--control-bg)', color: 'var(--color-ai)', border: '1px solid color-mix(in srgb, var(--color-ai) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
-      hover: { background: 'color-mix(in srgb, var(--color-ai) 12%, transparent)', borderColor: 'var(--color-ai)' },
+      rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-ai)', border: '1px solid color-mix(in srgb, var(--color-ai) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
+      hover: { backgroundColor: 'color-mix(in srgb, var(--color-ai) 12%, transparent)', borderColor: 'var(--color-ai)' },
     },
     // Genuinely chrome-less: for a control that must not compete, like a
     // "Cancel" beside a primary action. Still gets a real hover.
@@ -141,13 +143,13 @@ function Button({
     // pressed. Rank 2 is raised and lit; this one sits flush.
     ghost: {
       rest: {
-        background: 'var(--color-surface-2)',
+        backgroundColor: 'var(--color-surface-2)',
         color: 'var(--color-muted)',
         border: '1px solid var(--color-border)',
         boxShadow: 'none',
       },
       hover: {
-        background: 'var(--control-bg-hover)',
+        backgroundColor: 'var(--control-bg-hover)',
         color: 'var(--color-text)',
       },
     },

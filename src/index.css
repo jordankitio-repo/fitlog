@@ -33,8 +33,15 @@
      A transparent button with a 1px border is the "dead" look — and its hover
      was a literal no-op, because filter: brightness() on transparent changes
      nothing. */
-  --control-bg: linear-gradient(180deg, #1e1e1e 0%, #161616 100%);
-  --control-bg-hover: linear-gradient(180deg, #272727 0%, #1e1e1e 100%);
+  /* Solid colours, not gradients: background-image is a DISCRETE property, so a
+     gradient snaps to its final value the instant a hover starts while the
+     label interpolates over 140ms. The box flashed green and the text caught up
+     afterwards. A solid background-color interpolates, so the whole control
+     arrives together. The vertical sheen lives in --control-sheen, a constant
+     overlay that never changes and therefore never needs to animate. */
+  --control-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 100%);
+  --control-bg: #161616;
+  --control-bg-hover: #1e1e1e;
   --control-bd: rgba(255, 255, 255, 0.13);
   --control-bd-hover: rgba(255, 255, 255, 0.22);
   --control-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -48,8 +55,8 @@
      Elevation encodes invitation; hue encodes consequence.
      The hover lift matches --control-bg-hover in LIGHTNESS exactly — only the
      cast differs, so a green control never lifts harder than a neutral one. */
-  --control-bg-accent: linear-gradient(180deg, #16301f 0%, #122619 100%);
-  --control-bg-accent-hover: linear-gradient(180deg, #1f2b24 0%, #19221d 100%);
+  --control-bg-accent: #122619;
+  --control-bg-accent-hover: #19221d;
   /* Hover label: tracks --color-text in DIRECTION and roughly in luminance, with
      a green cast. Full-saturation --color-primary darkened the label by 52 while
      the neutral hover brightened it by 33 — opposite directions, and an 83%
@@ -156,20 +163,21 @@
   --color-control-border: rgba(0, 0, 0, 0.18);
   /* Softer, cooler shadow so white cards lift gently instead of looking smudged. */
   --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
-  --control-bg: linear-gradient(180deg, #ffffff 0%, #f7f9f7 100%);
-  --control-bg-hover: linear-gradient(180deg, #f6f8f6 0%, #eef1ee 100%);
+  --control-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%);
+  --control-bg: #f7f9f7;
+  --control-bg-hover: #eef1ee;
   --control-bd: rgba(16, 24, 40, 0.15);
   --control-bd-hover: rgba(16, 24, 40, 0.26);
   --control-shadow: 0 1px 2px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --control-shadow-active: inset 0 1px 2px rgba(16, 24, 40, 0.12);
   --control-shadow-accent: 0 1px 2px rgba(16, 24, 40, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  --control-bg-accent: linear-gradient(180deg, #f2fbf5 0%, #e9f6ed 100%);
+  --control-bg-accent: #e9f6ed;
   /* Chroma beats luminance parity HERE. On a near-white panel a green tint held
      to the neutral hover's exact lightness comes out at ~3% saturation, which is
      no green at all — the rule made the signal invisible. These carry a real
      mint cast (~12%) and so darken about twice as far as the neutral hover.
      Still a light tint, and a signal you can see beats a ratio you cannot. */
-  --control-bg-accent-hover: linear-gradient(180deg, #d7f3e2 0%, #cbecd8 100%);
+  --control-bg-accent-hover: #cbecd8;
   /* Light: the neutral label DARKENS (#5f6459 -> #16181c), so the accent label
      darkens too — deeper than --color-primary, which is too light to match. */
   --control-fg-accent-hover: #0a3018;

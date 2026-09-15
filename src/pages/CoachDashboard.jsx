@@ -91,13 +91,14 @@ function BannerAction({ onClick, title, children }) {
         // Neutral at rest like every other control; the tone shows on hover,
         // which is where it matters — this CTA opens work ending in a message.
         color: hover && live ? 'var(--control-fg-accent-hover)' : 'var(--color-text-dim)',
-        background: hover && live ? 'var(--control-bg-accent-hover)' : 'var(--control-bg)',
+        backgroundImage: 'var(--control-sheen)',
+        backgroundColor: hover && live ? 'var(--control-bg-accent-hover)' : 'var(--control-bg)',
         border: '1px solid var(--control-bd)',
         boxShadow: 'var(--control-shadow)',
         borderRadius: '999px', padding: '6px 13px',
         cursor: live ? 'pointer' : 'default',
         display: 'inline-flex', alignItems: 'center', gap: '6px',
-        transition: 'background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease',
+        transition: 'background-color 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease',
       }}
     >
       {children}

@@ -14,7 +14,9 @@ export default function Pill({ active = false, style, children, ...rest }) {
       onPointerDown={() => setPressed(true)}
       onPointerUp={() => setPressed(false)}
       style={{
-        background: active
+        // Solid colour so the hover interpolates; the sheen is a constant layer.
+        backgroundImage: 'var(--control-sheen)',
+        backgroundColor: active
           ? 'var(--color-primary)'
           : hovered ? 'var(--control-bg-hover)' : 'var(--control-bg)',
         color: active ? 'var(--color-on-accent)' : hovered ? 'var(--color-text)' : 'var(--color-text-dim)',
@@ -29,7 +31,7 @@ export default function Pill({ active = false, style, children, ...rest }) {
         fontWeight: 600,
         cursor: 'pointer',
         fontFamily: 'inherit',
-        transition: 'background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease',
+        transition: 'background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease',
         ...style,
       }}
       {...rest}

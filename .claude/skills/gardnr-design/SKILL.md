@@ -246,7 +246,24 @@ on the top edge, a 1px drop shadow.
 `--control-bg` / `-bg-hover` · `--control-bd` / `-bd-hover` ·
 `--control-shadow` / `-shadow-active` / `-shadow-accent`
 
-**D2. Every control needs a visible hover AND a pressed state.**
+**D2. Every control needs a visible hover AND a pressed state — that ANIMATE.**
+
+**Never put a gradient on a property you intend to transition.**
+`background-image` is a DISCRETE property: it snaps to its final value the
+instant a hover begins while `color` interpolates over 140ms, so the box
+changes first and the label arrives 125ms later. That desync reads as a flash.
+Measured, before the fix:
+
+```
+t+  0ms  bg=rgb(215,243,226)  label=rgb(59,63,69)   box already green
+t+125ms  bg=rgb(215,243,226)  label=rgb(10,48,24)   text finally catches up
+```
+
+Control surfaces are therefore **solid colours** (`--control-bg`,
+`-bg-hover`, `-bg-accent-hover`) transitioned as `background-color`, with the
+vertical gradient moved to **`--control-sheen`** — a constant overlay that never
+changes and so never needs to animate. Surface and label now arrive together.
+
 Pressed sinks the surface (`--control-shadow-active` + `translateY(0.5px)`); one
 frame of physics is what makes a control feel like a control.
 
