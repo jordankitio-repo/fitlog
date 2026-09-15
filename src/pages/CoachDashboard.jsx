@@ -102,7 +102,12 @@ function BannerAction({ onClick, title, children }) {
       }}
     >
       {children}
-      <Icon name="right" style={{ transform: hover && live ? 'translateX(2px)' : 'none', transition: 'transform 120ms' }} />
+      {/* No transform on the chevron. It was the only animated glyph in the app,
+          it ran at 120ms against everything else's 140ms so it landed early, and
+          it transitioned FROM `none` — which makes the browser build a transform
+          context mid-flight and stutter. Every other control changes colour and
+          nothing else; this one does too now. */}
+      <Icon name="right" />
     </button>
   )
 }

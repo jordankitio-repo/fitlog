@@ -237,6 +237,24 @@ phrase. Use one where the shape of the series is the point, and label its axis.
 
 ### D. Controls
 
+**D0. The surface ramp: page < panel < control.**
+A raised control must be lighter than whatever it sits on, on EVERY surface.
+Light panels were pure `#ffffff`, which left nowhere lighter to go — so the same
+button read as darker-than-backdrop inside a panel and lighter-than-backdrop on
+the page. It lifted in one place and sank in the other, and the identical hover
+tint looked like two different greens because one was surrounded by white and
+the other by grey.
+
+| | page | panel | control |
+|---|---|---|---|
+| light | `#f4f5f4` | `#fbfcfb` | `#ffffff` |
+| dark | `#0a0a0a` | `#141414` | `#161616` |
+
+Measured lift is now the same direction in both themes: control +3 over a panel,
++10 over the page in light; +2 / +12 in dark. **If a control ever needs to be
+darker than its backdrop to be visible, the ramp is wrong — fix the ramp, not
+the control.**
+
 **D1. Controls sit on a raised surface. Never flat outlines.**
 A transparent button with a 1px border is the "dead" look. `--control-*`
 encodes the recipe — three things invisible alone that read as a physical

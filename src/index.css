@@ -131,8 +131,13 @@
    with carbs darkened so the pale tan stays legible on white. */
 :root[data-theme="light"] {
   color-scheme: light;
+  /* A three-step light ramp: page < panel < control. Panels were pure #ffffff,
+     which left a raised control nowhere lighter to go — so on a panel it had to
+     read as DARKER than its backdrop while on the page it read as lighter, and
+     the same button lifted in one place and sank in the other. Taking panels a
+     few points off white restores the direction everywhere. */
   --color-bg: #f4f5f4;
-  --color-surface: #ffffff;
+  --color-surface: #fbfcfb;
   --color-surface-2: #eef0ee;
   --color-border: #e4e6e4;
   --color-border-strong: #d2d5d2;
@@ -164,8 +169,8 @@
   /* Softer, cooler shadow so white cards lift gently instead of looking smudged. */
   --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
   --control-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%);
-  --control-bg: #f7f9f7;
-  --control-bg-hover: #eef1ee;
+  --control-bg: #ffffff;
+  --control-bg-hover: #f4f6f4;
   --control-bd: rgba(16, 24, 40, 0.15);
   --control-bd-hover: rgba(16, 24, 40, 0.26);
   --control-shadow: 0 1px 2px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -177,7 +182,7 @@
      no green at all — the rule made the signal invisible. These carry a real
      mint cast (~12%) and so darken about twice as far as the neutral hover.
      Still a light tint, and a signal you can see beats a ratio you cannot. */
-  --control-bg-accent-hover: #cbecd8;
+  --control-bg-accent-hover: #d3efdf;
   /* Light: the neutral label DARKENS (#5f6459 -> #16181c), so the accent label
      darkens too — deeper than --color-primary, which is too light to match. */
   --control-fg-accent-hover: #0a3018;
