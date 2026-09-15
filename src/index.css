@@ -252,35 +252,6 @@ body {
 .ds-sortbtn:active { color: var(--color-text); }
 .ds-sortbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
-/* Banner CTA. Pure CSS :hover — no React state, so no re-render between the
-   pointer moving and the style changing. The state-driven version stuttered on
-   leave: setHover(false) had to round-trip through a render before the
-   transition could even start, and a pill's rounded corners make it easy to
-   cross the boundary twice on the way out, restarting it. */
-.ds-bannercta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font: inherit;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  color: var(--color-text-dim);
-  background-color: var(--control-bg);
-  background-image: var(--control-sheen);
-  border: 1px solid var(--control-bd);
-  box-shadow: var(--control-shadow);
-  border-radius: 999px;
-  padding: 6px 13px;
-  cursor: pointer;
-  transition: background-color 140ms ease, color 140ms ease;
-}
-.ds-bannercta:hover:not(:disabled) {
-  background-color: var(--control-bg-accent-hover);
-  color: var(--control-fg-accent-hover);
-}
-.ds-bannercta:disabled { cursor: default; }
-.ds-bannercta:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-
 /* A status cell that is also an action. Same behaviour as .ds-sortbtn: the type
    and its chevron carry the interaction, never a fill — this sits inside a data
    column, and a box here would read as a chip. The chevron is the affordance,

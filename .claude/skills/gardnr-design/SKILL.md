@@ -272,6 +272,15 @@ to that client's targets now. The GRADE carries the hint (`fix: 'targets'`) so
 the view never matches on text, and grades with no user-fixable cause — "Nothing
 logged", which only the client can resolve — carry none and stay plain.
 
+**A control is a `Button`. Do not hand-roll one.** The banner CTA was a bespoke
+component for no reason other than its pill shape, and it drifted from the rest
+of the app three separate times — wrong hover strength, an animated chevron
+nothing else had, a state-driven hover that stuttered on leave. Each was fixed
+in isolation and the next one appeared. It is `<Button variant="action">` with a
+`borderRadius` override now, so it is identical to Nudge by construction rather
+than by maintenance. **If a control needs a different shape, override the shape
+— never rebuild the control.**
+
 **Prefer CSS `:hover` over React state.** State-driven hover puts a re-render
 between the pointer moving and the style changing, which shows up worst on
 LEAVE — the transition cannot start until the render lands, and a pill's

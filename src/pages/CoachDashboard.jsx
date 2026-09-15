@@ -37,55 +37,6 @@ const STATUS_TONES = {
 }
 
 
-// A banner CTA. Every headline number that names work the coach has to do is
-// one of these, so a count is never a dead end: it says how many AND takes you
-// to the first one.
-//
-// Single-tone for now. A `tone` prop existed for an amber "N clients need
-// targets" CTA which was deleted once triage started ranking those clients to
-// the top of the roster by name. The rule it encoded still stands and should
-// come back with the second CTA: tone answers "what happens if this is
-// ignored?" — green for routine work, amber for something blocked. Never red;
-// a coach's to-do must not out-shout a client in trouble.
-//
-// `tone` carries the KIND of work — see the table above.
-// ── Banner CTA tones ────────────────────────────────────────────────────────
-// Tone answers exactly one question: WHAT HAPPENS IF THE COACH IGNORES THIS?
-//
-//   primary (green)   Routine work. It piles up; nothing breaks.
-//                     → check-ins waiting to be reviewed
-//   warning (amber)   Blocked. Something cannot be measured or acted on until
-//                     the coach fixes it. The state is wrong, not urgent.
-//                     → a client with no targets: their logs cannot be graded
-//
-// There is deliberately NO red banner CTA, and this is the load-bearing rule:
-// red means a CLIENT is in trouble. A coach's own to-do list must never shout
-// louder than a person who has stopped eating. If admin tasks could go red,
-// "4 clients need targets" would out-rank "Hugo, 5 days no log" on the same
-// screen — which is precisely backwards. Red belongs to the roster rows.
-//
-// TONE DOES NOT ESCALATE WITH COUNT. Ten clients missing targets is the same
-// KIND of problem as one, so it stays amber and the number does the work. Two
-// channels, no overlap: the number carries volume, the tone carries kind.
-// Escalating by count would let a big pile of admin outrank a single failing
-// client, which is the same mistake in slower motion.
-//
-// ORDER IS FIXED, not sorted by count: routine first, then gaps. A coach looks
-// at this bar every day and should not have to re-find things because the
-// numbers moved.
-//
-// Zero renders nothing — a CTA never appears saying "0". Singular and plural
-// are written out per call site; "1 client needs" / "3 clients need".
-function BannerAction({ onClick, title, children }) {
-  const live = Boolean(onClick)
-  return (
-    <button className="ds-bannercta" onClick={onClick} disabled={!live} title={title}>
-      {children}
-      <Icon name="right" />
-    </button>
-  )
-}
-
 // Page-level triage headline — NOT a card. Rule 1: the page itself is never a
 // box, so this sits on the page ground with space separating it, not a border.
 function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
@@ -105,10 +56,21 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
         <span className="tnum">/{total}</span> checked in
       </span>
       <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        {/* Just a Button. It acts on clients (it opens work that ends in a
+            message), so variant="action" — the same one Nudge uses, and
+            therefore the same hover, press and timing by construction. Only the
+            pill radius differs, because it sits on the page not in a row. */}
         {roster.checkInsToReview > 0 && (
-          <BannerAction onClick={onReviewClick} title="Review the oldest waiting check-in">
+          <Button
+            variant="action"
+            size="sm"
+            onClick={onReviewClick}
+            disabled={!onReviewClick}
+            style={{ borderRadius: '999px' }}
+          >
             {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
-          </BannerAction>
+            <Icon name="right" />
+          </Button>
         )}
       </span>
     </div>
