@@ -315,6 +315,23 @@ in isolation and the next one appeared. It is `<Button variant="action">` with a
 than by maintenance. **If a control needs a different shape, override the shape
 — never rebuild the control.**
 
+Two more instances, both found by measuring the rendered page rather than
+reading the source, because both were invisible until something else moved:
+
+- **`Pill` overrode padding as well as type.** Its own comment said the type
+  scale was "the only thing held back from Button", but the code also set
+  `padding: '5px 12px'`, leaving chips 26px tall against the rows' 30px. The
+  override that is wanted is the lighter type; the height now comes from a
+  `minHeight` floor so the chip matches Button `sm` by construction.
+- **The roster banner's fourth segment was hand-built.** Three counts went
+  through a local `seg()` helper; `6/9 checked in` was assembled inline and so
+  inherited `--text-sm` instead. It had been wrong since before the type pass
+  (15px vs 13px) and nobody saw it — until `seg()` moved to 20px and the gap
+  became 7px. **A hand-rolled copy is not wrong on the day it is written; it is
+  wrong on the day the original changes.** It now goes through `seg()`, which
+  takes a node, so the ratio's muted denominator is a colour decision rather
+  than a second implementation.
+
 **Prefer CSS `:hover` over React state.** State-driven hover puts a re-render
 between the pointer moving and the style changing, which shows up worst on
 LEAVE — the transition cannot start until the render lands, and a pill's
@@ -472,10 +489,19 @@ and silently desynced every seeded check-in.
 
 ### Applied so far
 
+Surface counts below mean **bordered non-control elements** — form controls carry
+their own borders and are excluded, or the number measures the control library
+rather than the layout. Stated because the original "7 paddings -> 3" could not
+be reproduced without knowing that.
+
 | Screen | Before | After |
 |---|---|---|
-| CoachDashboard | 2266px · 51 surfaces · 36 nested · depth 2 · 7 paddings | **1100px · 12 · 0 · depth 1 · 3** |
+| CoachDashboard | 2266px · 51 surfaces · 36 nested · depth 2 · 7 paddings | **1100px · 11 · 0 · depth 1** |
+| CoachDashboard type | 16 styles · 4 weights at 13px · 3 letter-spacings at 11px | **14 styles · weights 400/500/600 · one spacing per role** |
+| CoachDashboard spacing | 11 distinct gaps, 7 off-ramp | **8 gaps, all scale steps** |
+| CoachDashboard controls | 30px ×13 + 26px ×4 | **30px ×17** |
 | Profile | already compliant (8 surfaces, depth 1, 2 paddings) | Panel-migrated |
+| NotificationCenter | severity as a dot, grey reason text, 700 weights, hardcoded shadow, 9 off-scale spacings | **status text graded like the roster's column; ramp weights; `--shadow-dropdown`** |
 
 **Still to do:** Dashboard (6518px · 74 surfaces · 60 nested · depth 3 · 17
 paddings — the worst screen in the app), Log, ClientView (4693px · 38 · 23 ·
@@ -590,8 +616,13 @@ tokens had 23 uses in the whole app while the roster alone rendered 11 distinct
 gaps. After the sweep the roster renders 8, all of them scale steps.
 
 Radius is exactly three values, each with one job: `--radius` 8px for surfaces
-and controls, `50%` for avatars, `999px` for pills. Card shadow is
-`--shadow-card` (tokenized, because light mode needs a softer, cooler one).
+and controls, `50%` for avatars, `999px` for pills.
+
+Shadows are tokenized for the same reason colours are — a shadow tuned for a
+near-black ground is far too heavy on a light one. `--shadow-card` for resting
+surfaces; **`--shadow-dropdown`** for floating panels (the account menu and the
+notification centre). Both of those dropdowns had independently hardcoded
+`0 12px 32px rgba(0,0,0,0.5)`, which is correct on dark and a smear on light.
 
 ## Primitives — reuse, don't redefine
 
@@ -649,6 +680,25 @@ Each carries an `eslint-disable` with a reason. Leave them alone:
 `npm run lint` fails on:
 - a raw hex as a `color:` value anywhere in `src/`
 - a raw `fontSize` literal anywhere in `src/`
+
+**The hex rule was widened (Sep 15 2026)** from `Property[key.name='color']` to
+any hex bound to a property OR a const, whatever the key is called. The old
+shape is how `const LEVEL_COLOR = { red: '#f87171', yellow: '#fbbf24' }` lived
+in `NotificationCenter` unflagged while every page around it was clean. JSX
+attributes stay unmatched — SVG `fill=`/`stroke=` are their own category.
+
+Widening it found a **theming bug**, not just untidy code: `ComplianceBreakdown`
+and `EnergyBalanceRead` each defined `GOOD = '#34d399'` / `WEAK = '#fbbf24'` —
+the DARK-mode values of `--color-success` / `--color-warning`, which flip to
+`#16a34a` / `#b45309` in light. Both components had been painting dark-theme
+colours on a white ground. The `MUTED` const sitting directly beneath them was
+already a token, so the conversion had simply stopped halfway.
+
+**Weight and spacing still have no rule.** Measured, not estimated: turning them
+on today fails **135** call sites for weight and **510** for spacing, across
+Dashboard, Log and ClientView. Those three pages are queued for the layout
+migration, which will rewrite most of those call sites anyway — tokenizing them
+first is work done twice. Add both rules as the CLOSING step of that migration.
 
 The escape hatch is `eslint-disable-next-line no-restricted-syntax -- <reason>`.
 **A literal with a stated reason is a decision; a literal without one is a

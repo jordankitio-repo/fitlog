@@ -10,8 +10,8 @@ import { Icon } from './ui'
 // caveat (data quality) or a deviation from the plan; green marks moving toward
 // the goal / hitting the plan. Never a verdict on the outcome itself.
 
-const GOOD = '#34d399'
-const WEAK = '#fbbf24'
+const GOOD = 'var(--color-success)'
+const WEAK = 'var(--color-warning)'
 const MUTED = 'var(--color-muted)'
 const TEXT = 'var(--color-text)'
 const BAND = 0.1 // within ±10% of target = on plan (matches ComplianceBreakdown)

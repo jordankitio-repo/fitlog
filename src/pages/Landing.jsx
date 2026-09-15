@@ -40,6 +40,12 @@ const SOCIAL_PATHS = {
   ),
 }
 
+// The landing page is intentionally always-dark and excluded from
+// tokenization; data-theme does not affect it, so this must match the embedded
+// walkthrough's own ground.
+// eslint-disable-next-line no-restricted-syntax -- see above
+const EMBED_BG = '#060606'
+
 function SocialIcon({ name }) {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -223,7 +229,7 @@ function CoachDemo() {
         src="/coach-demo.html"
         title="Interactive coach walkthrough"
         loading="lazy"
-        style={{ width: '100%', height, border: 0, display: 'block', background: '#060606' }}
+        style={{ width: '100%', height, border: 0, display: 'block', background: EMBED_BG }}
       />
     </div>
   )

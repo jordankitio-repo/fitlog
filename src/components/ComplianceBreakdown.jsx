@@ -8,8 +8,8 @@ import { complianceBreakdown } from '../utils/complianceBreakdown'
 // Each segment is judged on its OWN merit, so a client who under-eats on
 // weekdays AND over-eats on weekends shows both bars diverging.
 
-const GOOD = '#34d399'
-const WEAK = '#fbbf24'
+const GOOD = 'var(--color-success)'
+const WEAK = 'var(--color-warning)'
 const MUTED = 'var(--color-muted)'
 const MAX_BAR = 46 // each side of the center line spans up to this % of the track
 

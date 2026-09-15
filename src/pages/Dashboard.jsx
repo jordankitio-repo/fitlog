@@ -1340,8 +1340,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                       {
                         label: 'Weight',
                         data: weightHistoryDisplay.map(d => d.weight),
+                        // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
                         borderColor: '#34d399',
                         backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                        // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
                         pointBackgroundColor: '#34d399',
                         pointRadius: 3,
                         tension: 0.3,

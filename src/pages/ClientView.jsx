@@ -64,6 +64,16 @@ ChartJS.register(
   BarElement, Title, Tooltip, Legend, Filler
 )
 
+// These three are literals on purpose. The first two are values OF a custom
+// property (--gw-accent), which the .gw-tile gradient consumes directly; the
+// third is a chart.js dataset colour on a canvas that cannot read a CSS var.
+// Keep them matched to --color-ai and --color-weight by hand.
+/* eslint-disable no-restricted-syntax -- see above */
+const GW_ACCENT_AI = '#a78bfa'
+const GW_ACCENT_REPORT = '#34d399'
+const CHART_SERIES = '#34d399'
+/* eslint-enable no-restricted-syntax */
+
 function computeRollingAverage(data, window = 7) {
   return data.map((_, i) => {
     const start = Math.max(0, i - window + 1)
@@ -1181,6 +1191,7 @@ async function sendMessage(text) {
           const row = weightHistory.find(d => d.iso === iso)
           return row ? Math.round(convertWeight(row.weight, normUnit(row.unit || weightDisplayUnit), weightDisplayUnit) * 10) / 10 : null
         }),
+        // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
         borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)',
         tension: 0.3, fill: false, yAxisID: 'yWeight', pointRadius: 3, spanGaps: true,
       })
@@ -1214,6 +1225,7 @@ async function sendMessage(text) {
           const mins = cardioHistory.find(d => d.iso === iso)?.minutes
           return mins ? Math.round((mins / cardioTarget) * 100) : null
         }),
+        // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
         backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6',
         borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
       })
@@ -1496,7 +1508,7 @@ async function sendMessage(text) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
               <button className="gw-tile" onClick={generateCallPrep} disabled={briefingLoading}
-                style={{ '--gw-accent': '#a78bfa', display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '16px 18px', borderRadius: 'var(--radius)', background: 'linear-gradient(135deg, rgba(167,139,250,0.08), rgba(167,139,250,0))', border: '1px solid var(--color-border)', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
+                style={{ '--gw-accent': GW_ACCENT_AI, display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '16px 18px', borderRadius: 'var(--radius)', background: 'linear-gradient(135deg, rgba(167,139,250,0.08), rgba(167,139,250,0))', border: '1px solid var(--color-border)', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
                 <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: 'rgba(167, 139, 250, 0.16)', flexShrink: 0 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
                 </span>
@@ -1507,7 +1519,7 @@ async function sendMessage(text) {
               </button>
 
               <button className="gw-tile" onClick={generateWeeklyReport} disabled={reportLoading}
-                style={{ '--gw-accent': '#34d399', display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '16px 18px', borderRadius: 'var(--radius)', background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0))', border: '1px solid var(--color-border)', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
+                style={{ '--gw-accent': GW_ACCENT_REPORT, display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '16px 18px', borderRadius: 'var(--radius)', background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0))', border: '1px solid var(--color-border)', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
                 <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: 'rgba(52, 211, 153, 0.16)', flexShrink: 0 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
                 </span>
@@ -2166,6 +2178,7 @@ async function sendMessage(text) {
                 {
                   label: 'Weight',
                   data: dispHistory.map(d => d.weight),
+                  // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
                   borderColor: '#34d399',
                   backgroundColor: 'rgba(52, 211, 153, 0.15)',
                   // Reached-goal marker: on-brand green (NOT gold — gold is the
@@ -2345,7 +2358,7 @@ async function sendMessage(text) {
                               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 6px' }}>{s.label} <span style={{ color: 'var(--color-faint)' }}>({unit})</span></p>
                               <div style={{ height: '180px' }}>
                                 <Line
-                                  data={{ labels: pts.map(r => r.logged_date.slice(5)), datasets: [{ label: s.label, data: pts.map(r => r[s.key]), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.12)', pointRadius: 3, tension: 0.3, fill: true }] }}
+                                  data={{ labels: pts.map(r => r.logged_date.slice(5)), datasets: [{ label: s.label, data: pts.map(r => r[s.key]), borderColor: CHART_SERIES, backgroundColor: 'rgba(52, 211, 153, 0.12)', pointRadius: 3, tension: 0.3, fill: true }] }}
                                   options={withYTitle(miniChartOptions, unit)}
                                 />
                               </div>

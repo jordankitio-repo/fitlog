@@ -52,7 +52,27 @@ export default defineConfig([
           selector: "Property[key.name='fontSize'] Literal[value=/^[0-9.]+(rem|px|em)$/]",
           message: 'Use a --text-* token from the type ramp (src/index.css), not a raw size. Ten steps, --text-xs (11px, the floor) to --text-display (32px). If none fits, extend the ramp rather than one-off it.',
         },
+        {
+          // A hex in ANY object property, whatever the key is named. The rule
+          // used to require the key be literally `color`, which meant a palette
+          // keyed by anything else walked straight past it — that is how
+          // `const LEVEL_COLOR = { red: '#f87171', yellow: '#fbbf24' }` sat in
+          // NotificationCenter unflagged while every page around it was clean.
+          // Covers a hex bound to a const too, so hoisting one out of a style
+          // object is not a way around the rule — it just moves where the
+          // reason has to be written. JSX attributes (SVG fill=/stroke=) are
+          // deliberately NOT matched; those are their own documented category.
+          selector: ":matches(Property, VariableDeclarator) > Literal[value=/^#[0-9a-fA-F]{3,8}$/]",
+          message: 'Use a --color-* design token, not a raw hex — whatever the key is called. chart.js dataset colors belong in chartTheme.js. A genuine exception needs an eslint-disable-next-line with a reason.',
+        },
       ],
     },
+  },
+  // chart.js renders to a canvas and cannot resolve a CSS variable, so this one
+  // file is literals by design — that IS its reason for existing. Exempting the
+  // file beats repeating the identical disable comment on each of its lines.
+  {
+    files: ['src/utils/chartTheme.js'],
+    rules: { 'no-restricted-syntax': 'off' },
   },
 ])

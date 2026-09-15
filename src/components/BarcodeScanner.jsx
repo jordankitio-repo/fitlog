@@ -4,6 +4,11 @@ import { BrowserMultiFormatReader } from '@zxing/browser'
 // Owns the camera stream end-to-end so it can be released deterministically.
 // The old html5-qrcode version left the MediaStream running on close (black
 // screen until a full refresh) and was unreliable at 1D barcode pickup.
+// Not a themed surface: pure black behind live camera video, which must stay
+// black on both themes.
+// eslint-disable-next-line no-restricted-syntax -- see above
+const SCRIM_BG = '#000'
+
 function BarcodeScanner({ onDetected, onClose }) {
   const videoRef = useRef(null)
   const controlsRef = useRef(null)
@@ -75,7 +80,7 @@ function BarcodeScanner({ onDetected, onClose }) {
         muted
         playsInline
         autoPlay
-        style={{ width: '100%', maxWidth: '400px', borderRadius: '12px', background: '#000', aspectRatio: '4 / 3', objectFit: 'cover' }}
+        style={{ width: '100%', maxWidth: '400px', borderRadius: '12px', background: SCRIM_BG, aspectRatio: '4 / 3', objectFit: 'cover' }}
       />
       <button
         onClick={handleCancel}
