@@ -178,13 +178,10 @@ collapses grey into yellow for the rollup counts, and sorting by it made a grey
 and a yellow tie.
 
 **Sorting uses the grade the column renders** (`TONE_RANK`), never a parallel
-calculation. One exception, deliberate: the **Compliance
-lens ranks grey ABOVE red** (`lensToneRank`). With a red you know the problem
-and can coach it; with "No targets set" you can know nothing — that client could
-be the worst on the roster and nothing would show it. A blind spot outranks a
-known bad number, and it is a five-second fix that unblocks measurement. This
-never applies to Attention, where grey must stay below red or "finish
-onboarding Finn" outranks "Hugo hasn't logged in five days". They had drifted: compliance sorted by descending score and Last
+calculation. There is no per-lens exception: every
+dimension ranks **red, grey, yellow, green**, so Attention takes each
+dimension's worst case by that one order — no red in compliance but a grey
+present means it grabs the grey, because grey beats yellow. They had drifted: compliance sorted by descending score and Last
 logged by ascending days, so both put the HEALTHIEST client on top while the
 header said worst-first. One `TONE_RANK` comparison with a magnitude tiebreak
 makes the order and the colours agree by construction.

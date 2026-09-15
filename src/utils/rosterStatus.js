@@ -16,24 +16,14 @@ import { attentionLevel, gradeLogging, gradeCompliance, gradeCheckin, TONE_RANK 
 //
 // Tone follows the house rule — colour is a grade, grey means no grade exists.
 
-// Sort order per lens. Almost every lens ranks by severity (TONE_RANK:
-// red, yellow, setup, green). Compliance is the exception, and deliberately:
-// grey goes ABOVE red.
+// One tone order everywhere: red, grey, yellow, green (TONE_RANK).
 //
-// With a red you know the problem — the client is logging and missing targets,
-// and you can coach them. With "No targets set" you can know NOTHING: that
-// client could be the worst on the roster and nothing would show it. A blind
-// spot outranks a known bad number. It is also a five-second admin fix that
-// unblocks measurement, where 0/14 is a coaching conversation.
-//
-// This does NOT apply to Attention, where grey must stay below red — otherwise
-// "you haven't finished onboarding Finn" would outrank "Hugo hasn't logged in
-// five days", which is backwards for a triage screen.
-const COMPLIANCE_RANK = { setup: 0, red: 1, yellow: 2, green: 3 }
-
-export function lensToneRank(lens, tone) {
-  const map = lens === 'compliance' ? COMPLIANCE_RANK : TONE_RANK
-  return map[tone] ?? 99
+// Compliance briefly had its own ranking with grey above red. It doesn't: a
+// dimension reads red, grey, yellow, green like every other, so Attention takes
+// compliance's worst case by that order — if there is no red but there is a
+// grey, it grabs the grey, because grey beats yellow.
+export function lensToneRank(_lens, tone) {
+  return TONE_RANK[tone] ?? 99
 }
 
 export const LENS_HEADERS = {

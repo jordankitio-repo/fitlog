@@ -8,17 +8,12 @@ const stats = (o = {}) => ({
 })
 
 describe('lensToneRank', () => {
-  it('ranks by severity everywhere except compliance', () => {
-    for (const lens of ['attention', 'recent', 'checkin']) {
+  it('uses one order everywhere: red, grey, yellow, green', () => {
+    for (const lens of ['attention', 'compliance', 'recent', 'checkin']) {
       expect(lensToneRank(lens, 'red')).toBeLessThan(lensToneRank(lens, 'setup'))
+      expect(lensToneRank(lens, 'setup')).toBeLessThan(lensToneRank(lens, 'yellow'))
+      expect(lensToneRank(lens, 'yellow')).toBeLessThan(lensToneRank(lens, 'green'))
     }
-  })
-
-  it('puts blind spots above red in the compliance lens', () => {
-    // You can coach a red. You cannot see a grey at all.
-    expect(lensToneRank('compliance', 'setup')).toBeLessThan(lensToneRank('compliance', 'red'))
-    expect(lensToneRank('compliance', 'red')).toBeLessThan(lensToneRank('compliance', 'yellow'))
-    expect(lensToneRank('compliance', 'yellow')).toBeLessThan(lensToneRank('compliance', 'green'))
   })
 })
 
