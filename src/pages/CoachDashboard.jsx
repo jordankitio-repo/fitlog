@@ -478,10 +478,15 @@ function CoachDashboard({ profile }) {
                     <Tracker days={s?.logDays || []} label={`Last 7 days: ${(s?.logDays || []).filter(d => d === 'on').length} on target`} />
 
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      {/* Rank 3 (pale). Open is what a coach does on every row, so it
+                          holds rank 2; Nudge appears only on some rows and emails a real
+                          person, so it should not compete with the safe, exploratory
+                          action beside it. Two elevated buttons side by side is rank
+                          inflation: neither reads as the answer. */}
                       {nudge && (
                         <Button
                           onClick={() => nudgeClient(c, nudge)}
-                          variant="muted"
+                          variant="ghost"
                           size="sm"
                           loading={Boolean(nudgeLoadingIds[c.client_id])}
                           title={nudge.key === 'checkin' ? 'Nudge them to do this week\u2019s check-in' : 'Nudge them to log \u2014 they\u2019ve gone quiet'}
