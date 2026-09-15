@@ -83,7 +83,9 @@ describe('compareByAttention', () => {
   })
 
   it('within a level, ranks the client with more problems higher', () => {
-    const oneIssue = stats({ checkIn: null })
+    // Both need targets, or the "one issue" client picks up "No targets set"
+    // as a second reason and the two tie.
+    const oneIssue = stats({ checkIn: null, complianceItems: [comp('Calories', 6)] })
     const twoIssues = stats({ checkIn: null, complianceItems: [comp('Calories', 1)] })
     const sorted = [oneIssue, twoIssues].sort(compareByAttention)
     expect(sorted).toEqual([twoIssues, oneIssue])
@@ -95,6 +97,21 @@ describe('compareByAttention', () => {
     expect(sorted).toEqual([red, null])
   })
 })
+
+  it('flags missing targets as yellow, and ranks it first among the reasons', () => {
+    // Nothing to be compliant WITH, so every compliance reason is uncomputable.
+    // Telling a coach "Calories 0/7" is noise when no calorie target exists.
+    const a = attentionLevel(stats({ checkIn: null }))
+    expect(a.level).toBe('yellow')
+    expect(a.reasons[0]).toBe('No targets set')
+    expect(a.reasons).toContain('No check-in')
+  })
+
+  it('does not flag targets when the client has them', () => {
+    const a = attentionLevel(stats({ complianceItems: [comp('Calories', 6)] }))
+    expect(a.reasons).not.toContain('No targets set')
+    expect(a.level).toBe('green')
+  })
 
 describe('summarizeRoster', () => {
   it('counts levels and the data-quality facts the per-client triage cannot', () => {
@@ -111,9 +128,13 @@ describe('summarizeRoster', () => {
     expect(s.notLogging).toBe(1)
   })
 
-  it('surfaces "no targets" even for an otherwise on-track client (the blind spot)', () => {
+  // This used to assert the blind spot rather than fix it: a client with no
+  // targets was counted in `noTargets` AND graded green, so the roster called
+  // them "on track" against nothing. Missing targets is a triage reason now.
+  it('grades a client with no targets as review, not on-track', () => {
     const s = summarizeRoster({ a: stats() }) // healthy but complianceItems []
-    expect(s.onTrack).toBe(1)
+    expect(s.onTrack).toBe(0)
+    expect(s.review).toBe(1)
     expect(s.noTargets).toBe(1)
   })
 

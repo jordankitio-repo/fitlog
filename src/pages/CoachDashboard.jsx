@@ -515,14 +515,6 @@ function CoachDashboard({ profile }) {
                       {s?.lockInfo?.locked && (
                         <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--color-error)' }}>Locked</span>
                       )}
-                      {/* A coach to-do, not a client failing: without targets there is
-                          nothing to be compliant WITH, so triage would happily call
-                          this client "on track" and say nothing. */}
-                      {s && !s.complianceItems?.length && (
-                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-warning)' }}>
-                          No targets set
-                        </span>
-                      )}
                     </div>
 
                     {/* check-in self-ratings — several facts, so a strip, not a pill */}

@@ -40,6 +40,15 @@ export function attentionLevel(stats) {
   if (lockInfo?.locked) red.push('Locked')
 
   // --- Yellow: watch (only meaningful if not already red) ---
+  // No targets is FIRST among the yellows, and it is a real triage signal
+  // rather than a rollup-only fact. Without targets there is nothing for the
+  // client to be compliant WITH, so every compliance reason below is silently
+  // uncomputable and the client would otherwise grade GREEN — "on track"
+  // against nothing. It ranks first because it blocks the others: telling a
+  // coach "Calories 0/7" is noise when no calorie target exists.
+  // It is a coach to-do, not the client failing, which is why it is yellow.
+  if (!(complianceItems || []).length) yellow.push('No targets set')
+
   if (daysSinceLog !== null && daysSinceLog >= 2 && daysSinceLog < STALE_LOG_DAYS) {
     yellow.push(`${daysSinceLog} days no log`)
   }
