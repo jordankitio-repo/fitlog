@@ -16,6 +16,17 @@ import { Pill, Field, Icon, Panel, Row, Tracker } from '../components/ui'
 
 const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
+// How a row's status text is painted. Colour = a graded state; GREY = no grade
+// exists to give. "No targets set" is grey because there is no target — nothing
+// to measure against, so nothing to colour. This keeps amber meaning exactly one
+// thing (this client is slipping) instead of three, without adding a colour.
+const STATUS_TONES = {
+  red: 'var(--color-error)',
+  yellow: 'var(--color-warning)',
+  setup: 'var(--color-muted)',
+  green: 'var(--color-muted)',
+}
+
 
 // A banner CTA. Every headline number that names work the coach has to do is
 // one of these, so a count is never a dead end: it says how many AND takes you
@@ -86,7 +97,7 @@ function BannerAction({ onClick, title, tone = 'primary', children }) {
 
 // Page-level triage headline — NOT a card. Rule 1: the page itself is never a
 // box, so this sits on the page ground with space separating it, not a border.
-function RosterBanner({ roster, checkedIn, total, onReviewClick, onTargetsClick }) {
+function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
   const seg = (color, n, label) => (
     <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
       <span className="tnum" style={{ fontWeight: 700, color, fontSize: 'var(--text-md)' }}>{n}</span>
@@ -106,11 +117,6 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick, onTargetsClick 
         {roster.checkInsToReview > 0 && (
           <BannerAction onClick={onReviewClick} title="Review the oldest waiting check-in">
             {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
-          </BannerAction>
-        )}
-        {roster.noTargets > 0 && (
-          <BannerAction onClick={onTargetsClick} tone="warning" title="Open the first client who has no targets">
-            {roster.noTargets} {roster.noTargets === 1 ? 'client needs' : 'clients need'} targets
           </BannerAction>
         )}
       </span>
@@ -357,11 +363,6 @@ function CoachDashboard({ profile }) {
     .map(c => c.client_id)
 
 
-  // A client with no targets can't be compliant with anything — same predicate
-  // summarizeRoster counts, so the banner and this list can never disagree.
-  const noTargetClientIds = clients
-    .filter(c => !(clientStats[c.client_id]?.complianceItems?.length))
-    .map(c => c.client_id)
 
   const sortedClients = [...clients].sort((a, b) => {
     const sa = clientStats[a.client_id]
@@ -410,7 +411,6 @@ function CoachDashboard({ profile }) {
           checkedIn={clients.filter(c => clientStats[c.client_id]?.checkIn).length}
           total={clients.length}
           onReviewClick={reviewClientIds.length ? () => navigate(`/client/${reviewClientIds[0]}?focus=checkIn`) : undefined}
-          onTargetsClick={noTargetClientIds.length ? () => navigate(`/client/${noTargetClientIds[0]}?focus=targets`) : undefined}
         />
       )}
 
@@ -506,8 +506,8 @@ function CoachDashboard({ profile }) {
                     >
                       <span style={{
                         fontSize: 'var(--text-sm)',
-                        fontWeight: triage.level === 'green' ? 500 : 700,
-                        color: triage.level === 'green' ? 'var(--color-muted)' : attentionColors[triage.level],
+                        fontWeight: triage.tone === 'green' || triage.tone === 'setup' ? 500 : 700,
+                        color: STATUS_TONES[triage.tone] ?? 'var(--color-muted)',
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>
                         {triage.level === 'green' ? logLabel(s?.daysSinceLog) : triage.reasons[0]}

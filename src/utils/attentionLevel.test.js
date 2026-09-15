@@ -16,7 +16,7 @@ const comp = (label, value, hasData = true) => ({ label, value, hasData })
 
 describe('attentionLevel', () => {
   it('treats missing stats as green with no reasons', () => {
-    expect(attentionLevel(null)).toEqual({ level: 'green', reasons: [] })
+    expect(attentionLevel(null)).toEqual({ level: 'green', tone: 'green', reasons: [] })
   })
 
   it('is green when logging is current, checked in, and compliance is healthy', () => {
@@ -105,6 +105,22 @@ describe('compareByAttention', () => {
     expect(a.level).toBe('yellow')
     expect(a.reasons[0]).toBe('No targets set')
     expect(a.reasons).toContain('No check-in')
+  })
+
+  it('paints a setup gap grey while still ranking it as yellow', () => {
+    // Severity and grade-ability are different questions: the coach still has
+    // to act, so it must not sink to the bottom — but there is no grade to give.
+    const a = attentionLevel(stats({ checkIn: null }))
+    expect(a.level).toBe('yellow')
+    expect(a.tone).toBe('setup')
+  })
+
+  it('keeps tone === level when the top reason is a real client signal', () => {
+    const y = attentionLevel(stats({ daysSinceLog: 2, complianceItems: [comp('Calories', 6)] }))
+    expect(y.level).toBe('yellow')
+    expect(y.tone).toBe('yellow')
+    const r = attentionLevel(stats({ daysSinceLog: 9, complianceItems: [comp('Calories', 6)] }))
+    expect(r.tone).toBe('red')
   })
 
   it('does not flag targets when the client has them', () => {

@@ -23,8 +23,20 @@ const WEAK_COMPLIANCE = 3
 // existing needsAttention threshold).
 const STALE_LOG_DAYS = 4
 
+// Reasons that mean "nothing has been set up to measure against" rather than
+// "this client is slipping". They rank for the coach's attention like a yellow,
+// but they are rendered GREY, because grey is the absence of a grade and there
+// is no grade to give: no target, no scale, no performance to colour.
+export const SETUP_REASONS = ['No targets set']
+
+// `level`  severity — drives sorting and the roster counts.
+// `tone`   how the UI paints it — same as level, EXCEPT 'setup', which is grey.
+// They differ on purpose: a client with no targets still needs the coach, so it
+// must not sink to the bottom with the green ones, but colouring it amber puts
+// "the coach hasn't finished onboarding" on the same visual footing as "this
+// client is slipping". Severity and grade-ability are different questions.
 export function attentionLevel(stats) {
-  if (!stats) return { level: 'green', reasons: [] }
+  if (!stats) return { level: 'green', tone: 'green', reasons: [] }
 
   const { daysSinceLog, checkIn, complianceItems, lockInfo } = stats
 
@@ -56,9 +68,17 @@ export function attentionLevel(stats) {
   const weak = (complianceItems || []).filter(i => i.hasData && i.value < WEAK_COMPLIANCE)
   weak.forEach(i => yellow.push(`${i.label} ${i.value}/7`))
 
-  if (red.length > 0) return { level: 'red', reasons: red.concat(yellow) }
-  if (yellow.length > 0) return { level: 'yellow', reasons: yellow }
-  return { level: 'green', reasons: [] }
+  if (red.length > 0) {
+    const reasons = red.concat(yellow)
+    return { level: 'red', tone: 'red', reasons }
+  }
+  if (yellow.length > 0) {
+    // The badge shows reasons[0]; if that top reason is a setup gap, the row is
+    // painted grey even though it still ranks as yellow.
+    const tone = SETUP_REASONS.includes(yellow[0]) ? 'setup' : 'yellow'
+    return { level: 'yellow', tone, reasons: yellow }
+  }
+  return { level: 'green', tone: 'green', reasons: [] }
 }
 
 // Sort comparator: red first, then yellow, then green. Within a level, more

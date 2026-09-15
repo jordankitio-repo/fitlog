@@ -136,6 +136,31 @@ silently misalign every column to its left. **Give every column a fixed width**
 (or define one grid on the container) so the layout is identical on every row.
 This is the bug that made the first roster's status column jump around.
 
+### 5a. Colour is a grade. Grey is the absence of one.
+The rule that keeps the roster from becoming a rainbow: **colour encodes a
+graded state; grey encodes that no grade exists.**
+
+| Tone | Means | Example |
+|---|---|---|
+| red | graded, intervene now | `Never logged`, `4 days no log` |
+| amber | graded, watch this client | `2 days no log`, `No check-in` |
+| muted | graded, fine | `Logged today` |
+| **grey** | **nothing to grade against** | `No targets set` |
+
+`No targets set` is grey because there IS no target — no scale, no performance
+to colour. Painting it amber would put "the coach hasn't finished onboarding"
+on the same visual footing as "this client is slipping", and would leave amber
+meaning three different things at once.
+
+This is why `attentionLevel` returns BOTH `level` and `tone`. They differ on
+purpose: `level` is severity (drives sorting and the roster counts, so a setup
+gap still ranks for attention instead of sinking to the bottom with the greens),
+`tone` is how it is painted. Severity and grade-ability are different questions.
+Setup reasons live in `SETUP_REASONS`.
+
+Logging keeps the full scale, because logging IS graded — high / medium / low,
+in the status text and in the 7-day `Tracker`.
+
 ### 5a. Semantic colour has a rule, or it is decoration.
 Never introduce a colour on a control without stating what governs it. For a
 banner CTA (a headline count that names work the coach owes), tone answers one
