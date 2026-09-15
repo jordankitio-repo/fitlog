@@ -54,12 +54,20 @@ preferences; treat them as broken output.
    ```
    `<tone>` is `--color-error` / `--color-warning` / `--color-success` by level.
 
-3. **Emoji as icons.** 🧮 🔖 ✅ have all been rejected. Icons are **monochrome
+3. **Two glyphs for one action.** There is ONE forward mark — the chevron
+   (`<Icon name="right" />`) — used for navigation, CTAs and "go to this thing"
+   alike. A line-and-arrowhead `arrowRight` existed alongside it and the two
+   appeared on the same screen (the roster's "Open ›" beside the banner's
+   "check-ins to review →"), which reads as carelessness. It has been deleted
+   from the set so it cannot come back. Same rule for any glyph pair: if two
+   marks mean the same thing, keep one.
+
+4. **Emoji as icons.** 🧮 🔖 ✅ have all been rejected. Icons are **monochrome
    feather/line SVG with `stroke="currentColor"`**, matching the nav rail and
    save-icon glyph style. (Emoji already in the streak card are a pre-existing
    decorative exception, not a precedent.)
 
-4. **Bespoke one-off styling** where a primitive exists. See below.
+5. **Bespoke one-off styling** where a primitive exists. See below.
 
 ## What IS wanted
 

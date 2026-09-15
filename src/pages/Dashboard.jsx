@@ -1014,7 +1014,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               : 'Nothing logged yet. Log your first meal to start your charts and streak, then set your daily targets so we can track how you’re trending.'}
           </p>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal <Icon name="arrowRight" /></Button>
+            <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal <Icon name="right" /></Button>
             {profile?.role !== 'client' && (
               <Button variant="outline" onClick={() => navigate('/profile?focus=targets')}>Set your targets</Button>
             )}

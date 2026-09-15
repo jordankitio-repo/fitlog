@@ -99,7 +99,7 @@ function BannerAction({ onClick, title, tone = 'primary', children }) {
       }}
     >
       {children}
-      <Icon name="arrowRight" style={{ transform: hover && live ? 'translateX(2px)' : 'none', transition: 'transform 120ms' }} />
+      <Icon name="right" style={{ transform: hover && live ? 'translateX(2px)' : 'none', transition: 'transform 120ms' }} />
     </button>
   )
 }
@@ -441,7 +441,7 @@ function CoachDashboard({ profile }) {
             )}
             title="Add your first client"
             description="Invite someone you coach by email. They get a link to join, and their logging shows up here for you to track."
-            action={<Button variant="primary" onClick={focusInvite}>Invite your first client <Icon name="arrowRight" /></Button>}
+            action={<Button variant="primary" onClick={focusInvite}>Invite your first client <Icon name="right" /></Button>}
           />
         ) : (
           <>
