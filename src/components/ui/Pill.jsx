@@ -15,8 +15,11 @@ export default function Pill({ active = false, style, children, ...rest }) {
         borderRadius: '999px',
         // Chips sit above a dense table and should not weigh as much as the
         // row controls; the type scale is the only thing held back from Button.
+        // Everything else — padding, height, hover, press — comes from Button,
+        // so a chip is exactly as tall as the Open/Nudge buttons below it. The
+        // lighter type alone would leave it 4px short, hence the explicit floor.
         fontSize: 'var(--text-xs)',
-        padding: '5px 12px',
+        minHeight: '30px',
         ...style,
       }}
       {...rest}

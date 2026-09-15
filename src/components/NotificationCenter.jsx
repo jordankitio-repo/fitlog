@@ -19,7 +19,9 @@ import Avatar from './Avatar'
 const SEEN_KEY = 'gardnr-notif-seen'
 const SEEN_ALERTS_KEY = 'gardnr-notif-seen-alerts'
 const LEVEL_RANK = { red: 0, yellow: 1 }
-const LEVEL_COLOR = { red: '#f87171', yellow: '#fbbf24' }
+// Tokens, not hex. These slipped past the lint rule because it only matches a
+// property literally named `color`, and here the keys are the levels.
+const LEVEL_COLOR = { red: 'var(--color-error)', yellow: 'var(--color-warning)' }
 
 function readSeenAlerts() {
   try { return new Set(JSON.parse(localStorage.getItem(SEEN_ALERTS_KEY) || '[]')) } catch { return new Set() }
@@ -209,15 +211,15 @@ export default function NotificationCenter({ profile }) {
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
         style={{
           position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 38, height: 38, borderRadius: 10, background: 'none', border: 'none',
+          width: 38, height: 38, borderRadius: 'var(--radius)', background: 'none', border: 'none',
           color: 'var(--color-muted)', cursor: 'pointer',
         }}
       >
         <BellIcon />
         {unread > 0 && (
           <span style={{
-            position: 'absolute', top: 5, right: 5, minWidth: 16, height: 16, padding: '0 4px',
-            borderRadius: 8, background: 'var(--color-error)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700,
+            position: 'absolute', top: 'var(--space-4)', right: 'var(--space-4)', minWidth: 16, height: 16, padding: '0 var(--space-4)',
+            borderRadius: '999px', background: 'var(--color-error)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: '2px solid var(--color-surface)',
           }}>{unread > 9 ? '9+' : unread}</span>
@@ -228,17 +230,21 @@ export default function NotificationCenter({ profile }) {
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 110 }} />
           <div style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 10px)', width: 320, maxWidth: '92vw',
+            position: 'absolute', right: 0, top: 'calc(100% + 10px)', width: 360, maxWidth: '92vw',
+            // 360, not 320: the reason strings are the same --text-sm the roster
+            // uses for status, and at 320 the longer ones wrapped to two lines and
+            // made the rows uneven. Widening the panel beats shrinking the type,
+            // because the type has to match the column it mirrors.
             maxHeight: '70vh', overflowY: 'auto', zIndex: 120,
             background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)', boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+            borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',
           }}>
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--color-border)', fontWeight: 700, fontSize: 'var(--text-base)' }}>
+            <div style={{ padding: 'var(--space-12) var(--space-16)', borderBottom: '1px solid var(--color-border)', fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-body)' }}>
               Notifications
             </div>
 
             {empty ? (
-              <p style={{ padding: '20px 14px', fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, textAlign: 'center' }}>
+              <p style={{ padding: 'var(--space-20) var(--space-16)', fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, textAlign: 'center' }}>
                 You're all caught up.
               </p>
             ) : (
@@ -253,22 +259,22 @@ export default function NotificationCenter({ profile }) {
                           key={a.id}
                           onClick={() => go(a.href)}
                           style={{
-                            width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 9,
-                            padding: '11px 14px', background: isNew ? 'var(--color-primary-dim)' : 'transparent',
+                            width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-8)',
+                            padding: 'var(--space-12) var(--space-16)', background: isNew ? 'var(--color-primary-dim)' : 'transparent',
                             border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', color: 'var(--color-text)',
                           }}
                         >
-                          {a.avatarName ? (
-                            <span style={{ position: 'relative', flexShrink: 0, marginTop: 1, display: 'inline-flex' }}>
-                              <Avatar url={a.avatarUrl} name={a.avatarName} size={30} />
-                              <span style={{ position: 'absolute', bottom: -1, right: -1, width: 11, height: 11, borderRadius: '50%', background: LEVEL_COLOR[a.level], border: '2px solid var(--color-surface)' }} />
-                            </span>
-                          ) : (
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: LEVEL_COLOR[a.level], marginTop: 5, flexShrink: 0 }} />
+                          {a.avatarName && (
+                            <Avatar url={a.avatarUrl} name={a.avatarName} size={30} style={{ flexShrink: 0, marginTop: 'var(--space-2)' }} />
                           )}
-                          <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                            <span style={{ fontSize: 'var(--text-base)', fontWeight: 600 }}>{a.title}</span>
-                            {a.sub && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{a.sub}</span>}
+                          {/* C1: severity is the TEXT's colour, never a dot. The
+                              roster grades this same client with red/amber words
+                              in its status column — a dot here meant one fact was
+                              encoded two different ways on the same screen, and
+                              the reason string was left grey as if it were meta. */}
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
+                            <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)' }}>{a.title}</span>
+                            {a.sub && <span style={{ fontSize: 'var(--text-sm)', color: LEVEL_COLOR[a.level], fontWeight: 'var(--weight-semibold)' }}>{a.sub}</span>}
                           </span>
                         </button>
                       )
@@ -284,15 +290,15 @@ export default function NotificationCenter({ profile }) {
                         key={i.id}
                         onClick={() => go(i.href)}
                         style={{
-                          width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 9,
-                          padding: '11px 14px', background: 'transparent',
+                          width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-8)',
+                          padding: 'var(--space-12) var(--space-16)', background: 'transparent',
                           border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', color: 'var(--color-text)',
                         }}
                       >
-                        {i.avatarName && <Avatar url={i.avatarUrl} name={i.avatarName} size={30} style={{ marginTop: 1 }} />}
-                        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                          <span style={{ fontSize: 'var(--text-base)', fontWeight: 600 }}>{i.title}</span>
-                          {i.sub && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{i.sub}</span>}
+                        {i.avatarName && <Avatar url={i.avatarUrl} name={i.avatarName} size={30} style={{ flexShrink: 0, marginTop: 'var(--space-2)' }} />}
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
+                          <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)' }}>{i.title}</span>
+                          {i.sub && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{i.sub}</span>}
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{relTime(i.time)}</span>
                         </span>
                       </button>
@@ -311,8 +317,11 @@ export default function NotificationCenter({ profile }) {
 function GroupLabel({ children }) {
   return (
     <div style={{
-      padding: '8px 14px 4px', fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: '0.08em',
-      textTransform: 'uppercase', color: 'var(--color-muted)',
+      /* Same treatment as the roster's .ds-colhead — an eyebrow labelling what
+         the group holds, so it must read identically in both places. */
+      padding: 'var(--space-8) var(--space-16) var(--space-4)', fontSize: 'var(--text-xs)',
+      fontWeight: 'var(--weight-medium)', letterSpacing: '0.08em',
+      textTransform: 'uppercase', color: 'var(--color-faint)',
     }}>
       {children}
     </div>

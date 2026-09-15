@@ -33,7 +33,10 @@ export default function Avatar({ url, name = '', size = 36, style }) {
         justifyContent: 'center',
         background: 'var(--color-primary-dim)',
         color: 'var(--color-primary)',
-        fontWeight: 600,
+        fontWeight: 'var(--weight-medium)',
+        /* Proportional, not a ramp step: this is a monogram centred in a circle
+           that can be any diameter, so it scales with the circle the way the
+           9px "i" glyph does inside its 14px badge. The ramp governs text. */
         fontSize: Math.round(size * 0.4),
         lineHeight: 1,
         userSelect: 'none',

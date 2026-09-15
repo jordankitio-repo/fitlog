@@ -19,14 +19,14 @@ export default function Badge({ color = 'var(--color-primary)', tone = 'soft', s
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '6px',
+        gap: 'var(--space-6)',
         background: solid ? color : `color-mix(in srgb, ${color} 12%, transparent)`,
         color: solid ? 'var(--color-on-accent)' : color,
         border: solid ? 'none' : `1px solid ${strong ? color : `color-mix(in srgb, ${color} 35%, transparent)`}`,
         borderRadius: '999px',
-        padding: '3px 10px',
+        padding: 'var(--space-4) var(--space-10)',
         fontSize: 'var(--text-xs)',
-        fontWeight: 600,
+        fontWeight: 'var(--weight-medium)',
         whiteSpace: 'nowrap',
         ...style,
       }}

@@ -18,8 +18,10 @@ for (const [name, vw] of [['cv-desktop', { width: 1480, height: 1400 }], ['cv-mo
   await page.getByRole('button', { name: /sign in|log in|continue/i }).first().click()
   await page.waitForSelector('text=Invite a client', { timeout: 25000 })
   await page.waitForTimeout(1000)
-  // Open the first client with data (Ava — on track)
-  const link = page.getByRole('button', { name: /view data/i }).first()
+  // Open the first client with data (Ava — on track). The roster's row control
+  // was renamed "View data" -> "Open" when the rows were rebuilt; this selector
+  // was never updated and the script had been failing since.
+  const link = page.getByRole('button', { name: /^open$/i }).first()
   await link.click()
   await page.waitForTimeout(2500)
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true })

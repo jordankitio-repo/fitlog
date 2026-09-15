@@ -41,21 +41,22 @@ const STATUS_TONES = {
 // box, so this sits on the page ground with space separating it, not a border.
 function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
   const seg = (color, n, label) => (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
-      <span className="tnum" style={{ fontWeight: 700, color, fontSize: 'var(--text-md)' }}>{n}</span>
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-6)' }}>
+      <span className="tnum" style={{ fontWeight: 'var(--weight-semibold)', color, fontSize: 'var(--text-lg)' }}>{n}</span>
       <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{label}</span>
     </span>
   )
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '18px' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-16)' }}>
       {seg(attentionColors.red, roster.atRisk, 'at risk')}
       {seg(attentionColors.yellow, roster.review, 'needs review')}
       {seg(attentionColors.green, roster.onTrack, 'on track')}
-      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-        <span className="tnum" style={{ fontWeight: 700, color: 'var(--color-text)' }}>{checkedIn}</span>
-        <span className="tnum">/{total}</span> checked in
-      </span>
-      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      {/* A ratio, not a count — but still a peer of the three segments beside
+          it, so it goes through seg() rather than being hand-built. The
+          denominator is context: same size, muted colour. Colour separates it
+          from the numerator, not size (A5: size and colour before weight). */}
+      {seg('var(--color-text)', <>{checkedIn}<span style={{ color: 'var(--color-muted)' }}>/{total}</span></>, 'checked in')}
+      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-10)', flexWrap: 'wrap' }}>
         {/* Just a Button. It acts on clients (it opens work that ends in a
             message), so variant="action" — the same one Nudge uses, and
             therefore the same hover, press and timing by construction. Only the
@@ -83,8 +84,8 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
 function StatCell({ k, v }) {
   return (
     <span className="ds-statcell">
-      <span style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-faint)', fontWeight: 600 }}>{k}</span>
-      <span className="tnum" style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.2 }}>{v}</span>
+      <span style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-faint)', fontWeight: 'var(--weight-medium)' }}>{k}</span>
+      <span className="tnum" style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text)', lineHeight: 1.2 }}>{v}</span>
     </span>
   )
 }
@@ -341,10 +342,10 @@ function CoachDashboard({ profile }) {
   }
 
   return (
-    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
       <div>
         <h1>Clients</h1>
-        <p style={{ marginTop: '4px', color: 'var(--color-muted)' }}>Welcome, {profile.full_name}</p>
+        <p style={{ marginTop: 'var(--space-4)', color: 'var(--color-muted)' }}>Welcome, {profile.full_name}</p>
       </div>
 
       {/* Roster triage headline */}
@@ -358,16 +359,16 @@ function CoachDashboard({ profile }) {
       )}
 
       {/* Client list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
             {[...Array(4)].map((_, i) => (
-              <div key={i} style={{ ...cardStyle, padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div key={i} style={{ ...cardStyle, padding: 'var(--space-16)', display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Skeleton width="38%" height="18px" />
                   <Skeleton width="64px" height="22px" borderRadius="999px" />
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
                   {[...Array(4)].map((_, j) => <Skeleton key={j} width="66px" height="22px" borderRadius="999px" />)}
                 </div>
               </div>
@@ -389,10 +390,10 @@ function CoachDashboard({ profile }) {
           />
         ) : (
           <>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-8)', marginBottom: 'var(--space-12)', flexWrap: 'wrap', alignItems: 'center' }}>
               {clients.length > 1 && (
                 <>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', alignSelf: 'center', marginRight: 4 }}>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', alignSelf: 'center', marginRight: 'var(--space-4)' }}>
                   View:
                 </p>
                 {[
@@ -465,10 +466,10 @@ A dash means none submitted this period.`} />
                 return (
                   <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 200px 104px 152px">
                     {/* who */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)', minWidth: 0 }}>
                       <Avatar url={c.client?.avatar_url} name={c.client?.full_name || ''} size={30} />
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: 'var(--text-base)', fontWeight: 600, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <p style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {c.client?.full_name || 'Unnamed'}
                         </p>
                         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -479,7 +480,7 @@ A dash means none submitted this period.`} />
 
                     {/* state — one fact, at a fixed x-position so it scans in one pass */}
                     <div
-                      style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}
+                      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}
                       title={status.title}
                     >
                       {status.fix ? (
@@ -498,7 +499,7 @@ A dash means none submitted this period.`} />
                       ) : (
                         <span style={{
                           fontSize: 'var(--text-sm)',
-                          fontWeight: status.tone === 'green' || status.tone === 'setup' ? 500 : 700,
+                          fontWeight: status.tone === 'green' || status.tone === 'setup' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
                           color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}>
@@ -506,7 +507,7 @@ A dash means none submitted this period.`} />
                         </span>
                       )}
                       {s?.lockInfo?.locked && (
-                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--color-error)' }}>Locked</span>
+                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-error)' }}>Locked</span>
                       )}
                     </div>
 
@@ -523,7 +524,7 @@ A dash means none submitted this period.`} />
                     </div>
 
                     {/* 7 days of logging, oldest left */}
-                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-6)', justifyContent: 'flex-end' }}>
                       {/* Rank 3 (pale). Open is what a coach does on every row, so it
                           holds rank 2; Nudge appears only on some rows and emails a real
                           person, so it should not compete with the safe, exploratory
@@ -553,9 +554,9 @@ A dash means none submitted this period.`} />
       </div>
 
       {/* Invite section */}
-      <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
         <h2>Invite a client</h2>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
           <Field
             ref={inviteInputRef}
             type="email"
@@ -573,18 +574,18 @@ A dash means none submitted this period.`} />
         </div>
         {soloAccountDetected && (
           <div style={{
-            padding: '14px 16px',
+            padding: 'var(--space-16)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius)',
             backgroundColor: 'var(--color-bg)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px'
+            gap: 'var(--space-10)'
           }}>
             <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
               <strong>{pendingInviteEmail}</strong> already has a Gardnr account. Send them an invite to connect as your client? Their existing data will be preserved.
             </p>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
               <Button
                 onClick={() => sendInvite(pendingInviteEmail, true)}
                 variant="action"
@@ -608,16 +609,16 @@ A dash means none submitted this period.`} />
           <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)' }}>{inviteError}</p>
         )}
         {inviteLink && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
             {inviteEmailedTo && (
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 600, margin: 0 }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 'var(--weight-medium)', margin: 0 }}>
                 <Icon name="check" /> Invite emailed to {inviteEmailedTo}
               </p>
             )}
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>
               {inviteEmailedTo ? 'Or share this link directly:' : 'Share this invite link:'}
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
               <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', wordBreak: 'break-all', margin: 0 }}>{inviteLink}</p>
             <button
               onClick={async () => {
@@ -629,7 +630,7 @@ A dash means none submitted this period.`} />
                   showToast('Couldn\'t copy. Select the link and copy it manually.', 'error')
                 }
               }}
-              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--text-sm)', color: linkCopied ? 'var(--color-success)' : 'var(--color-text)', whiteSpace: 'nowrap', transition: 'color 120ms' }}
+              style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: 'var(--space-4) var(--space-10)', cursor: 'pointer', fontSize: 'var(--text-sm)', color: linkCopied ? 'var(--color-success)' : 'var(--color-text)', whiteSpace: 'nowrap', transition: 'color 120ms' }}
             >
               {linkCopied ? 'Copied' : 'Copy'}
             </button>

@@ -156,7 +156,7 @@ function NavBar({ profile }) {
               <div style={{
                 position: 'absolute', right: 0, top: 'calc(100% + 10px)', width: 220, zIndex: 120,
                 background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius)', boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+                borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',
                 overflow: 'hidden', padding: '6px',
               }}>
                 <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--color-border)', marginBottom: '4px' }}>

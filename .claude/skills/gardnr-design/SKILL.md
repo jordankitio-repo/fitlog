@@ -42,17 +42,18 @@ preferences; treat them as broken output.
    Instead: a clean card (uniform `--color-border`, no edge), with the brand
    color carried by a monochrome SVG icon and the CTA button.
 
-2. **Flat left-border info banners for status.** Status, triage, and
-   "needs attention" are a **tinted pill**, never a banner. The pattern, from the
-   CoachDashboard roster and the ClientView "Locked" pill:
+2. **The status pill — and above all the pill with a dot in it.** Status,
+   triage and "needs attention" are **plain coloured text** (C1). No container,
+   no border, no dot.
 
-   ```js
-   display: 'inline-flex', gap: 7, padding: '4px 12px', borderRadius: 999,
-   background: 'color-mix(in srgb, <tone> 15%, transparent)', // or var(--color-bg) for green
-   border: '1px solid <tone>', color: '<tone>',
-   // plus a 7px dot
-   ```
-   `<tone>` is `--color-error` / `--color-warning` / `--color-success` by level.
+   This entry used to say the opposite. It carried a working recipe for a tinted
+   `999px` pill with a `1px solid <tone>` border "plus a 7px dot", sourced to
+   "the CoachDashboard roster" — and it sat nine rules above C1, which calls the
+   dot the single most recognisable AI-dashboard tell. The roster stopped
+   rendering it when the rows were rebuilt; the rule was never updated. For as
+   long as both lines stood, the system's own reference told a reader to build
+   the one pattern it bans hardest. **A rule that outlives the code it describes
+   does more damage than no rule.**
 
 3. **Two glyphs for one action.** There is ONE forward mark — the chevron
    (`<Icon name="right" />`) — used for navigation, CTAs and "go to this thing"
@@ -127,9 +128,36 @@ width: fit-content`, or its hover fill runs the full column and reads as a stray
 block.
 
 **A5. Type does hierarchy, so boxes don't have to.**
-Page title `--text-title` · panel heading `--text-body`/600 · eyebrow
-`--text-xs` uppercase · row primary `--text-base`/600 · row secondary
-`--text-sm` muted · data numeral `--text-lg`/700 with `.tnum`.
+Three axes carry hierarchy, in this order of strength: **size, then colour,
+then weight**. Reach for weight last. It is the weakest signal and the one that
+drifts, because until the roster pass it was the only axis with no tokens and
+no lint rule — which is how one page ended up with four weights at 13px, two
+letter-spacings for the same uppercase label, and 700 as its most common style.
+
+| Role | Size | Weight |
+|---|---|---|
+| page title | `--text-xl` | `--weight-semibold` |
+| panel heading | `--text-body` | `--weight-medium` |
+| eyebrow / column head | `--text-xs` upper, `ls:0.08em` | `--weight-medium` |
+| row primary (names) | `--text-base` | `--weight-medium` |
+| row secondary / labels | `--text-sm` muted | `--weight-normal` |
+| urgent status | `--text-sm` toned | `--weight-semibold` |
+| data numeral | `--text-lg` + `.tnum` | `--weight-semibold` |
+
+**The weight ramp is four steps, and `--weight-bold` (700) is not UI text.**
+`--weight-normal` 400 · `--weight-medium` 500 (the workhorse) ·
+`--weight-semibold` 600 (emphasis) · `--weight-bold` 700 (display numerals only).
+
+Calibrated against `dash.cloudflare.com`, which runs its entire dashboard on
+400 and 500 and spends 600 exactly once, on the page title — nothing there is
+700. Both products use the same typeface (Inter), so everything that made that
+UI read as calmer and more deliberate was the *setting*, not the face. If a
+screen here feels heavier than a reference you admire, check the weights before
+reaching for a new font.
+
+Two documented size exceptions, both iconography rather than text, both allowed
+because they scale with a circle instead of sitting on the ramp: the 9px `i`
+glyph in its 14px badge, and the `Avatar` monogram at `size * 0.4`.
 
 ---
 
@@ -185,8 +213,9 @@ should not move. Zero renders nothing. Plurals are written per call site.
 ### C. Status and data display
 
 **C1. Status is text by default.**
-- **Status text** — plain coloured text, weight 700 for red/amber, muted 500 for
-  green/grey. No container, no dot. It aligns down a column, which a pill never
+- **Status text** — plain coloured text, `--weight-semibold` for red/amber,
+  `--weight-normal` muted for green/grey (the A5 ramp; it was 700/500 before the
+  weight ramp existed). No container, no dot. It aligns down a column, which a pill never
   does, and the label already carries the meaning so colour only reinforces it —
   which is also why it survives without colour vision.
 - **`Badge`** — ONE fact, two words max, only where a container earns its keep.
@@ -290,8 +319,8 @@ than by maintenance. **If a control needs a different shape, override the shape
 between the pointer moving and the style changing, which shows up worst on
 LEAVE — the transition cannot start until the render lands, and a pill's
 rounded corners make it easy to cross the boundary twice on the way out,
-restarting it. That reads as a stutter. `.ds-sortbtn`, `.ds-fixbtn` and
-`.ds-bannercta` are pure CSS and have none of it. `Button` still uses state for
+restarting it. That reads as a stutter. `.ds-sortbtn` and `.ds-fixbtn` are pure
+CSS and have none of it. `Button` still uses state for
 its variant map; it is acceptable at 8px radius but is the known exception.
 
 **Type-only controls share ONE progression: `--color-faint` → `--color-text-dim`
@@ -484,8 +513,19 @@ Rules:
   and focus ring is green.
 - **Blue is cardio data only** — never a CTA or UI chrome. It was demoted from
   primary precisely because blue-primary reads as generic SaaS.
-- Every display of a metric — stat card, progress bar, chart series, compliance
-  pill — uses that metric's token, so the color language stays learnable.
+- Every display of a metric — progress bar, chart series, compliance fill — uses
+  that metric's token, so the color language stays learnable.
+- **But metric tokens are FILL colours, not text colours.** They are dark-first
+  data hues, and the light theme flips only the neutral ramp and primary — the
+  accents carry over unchanged. On a light card every one of them fails WCAG AA
+  as text: calories 1.62:1, weight 1.87:1, fat 2.20:1, protein 2.69:1, carbs
+  2.85:1, against a 4.5:1 floor. In dark they all clear it (6.7–12.6:1), which
+  is exactly why this is easy to ship without noticing.
+  A 7px legend dot had no contrast requirement because a shape is not text; a
+  numeral does. So when C1 says "colour the number" it means the STATUS tones
+  (red/amber/green), which are legible on both grounds — never a metric token.
+  `StatCard` therefore drops the dot AND keeps its numeral neutral: the label
+  already names the metric, so the colour carried nothing the reader needed.
 - The compliance scale lives in `src/utils/complianceScale.js`. Import it; don't
   restate the buckets.
 
@@ -502,8 +542,8 @@ blocks raw `fontSize` literals.
 --text-body     16px   comfortable reading / primary controls
 --text-subhead  18px   modal + dialog titles, macro totals, nav brand
 --text-lg       20px   section headings, stat values
---text-title    24px   page titles
---text-xl       28px   hero headings
+--text-title    24px   large stat numerals, plan prices
+--text-xl       28px   page titles (h1), hero headings
 --text-display  32px   display numerals, celebration counts
 ```
 
@@ -532,8 +572,25 @@ proportional figures.
 
 ## Spacing and radius
 
-`--space-xs` 8 · `--space-sm` 12 · `--space-md`/`--space` 16 · `--space-lg` 24 ·
-`--space-xl` 32. Radius `--radius` 8px; pills are `999px`. Card shadow is
+**The scale is numeric, because the value IS the name:** `--space-2` `-4` `-6`
+`-8` `-10` `-12` `-16` `-20` `-24` `-32`. The t-shirt names (`--space-xs` …
+`-xl`) remain as aliases for ~23 legacy call sites; new code uses the numbers.
+The type ramp is the argument for this — its t-shirt names are not size-ordered
+(`--text-base` 14px is *smaller* than `--text-body` 16px) and need a standing
+warning to be used safely. A number cannot drift from what it means.
+
+The sub-8px steps are not decoration: 2px stacks a name over its email, 4px
+sets a glyph against a label inside a control, 6px sets a numeral against its
+label, 10px is control interior. They were measured off the roster, not
+invented.
+
+Spacing was the LAST ungoverned axis, and it failed the same way weight did —
+tokens existed, A3 said "`--space-*` only", nothing enforced it, and the five
+tokens had 23 uses in the whole app while the roster alone rendered 11 distinct
+gaps. After the sweep the roster renders 8, all of them scale steps.
+
+Radius is exactly three values, each with one job: `--radius` 8px for surfaces
+and controls, `50%` for avatars, `999px` for pills. Card shadow is
 `--shadow-card` (tokenized, because light mode needs a softer, cooler one).
 
 ## Primitives — reuse, don't redefine

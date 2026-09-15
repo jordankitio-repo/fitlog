@@ -1425,14 +1425,18 @@ async function sendMessage(text) {
             if (status.level !== 'green' && reasons.length === 0) return null
             const tone = status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)'
             return (
-              <div style={{ marginTop: '10px' }}>
+              <div style={{ marginTop: 'var(--space-10)' }}>
+                {/* C1: status is plain coloured text — no container, no border,
+                    no dot. This was the last tinted-pill-with-a-dot in the app;
+                    the label already carries the meaning, so the dot only ever
+                    repeated it. Green keeps --color-success rather than going
+                    muted: green and grey must never collide (B1), or a healthy
+                    client reads identically to an unconfigured one. */}
                 <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '7px',
-                  fontSize: 'var(--text-sm)', fontWeight: 600, padding: '4px 12px', borderRadius: '999px',
-                  backgroundColor: status.level === 'green' ? 'var(--color-bg)' : `color-mix(in srgb, ${tone} 15%, transparent)`,
-                  border: `1px solid ${tone}`, color: tone,
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: status.level === 'green' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
+                  color: tone,
                 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '999px', backgroundColor: tone }} />
                   {status.level === 'green' ? 'On track' : reasons.join(' · ')}
                 </span>
               </div>

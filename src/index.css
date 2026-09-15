@@ -24,6 +24,7 @@
      the decorative --color-border which is deliberately faint. */
   --color-control-border: rgba(255, 255, 255, 0.16);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-dropdown: 0 12px 32px rgba(0, 0, 0, 0.5);
   /* ── Raised control surfaces ──────────────────────────────────────────
      The recipe both Vercel's and Cloudflare's dashboards use, and the thing
      that separates a control that feels pressable from a flat outline: a
@@ -96,12 +97,32 @@
   --color-on-accent: #06240f; /* dark text/icons on a filled accent (primary/error/…) */
 
   --radius: 8px;
-  --space: 16px;
-  --space-xs: 8px;
-  --space-sm: 12px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
+  /* Spacing scale — numeric names, because the value IS the name. The type ramp
+     learned this the hard way: its t-shirt names are NOT size-ordered
+     (--text-base 14px is smaller than --text-body 16px) and need a warning
+     comment to be used safely. A number cannot drift from what it means.
+     The sub-8px steps exist because the reference screen genuinely uses them:
+     2px stacks a name over its email, 6px sets a numeral against its label,
+     10px is control interior. Measured on the roster, not invented. */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+
+  /* Legacy t-shirt aliases — 23 call sites app-wide. Kept so nothing breaks;
+     new code uses the numeric scale above. */
+  --space: var(--space-16);
+  --space-xs: var(--space-8);
+  --space-sm: var(--space-12);
+  --space-md: var(--space-16);
+  --space-lg: var(--space-24);
+  --space-xl: var(--space-32);
 
   /* Type ramp — the ONLY allowed font sizes. Ten steps, ordered small→large.
      Six steps (the original ramp) under-served real usage: the codebase had
@@ -121,9 +142,23 @@
   --text-subhead: 1.125rem;  /* 18px — one notch above body: modal/dialog titles,
                                 macro totals, nav brand */
   --text-lg: 1.25rem;        /* 20px — section headings, stat values */
-  --text-title: 1.5rem;      /* 24px — page titles */
-  --text-xl: 1.75rem;        /* 28px — hero headings */
+  --text-title: 1.5rem;      /* 24px — large stat numerals, plan prices */
+  --text-xl: 1.75rem;        /* 28px — page titles (h1), hero headings */
   --text-display: 2rem;      /* 32px — display numerals, celebration counts */
+
+  /* Weight ramp — the ONLY allowed font weights, and the axis this system was
+     missing. Size and colour were both tokenised and lint-enforced; weight was
+     not, so it drifted to eight raw values (400/500/600/650/700/800/900) across
+     38 files, and the roster ended up carrying FOUR weights at a single size —
+     more distinctions than a reader can resolve at 13px.
+     Calibrated against dash.cloudflare.com, which runs its entire dashboard on
+     400 and 500 and spends 600 exactly once, on the page title. Nothing there
+     is 700. Weight is the WEAKEST hierarchy signal of the three: reach for size
+     and colour first, and step weight only once those are spent. */
+  --weight-normal: 400;    /* body copy, labels, calm status */
+  --weight-medium: 500;    /* the workhorse: controls, names, row content */
+  --weight-semibold: 600;  /* emphasis: page titles, urgent status, stat values */
+  --weight-bold: 700;      /* reserved for display numerals. Not for UI text. */
 }
 
 /* Light theme — JS sets data-theme="light" on <html> (resolving the auto/system
@@ -168,6 +203,7 @@
   --color-control-border: rgba(0, 0, 0, 0.18);
   /* Softer, cooler shadow so white cards lift gently instead of looking smudged. */
   --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-dropdown: 0 12px 32px -8px rgba(16, 24, 40, 0.18), 0 2px 6px rgba(16, 24, 40, 0.06);
   --control-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%);
   --control-bg: #ffffff;
   --control-bg-hover: #f4f6f4;
@@ -215,7 +251,7 @@ body {
    every label lands directly over its column. */
 .ds-colhead {
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-faint);
@@ -234,11 +270,11 @@ body {
   width: fit-content;
   background: none;
   border: none;
-  padding: 0 6px 0 0;
+  padding: 0 var(--space-6) 0 0;
   cursor: pointer;
   font: inherit;
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-faint);
@@ -262,7 +298,7 @@ body {
   max-width: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-6);
   background: none;
   border: none;
   padding: 0;
@@ -287,11 +323,11 @@ body {
 /* Roster row — the coach's scanning surface. Columns collapse to a two-line
    stack below 900px, where a five-column grid stops being scannable. */
 .ds-statcell {
-  display: flex; flex-direction: column; gap: 1px;
-  padding-right: 12px;
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding-right: var(--space-12);
 }
 .ds-statcell + .ds-statcell {
-  padding-left: 12px;
+  padding-left: var(--space-12);
   border-left: 1px solid var(--color-border);
 }
 @media (max-width: 900px) {
@@ -313,7 +349,7 @@ body {
   background: var(--color-primary);
   color: var(--color-on-accent);
   font-size: var(--text-base);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   text-decoration: none;
   transition: top 120ms ease;
 }
@@ -335,7 +371,7 @@ input[type="number"] {
 
 h1 {
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.02em;
   line-height: 1.2;
   margin: 0;
@@ -343,7 +379,7 @@ h1 {
 
 h2 {
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: -0.01em;
   line-height: 1.4;
   margin: 0;
@@ -524,7 +560,7 @@ nav a:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: var(--space-6);
   min-height: 60px;
   padding: 8px 4px;
   color: var(--color-muted);

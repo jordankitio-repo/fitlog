@@ -12,8 +12,8 @@
 // `flush` drops the body padding for panels whose children are <Row>s, since a
 // Row carries its own.
 const DENSITY = {
-  compact:     { body: '12px 16px', head: '10px 16px' },
-  comfortable: { body: '20px 24px', head: '14px 24px' },
+  compact:     { body: 'var(--space-12) var(--space-16)', head: 'var(--space-10) var(--space-16)' },
+  comfortable: { body: 'var(--space-20) var(--space-24)', head: 'var(--space-12) var(--space-24)' },
 }
 
 export default function Panel({
@@ -49,7 +49,7 @@ export default function Panel({
           }}
         >
           {title && (
-            <H style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, letterSpacing: '-0.005em' }}>
+            <H style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.005em' }}>
               {title}
             </H>
           )}
