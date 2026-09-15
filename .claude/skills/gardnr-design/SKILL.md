@@ -136,7 +136,30 @@ silently misalign every column to its left. **Give every column a fixed width**
 (or define one grid on the container) so the layout is identical on every row.
 This is the bug that made the first roster's status column jump around.
 
-### 5d. A column header names what the column HOLDS.
+### 5d. A column header names what the column HOLDS — and a sort must show its key.
+**If the reader can re-sort by a value, that value has to be on screen.** The
+roster once let a coach sort by Compliance while the column kept showing
+attention reasons: ordering by a number that was never visible, so the order
+looked arbitrary.
+
+The fix generalises. The chips are **lenses**, not sort orders: picking one
+re-sorts the roster AND retargets the status column, so the column always
+reports the key the rows are ordered by, and the header renames itself
+(`LENS_HEADERS`). Logic lives in `src/utils/rosterStatus.js`, not the view.
+
+| Lens | Column shows | Grey when |
+|---|---|---|
+| Attention | the most pressing reason, any kind | — |
+| Compliance | `11/14 days on target` | no targets, or nothing logged |
+| Last logged | `Logged today` / `3 days ago` | — |
+| Check-in | `Not submitted` / `Awaiting your review` / `Reviewed` | — |
+
+Under Attention the column deliberately holds different kinds of fact, so it is
+labelled **Needs attention** rather than "Status": a header must not promise a
+uniform dimension it doesn't have. Under every other lens each cell answers the
+same question, and the column is comparable top to bottom.
+
+### 5d-bis. A generic column label papers over a real problem.
 "Status" implies one uniform dimension the reader can compare down the page. The
 roster's column holds `reasons[0]` — the single most pressing fact about a
 client, of whatever kind: logging recency, a missed check-in, weak compliance,

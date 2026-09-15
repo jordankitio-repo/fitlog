@@ -9,8 +9,9 @@ import Skeleton from '../components/Skeleton'
 import InfoTip from '../components/InfoTip'
 import { computeClientStats } from '../utils/clientStats'
 import { getInviteBlockReason } from '../utils/inviteValidation'
-import { attentionLevel, compareByAttention, summarizeRoster } from '../utils/attentionLevel'
+import { compareByAttention, summarizeRoster } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
+import { rosterStatus, LENS_HEADERS } from '../utils/rosterStatus'
 import { cardStyle } from '../utils/styles'
 import { Pill, Field, Icon, Panel, Row } from '../components/ui'
 
@@ -201,12 +202,6 @@ function CoachDashboard({ profile }) {
     setClientStats(stats)
   }
 
-  function logLabel(days) {
-    if (days === null) return 'Never logged'
-    if (days === 0) return 'Logged today'
-    if (days === 1) return 'Logged yesterday'
-    return `${days} days ago`
-  }
 
   function showToast(message, type = 'success') {
     setToast({ message, type })
@@ -451,7 +446,7 @@ function CoachDashboard({ profile }) {
               {clients.length > 1 && (
                 <>
                 <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', alignSelf: 'center', marginRight: 4 }}>
-                  Sort:
+                  View:
                 </p>
                 {[
                   { key: 'attention', label: 'Attention' },
@@ -504,13 +499,13 @@ A dash means none submitted this period.`} />
                   cannot tell which end is today. */}
               <Row className="roster-row roster-head" cols="minmax(0, 1fr) 200px 104px 152px">
                 <span className="ds-colhead">Client</span>
-                <span className="ds-colhead">Needs attention</span>
+                <span className="ds-colhead">{LENS_HEADERS[sortBy] ?? LENS_HEADERS.attention}</span>
                 <span className="ds-colhead">Check-in</span>
                 <span />
               </Row>
               {sortedClients.map((c) => {
                 const s = clientStats[c.client_id]
-                const triage = attentionLevel(s)
+                const status = rosterStatus(sortBy, s)
                 const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn, checkinDue: s?.checkinDue })
                 return (
                   <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 200px 104px 152px">
@@ -530,15 +525,15 @@ A dash means none submitted this period.`} />
                     {/* state — one fact, at a fixed x-position so it scans in one pass */}
                     <div
                       style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}
-                      title={triage.reasons.length ? triage.reasons.join(' \u00b7 ') : logLabel(s?.daysSinceLog)}
+                      title={status.title}
                     >
                       <span style={{
                         fontSize: 'var(--text-sm)',
-                        fontWeight: triage.tone === 'green' || triage.tone === 'setup' ? 500 : 700,
-                        color: STATUS_TONES[triage.tone] ?? 'var(--color-muted)',
+                        fontWeight: status.tone === 'green' || status.tone === 'setup' ? 500 : 700,
+                        color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>
-                        {triage.level === 'green' ? logLabel(s?.daysSinceLog) : triage.reasons[0]}
+                        {status.text}
                       </span>
                       {s?.lockInfo?.locked && (
                         <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--color-error)' }}>Locked</span>
