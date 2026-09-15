@@ -538,18 +538,12 @@ A dash means none submitted this period.`} />
                       style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}
                       title={status.title}
                     >
-                      <span
-                        // A setup gap is recessed rather than coloured: there is
-                        // no grade to report, so it reads as a hole in the row.
-                        className={status.tone === 'setup' ? 'ds-absent' : undefined}
-                        style={{
-                          fontSize: 'var(--text-sm)',
-                          fontWeight: status.tone === 'green' || status.tone === 'setup' ? 500 : 700,
-                          color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                          maxWidth: '100%',
-                        }}
-                      >
+                      <span style={{
+                        fontSize: 'var(--text-sm)',
+                        fontWeight: status.tone === 'green' || status.tone === 'setup' ? 500 : 700,
+                        color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
                         {status.text}
                       </span>
                       {s?.lockInfo?.locked && (
