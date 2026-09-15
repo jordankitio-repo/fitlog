@@ -249,7 +249,23 @@ frame of physics is what makes a control feel like a control.
 keeps focus, so the hover never leaves. `:focus-visible` already gives keyboard
 users the ring. Hover lights the SURFACE; it does not flash the border.
 
-**D3. The elevation ladder — elevation encodes INVITATION.**
+**D3. Two axes: elevation encodes INVITATION, hue encodes CONSEQUENCE.**
+
+Elevation says how much a control wants to be pressed. Hue says what happens
+when you do:
+
+| Hue | Means | Examples |
+|---|---|---|
+| neutral (`muted`) | navigation — changes nothing for anybody | `Open ›`, sort chips |
+| green (`action`) | **acts on a client** — sends a nudge, sends an invite, opens work ending in a message to a real person | `Nudge`, `Send invite`, `N check-ins to review` |
+
+Both are rank 2 and sit side by side at the same elevation, so the difference
+reads as *kind*, not *importance*. `--control-bg-accent` is the same physical
+recipe as `--control-bg`, washed with the brand colour. In a coaching tool a
+coach should be able to see at a glance which controls reach a human — a
+filled-green rank 1 is still reserved for the one action on the view.
+
+**The elevation ladder.**
 
 | Rank | Treatment | Use | Variant |
 |---|---|---|---|

@@ -573,7 +573,7 @@ A dash means none submitted this period.`} />
                       {nudge && (
                         <Button
                           onClick={() => nudgeClient(c, nudge)}
-                          variant="ghost"
+                          variant="action"
                           size="sm"
                           loading={Boolean(nudgeLoadingIds[c.client_id])}
                           title={nudge.key === 'checkin' ? 'Nudge them to do this week\u2019s check-in' : 'Nudge them to log \u2014 they\u2019ve gone quiet'}
@@ -610,7 +610,7 @@ A dash means none submitted this period.`} />
             }}
             style={{ flex: 1, width: 'auto' }}
           />
-          <Button onClick={checkAndInvite} variant="muted" loading={inviting} disabled={inviting}>Send invite</Button>
+          <Button onClick={checkAndInvite} variant="action" loading={inviting} disabled={inviting}>Send invite</Button>
         </div>
         {soloAccountDetected && (
           <div style={{
@@ -628,7 +628,7 @@ A dash means none submitted this period.`} />
             <div style={{ display: 'flex', gap: '8px' }}>
               <Button
                 onClick={() => sendInvite(pendingInviteEmail, true)}
-                variant="muted"
+                variant="action"
                 size="sm"
                 loading={inviting}
                 disabled={inviting}

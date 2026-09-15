@@ -64,6 +64,11 @@ function Button({
   //   2  NEUTRAL + ELEVATED  raised surface, hairline border, 1px shadow.
   //                          Actions you're expected to reach for.
   //                          muted · outline · danger · ai
+  //
+  //                          `action` is rank 2 too, washed green: it CHANGES
+  //                          SOMETHING FOR A CLIENT (nudge, invite) where
+  //                          `muted` only navigates. Elevation encodes
+  //                          invitation; hue encodes consequence.
   //                          (their "Learn more" / "Upgrade to Pro")
   //
   //   3  QUIET               STILL A BUTTON. Flat fill, soft border, no shadow,
@@ -94,6 +99,13 @@ function Button({
     primary: {
       rest: { background: 'var(--color-primary)', color: 'var(--color-on-accent)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
       hover: { filter: 'brightness(1.08)' },
+    },
+    // Acts on a client: sends a nudge, sends an invite. Same raised surface as
+    // `muted`, washed green — hue is the signal that pressing this reaches a
+    // real person. Navigation stays neutral.
+    action: {
+      rest: { background: 'var(--control-bg-accent)', color: 'var(--color-primary)', border: '1px solid var(--control-bd-accent)', boxShadow: 'var(--control-shadow)' },
+      hover: { background: 'var(--control-bg-accent-hover)', borderColor: 'var(--control-bd-accent-hover)' },
     },
     muted: {
       rest: { background: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
