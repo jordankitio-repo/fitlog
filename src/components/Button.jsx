@@ -24,7 +24,8 @@ function Button({
   fullWidth = false,
   type = 'button',
   ariaLabel,
-  style = {}
+  style = {},
+  ...rest
 }) {
   const [hovered, setHovered] = useState(false)
   const [pressed, setPressed] = useState(false)
@@ -177,6 +178,7 @@ function Button({
       disabled={disabled || loading}
       aria-label={ariaLabel}
       className="btn"
+      {...rest}
       style={{ ...base, ...sizes[size], ...v.rest, ...style, ...hoverStyle, ...activeStyle }}
     >
       {loading && <Spinner color={spinnerColor} />}

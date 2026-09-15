@@ -1,42 +1,27 @@
-import { useState } from 'react'
+import Button from '../Button'
 
-// Selectable chip — sort/slot/cadence toggles. `active` flips it to the filled
-// primary state. Inactive chips sit on the raised control surface rather than a
-// flat outline, so they read as pressable; see --control-* in src/index.css.
+// Selectable chip — the View lenses, and any slot/cadence toggle.
+//
+// It IS a Button: `muted` when inactive, `primary` when selected. Hand-rolling
+// it meant maintaining a parallel copy, and it drifted — the inactive chip kept
+// brightening its border on hover long after that was removed from every other
+// control. Overriding the SHAPE is fine; rebuilding the control is not.
 export default function Pill({ active = false, style, children, ...rest }) {
-  const [hovered, setHovered] = useState(false)
-  const [pressed, setPressed] = useState(false)
   return (
-    <button
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setPressed(false) }}
-      onBlur={() => setPressed(false)}
-      onPointerDown={() => setPressed(true)}
-      onPointerUp={() => setPressed(false)}
+    <Button
+      variant={active ? 'primary' : 'muted'}
+      size="sm"
       style={{
-        // Solid colour so the hover interpolates; the sheen is a constant layer.
-        backgroundImage: 'var(--control-sheen)',
-        backgroundColor: active
-          ? 'var(--color-primary)'
-          : hovered ? 'var(--control-bg-hover)' : 'var(--control-bg)',
-        color: active ? 'var(--color-on-accent)' : hovered ? 'var(--color-text)' : 'var(--color-text-dim)',
-        border: `1px solid ${active ? 'var(--color-primary)' : hovered ? 'var(--control-bd-hover)' : 'var(--control-bd)'}`,
-        boxShadow: pressed
-          ? 'var(--control-shadow-active)'
-          : active ? 'var(--control-shadow-accent)' : 'var(--control-shadow)',
-        transform: pressed ? 'translateY(0.5px)' : 'none',
         borderRadius: '999px',
-        padding: '5px 12px',
+        // Chips sit above a dense table and should not weigh as much as the
+        // row controls; the type scale is the only thing held back from Button.
         fontSize: 'var(--text-xs)',
-        fontWeight: 600,
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        transition: 'background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease',
+        padding: '5px 12px',
         ...style,
       }}
       {...rest}
     >
       {children}
-    </button>
+    </Button>
   )
 }

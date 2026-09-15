@@ -272,7 +272,12 @@ to that client's targets now. The GRADE carries the hint (`fix: 'targets'`) so
 the view never matches on text, and grades with no user-fixable cause — "Nothing
 logged", which only the client can resolve — carry none and stay plain.
 
-**A control is a `Button`. Do not hand-roll one.** The banner CTA was a bespoke
+**A control is a `Button`. Do not hand-roll one.** `Pill` is a Button too —
+`muted` inactive, `primary` selected, with a radius and type-scale override.
+Both it and the banner CTA were hand-rolled copies, and both drifted the same
+way: they kept brightening their border on hover long after that was removed
+from every other control, because a parallel copy has to be kept in step by
+hand. The banner CTA was a bespoke
 component for no reason other than its pill shape, and it drifted from the rest
 of the app three separate times — wrong hover strength, an animated chevron
 nothing else had, a state-driven hover that stuttered on leave. Each was fixed
