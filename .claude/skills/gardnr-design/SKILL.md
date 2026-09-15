@@ -167,6 +167,11 @@ headline count naming work the user owes), tone answers one question: **what
 happens if this is ignored?** — `primary` green = routine, it piles up;
 `warning` amber = blocked until fixed.
 
+*Currently single-tone in code:* the amber "N clients need targets" CTA was
+deleted once triage began ranking those clients to the top of the roster by
+name, so the `tone` prop went with it rather than sitting unused. The rule
+stands and comes back with the second CTA.
+
 **No red CTA, deliberately.** Red means a CLIENT is in trouble; an admin to-do
 must never shout louder than a person who has stopped eating.
 

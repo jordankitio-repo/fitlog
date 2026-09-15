@@ -41,13 +41,14 @@ const STATUS_TONES = {
 // one of these, so a count is never a dead end: it says how many AND takes you
 // to the first one.
 //
+// Single-tone for now. A `tone` prop existed for an amber "N clients need
+// targets" CTA which was deleted once triage started ranking those clients to
+// the top of the roster by name. The rule it encoded still stands and should
+// come back with the second CTA: tone answers "what happens if this is
+// ignored?" — green for routine work, amber for something blocked. Never red;
+// a coach's to-do must not out-shout a client in trouble.
+//
 // `tone` carries the KIND of work — see the table above.
-const BANNER_TONES = {
-  primary: 'var(--color-primary)',
-  warning: 'var(--color-warning)',
-  // No `error` entry, on purpose. See the note above.
-}
-
 // ── Banner CTA tones ────────────────────────────────────────────────────────
 // Tone answers exactly one question: WHAT HAPPENS IF THE COACH IGNORES THIS?
 //
@@ -75,10 +76,9 @@ const BANNER_TONES = {
 //
 // Zero renders nothing — a CTA never appears saying "0". Singular and plural
 // are written out per call site; "1 client needs" / "3 clients need".
-function BannerAction({ onClick, title, tone = 'primary', children }) {
+function BannerAction({ onClick, title, children }) {
   const [hover, setHover] = useState(false)
   const live = Boolean(onClick)
-  const accent = BANNER_TONES[tone] ?? BANNER_TONES.primary
   return (
     <button
       onClick={onClick}
