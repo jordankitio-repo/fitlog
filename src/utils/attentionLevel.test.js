@@ -123,13 +123,24 @@ describe('compareByAttention', () => {
   })
 })
 
-  it('surfaces missing targets, ranked below any real client signal', () => {
+  it('grabs a grey compliance gap ahead of a yellow, but never ahead of a red', () => {
+    // A dimension nobody can measure is worse than one measuring badly.
+    const greyVsYellow = attentionLevel(stats({ checkIn: { adherence_rating: 8 } })) // unreviewed = yellow, no targets = grey
+    expect(greyVsYellow.reasons[0]).toBe('No targets set')
+    expect(greyVsYellow.tone).toBe('setup')
+
+    const redWins = attentionLevel(stats({ daysSinceLog: 9 })) // red logging + grey compliance
+    expect(redWins.reasons[0]).toBe('9 days no log')
+    expect(redWins.tone).toBe('red')
+  })
+
+  it('surfaces missing targets, ranked below a red', () => {
     // Reasons are ordered worst tone first: red, then yellow, then grey setup.
     // A grey gap is the coach's onboarding to-do and must not outrank a client
     // who is actually slipping.
     const withRed = attentionLevel(stats({ checkIn: null }))
-    expect(withRed.reasons[0]).toBe('No check-in')      // red
-    expect(withRed.reasons).toContain('No targets set') // grey, but still listed
+    expect(withRed.reasons[0]).toBe('No check-in')      // red beats grey
+    expect(withRed.reasons).toContain('No targets set') // grey, listed after
 
     const onlySetup = attentionLevel(stats())
     expect(onlySetup.reasons[0]).toBe('No targets set')

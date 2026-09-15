@@ -167,8 +167,15 @@ dimension grades red/yellow/green:
 | Check-in | not submitted | submitted, unreviewed | reviewed |
 
 Reasons are ordered worst-tone-first, so `reasons[0]` — what the badge shows —
-is always the client's worst dimension, and a grey setup gap never outranks a
-client who is actually slipping.
+is always the client's worst dimension.
+
+**Tone order: red, grey, yellow, green.** Grey sits above yellow because a
+dimension nobody can measure is worse than one measuring badly: if a client's
+compliance is grey and their check-in is yellow, Attention grabs the grey. Red
+still beats grey, so someone five days unlogged outranks someone who just needs
+targets setting. `compareByAttention` orders by TONE, not `level` — `level`
+collapses grey into yellow for the rollup counts, and sorting by it made a grey
+and a yellow tie.
 
 **Sorting uses the grade the column renders** (`TONE_RANK`), never a parallel
 calculation. One exception, deliberate: the **Compliance

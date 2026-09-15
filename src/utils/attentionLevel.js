@@ -44,7 +44,12 @@ const STALE_LOG_DAYS = 4
 
 // Worst to best. Exported so the roster sorts by exactly the grade it renders:
 // a column and its ordering must never come from two different calculations.
-export const TONE_RANK = { red: 0, yellow: 1, setup: 2, green: 3 }
+//
+// Grey sits ABOVE yellow: a dimension nobody can measure is worse than one
+// measuring badly. If a client's compliance is grey and their check-in is
+// yellow, Attention grabs the grey. Red still beats grey, so a client who has
+// not logged in five days outranks one who just needs targets setting.
+export const TONE_RANK = { red: 0, setup: 1, yellow: 2, green: 3 }
 
 export function gradeLogging(s) {
   // A locked client outranks the day count: the lock is why they stopped.
@@ -101,13 +106,15 @@ export function attentionLevel(stats) {
 
 // Sort comparator: red first, then yellow, then green. Within a level, more
 // reasons (more things wrong) ranks higher.
-const LEVEL_RANK = { red: 0, yellow: 1, green: 2 }
-
+// Ordered by TONE, not level. `level` collapses grey into yellow (so a setup gap
+// still counts as needing review in the rollup), which meant the roster sorted a
+// grey and a yellow as equals and fell through to the reason count. Tone keeps
+// them apart: red, then grey, then yellow, then green.
 export function compareByAttention(sa, sb) {
   const a = attentionLevel(sa)
   const b = attentionLevel(sb)
-  const byLevel = LEVEL_RANK[a.level] - LEVEL_RANK[b.level]
-  if (byLevel !== 0) return byLevel
+  const byTone = TONE_RANK[a.tone] - TONE_RANK[b.tone]
+  if (byTone !== 0) return byTone
   return b.reasons.length - a.reasons.length
 }
 
