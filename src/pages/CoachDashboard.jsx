@@ -21,16 +21,44 @@ const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warnin
 // one of these, so a count is never a dead end: it says how many AND takes you
 // to the first one.
 //
-// `tone` carries the KIND of work, which is why these are not interchangeable.
-// Two identically-styled CTAs side by side force the coach to read both before
-// knowing which one matters:
-//   primary  the recurring job — check-ins waiting to be reviewed
-//   warning  a setup gap — a client with no targets logs data that cannot be
-//            graded against anything, so nothing downstream works until it is set
+// `tone` carries the KIND of work — see the table above.
+const BANNER_TONES = {
+  primary: 'var(--color-primary)',
+  warning: 'var(--color-warning)',
+  // No `error` entry, on purpose. See the note above.
+}
+
+// ── Banner CTA tones ────────────────────────────────────────────────────────
+// Tone answers exactly one question: WHAT HAPPENS IF THE COACH IGNORES THIS?
+//
+//   primary (green)   Routine work. It piles up; nothing breaks.
+//                     → check-ins waiting to be reviewed
+//   warning (amber)   Blocked. Something cannot be measured or acted on until
+//                     the coach fixes it. The state is wrong, not urgent.
+//                     → a client with no targets: their logs cannot be graded
+//
+// There is deliberately NO red banner CTA, and this is the load-bearing rule:
+// red means a CLIENT is in trouble. A coach's own to-do list must never shout
+// louder than a person who has stopped eating. If admin tasks could go red,
+// "4 clients need targets" would out-rank "Hugo, 5 days no log" on the same
+// screen — which is precisely backwards. Red belongs to the roster rows.
+//
+// TONE DOES NOT ESCALATE WITH COUNT. Ten clients missing targets is the same
+// KIND of problem as one, so it stays amber and the number does the work. Two
+// channels, no overlap: the number carries volume, the tone carries kind.
+// Escalating by count would let a big pile of admin outrank a single failing
+// client, which is the same mistake in slower motion.
+//
+// ORDER IS FIXED, not sorted by count: routine first, then gaps. A coach looks
+// at this bar every day and should not have to re-find things because the
+// numbers moved.
+//
+// Zero renders nothing — a CTA never appears saying "0". Singular and plural
+// are written out per call site; "1 client needs" / "3 clients need".
 function BannerAction({ onClick, title, tone = 'primary', children }) {
   const [hover, setHover] = useState(false)
   const live = Boolean(onClick)
-  const accent = tone === 'warning' ? 'var(--color-warning)' : 'var(--color-primary)'
+  const accent = BANNER_TONES[tone] ?? BANNER_TONES.primary
   return (
     <button
       onClick={onClick}

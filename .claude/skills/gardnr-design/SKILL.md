@@ -136,6 +136,30 @@ silently misalign every column to its left. **Give every column a fixed width**
 (or define one grid on the container) so the layout is identical on every row.
 This is the bug that made the first roster's status column jump around.
 
+### 5a. Semantic colour has a rule, or it is decoration.
+Never introduce a colour on a control without stating what governs it. For a
+banner CTA (a headline count that names work the coach owes), tone answers one
+question: **what happens if this is ignored?**
+
+| Tone | Meaning | Example |
+|---|---|---|
+| `primary` green | Routine. It piles up; nothing breaks. | check-ins to review |
+| `warning` amber | Blocked. Cannot be measured or acted on until fixed. | a client with no targets |
+
+**There is no red banner CTA, deliberately.** Red means a CLIENT is in trouble.
+A coach's own to-do list must never shout louder than a person who has stopped
+eating — otherwise "4 clients need targets" out-ranks "Hugo, 5 days no log" on
+the same screen. Red belongs to roster rows.
+
+**Tone does not escalate with count.** Ten missing targets is the same KIND of
+problem as one, so it stays amber and the number does the work. Two channels,
+no overlap: **the number carries volume, the tone carries kind.** Escalating by
+count would let a pile of admin outrank one failing client.
+
+**Order is fixed** (routine, then gaps), not sorted by count — a bar you read
+daily should not move. **Zero renders nothing**; a CTA never says "0". Plurals
+are written per call site ("1 client needs" / "3 clients need").
+
 ### 5c. Controls sit on a raised surface. They are never flat outlines.
 A transparent button with a 1px border is the "dead" look. The recipe every
 serious dashboard uses — and what `--control-*` in `src/index.css` encodes — is
