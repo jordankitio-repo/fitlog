@@ -9,9 +9,16 @@ import Skeleton from '../components/Skeleton'
 import InfoTip from '../components/InfoTip'
 import { computeClientStats } from '../utils/clientStats'
 import { getInviteBlockReason } from '../utils/inviteValidation'
-import { compareByAttention, summarizeRoster } from '../utils/attentionLevel'
+import { compareByAttention, summarizeRoster, TONE_RANK } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
-import { rosterStatus, LENS_HEADERS } from '../utils/rosterStatus'
+import { rosterStatus, LENS_HEADERS, LENS_GRADERS } from '../utils/rosterStatus'
+
+// Fraction of target days hit, for ordering within a compliance tone.
+function complianceRatio(s) {
+  const items = (s?.complianceItems || []).filter(i => i.hasData)
+  if (!items.length) return -1
+  return items.reduce((t, i) => t + i.value, 0) / (items.length * 7)
+}
 import { cardStyle } from '../utils/styles'
 import { Pill, Field, Icon, Panel, Row } from '../components/ui'
 
@@ -138,12 +145,6 @@ function StatCell({ k, v }) {
   )
 }
 
-function scoreClient(s) {
-  if (!s) return -1
-  return s.complianceItems
-    .filter(i => i.hasData)
-    .reduce((sum, i) => sum + i.value, 0)
-}
 
 function CoachDashboard({ profile }) {
   const [clients, setClients] = useState([])
@@ -161,6 +162,11 @@ function CoachDashboard({ profile }) {
   const [nudgeLoadingIds, setNudgeLoadingIds] = useState({})
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [sortBy, setSortBy] = useState('attention')
+  // 'worst' puts the clients who need the coach at the top (the default a
+  // triage screen should open on); 'best' flips it. Semantic rather than
+  // asc/desc, because "ascending" means nothing for a column that can read
+  // "Never logged" or "No targets set".
+  const [sortDir, setSortDir] = useState('worst')
   const [linkCopied, setLinkCopied] = useState(false)
   const navigate = useNavigate()
 
@@ -360,38 +366,35 @@ function CoachDashboard({ profile }) {
 
 
 
-  const sortedClients = [...clients].sort((a, b) => {
+  // One direction multiplier over every lens, so a new lens can never forget to
+  // honour it.
+  const dirMul = sortDir === 'best' ? -1 : 1
+  const sortedClients = [...clients].sort((a, b) => dirMul * compareForLens(a, b))
+
+  // Every lens sorts by the SAME grade the column shows, worst first. The old
+  // per-lens comparators had drifted: compliance sorted by descending score and
+  // "last logged" by ascending days, so both actually put the healthiest client
+  // at the top while the header said "worst first".
+  function compareForLens(a, b) {
     const sa = clientStats[a.client_id]
     const sb = clientStats[b.client_id]
 
     if (sortBy === 'attention') {
       const diff = compareByAttention(sa, sb)
       if (diff !== 0) return diff
-      return (sa?.daysSinceLog ?? 999) - (sb?.daysSinceLog ?? 999)
+      return (sb?.daysSinceLog ?? -1) - (sa?.daysSinceLog ?? -1)
     }
 
-    if (sortBy === 'compliance') {
-      const diff = scoreClient(sb) - scoreClient(sa)
-      if (diff !== 0) return diff
-      const da = sa?.daysSinceLog ?? 999
-      const db = sb?.daysSinceLog ?? 999
-      return da - db
-    }
+    const grade = LENS_GRADERS[sortBy]
+    if (!grade) return 0
+    const byTone = TONE_RANK[grade(sa).tone] - TONE_RANK[grade(sb).tone]
+    if (byTone !== 0) return byTone
 
-    if (sortBy === 'recent') {
-      const da = sa?.daysSinceLog ?? 999
-      const db = sb?.daysSinceLog ?? 999
-      return da - db
-    }
-
-    if (sortBy === 'checkin') {
-      const ca = sa?.checkIn ? 1 : 0
-      const cb = sb?.checkIn ? 1 : 0
-      return cb - ca
-    }
-
+    // Within a tone, order by how bad it actually is.
+    if (sortBy === 'compliance') return complianceRatio(sa) - complianceRatio(sb)
+    if (sortBy === 'recent') return (sb?.daysSinceLog ?? 999) - (sa?.daysSinceLog ?? 999)
     return 0
-  })
+  }
 
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -458,7 +461,7 @@ function CoachDashboard({ profile }) {
                     key={key}
                     active={sortBy === key}
                     aria-pressed={sortBy === key}
-                    onClick={() => setSortBy(key)}
+                    onClick={() => { setSortBy(key); setSortDir('worst') }}
                   >
                     {label}
                   </Pill>
@@ -499,7 +502,16 @@ A dash means none submitted this period.`} />
                   cannot tell which end is today. */}
               <Row className="roster-row roster-head" cols="minmax(0, 1fr) 200px 104px 152px">
                 <span className="ds-colhead">Client</span>
-                <span className="ds-colhead">{LENS_HEADERS[sortBy] ?? LENS_HEADERS.attention}</span>
+                <button
+                  type="button"
+                  className="ds-colhead ds-sortbtn"
+                  onClick={() => setSortDir(d => (d === 'worst' ? 'best' : 'worst'))}
+                  aria-label={`${LENS_HEADERS[sortBy] ?? LENS_HEADERS.attention}, sorted ${sortDir} first. Reverse.`}
+                  title={sortDir === 'worst' ? 'Worst first \u2014 click to reverse' : 'Best first \u2014 click to reverse'}
+                >
+                  {LENS_HEADERS[sortBy] ?? LENS_HEADERS.attention}
+                  <Icon name={sortDir === 'worst' ? 'down' : 'up'} size={13} strokeWidth={2.5} />
+                </button>
                 <span className="ds-colhead">Check-in</span>
                 <span />
               </Row>

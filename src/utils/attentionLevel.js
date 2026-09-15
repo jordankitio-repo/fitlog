@@ -42,7 +42,9 @@ const STALE_LOG_DAYS = 4
 // tone: 'red' intervene · 'yellow' watch · 'green' fine · 'setup' nothing to
 // grade against (rendered grey — see the colour rule in the design skill).
 
-const TONE_RANK = { red: 0, yellow: 1, setup: 2, green: 3 }
+// Worst to best. Exported so the roster sorts by exactly the grade it renders:
+// a column and its ordering must never come from two different calculations.
+export const TONE_RANK = { red: 0, yellow: 1, setup: 2, green: 3 }
 
 export function gradeLogging(s) {
   // A locked client outranks the day count: the lock is why they stopped.

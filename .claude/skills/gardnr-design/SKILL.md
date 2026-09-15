@@ -168,7 +168,19 @@ dimension grades red/yellow/green:
 
 Reasons are ordered worst-tone-first, so `reasons[0]` — what the badge shows —
 is always the client's worst dimension, and a grey setup gap never outranks a
-client who is actually slipping. The other three each
+client who is actually slipping.
+
+**Sorting uses the grade the column renders** (`TONE_RANK`), never a parallel
+calculation. They had drifted: compliance sorted by descending score and Last
+logged by ascending days, so both put the HEALTHIEST client on top while the
+header said worst-first. One `TONE_RANK` comparison with a magnitude tiebreak
+makes the order and the colours agree by construction.
+
+Direction is a **semantic** toggle — worst-first / best-first, not asc/desc,
+because "ascending" is meaningless for a column reading "Never logged". The
+column header is the control (a real button, feather chevron: down = worst
+first, up = best first) and switching lens resets to worst-first, since a new
+lens is a new question. The other three each
 report one dimension for every client; Attention reports the WORST dimension
 per client and names it, so it never just echoes Last logged. Any dimension can
 reach red — a client who logs faithfully and hits 0/14 targets outranks one who

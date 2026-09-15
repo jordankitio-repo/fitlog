@@ -23,7 +23,7 @@ export const LENS_HEADERS = {
   checkin: 'Check-in',
 }
 
-const LENS_GRADERS = {
+export const LENS_GRADERS = {
   compliance: gradeCompliance,
   recent: gradeLogging,
   checkin: gradeCheckin,
