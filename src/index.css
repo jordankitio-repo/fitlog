@@ -41,6 +41,15 @@
   --control-shadow-active: inset 0 1px 2px rgba(0, 0, 0, 0.5);
   /* On a filled accent the highlight does the work; the shadow stays soft. */
   --control-shadow-accent: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* ── Inset surface — the inverse of --control-* ───────────────────────
+     Controls sit ABOVE the page: gradient, top highlight, drop shadow. This
+     sits BELOW it: a shadow cast inward from the top lip and a faint catch of
+     light along the bottom, which is what a carved recess does. Used where
+     something is MISSING rather than actionable — "No targets set", "Nothing
+     logged" — so absence reads as a hole in the page instead of just grey
+     text. Elevation says press me; recession says nothing is here yet. */
+  --inset-bg: rgba(0, 0, 0, 0.28);
+  --inset-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.035);
 
   /* Metric data colors — one per tracked dimension */
   --color-calories: #22c55e;
@@ -142,6 +151,8 @@
   --control-shadow: 0 1px 2px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --control-shadow-active: inset 0 1px 2px rgba(16, 24, 40, 0.12);
   --control-shadow-accent: 0 1px 2px rgba(16, 24, 40, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --inset-bg: rgba(16, 24, 40, 0.055);
+  --inset-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.85);
 }
 
 body {
@@ -208,6 +219,22 @@ body {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 .ds-sortbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* A status that reports ABSENCE rather than a grade. Recessed, so it reads as
+   a gap in the row instead of a value in it. */
+.ds-absent {
+  display: inline-flex;
+  align-items: center;
+  /* Hug the text. As a column-flex child it stretched to the full cell, and a
+     recess that wide reads as a rendering artefact rather than a gap. */
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 9px;
+  border-radius: 5px;
+  background: var(--inset-bg);
+  box-shadow: var(--inset-shadow);
+}
 
 /* Roster row — the coach's scanning surface. Columns collapse to a two-line
    stack below 900px, where a five-column grid stops being scannable. */

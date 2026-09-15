@@ -322,6 +322,20 @@ Also: a control inside a grid stretches to its cell. Give it `justify-self:
 start; width: fit-content` or its hover fill runs the full column width and
 reads as a stray block.
 
+### 5c-ii. Absence is recessed. It is the inverse of a control.
+`--inset-*` is the mirror of `--control-*`: a shadow cast inward from the top
+lip and a faint catch of light along the bottom — what a carved recess does,
+where a control has a gradient, a top highlight and a drop shadow.
+
+Use it (`.ds-absent`) where something is MISSING rather than actionable: "No
+targets set", "Nothing logged". **Elevation says press me; recession says
+nothing is here yet.** Grey alone only said "unimportant"; recessed says
+"there is a hole in this row".
+
+Hug the text (`align-self: flex-start; width: fit-content`). A recess stretched
+across a whole cell reads as a rendering artefact, not a gap — the same trap as
+a grid-stretched button.
+
 ### 5c. Controls sit on a raised surface. They are never flat outlines.
 A transparent button with a 1px border is the "dead" look. The recipe every
 serious dashboard uses — and what `--control-*` in `src/index.css` encodes — is
