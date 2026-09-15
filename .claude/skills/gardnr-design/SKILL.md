@@ -254,16 +254,20 @@ users the ring. Hover lights the SURFACE; it does not flash the border.
 Elevation says how much a control wants to be pressed. Hue says what happens
 when you do:
 
-| Hue | Means | Examples |
+| Variant | At rest | On hover / press |
 |---|---|---|
-| neutral (`muted`) | navigation — changes nothing for anybody | `Open ›`, sort chips |
-| green (`action`) | **acts on a client** — sends a nudge, sends an invite, opens work ending in a message to a real person | `Nudge`, `Send invite`, `N check-ins to review` |
+| `muted` | neutral raised | neutral, brighter |
+| `action` | **identical to `muted`** | **green**: surface, border and label |
 
-Both are rank 2 and sit side by side at the same elevation, so the difference
-reads as *kind*, not *importance*. `--control-bg-accent` is the same physical
-recipe as `--control-bg`, washed with the brand colour. In a coaching tool a
-coach should be able to see at a glance which controls reach a human — a
-filled-green rank 1 is still reserved for the one action on the view.
+`action` is for a control that **acts on a client** — sends a nudge, sends an
+invite, opens work ending in a message to a real person. `muted` only
+navigates.
+
+**The green is revealed, not advertised.** At rest the two are the same, because
+nine rows of standing colour say nothing and a roster full of green buttons is
+noise. The hue arrives on hover and press — the moment you are about to commit,
+which is when "this reaches someone" is worth saying. Filled green stays
+reserved for rank 1, the one action on a view.
 
 **The elevation ladder.**
 

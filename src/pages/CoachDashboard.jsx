@@ -88,10 +88,12 @@ function BannerAction({ onClick, title, tone = 'primary', children }) {
       title={title}
       style={{
         fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
-        color: hover && live ? 'var(--color-on-accent)' : accent,
-        background: hover && live ? accent : 'var(--control-bg)',
-        border: `1px solid ${hover && live ? accent : `color-mix(in srgb, ${accent} 40%, transparent)`}`,
-        boxShadow: hover && live ? 'var(--control-shadow-accent)' : 'var(--control-shadow)',
+        // Neutral at rest like every other control; the tone shows on hover,
+        // which is where it matters — this CTA opens work ending in a message.
+        color: hover && live ? accent : 'var(--color-text-dim)',
+        background: hover && live ? 'var(--control-bg-accent-hover)' : 'var(--control-bg)',
+        border: `1px solid ${hover && live ? `color-mix(in srgb, ${accent} 62%, transparent)` : 'var(--control-bd)'}`,
+        boxShadow: 'var(--control-shadow)',
         borderRadius: '999px', padding: '6px 13px',
         cursor: live ? 'pointer' : 'default',
         display: 'inline-flex', alignItems: 'center', gap: '6px',
