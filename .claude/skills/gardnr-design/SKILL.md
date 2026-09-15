@@ -81,300 +81,241 @@ preferences; treat them as broken output.
 - **The growth motif** (leaf, laurel) on milestones, streaks, empty states and
   celebrations — not on every screen.
 
-## The layout layer — six rules
+## The layout system
 
-The token layer (color, type) was never the problem; the layout layer was. These
-six rules are what stop screens reading as "assembled". Measured before the rule:
-71% of every bordered container on the roster sat inside another bordered
-container, and ClientView carried 8 distinct paddings.
+The token layer (colour, type) was never what made screens read as "assembled";
+the layout layer was. Everything below was derived by rebuilding the coach
+roster and measuring the result: **2266px → 1100px, 51 bordered surfaces → 12,
+nesting depth 2 → 1, 7 distinct paddings → 3.** Apply it to every other screen.
 
-### 1. Three surfaces. A Panel never contains a Panel.
-- **page** — no border, no background. Sections separated by space + a heading.
-  A page-level headline (the roster's triage line) is NOT a card.
+---
+
+### A. Structure
+
+**A1. Three surfaces. A Panel never contains a Panel.**
+- **page** — no border, no background. Sections separated by space and a
+  heading. A page-level headline (the roster's triage line) is NOT a card.
 - **panel** (`ui/Panel`) — the ONLY element that draws a border. One per logical
-  group.
+  group. `title` renders a header bar with a divider.
 - **row** (`ui/Row`) — a record inside a Panel. No border, no background, no
   radius; a hairline divider between rows and none after the last.
 
-Maximum nesting depth is **1**. Form controls (input/button/select) carry their
-own borders and don't count — they are controls, not surfaces.
+Maximum nesting depth is **1**. Form controls carry their own borders and do not
+count — they are controls, not surfaces.
 
-### 2. Two densities, and no third.
-`Panel density="compact"` → `12px 16px`, for repeating surfaces (rosters, stat
-rows, lists). `density="comfortable"` → `20px 24px`, for things people type into
-or read (forms, settings, prose). Every panel declares one.
+**A2. Two densities, and no third.**
+`density="compact"` → `12px 16px` for repeating surfaces (rosters, stat rows,
+lists). `density="comfortable"` → `20px 24px` for things people type into or
+read. Every Panel declares one. Compact `Row` padding is `16px`; 12px around a
+30px avatar leaves no air and the rows read as stacked.
 
-### 3. Spacing carries grouping; borders are the fallback.
+**A3. Spacing carries grouping; borders are the fallback.**
 `--space-*` only. **≤12px within a group, ≥24px between groups.** Evenly spaced
 layouts read flat, randomly spaced ones read sloppy — the contrast is what makes
-structure visible without drawing it. Every border is an admission you couldn't
-group it with space.
+structure visible without drawing it. Every border you draw is an admission you
+could not group it with space.
 
-### 4. Three status shapes. "Pill" stops meaning everything.
-- **Status text** — the DEFAULT for row status. Plain coloured text, weight 700
-  for red/amber and muted 500 for green. No container, no dot. It aligns down a
-  column, which a pill never does, and the label ("5 days no log", "Logged
-  today") already carries the meaning, so colour only reinforces it.
-- **`Badge`** — ONE fact, two words max, and only where a container earns its
-  keep. `tone="strong"` for a primary signal, `soft` for supporting evidence,
-  `solid` for counts.
-- **`StatCell` strip** — several facts about one subject: mono uppercase label
-  over a tabular value, hairline divider between cells. A pill holding four
-  dot-separated facts is a table in a costume.
-- **`Tracker`** — anything over time. Seven cells, oldest left.
-
-**If it carries more than one fact, it is not a Badge.**
-
-**NEVER a coloured pill with a dot inside it.** Rejected outright — it is the
-single most recognisable AI-dashboard tell, and the dot never says anything the
-label hasn't. `Badge` has no `dot` prop; don't add one back, and don't hand-roll
-the shape. The same goes for legend dots beside a number: colour the number.
-
-### 5. Color lives in the data; chrome stays neutral.
-Borders, dividers, panel backgrounds, resting icons and labels take neutral
-tokens ONLY. Metric tokens go on the number; semantic tokens go in the status
-cell; green is the only action color. **Never color an entire card border to
-signal state** — state belongs in the row's status cell, at a consistent
-x-position where it scans in one pass.
-
-### 5b. Grid columns are declared ONCE, never per row.
+**A4. Grid columns are declared ONCE, never per row.**
 Every `<Row>` is its own CSS grid, so an `auto` or content-sized column resolves
-against THAT row's content. A roster where some rows have an extra button will
-silently misalign every column to its left. **Give every column a fixed width**
-(or define one grid on the container) so the layout is identical on every row.
-This is the bug that made the first roster's status column jump around.
+against THAT row's content. A roster where some rows carry an extra button will
+silently misalign every column to its left, and it looks like sloppy design
+rather than a layout bug. **Give every column a fixed width**, or define one
+grid on the container.
 
-### 5f. A single destination is not navigation, and destructive menu items read red.
-A coach's desktop nav held one pill, "Clients", pointing at the page they were
-already on — which the brand mark also links to, and which the `<h1>` now names.
-Three ways of saying the same thing. Nav pills render only when there is more
-than one place to go, so clients keep Dashboard/Log.
+Related: a control inside a grid stretches to its cell. `justify-self: start;
+width: fit-content`, or its hover fill runs the full column and reads as a stray
+block.
 
-In the account menu, the one action you cannot undo with a click takes
-`--color-error` and sits below a rule (`.gnav-menu-item.danger` +
-`.gnav-menu-sep`). Every account menu worth copying does this, and it is why you
-never hit sign-out by accident.
-
-### 5e. Name pages from the reader's side, and make the nav agree.
-"Coach Dashboard" named the page from the SYSTEM's side — the word "Coach" only
-ever distinguished it from `Dashboard.jsx` in the codebase. A coach never sees
-the other one, so the qualifier told them nothing. It is **Clients**, which is
-also what the nav item says.
-
-**A page whose heading and nav label disagree makes the reader check they are in
-the right place.** Still outstanding: the client side navigates to "Dashboard"
-and lands on a heading reading "My Progress".
-
-"Dashboard" is a placeholder word — it is what you call a page before deciding
-what it is. Name the thing: Clients, Daily Log, Profile.
-
-### 5d. A column header names what the column HOLDS — and a sort must show its key.
-**If the reader can re-sort by a value, that value has to be on screen.** The
-roster once let a coach sort by Compliance while the column kept showing
-attention reasons: ordering by a number that was never visible, so the order
-looked arbitrary.
-
-The fix generalises. The chips are **lenses**, not sort orders: picking one
-re-sorts the roster AND retargets the status column, so the column always
-reports the key the rows are ordered by, and the header renames itself
-(`LENS_HEADERS`). Logic lives in `src/utils/rosterStatus.js`, not the view.
-
-| Lens | Column shows | Grey when |
-|---|---|---|
-| Attention | the client's WORST dimension, named | no targets set |
-| Compliance | `11/14 days on target` | no targets, or nothing logged |
-| Last logged | `Logged today` / `3 days ago` | — |
-| Check-in | `Not submitted` / `Awaiting your review` / `Reviewed` | — |
-
-**Attention is the roll-up lens**, not a fourth peer. It is built out of the
-other three: `gradeLogging`, `gradeCompliance` and `gradeCheckin` each return
-`{ text, tone }`, the lenses render one of them, and Attention renders the
-WORST. It therefore cannot drift from the lens a coach switches to. Every
-dimension grades red/yellow/green:
-
-| Dimension | red | yellow | green |
-|---|---|---|---|
-| Logging | never, or 4+ days, or locked | 2–3 days | today / yesterday |
-| Compliance | < 3/7 of target days | < 5/7 | 5/7+ (grey with no targets) |
-| Check-in | not submitted | submitted, unreviewed | reviewed |
-
-Reasons are ordered worst-tone-first, so `reasons[0]` — what the badge shows —
-is always the client's worst dimension.
-
-**Tone order: red, grey, yellow, green.** Grey sits above yellow because a
-dimension nobody can measure is worse than one measuring badly: if a client's
-compliance is grey and their check-in is yellow, Attention grabs the grey. Red
-still beats grey, so someone five days unlogged outranks someone who just needs
-targets setting. `compareByAttention` orders by TONE, not `level` — `level`
-collapses grey into yellow for the rollup counts, and sorting by it made a grey
-and a yellow tie.
-
-**Sorting uses the grade the column renders** (`TONE_RANK`), never a parallel
-calculation. There is no per-lens exception: every
-dimension ranks **red, grey, yellow, green**, so Attention takes each
-dimension's worst case by that one order — no red in compliance but a grey
-present means it grabs the grey, because grey beats yellow. They had drifted: compliance sorted by descending score and Last
-logged by ascending days, so both put the HEALTHIEST client on top while the
-header said worst-first. One `TONE_RANK` comparison with a magnitude tiebreak
-makes the order and the colours agree by construction.
-
-Direction is a **semantic** toggle — worst-first / best-first, not asc/desc,
-because "ascending" is meaningless for a column reading "Never logged". The
-column header is the control (a real button, feather chevron: down = worst
-first, up = best first) and switching lens resets to worst-first, since a new
-lens is a new question. The other three each
-report one dimension for every client; Attention reports the WORST dimension
-per client and names it, so it never just echoes Last logged. Any dimension can
-reach red — a client who logs faithfully and hits 0/14 targets outranks one who
-has been quiet three days, which the old logging-only red got backwards.
-Compliance is reported in aggregate there ("4/14 days on target"), never
-per-metric: a column showing a different metric for every client cannot be read.
-
-The column holds different kinds of fact under this lens, so it is labelled
-**Needs attention** rather than "Status": a header must not promise a uniform
-dimension it doesn't have. Under every other lens each cell answers the
-same question, and the column is comparable top to bottom.
-
-### 5d-bis. A generic column label papers over a real problem.
-"Status" implies one uniform dimension the reader can compare down the page. The
-roster's column holds `reasons[0]` — the single most pressing fact about a
-client, of whatever kind: logging recency, a missed check-in, weak compliance,
-or a setup gap. Four different questions in one column, which is right for
-triage and wrong for a header that promises a metric. It is called **Needs
-attention**, which is what it is.
-
-The test: if two cells in a column answer different questions, the header must
-say so — or the column should be split. Don't let a generic label paper over it.
-
-Reason strings must also name their own unit. "Calories 0/7" never said 0 of 7
-WHAT; it is "Calories 0/7 days".
-
-### 5a. Colour is a grade. Grey is the absence of one.
-The rule that keeps the roster from becoming a rainbow: **colour encodes a
-graded state; grey encodes that no grade exists.**
-
-| Tone | Means | Example |
-|---|---|---|
-| red | graded, intervene now | `Never logged`, `4 days no log` |
-| amber | graded, watch this client | `2 days no log`, `No check-in` |
-| green | graded, fine | `Logged today` |
-| **grey** | **nothing to grade against** | `No targets set` |
-
-`No targets set` is grey because there IS no target — no scale, no performance
-to colour. Painting it amber would put "the coach hasn't finished onboarding"
-on the same visual footing as "this client is slipping", and would leave amber
-meaning three different things at once.
-
-This is why `attentionLevel` returns BOTH `level` and `tone`. They differ on
-purpose: `level` is severity (drives sorting and the roster counts, so a setup
-gap still ranks for attention instead of sinking to the bottom with the greens),
-`tone` is how it is painted. Severity and grade-ability are different questions.
-Setup reasons live in `SETUP_REASONS`.
-
-Green must NOT share grey. They collided once: `green` and `setup` were both
-`--color-muted`, so a healthy client and an unconfigured one looked identical
-and the whole distinction existed only in the code.
-
-**The roster deliberately has no 7-day tracker.** It was tried and removed:
-seven cells needed an axis label, then per-cell tooltips, then arithmetic, to
-say something the status text already says in a phrase. A tracker is the right
-shape when the SHAPE of a series is the point (ClientView's compliance grid);
-on a triage row, where the question is "who needs me now", it cost more reading
-than it gave. If you add one anywhere, it needs an axis — a strip where the
-reader cannot tell which end is now is decoration.
-
-### 5a. Semantic colour has a rule, or it is decoration.
-Never introduce a colour on a control without stating what governs it. For a
-banner CTA (a headline count that names work the coach owes), tone answers one
-question: **what happens if this is ignored?**
-
-| Tone | Meaning | Example |
-|---|---|---|
-| `primary` green | Routine. It piles up; nothing breaks. | check-ins to review |
-| `warning` amber | Blocked. Cannot be measured or acted on until fixed. | a client with no targets |
-
-**There is no red banner CTA, deliberately.** Red means a CLIENT is in trouble.
-A coach's own to-do list must never shout louder than a person who has stopped
-eating — otherwise "4 clients need targets" out-ranks "Hugo, 5 days no log" on
-the same screen. Red belongs to roster rows.
-
-**Tone does not escalate with count.** Ten missing targets is the same KIND of
-problem as one, so it stays amber and the number does the work. Two channels,
-no overlap: **the number carries volume, the tone carries kind.** Escalating by
-count would let a pile of admin outrank one failing client.
-
-**Order is fixed** (routine, then gaps), not sorted by count — a bar you read
-daily should not move. **Zero renders nothing**; a CTA never says "0". Plurals
-are written per call site ("1 client needs" / "3 clients need").
-
-### 5b-ii. No native `title` tooltips on designed surfaces.
-The browser's `title` renders an OS-styled grey box in the system font, after a
-fixed delay, unthemeable — the one element on screen that is not yours. It
-breaks a dark UI completely.
-
-- If the state is already visible (a chevron showing sort direction), the hint
-  is redundant. **Delete it.** Keep `aria-label` for screen readers; it renders
-  nothing.
-- If the hint carries information nothing else shows, use the app's own portaled
-  bubble (`InfoTip` / `.info-tip-bubble`), which is token-styled.
-
-Also: a control inside a grid stretches to its cell. Give it `justify-self:
-start; width: fit-content` or its hover fill runs the full column width and
-reads as a stray block.
-
-### 5c. Controls sit on a raised surface. They are never flat outlines.
-A transparent button with a 1px border is the "dead" look. The recipe every
-serious dashboard uses — and what `--control-*` in `src/index.css` encodes — is
-three things that are invisible alone and read as a physical surface together:
-a barely-perceptible vertical gradient, a hairline highlight on the top edge,
-and a 1px drop shadow.
-
-- `--control-bg` / `--control-bg-hover` — the surface and its hover
-- `--control-bd` / `--control-bd-hover` — hairline border
-- `--control-shadow` / `--control-shadow-active` / `--control-shadow-accent`
-
-**Every interactive control needs a visible hover AND a pressed state.** The old
-`Button` used one `filter: brightness(1.12)` hover for all variants, which is a
-literal no-op on a transparent background — every secondary button in the app
-had no hover feedback at all. Pressed sinks the surface
-(`--control-shadow-active` + `translateY(0.5px)`); one frame of physics is what
-makes a control feel like a control.
-
-Navigable rows get a direction cue (a chevron), not just a label.
-
-**The elevation ladder — elevation encodes INVITATION**, i.e. how much a control
-wants to be pressed, which is its rank in the action hierarchy:
-
-| Rank | Treatment | Use | Variant |
-|---|---|---|---|
-| 1 | accent fill + accent shadow | the one action. **Max one per view.** | `primary`, `danger-solid` |
-| 2 | raised neutral surface + hairline + shadow | expected actions | `muted`, `outline`, `danger`, `ai` |
-| 3 | **still a button**: flat fill, soft border, no shadow, no gradient | present but not inviting (Cancel, Remove, Nudge) | `ghost` |
-| 4 | no chrome until hover | icon-only affordances | `ui/IconButton` |
-
-**Rank inflation is the failure mode.** When three controls in a row are all
-elevated, none reads as the answer. Pick the rank by what you want pressed.
-
-**Rank 3 is not chrome-less.** Deleting the boundary turns a button into a link:
-the affordance vanishes until hover, which is a bug rather than restraint. Rank
-is expressed INSIDE the boundary — fill weight, border strength, text colour.
-Only rank 4 (icon-only) has no chrome. In the reference dashboards "Learn more"
-sits beside "Get tickets" and both are plainly buttons; only the emphasis
-differs.
-
-**Hover must not stick.** Never set hover state from `onFocus` — a clicked
-button keeps focus, so the hover never leaves. `:focus-visible` in index.css
-already gives keyboard users the green ring; that is the correct affordance.
-And hover should light the SURFACE, not flash the border to near-white.
-
-### 6. Type does hierarchy, so boxes don't have to.
+**A5. Type does hierarchy, so boxes don't have to.**
 Page title `--text-title` · panel heading `--text-body`/600 · eyebrow
 `--text-xs` uppercase · row primary `--text-base`/600 · row secondary
 `--text-sm` muted · data numeral `--text-lg`/700 with `.tnum`.
 
-**Migrated so far:** Profile (was already compliant), CoachDashboard roster
-(2266px → 1100px, 51 surfaces → 12, depth 2 → 1). Still to do: Log, Dashboard,
-ClientView (4693px, 38 surfaces, 23 nested).
+---
+
+### B. Colour
+
+**B1. Colour is a grade. Grey is the absence of one.**
+The rule that keeps a screen from becoming a rainbow.
+
+| Tone | Means | Example |
+|---|---|---|
+| red | graded, intervene now | `Never logged`, `4 days no log` |
+| amber | graded, watch | `2 days no log`, `No check-in` |
+| green | graded, fine | `Logged today` |
+| **grey** | **nothing to grade against** | `No targets set` |
+
+Painting a setup gap amber would put "the coach hasn't finished onboarding" on
+the same footing as "this client is slipping", and leave amber meaning three
+things at once. **Green must never share grey** — they collided once (both
+`--color-muted`) and a healthy client looked identical to an unconfigured one.
+
+Grey needs no extra decoration. An engraved/recessed treatment was tried and
+removed: the muted colour already says "no grade here", and the effect could not
+render on a light surface at all.
+
+**B2. Colour lives in the data; chrome stays neutral.**
+Borders, dividers, panel backgrounds, resting icons and labels take neutral
+tokens ONLY. Metric tokens go on the number; semantic tokens go in the status
+cell; green is the only action colour. **Never colour an entire card border to
+signal state** — state belongs in the row's status cell, at a consistent
+x-position where it scans in one pass.
+
+**B3. Semantic colour needs a stated rule, or it is decoration.**
+Never introduce a colour without saying what governs it. For a banner CTA (a
+headline count naming work the user owes), tone answers one question: **what
+happens if this is ignored?** — `primary` green = routine, it piles up;
+`warning` amber = blocked until fixed.
+
+**No red CTA, deliberately.** Red means a CLIENT is in trouble; an admin to-do
+must never shout louder than a person who has stopped eating.
+
+**Tone does not escalate with count.** Ten of a thing is the same KIND of
+problem as one. **The number carries volume, the tone carries kind** — two
+channels, no overlap. Order is fixed, not sorted by count: a bar read daily
+should not move. Zero renders nothing. Plurals are written per call site.
+
+---
+
+### C. Status and data display
+
+**C1. Status is text by default.**
+- **Status text** — plain coloured text, weight 700 for red/amber, muted 500 for
+  green/grey. No container, no dot. It aligns down a column, which a pill never
+  does, and the label already carries the meaning so colour only reinforces it —
+  which is also why it survives without colour vision.
+- **`Badge`** — ONE fact, two words max, only where a container earns its keep.
+- **`StatCell` strip** — several facts about one subject: mono uppercase label
+  over a tabular value, hairline divider between cells.
+- **`Tracker`** — a time series, where the SHAPE is the point.
+
+**If it carries more than one fact, it is not a Badge.** A pill holding four
+dot-separated facts is a table in a costume.
+
+**NEVER a coloured pill with a dot inside it.** The single most recognisable
+AI-dashboard tell, and the dot never says anything the label hasn't. `Badge` has
+no `dot` prop. Same for legend dots beside a number: colour the number.
+
+**A pill you can press is fine; a pill you cannot press is decoration.** Sort
+chips and CTAs keep the shape because the shape is the affordance. Status does
+not, because it is not a control.
+
+**C2. A column header names what the column HOLDS.**
+"Status" promises one uniform dimension the reader can compare down the page. If
+two cells answer different questions, the header must say so — the roster's is
+**Needs attention** — or the column should be split. A generic label papering
+over it is how a table stops being readable.
+
+Reason strings name their own unit: "Calories 0/7" never said 0 of 7 WHAT.
+
+**C3. If a reader can re-sort by a value, that value must be on screen.**
+The roster once sorted by Compliance while the column showed attention reasons:
+ordering by a number that was never visible, so the order looked arbitrary.
+
+The general pattern — **lenses**. A chip re-sorts AND retargets the column, the
+header renames itself, and the sort uses the grade the column renders
+(`TONE_RANK`), never a parallel calculation. Keep the logic in a util
+(`rosterStatus.js`), not the view.
+
+Direction is a **semantic** toggle — worst-first / best-first, not asc/desc,
+since "ascending" is meaningless for a column reading "Never logged". The header
+is the control (feather chevron: down = worst first). Switching lens resets to
+worst-first: a new lens is a new question.
+
+**C4. A tracker without an axis is decoration.**
+If the reader cannot tell which end is *now*, the data is not being
+communicated. The roster deliberately has none: seven cells needed an axis
+label, then tooltips, then arithmetic, to say what the status text says in a
+phrase. Use one where the shape of the series is the point, and label its axis.
+
+---
+
+### D. Controls
+
+**D1. Controls sit on a raised surface. Never flat outlines.**
+A transparent button with a 1px border is the "dead" look. `--control-*`
+encodes the recipe — three things invisible alone that read as a physical
+surface together: a barely-perceptible vertical gradient, a hairline highlight
+on the top edge, a 1px drop shadow.
+
+`--control-bg` / `-bg-hover` · `--control-bd` / `-bd-hover` ·
+`--control-shadow` / `-shadow-active` / `-shadow-accent`
+
+**D2. Every control needs a visible hover AND a pressed state.**
+Pressed sinks the surface (`--control-shadow-active` + `translateY(0.5px)`); one
+frame of physics is what makes a control feel like a control.
+
+**Hover must not stick.** Never set hover from `onFocus` — a clicked button
+keeps focus, so the hover never leaves. `:focus-visible` already gives keyboard
+users the ring. Hover lights the SURFACE; it does not flash the border.
+
+**D3. The elevation ladder — elevation encodes INVITATION.**
+
+| Rank | Treatment | Use | Variant |
+|---|---|---|---|
+| 1 | accent fill + accent shadow | the one action. **Max one per view** | `primary`, `danger-solid` |
+| 2 | raised neutral + hairline + shadow | expected actions | `muted`, `outline`, `danger`, `ai` |
+| 3 | **still a button**: flat fill, soft border, no shadow | present but not inviting | `ghost` |
+| 4 | no chrome until hover | icon-only | `ui/IconButton` |
+
+**Rank inflation is the failure mode.** Three elevated controls in a row and
+none reads as the answer. Rank 1 means *the one action on this VIEW*, not on
+this panel: "Send invite" was filled green at the foot of the roster, making an
+occasional setup task the loudest thing on a screen whose job is scanning. It is
+rank 2. The only rank 1 left is the empty-state CTA, which renders only when
+there is nothing else to do. **Rank 3 is not chrome-less** — deleting the boundary
+turns a button into a link and the affordance vanishes until hover. Rank is
+expressed INSIDE the boundary: fill weight, border strength, text colour.
+
+Navigable rows get a direction cue (chevron), not just a label.
+
+**D4. One glyph per meaning.**
+There is ONE forward mark — `<Icon name="right" />` — for navigation, CTAs and
+"go to this thing" alike. Two marks for one action read as carelessness, and it
+only shows once both are on screen together.
+
+**D5. No native `title` tooltips on designed surfaces.**
+`title` renders an OS-styled grey box in the system font — the one element on
+screen that is not yours. If the state is already visible, delete the hint and
+keep `aria-label`. If it carries information nothing else shows, use the app's
+portaled bubble (`InfoTip` / `.info-tip-bubble`).
+
+**D6. A single destination is not navigation.**
+Nav pills render only when there is more than one place to go. In an account
+menu, the one action you cannot undo takes `--color-error` below a rule
+(`.gnav-menu-item.danger` + `.gnav-menu-sep`).
+
+---
+
+### E. Copy
+
+**E1. Name pages from the reader's side, and make the nav agree.**
+"Coach Dashboard" named the page from the SYSTEM's side — "Coach" only ever
+distinguished it from `Dashboard.jsx`. It is **Clients**, which is what the nav
+says. A heading that disagrees with its nav label makes the reader check they
+are in the right place. "Dashboard" is a placeholder word: name the thing.
+
+*Outstanding:* the client side navigates to "Dashboard" and lands on "My
+Progress".
+
+**E2. Demo and seed data must read like real records.**
+Clients named "Hugo — 5 days quiet" made the whole screen look generated. They
+are people: Hugo Bennett. Seed dates must use LOCAL formatting, never
+`toISOString()`, which rolls the day forward in the evening west of Greenwich
+and silently desynced every seeded check-in.
+
+---
+
+### Applied so far
+
+| Screen | Before | After |
+|---|---|---|
+| CoachDashboard | 2266px · 51 surfaces · 36 nested · depth 2 · 7 paddings | **1100px · 12 · 0 · depth 1 · 3** |
+| Profile | already compliant (8 surfaces, depth 1, 2 paddings) | Panel-migrated |
+
+**Still to do:** Dashboard (6518px · 74 surfaces · 60 nested · depth 3 · 17
+paddings — the worst screen in the app), Log, ClientView (4693px · 38 · 23 ·
+depth 2 · 8).
 
 ## Color tokens
 

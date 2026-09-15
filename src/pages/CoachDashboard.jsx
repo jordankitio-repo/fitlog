@@ -610,7 +610,7 @@ A dash means none submitted this period.`} />
             }}
             style={{ flex: 1, width: 'auto' }}
           />
-          <Button onClick={checkAndInvite} variant="primary" loading={inviting} disabled={inviting}>Send invite</Button>
+          <Button onClick={checkAndInvite} variant="muted" loading={inviting} disabled={inviting}>Send invite</Button>
         </div>
         {soloAccountDetected && (
           <div style={{
@@ -628,7 +628,7 @@ A dash means none submitted this period.`} />
             <div style={{ display: 'flex', gap: '8px' }}>
               <Button
                 onClick={() => sendInvite(pendingInviteEmail, true)}
-                variant="primary"
+                variant="muted"
                 size="sm"
                 loading={inviting}
                 disabled={inviting}
