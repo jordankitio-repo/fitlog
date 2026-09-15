@@ -154,7 +154,21 @@ reports the key the rows are ordered by, and the header renames itself
 | Last logged | `Logged today` / `3 days ago` | — |
 | Check-in | `Not submitted` / `Awaiting your review` / `Reviewed` | — |
 
-**Attention is the roll-up lens**, not a fourth peer. The other three each
+**Attention is the roll-up lens**, not a fourth peer. It is built out of the
+other three: `gradeLogging`, `gradeCompliance` and `gradeCheckin` each return
+`{ text, tone }`, the lenses render one of them, and Attention renders the
+WORST. It therefore cannot drift from the lens a coach switches to. Every
+dimension grades red/yellow/green:
+
+| Dimension | red | yellow | green |
+|---|---|---|---|
+| Logging | never, or 4+ days, or locked | 2–3 days | today / yesterday |
+| Compliance | < 3/7 of target days | < 5/7 | 5/7+ (grey with no targets) |
+| Check-in | not submitted | submitted, unreviewed | reviewed |
+
+Reasons are ordered worst-tone-first, so `reasons[0]` — what the badge shows —
+is always the client's worst dimension, and a grey setup gap never outranks a
+client who is actually slipping. The other three each
 report one dimension for every client; Attention reports the WORST dimension
 per client and names it, so it never just echoes Last logged. Any dimension can
 reach red — a client who logs faithfully and hits 0/14 targets outranks one who

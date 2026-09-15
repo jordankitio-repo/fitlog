@@ -5,7 +5,7 @@ import { attentionLevel, compareByAttention, summarizeRoster } from './attention
 function stats(over = {}) {
   return {
     daysSinceLog: 0,
-    checkIn: { adherence_rating: 8 },
+    checkIn: { adherence_rating: 8, reviewed_at: '2026-01-01' }, // reviewed = green
     complianceItems: [],
     lockInfo: { locked: false },
     ...over,
@@ -49,10 +49,17 @@ describe('attentionLevel', () => {
     expect(r.reasons).toContain('3 days no log')
   })
 
-  it('flags a missing check-in as yellow', () => {
-    const r = attentionLevel(stats({ checkIn: null }))
-    expect(r.level).toBe('yellow')
-    expect(r.reasons).toContain('No check-in')
+  it('flags a missing check-in as red, and an unreviewed one as yellow', () => {
+    // red    not submitted — the client owes it
+    // yellow submitted, unreviewed — the coach owes it
+    // green  reviewed — the loop is closed
+    const missing = attentionLevel(stats({ checkIn: null }))
+    expect(missing.level).toBe('red')
+    expect(missing.reasons).toContain('No check-in')
+
+    const unreviewed = attentionLevel(stats({ checkIn: { adherence_rating: 8 } }))
+    expect(unreviewed.level).toBe('yellow')
+    expect(unreviewed.reasons).toContain('Awaiting your review')
   })
 
   // Compliance is reported in AGGREGATE now, matching the Compliance lens.
@@ -116,19 +123,23 @@ describe('compareByAttention', () => {
   })
 })
 
-  it('flags missing targets as yellow, and ranks it first among the reasons', () => {
-    // Nothing to be compliant WITH, so every compliance reason is uncomputable.
-    // Telling a coach "Calories 0/7" is noise when no calorie target exists.
-    const a = attentionLevel(stats({ checkIn: null }))
-    expect(a.level).toBe('yellow')
-    expect(a.reasons[0]).toBe('No targets set')
-    expect(a.reasons).toContain('No check-in')
+  it('surfaces missing targets, ranked below any real client signal', () => {
+    // Reasons are ordered worst tone first: red, then yellow, then grey setup.
+    // A grey gap is the coach's onboarding to-do and must not outrank a client
+    // who is actually slipping.
+    const withRed = attentionLevel(stats({ checkIn: null }))
+    expect(withRed.reasons[0]).toBe('No check-in')      // red
+    expect(withRed.reasons).toContain('No targets set') // grey, but still listed
+
+    const onlySetup = attentionLevel(stats())
+    expect(onlySetup.reasons[0]).toBe('No targets set')
+    expect(onlySetup.level).toBe('yellow')
   })
 
   it('paints a setup gap grey while still ranking it as yellow', () => {
     // Severity and grade-ability are different questions: the coach still has
     // to act, so it must not sink to the bottom — but there is no grade to give.
-    const a = attentionLevel(stats({ checkIn: null }))
+    const a = attentionLevel(stats())  // healthy except: no targets
     expect(a.level).toBe('yellow')
     expect(a.tone).toBe('setup')
   })
@@ -150,13 +161,13 @@ describe('compareByAttention', () => {
 describe('summarizeRoster', () => {
   it('counts levels and the data-quality facts the per-client triage cannot', () => {
     const s = summarizeRoster({
-      a: stats({ daysSinceLog: 5 }),                          // red, no targets, not logging
-      b: stats({ checkIn: null }),                            // yellow, no targets
-      c: stats({ complianceItems: [comp('Calories', 6)] }),  // green, has targets
+      a: stats({ daysSinceLog: 5 }),                          // red: stale log
+      b: stats({ checkIn: null }),                            // red: no check-in
+      c: stats({ complianceItems: [comp('Calories', 6)] }),  // green: has targets, all healthy
     })
     expect(s.total).toBe(3)
-    expect(s.atRisk).toBe(1)
-    expect(s.review).toBe(1)
+    expect(s.atRisk).toBe(2)
+    expect(s.review).toBe(0)
     expect(s.onTrack).toBe(1)
     expect(s.noTargets).toBe(2)
     expect(s.notLogging).toBe(1)

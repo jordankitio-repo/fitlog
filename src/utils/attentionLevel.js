@@ -33,68 +33,68 @@ const STALE_LOG_DAYS = 4
 // "this client is slipping". They rank for the coach's attention like a yellow,
 // but they are rendered GREY, because grey is the absence of a grade and there
 // is no grade to give: no target, no scale, no performance to colour.
-export const SETUP_REASONS = ['No targets set']
+// ── The three dimensions ─────────────────────────────────────────────────────
+// Each grades ONE thing for a client and returns { text, tone }. The roster's
+// lenses render these directly; Attention takes the worst of the three. That is
+// the whole relationship, in code rather than in prose: Attention cannot drift
+// from the lenses because it is built out of them.
+//
+// tone: 'red' intervene · 'yellow' watch · 'green' fine · 'setup' nothing to
+// grade against (rendered grey — see the colour rule in the design skill).
 
-// `level`  severity — drives sorting and the roster counts.
-// `tone`   how the UI paints it — same as level, EXCEPT 'setup', which is grey.
-// They differ on purpose: a client with no targets still needs the coach, so it
-// must not sink to the bottom with the green ones, but colouring it amber puts
-// "the coach hasn't finished onboarding" on the same visual footing as "this
-// client is slipping". Severity and grade-ability are different questions.
+const TONE_RANK = { red: 0, yellow: 1, setup: 2, green: 3 }
+
+export function gradeLogging(s) {
+  // A locked client outranks the day count: the lock is why they stopped.
+  if (s?.lockInfo?.locked) return { text: 'Locked', tone: 'red' }
+  const d = s?.daysSinceLog
+  if (d === null || d === undefined) return { text: 'Never logged', tone: 'red' }
+  if (d >= STALE_LOG_DAYS) return { text: `${d} days no log`, tone: 'red' }
+  if (d >= 2) return { text: `${d} days no log`, tone: 'yellow' }
+  if (d === 1) return { text: 'Logged yesterday', tone: 'green' }
+  return { text: 'Logged today', tone: 'green' }
+}
+
+export function gradeCompliance(s) {
+  const all = s?.complianceItems || []
+  // No targets means no scale, so there is no grade to give — not a failure.
+  if (!all.length) return { text: 'No targets set', tone: 'setup' }
+  const items = all.filter(i => i.hasData)
+  if (!items.length) return { text: 'Nothing logged', tone: 'setup' }
+  // Aggregate, never per-metric: a column showing Calories for one client and
+  // Steps for the next cannot be read down the page.
+  const sum = items.reduce((t, i) => t + i.value, 0)
+  const max = items.length * 7
+  const ratio = sum / max
+  const tone = ratio < WEAK_COMPLIANCE / 7 ? 'red' : ratio < 5 / 7 ? 'yellow' : 'green'
+  return { text: `${sum}/${max} days on target`, tone }
+}
+
+export function gradeCheckin(s) {
+  // red    not submitted — the client owes it
+  // yellow submitted, unreviewed — the coach owes it
+  // green  reviewed — the loop is closed
+  if (!s?.checkIn) return { text: 'No check-in', tone: 'red' }
+  if (!s.checkIn.reviewed_at) return { text: 'Awaiting your review', tone: 'yellow' }
+  return { text: 'Reviewed', tone: 'green' }
+}
+
+// Attention = the worst of the three, and the reasons are every non-green
+// dimension, worst first. Any dimension can reach red, so a client who logs
+// faithfully but hits nothing, or whose check-in period is closing empty, ranks
+// with the clients who stopped logging — which is the point.
 export function attentionLevel(stats) {
   if (!stats) return { level: 'green', tone: 'green', reasons: [] }
 
-  const { daysSinceLog, checkIn, complianceItems, lockInfo } = stats
+  const graded = [gradeLogging(stats), gradeCompliance(stats), gradeCheckin(stats)]
+    .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone])
 
-  const red = []
-  const yellow = []
-
-  // ── Logging ───────────────────────────────────────────────────────────────
-  if (daysSinceLog === null) {
-    red.push('Never logged')
-  } else if (daysSinceLog >= STALE_LOG_DAYS) {
-    red.push(`${daysSinceLog} days no log`)
-  } else if (daysSinceLog >= 2) {
-    yellow.push(`${daysSinceLog} days no log`)
-  }
-  if (lockInfo?.locked) red.push('Locked')
-
-  // ── Setup ─────────────────────────────────────────────────────────────────
-  // Without targets there is nothing to be compliant WITH, so the compliance
-  // branch below is uncomputable and the client would otherwise grade GREEN —
-  // on track against nothing. A coach to-do, not the client failing, so yellow.
-  const items = (complianceItems || []).filter(i => i.hasData)
-  if (!(complianceItems || []).length) {
-    yellow.push('No targets set')
-  } else if (items.length) {
-    // ── Compliance ──────────────────────────────────────────────────────────
-    // Reported in AGGREGATE, matching the Compliance lens: "4/14 days on
-    // target", not "Calories 0/7 days". Per-metric detail belongs on the client
-    // record — on a triage row it is noise, and it made the column show a
-    // different metric for every client.
-    //
-    // Compliance can now reach RED. Previously only logging could, so a client
-    // logging faithfully every day and hitting 0 of 14 targets graded YELLOW
-    // while someone four days quiet graded RED — which is backwards, and it
-    // left Attention mostly echoing the Last logged lens.
-    const sum = items.reduce((t, i) => t + i.value, 0)
-    const max = items.length * 7
-    const text = `${sum}/${max} days on target`
-    if (sum / max < WEAK_COMPLIANCE / 7) red.push(text)
-    else if (sum / max < 5 / 7) yellow.push(text)
-  }
-
-  // ── Check-in ──────────────────────────────────────────────────────────────
-  if (!checkIn) yellow.push('No check-in')
-
-  if (red.length > 0) return { level: 'red', tone: 'red', reasons: red.concat(yellow) }
-  if (yellow.length > 0) {
-    // reasons[0] is what the badge shows; a setup gap is painted grey even
-    // though it still ranks as yellow.
-    const tone = SETUP_REASONS.includes(yellow[0]) ? 'setup' : 'yellow'
-    return { level: 'yellow', tone, reasons: yellow }
-  }
-  return { level: 'green', tone: 'green', reasons: [] }
+  const worst = graded[0]
+  const reasons = graded.filter(g => g.tone !== 'green').map(g => g.text)
+  // 'setup' still RANKS as yellow so it does not sink to the bottom with the
+  // greens; only its colour differs.
+  const level = worst.tone === 'green' ? 'green' : worst.tone === 'setup' ? 'yellow' : worst.tone
+  return { level, tone: worst.tone, reasons }
 }
 
 // Sort comparator: red first, then yellow, then green. Within a level, more

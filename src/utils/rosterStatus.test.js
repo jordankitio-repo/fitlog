@@ -3,7 +3,7 @@ import { rosterStatus, LENS_HEADERS } from './rosterStatus'
 
 const comp = (label, value, hasData = true) => ({ label, value, logged: 7, hasData })
 const stats = (o = {}) => ({
-  daysSinceLog: 0, checkIn: { adherence_rating: 8, energy_level: 7 },
+  daysSinceLog: 0, checkIn: { adherence_rating: 8, energy_level: 7, reviewed_at: '2026-01-01' },
   complianceItems: [], lockInfo: { locked: false }, ...o,
 })
 
@@ -35,16 +35,17 @@ describe('rosterStatus', () => {
     it('names the day and grades by staleness', () => {
       expect(rosterStatus('recent', stats({ daysSinceLog: 0 }))).toEqual({ text: 'Logged today', tone: 'green' })
       expect(rosterStatus('recent', stats({ daysSinceLog: 1 }))).toEqual({ text: 'Logged yesterday', tone: 'green' })
-      expect(rosterStatus('recent', stats({ daysSinceLog: 2 }))).toEqual({ text: '2 days ago', tone: 'yellow' })
-      expect(rosterStatus('recent', stats({ daysSinceLog: 6 }))).toEqual({ text: '6 days ago', tone: 'red' })
+      expect(rosterStatus('recent', stats({ lockInfo: { locked: true } }))).toEqual({ text: 'Locked', tone: 'red' })
+      expect(rosterStatus('recent', stats({ daysSinceLog: 2 }))).toEqual({ text: '2 days no log', tone: 'yellow' })
+      expect(rosterStatus('recent', stats({ daysSinceLog: 6 }))).toEqual({ text: '6 days no log', tone: 'red' })
       expect(rosterStatus('recent', stats({ daysSinceLog: null }))).toEqual({ text: 'Never logged', tone: 'red' })
     })
   })
 
   describe('checkin lens', () => {
     it('separates not-submitted, awaiting review, and reviewed', () => {
-      expect(rosterStatus('checkin', stats({ checkIn: null })).text).toBe('Not submitted')
-      expect(rosterStatus('checkin', stats()).text).toBe('Awaiting your review')
+      expect(rosterStatus('checkin', stats({ checkIn: null }))).toEqual({ text: 'No check-in', tone: 'red' })
+      expect(rosterStatus('checkin', stats({ checkIn: { adherence_rating: 8 } }))).toEqual({ text: 'Awaiting your review', tone: 'yellow' })
       expect(rosterStatus('checkin', stats({ checkIn: { reviewed_at: '2026-09-01' } }))).toEqual({ text: 'Reviewed', tone: 'green' })
     })
   })
