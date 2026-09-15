@@ -265,6 +265,21 @@ count would let a pile of admin outrank one failing client.
 daily should not move. **Zero renders nothing**; a CTA never says "0". Plurals
 are written per call site ("1 client needs" / "3 clients need").
 
+### 5b-ii. No native `title` tooltips on designed surfaces.
+The browser's `title` renders an OS-styled grey box in the system font, after a
+fixed delay, unthemeable — the one element on screen that is not yours. It
+breaks a dark UI completely.
+
+- If the state is already visible (a chevron showing sort direction), the hint
+  is redundant. **Delete it.** Keep `aria-label` for screen readers; it renders
+  nothing.
+- If the hint carries information nothing else shows, use the app's own portaled
+  bubble (`InfoTip` / `.info-tip-bubble`), which is token-styled.
+
+Also: a control inside a grid stretches to its cell. Give it `justify-self:
+start; width: fit-content` or its hover fill runs the full column width and
+reads as a stray block.
+
 ### 5c. Controls sit on a raised surface. They are never flat outlines.
 A transparent button with a 1px border is the "dead" look. The recipe every
 serious dashboard uses — and what `--control-*` in `src/index.css` encodes — is

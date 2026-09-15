@@ -506,8 +506,7 @@ A dash means none submitted this period.`} />
                   type="button"
                   className="ds-colhead ds-sortbtn"
                   onClick={() => setSortDir(d => (d === 'worst' ? 'best' : 'worst'))}
-                  aria-label={`${LENS_HEADERS[sortBy] ?? LENS_HEADERS.attention}, sorted ${sortDir} first. Reverse.`}
-                  title={sortDir === 'worst' ? 'Worst first \u2014 click to reverse' : 'Best first \u2014 click to reverse'}
+                  aria-label={`${LENS_HEADERS[sortBy] ?? LENS_HEADERS.attention}, ${sortDir} first. Click to reverse.`}
                 >
                   {LENS_HEADERS[sortBy] ?? LENS_HEADERS.attention}
                   <Icon name={sortDir === 'worst' ? 'down' : 'up'} size={13} strokeWidth={2.5} />
