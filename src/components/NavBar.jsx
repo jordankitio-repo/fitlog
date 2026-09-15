@@ -46,6 +46,9 @@ function NavBar({ profile }) {
     ? [{ to: '/', label: 'Clients' }, { to: '/profile', label: 'Profile' }]
     : [{ to: '/', label: 'Dashboard' }, { to: '/log', label: 'Log' }, { to: '/profile', label: 'Profile' }]
 
+  // Desktop pill links: everything except Profile, which lives in the avatar menu.
+  const navLinks = links.filter((l) => l.to !== '/profile')
+
   const brand = (
     <Link to="/" aria-label="Gardnr home" style={{
       display: 'inline-flex', alignItems: 'center', gap: '9px', textDecoration: 'none',
@@ -114,8 +117,12 @@ function NavBar({ profile }) {
     <nav className="gnav" style={{ ...navBase, gap: '24px' }}>
       {brand}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-        {/* Profile lives in the avatar menu on desktop, not as a pill. */}
-        {links.filter((l) => l.to !== '/profile').map((l) => (
+        {/* Profile lives in the avatar menu on desktop, not as a pill.
+            And a single destination is not navigation: a coach has only
+            Clients, which points at the page they are already on and which the
+            brand mark already links to. Rendered only when there is somewhere
+            to actually go — so clients keep Dashboard/Log. */}
+        {navLinks.length > 1 && navLinks.map((l) => (
           <Link
             key={l.to + l.label}
             to={l.to}
@@ -163,7 +170,8 @@ function NavBar({ profile }) {
                 >
                   Profile
                 </Link>
-                <button type="button" onClick={() => { setMenuOpen(false); handleSignOut() }} className="gnav-menu-item">
+                <div className="gnav-menu-sep" role="separator" />
+                <button type="button" onClick={() => { setMenuOpen(false); handleSignOut() }} className="gnav-menu-item danger">
                   Sign out
                 </button>
               </div>

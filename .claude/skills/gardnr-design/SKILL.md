@@ -144,6 +144,17 @@ silently misalign every column to its left. **Give every column a fixed width**
 (or define one grid on the container) so the layout is identical on every row.
 This is the bug that made the first roster's status column jump around.
 
+### 5f. A single destination is not navigation, and destructive menu items read red.
+A coach's desktop nav held one pill, "Clients", pointing at the page they were
+already on — which the brand mark also links to, and which the `<h1>` now names.
+Three ways of saying the same thing. Nav pills render only when there is more
+than one place to go, so clients keep Dashboard/Log.
+
+In the account menu, the one action you cannot undo with a click takes
+`--color-error` and sits below a rule (`.gnav-menu-item.danger` +
+`.gnav-menu-sep`). Every account menu worth copying does this, and it is why you
+never hit sign-out by accident.
+
 ### 5e. Name pages from the reader's side, and make the nav agree.
 "Coach Dashboard" named the page from the SYSTEM's side — the word "Coach" only
 ever distinguished it from `Dashboard.jsx` in the codebase. A coach never sees

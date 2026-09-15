@@ -407,6 +407,19 @@ nav a:hover {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 .gnav-menu-item:hover { background-color: var(--color-surface-2); }
+
+/* Destructive menu item. Signing out is the one action here you can't undo with
+   a click, so it reads in the error colour and sits below a rule — the pattern
+   every account menu uses, and the reason you never hit it by accident. */
+.gnav-menu-item.danger { color: var(--color-error); }
+.gnav-menu-item.danger:hover {
+  background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+.gnav-menu-sep {
+  height: 1px;
+  background: var(--color-border);
+  margin: 6px -6px;
+}
 .gnav-menu-item.active { color: var(--color-primary); font-weight: 600; }
 
 /* Mobile bottom tab bar (Cronometer-style): primary nav pinned to the bottom
