@@ -272,6 +272,14 @@ to that client's targets now. The GRADE carries the hint (`fix: 'targets'`) so
 the view never matches on text, and grades with no user-fixable cause — "Nothing
 logged", which only the client can resolve — carry none and stay plain.
 
+**Prefer CSS `:hover` over React state.** State-driven hover puts a re-render
+between the pointer moving and the style changing, which shows up worst on
+LEAVE — the transition cannot start until the render lands, and a pill's
+rounded corners make it easy to cross the boundary twice on the way out,
+restarting it. That reads as a stutter. `.ds-sortbtn`, `.ds-fixbtn` and
+`.ds-bannercta` are pure CSS and have none of it. `Button` still uses state for
+its variant map; it is acceptable at 8px radius but is the known exception.
+
 **A label that is also a control responds with its TYPE, not a fill.** A
 sortable column header is a label first: a box appearing behind it on hover
 drags the eye away from the rows it describes. The text and its chevron go

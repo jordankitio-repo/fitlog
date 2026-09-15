@@ -77,36 +77,10 @@ const STATUS_TONES = {
 // Zero renders nothing — a CTA never appears saying "0". Singular and plural
 // are written out per call site; "1 client needs" / "3 clients need".
 function BannerAction({ onClick, title, children }) {
-  const [hover, setHover] = useState(false)
   const live = Boolean(onClick)
   return (
-    <button
-      onClick={onClick}
-      disabled={!live}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      title={title}
-      style={{
-        fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
-        // Neutral at rest like every other control; the tone shows on hover,
-        // which is where it matters — this CTA opens work ending in a message.
-        color: hover && live ? 'var(--control-fg-accent-hover)' : 'var(--color-text-dim)',
-        backgroundImage: 'var(--control-sheen)',
-        backgroundColor: hover && live ? 'var(--control-bg-accent-hover)' : 'var(--control-bg)',
-        border: '1px solid var(--control-bd)',
-        boxShadow: 'var(--control-shadow)',
-        borderRadius: '999px', padding: '6px 13px',
-        cursor: live ? 'pointer' : 'default',
-        display: 'inline-flex', alignItems: 'center', gap: '6px',
-        transition: 'background-color 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease',
-      }}
-    >
+    <button className="ds-bannercta" onClick={onClick} disabled={!live} title={title}>
       {children}
-      {/* No transform on the chevron. It was the only animated glyph in the app,
-          it ran at 120ms against everything else's 140ms so it landed early, and
-          it transitioned FROM `none` — which makes the browser build a transform
-          context mid-flight and stutter. Every other control changes colour and
-          nothing else; this one does too now. */}
       <Icon name="right" />
     </button>
   )
