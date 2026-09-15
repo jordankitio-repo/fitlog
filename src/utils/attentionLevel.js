@@ -1,6 +1,12 @@
 // Coach attention triage — collapse a client's already-computed facts into a
 // single red / yellow / green level plus the human reasons behind it.
 //
+// Attention is the ROLL-UP lens: it surfaces whoever is worst across ALL three
+// dimensions — logging, compliance, check-in — and names which one. Any of them
+// can reach red. The other lenses each report one dimension for every client;
+// this one reports the worst dimension per client, which is why it is the
+// default and why it does not simply repeat "Last logged".
+//
 // Doctrine (see Ai-context/decisions.md → "No fabricated-confidence numbers"):
 // every signal here is an OBSERVED FACT (days since log, lock state, a check-in
 // that didn't happen, a weak compliance count). There is no score, no percentage,
@@ -43,39 +49,48 @@ export function attentionLevel(stats) {
   const red = []
   const yellow = []
 
-  // --- Red: intervene now ---
+  // ── Logging ───────────────────────────────────────────────────────────────
   if (daysSinceLog === null) {
     red.push('Never logged')
   } else if (daysSinceLog >= STALE_LOG_DAYS) {
     red.push(`${daysSinceLog} days no log`)
+  } else if (daysSinceLog >= 2) {
+    yellow.push(`${daysSinceLog} days no log`)
   }
   if (lockInfo?.locked) red.push('Locked')
 
-  // --- Yellow: watch (only meaningful if not already red) ---
-  // No targets is FIRST among the yellows, and it is a real triage signal
-  // rather than a rollup-only fact. Without targets there is nothing for the
-  // client to be compliant WITH, so every compliance reason below is silently
-  // uncomputable and the client would otherwise grade GREEN — "on track"
-  // against nothing. It ranks first because it blocks the others: telling a
-  // coach "Calories 0/7" is noise when no calorie target exists.
-  // It is a coach to-do, not the client failing, which is why it is yellow.
-  if (!(complianceItems || []).length) yellow.push('No targets set')
-
-  if (daysSinceLog !== null && daysSinceLog >= 2 && daysSinceLog < STALE_LOG_DAYS) {
-    yellow.push(`${daysSinceLog} days no log`)
+  // ── Setup ─────────────────────────────────────────────────────────────────
+  // Without targets there is nothing to be compliant WITH, so the compliance
+  // branch below is uncomputable and the client would otherwise grade GREEN —
+  // on track against nothing. A coach to-do, not the client failing, so yellow.
+  const items = (complianceItems || []).filter(i => i.hasData)
+  if (!(complianceItems || []).length) {
+    yellow.push('No targets set')
+  } else if (items.length) {
+    // ── Compliance ──────────────────────────────────────────────────────────
+    // Reported in AGGREGATE, matching the Compliance lens: "4/14 days on
+    // target", not "Calories 0/7 days". Per-metric detail belongs on the client
+    // record — on a triage row it is noise, and it made the column show a
+    // different metric for every client.
+    //
+    // Compliance can now reach RED. Previously only logging could, so a client
+    // logging faithfully every day and hitting 0 of 14 targets graded YELLOW
+    // while someone four days quiet graded RED — which is backwards, and it
+    // left Attention mostly echoing the Last logged lens.
+    const sum = items.reduce((t, i) => t + i.value, 0)
+    const max = items.length * 7
+    const text = `${sum}/${max} days on target`
+    if (sum / max < WEAK_COMPLIANCE / 7) red.push(text)
+    else if (sum / max < 5 / 7) yellow.push(text)
   }
+
+  // ── Check-in ──────────────────────────────────────────────────────────────
   if (!checkIn) yellow.push('No check-in')
-  const weak = (complianceItems || []).filter(i => i.hasData && i.value < WEAK_COMPLIANCE)
-  // "Calories 0/7" never said 0 of 7 what. It is days on target in the last week.
-  weak.forEach(i => yellow.push(`${i.label} ${i.value}/7 days`))
 
-  if (red.length > 0) {
-    const reasons = red.concat(yellow)
-    return { level: 'red', tone: 'red', reasons }
-  }
+  if (red.length > 0) return { level: 'red', tone: 'red', reasons: red.concat(yellow) }
   if (yellow.length > 0) {
-    // The badge shows reasons[0]; if that top reason is a setup gap, the row is
-    // painted grey even though it still ranks as yellow.
+    // reasons[0] is what the badge shows; a setup gap is painted grey even
+    // though it still ranks as yellow.
     const tone = SETUP_REASONS.includes(yellow[0]) ? 'setup' : 'yellow'
     return { level: 'yellow', tone, reasons: yellow }
   }

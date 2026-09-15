@@ -55,14 +55,32 @@ describe('attentionLevel', () => {
     expect(r.reasons).toContain('No check-in')
   })
 
-  it('flags weak compliance (<3/7) as yellow but ignores metrics with no data', () => {
+  // Compliance is reported in AGGREGATE now, matching the Compliance lens.
+  // Per-metric reasons made the column show a different metric per client.
+  it('reports compliance in aggregate, excluding metrics with no data', () => {
     const r = attentionLevel(stats({
       complianceItems: [comp('Calories', 2), comp('Protein', 0, false), comp('Steps', 5)],
     }))
+    // Protein has no data, so it is out of the numerator AND the denominator.
+    expect(r.reasons).toContain('7/14 days on target')
+    expect(r.reasons).not.toContain('Calories 2/7 days')
     expect(r.level).toBe('yellow')
-    expect(r.reasons).toContain('Calories 2/7 days')
-    expect(r.reasons).not.toContain('Protein 0/7 days')
-    expect(r.reasons).not.toContain('Steps 5/7 days')
+  })
+
+  it('lets compliance reach RED on its own, without any logging problem', () => {
+    // Logs every single day and hits almost nothing. This graded yellow before,
+    // while a client four days quiet graded red — backwards.
+    const r = attentionLevel(stats({
+      daysSinceLog: 0,
+      complianceItems: [comp('Calories', 1), comp('Protein', 1)],
+    }))
+    expect(r.level).toBe('red')
+    expect(r.reasons[0]).toBe('2/14 days on target')
+  })
+
+  it('stays green when aggregate compliance is strong', () => {
+    const r = attentionLevel(stats({ complianceItems: [comp('Calories', 6), comp('Protein', 5)] }))
+    expect(r.level).toBe('green')
   })
 
   it('appends yellow reasons after red ones when both are present', () => {

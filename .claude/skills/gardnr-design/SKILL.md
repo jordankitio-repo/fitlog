@@ -149,14 +149,22 @@ reports the key the rows are ordered by, and the header renames itself
 
 | Lens | Column shows | Grey when |
 |---|---|---|
-| Attention | the most pressing reason, any kind | — |
+| Attention | the client's WORST dimension, named | no targets set |
 | Compliance | `11/14 days on target` | no targets, or nothing logged |
 | Last logged | `Logged today` / `3 days ago` | — |
 | Check-in | `Not submitted` / `Awaiting your review` / `Reviewed` | — |
 
-Under Attention the column deliberately holds different kinds of fact, so it is
-labelled **Needs attention** rather than "Status": a header must not promise a
-uniform dimension it doesn't have. Under every other lens each cell answers the
+**Attention is the roll-up lens**, not a fourth peer. The other three each
+report one dimension for every client; Attention reports the WORST dimension
+per client and names it, so it never just echoes Last logged. Any dimension can
+reach red — a client who logs faithfully and hits 0/14 targets outranks one who
+has been quiet three days, which the old logging-only red got backwards.
+Compliance is reported in aggregate there ("4/14 days on target"), never
+per-metric: a column showing a different metric for every client cannot be read.
+
+The column holds different kinds of fact under this lens, so it is labelled
+**Needs attention** rather than "Status": a header must not promise a uniform
+dimension it doesn't have. Under every other lens each cell answers the
 same question, and the column is comparable top to bottom.
 
 ### 5d-bis. A generic column label papers over a real problem.
