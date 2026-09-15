@@ -1,4 +1,4 @@
-// Surface level 2 of 3 — see .claude/skills/gardnr-design/SKILL.md.
+// Surface level 2 of 3 — see docs/design-system.md.
 //
 // The ONLY element in the app that draws a border. A Panel never contains a
 // Panel: nesting depth is capped at 1. Before this rule, ~70% of every bordered

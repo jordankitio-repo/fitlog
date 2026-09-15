@@ -26,7 +26,7 @@ export default defineConfig([
   },
   // ---------------------------------------------------------------------------
   // Design-system guardrails — the machine half of the design system. The human
-  // half is .claude/skills/gardnr-design/SKILL.md; these two rules are what stop
+  // half is docs/design-system.md; these two rules are what stop
   // it being advisory. They cover ALL of src/: the hex rule used to name five
   // pages explicitly, which meant every new file was born outside the system.
   //
