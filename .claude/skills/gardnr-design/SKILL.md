@@ -163,11 +163,18 @@ wants to be pressed, which is its rank in the action hierarchy:
 |---|---|---|---|
 | 1 | accent fill + accent shadow | the one action. **Max one per view.** | `primary`, `danger-solid` |
 | 2 | raised neutral surface + hairline + shadow | expected actions | `muted`, `outline`, `danger`, `ai` |
-| 3 | pale — no border, no shadow, no resting fill | present, not competing (Cancel, Remove) | `ghost` |
+| 3 | **still a button**: flat fill, soft border, no shadow, no gradient | present but not inviting (Cancel, Remove, Nudge) | `ghost` |
 | 4 | no chrome until hover | icon-only affordances | `ui/IconButton` |
 
 **Rank inflation is the failure mode.** When three controls in a row are all
 elevated, none reads as the answer. Pick the rank by what you want pressed.
+
+**Rank 3 is not chrome-less.** Deleting the boundary turns a button into a link:
+the affordance vanishes until hover, which is a bug rather than restraint. Rank
+is expressed INSIDE the boundary — fill weight, border strength, text colour.
+Only rank 4 (icon-only) has no chrome. In the reference dashboards "Learn more"
+sits beside "Get tickets" and both are plainly buttons; only the emphasis
+differs.
 
 **Hover must not stick.** Never set hover state from `onFocus` — a clicked
 button keeps focus, so the hover never leaves. `:focus-visible` in index.css

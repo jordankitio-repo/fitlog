@@ -66,10 +66,17 @@ function Button({
   //                          muted · outline · danger · ai
   //                          (their "Learn more" / "Upgrade to Pro")
   //
-  //   3  PALE                no border, no shadow, no resting fill. Present but
-  //                          not competing: Cancel, Remove, dismiss.
+  //   3  QUIET               STILL A BUTTON. Flat fill, soft border, no shadow,
+  //                          no gradient. Visible at rest; it simply does not
+  //                          invite. Cancel, Remove, Nudge.
   //                          ghost
-  //                          (their sidebar nav / "Upgrade")
+  //                          (their "Learn more" beside "Get tickets", their
+  //                           grey "Upgrade")
+  //
+  //  A rank-3 control is NOT chrome-less. Deleting the boundary turns a button
+  //  into a link and the affordance disappears until hover, which is a bug, not
+  //  restraint. Rank is expressed INSIDE the boundary — fill weight, border
+  //  strength, text colour — never by removing it. Only rank 4 has no chrome.
   //
   //   4  NO CHROME           nothing until hover. Icon-only affordances.
   //                          ui/IconButton
@@ -110,11 +117,20 @@ function Button({
     },
     // Genuinely chrome-less: for a control that must not compete, like a
     // "Cancel" beside a primary action. Still gets a real hover.
+    // Rank 3. Flat, not absent: a real boundary, just no gradient and no shadow,
+    // so it reads as a button that is present rather than one asking to be
+    // pressed. Rank 2 is raised and lit; this one sits flush.
     ghost: {
-      rest: { background: 'transparent', color: 'var(--color-muted)', border: '1px solid transparent', boxShadow: 'none' },
-      // A soft tint, deliberately weaker than rank 2's resting surface, so the
-      // two ranks never read as the same control.
-      hover: { background: 'color-mix(in srgb, var(--color-text) 8%, transparent)', color: 'var(--color-text)' },
+      rest: {
+        background: 'var(--color-surface-2)',
+        color: 'var(--color-muted)',
+        border: '1px solid var(--color-border)',
+        boxShadow: 'none',
+      },
+      hover: {
+        background: 'var(--control-bg-hover)',
+        color: 'var(--color-text)',
+      },
     },
   }
 
