@@ -45,11 +45,11 @@
      with the brand colour, for a control that ACTS ON A CLIENT — sends a nudge,
      sends an invite, opens work that ends in a message to a real person. Plain
      --control-* stays for navigation, which changes nothing for anybody.
-     Elevation encodes invitation; hue encodes consequence. */
+     Elevation encodes invitation; hue encodes consequence.
+     The hover lift matches --control-bg-hover in LIGHTNESS exactly — only the
+     cast differs, so a green control never lifts harder than a neutral one. */
   --control-bg-accent: linear-gradient(180deg, #16301f 0%, #122619 100%);
-  --control-bg-accent-hover: linear-gradient(180deg, #1c3f28 0%, #16301f 100%);
-  --control-bd-accent: color-mix(in srgb, var(--color-primary) 38%, transparent);
-  --control-bd-accent-hover: color-mix(in srgb, var(--color-primary) 62%, transparent);
+  --control-bg-accent-hover: linear-gradient(180deg, #1f2b24 0%, #19221d 100%);
   /* ── Inset surface — the inverse of --control-* ───────────────────────
      Controls sit ABOVE the page: gradient, top highlight, drop shadow. This
      sits BELOW it: a shadow cast inward from the top lip and a faint catch of
@@ -159,9 +159,7 @@
   --control-shadow-active: inset 0 1px 2px rgba(16, 24, 40, 0.12);
   --control-shadow-accent: 0 1px 2px rgba(16, 24, 40, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   --control-bg-accent: linear-gradient(180deg, #f2fbf5 0%, #e9f6ed 100%);
-  --control-bg-accent-hover: linear-gradient(180deg, #e9f6ed 0%, #dcefe3 100%);
-  --control-bd-accent: color-mix(in srgb, var(--color-primary) 30%, transparent);
-  --control-bd-accent-hover: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  --control-bg-accent-hover: linear-gradient(180deg, #f1f8f3 0%, #e9f1eb 100%);
 }
 
 body {

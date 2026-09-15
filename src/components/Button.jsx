@@ -109,7 +109,10 @@ function Button({
     // revealed as you commit, not advertised while you scan.
     action: {
       rest: { background: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
-      hover: { background: 'var(--control-bg-accent-hover)', borderColor: 'var(--control-bd-accent-hover)', color: 'var(--color-primary)' },
+      // Surface and label only. The border never changes on hover — that rule
+      // applies here as much as anywhere, and a brightening outline was exactly
+      // what made `muted` feel wrong before.
+      hover: { background: 'var(--control-bg-accent-hover)', color: 'var(--color-primary)' },
     },
     muted: {
       rest: { background: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },

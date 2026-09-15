@@ -269,6 +269,16 @@ noise. The hue arrives on hover and press — the moment you are about to commit
 which is when "this reaches someone" is worth saying. Filled green stays
 reserved for rank 1, the one action on a view.
 
+**Same lift, different cast.** `--control-bg-accent-hover` matches
+`--control-bg-hover` in measured LUMINANCE (40 vs 39 in dark, 246 vs 247 in
+light) — a green control must never appear to lift harder than a neutral one,
+or the hue reads as emphasis instead of kind. Match it by measuring, not by
+eye: green's G channel dominates luminance, so a green that *looks* equivalent
+on paper comes out noticeably brighter.
+
+**Hover changes the surface and the label. Never the border.** This is the rule
+from D2 and it holds for `action` too.
+
 **The elevation ladder.**
 
 | Rank | Treatment | Use | Variant |
