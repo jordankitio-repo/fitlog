@@ -19,8 +19,40 @@ const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warnin
 
 // Page-level triage headline — NOT a card. Rule 1: the page itself is never a
 // box, so this sits on the page ground with space separating it, not a border.
-function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
-  const [reviewHover, setReviewHover] = useState(false)
+// A banner CTA. Every headline number that names work the coach has to do is
+// one of these, so a count is never a dead end: it says how many AND takes you
+// to the first one.
+function BannerAction({ onClick, title, children }) {
+  const [hover, setHover] = useState(false)
+  const live = Boolean(onClick)
+  return (
+    <button
+      onClick={onClick}
+      disabled={!live}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={title}
+      style={{
+        fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
+        color: hover && live ? 'var(--color-on-accent)' : 'var(--color-primary)',
+        background: hover && live ? 'var(--color-primary)' : 'var(--control-bg)',
+        border: `1px solid ${hover && live ? 'var(--color-primary)' : 'color-mix(in srgb, var(--color-primary) 40%, transparent)'}`,
+        boxShadow: hover && live ? 'var(--control-shadow-accent)' : 'var(--control-shadow)',
+        borderRadius: '999px', padding: '6px 13px',
+        cursor: live ? 'pointer' : 'default',
+        display: 'inline-flex', alignItems: 'center', gap: '6px',
+        transition: 'background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease',
+      }}
+    >
+      {children}
+      <Icon name="arrowRight" style={{ transform: hover && live ? 'translateX(2px)' : 'none', transition: 'transform 120ms' }} />
+    </button>
+  )
+}
+
+// Page-level triage headline — NOT a card. Rule 1: the page itself is never a
+// box, so this sits on the page ground with space separating it, not a border.
+function RosterBanner({ roster, checkedIn, total, onReviewClick, onTargetsClick }) {
   const seg = (color, n, label) => (
     <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
       <span className="tnum" style={{ fontWeight: 700, color, fontSize: 'var(--text-md)' }}>{n}</span>
@@ -36,34 +68,16 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
         <span className="tnum" style={{ fontWeight: 700, color: 'var(--color-text)' }}>{checkedIn}</span>
         <span className="tnum">/{total}</span> checked in
       </span>
-      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
         {roster.checkInsToReview > 0 && (
-          <button
-            onClick={onReviewClick}
-            disabled={!onReviewClick}
-            onMouseEnter={() => setReviewHover(true)}
-            onMouseLeave={() => setReviewHover(false)}
-            title="Review the oldest waiting check-in"
-            style={{
-              fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
-              color: reviewHover ? 'var(--color-on-accent)' : 'var(--color-primary)',
-              background: reviewHover ? 'var(--color-primary)' : 'var(--control-bg)',
-              border: `1px solid ${reviewHover ? 'var(--color-primary)' : 'color-mix(in srgb, var(--color-primary) 40%, transparent)'}`,
-              boxShadow: reviewHover ? 'var(--control-shadow-accent)' : 'var(--control-shadow)',
-              borderRadius: '999px', padding: '6px 13px',
-              cursor: onReviewClick ? 'pointer' : 'default',
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              transition: 'background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease',
-            }}
-          >
+          <BannerAction onClick={onReviewClick} title="Review the oldest waiting check-in">
             {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
-            <Icon name="arrowRight" style={{ transform: reviewHover ? 'translateX(2px)' : 'none', transition: 'transform 120ms' }} />
-          </button>
+          </BannerAction>
         )}
         {roster.noTargets > 0 && (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
-            {roster.noTargets} need targets set
-          </span>
+          <BannerAction onClick={onTargetsClick} title="Open the first client who has no targets">
+            {roster.noTargets} {roster.noTargets === 1 ? 'client needs' : 'clients need'} targets
+          </BannerAction>
         )}
       </span>
     </div>
@@ -309,6 +323,12 @@ function CoachDashboard({ profile }) {
     .map(c => c.client_id)
 
 
+  // A client with no targets can't be compliant with anything — same predicate
+  // summarizeRoster counts, so the banner and this list can never disagree.
+  const noTargetClientIds = clients
+    .filter(c => !(clientStats[c.client_id]?.complianceItems?.length))
+    .map(c => c.client_id)
+
   const sortedClients = [...clients].sort((a, b) => {
     const sa = clientStats[a.client_id]
     const sb = clientStats[b.client_id]
@@ -356,6 +376,7 @@ function CoachDashboard({ profile }) {
           checkedIn={clients.filter(c => clientStats[c.client_id]?.checkIn).length}
           total={clients.length}
           onReviewClick={reviewClientIds.length ? () => navigate(`/client/${reviewClientIds[0]}?focus=checkIn`) : undefined}
+          onTargetsClick={noTargetClientIds.length ? () => navigate(`/client/${noTargetClientIds[0]}?focus=targets`) : undefined}
         />
       )}
 
@@ -459,6 +480,14 @@ function CoachDashboard({ profile }) {
                       </span>
                       {s?.lockInfo?.locked && (
                         <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--color-error)' }}>Locked</span>
+                      )}
+                      {/* A coach to-do, not a client failing: without targets there is
+                          nothing to be compliant WITH, so triage would happily call
+                          this client "on track" and say nothing. */}
+                      {s && !s.complianceItems?.length && (
+                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-warning)' }}>
+                          No targets set
+                        </span>
                       )}
                     </div>
 
