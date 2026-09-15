@@ -269,12 +269,26 @@ noise. The hue arrives on hover and press — the moment you are about to commit
 which is when "this reaches someone" is worth saying. Filled green stays
 reserved for rank 1, the one action on a view.
 
-**Same lift, different cast.** `--control-bg-accent-hover` matches
-`--control-bg-hover` in measured LUMINANCE (40 vs 39 in dark, 246 vs 247 in
-light) — a green control must never appear to lift harder than a neutral one,
-or the hue reads as emphasis instead of kind. Match it by measuring, not by
-eye: green's G channel dominates luminance, so a green that *looks* equivalent
-on paper comes out noticeably brighter.
+**Same lift, different cast — and that means the LABEL too, not just the
+surface.** Measure both, in both themes:
+
+| | surface Δ | label Δ |
+|---|---|---|
+| dark: `muted` / `action` | +9.0 / +9.9 | +33 / +26 |
+| light: `muted` / `action` | −7.6 / −8.8 | −39 / −24 |
+
+The first attempt matched the surface and left the label at full-saturation
+`--color-primary`. That was worse than mismatched: the neutral label BRIGHTENS
+by 33 while the brand green DARKENED it by 52 and jumped to 83% chroma —
+opposite directions. `--control-fg-accent-hover` is a tint of the brand green
+that travels the same way as `--color-text` does.
+
+Exact parity is not reachable: a green matched precisely to the neutral label's
+luminance stops looking green (near-white in dark, near-black in light). Land
+close, same direction, and say where the gap is rather than claiming a match.
+
+Measure rather than eyeball. Green's G channel dominates luminance, so a green
+chosen to *look* equivalent comes out noticeably stronger.
 
 **Hover changes the surface and the label. Never the border.** This is the rule
 from D2 and it holds for `action` too.

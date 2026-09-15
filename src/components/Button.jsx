@@ -112,7 +112,7 @@ function Button({
       // Surface and label only. The border never changes on hover — that rule
       // applies here as much as anywhere, and a brightening outline was exactly
       // what made `muted` feel wrong before.
-      hover: { background: 'var(--control-bg-accent-hover)', color: 'var(--color-primary)' },
+      hover: { background: 'var(--control-bg-accent-hover)', color: 'var(--control-fg-accent-hover)' },
     },
     muted: {
       rest: { background: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },

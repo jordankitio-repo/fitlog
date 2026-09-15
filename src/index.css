@@ -50,6 +50,11 @@
      cast differs, so a green control never lifts harder than a neutral one. */
   --control-bg-accent: linear-gradient(180deg, #16301f 0%, #122619 100%);
   --control-bg-accent-hover: linear-gradient(180deg, #1f2b24 0%, #19221d 100%);
+  /* Hover label: tracks --color-text in DIRECTION and roughly in luminance, with
+     a green cast. Full-saturation --color-primary darkened the label by 52 while
+     the neutral hover brightened it by 33 — opposite directions, and an 83%
+     chroma jump, which is why the green read far stronger than the grey. */
+  --control-fg-accent-hover: #cbf3d9;
   /* ── Inset surface — the inverse of --control-* ───────────────────────
      Controls sit ABOVE the page: gradient, top highlight, drop shadow. This
      sits BELOW it: a shadow cast inward from the top lip and a faint catch of
@@ -160,6 +165,9 @@
   --control-shadow-accent: 0 1px 2px rgba(16, 24, 40, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   --control-bg-accent: linear-gradient(180deg, #f2fbf5 0%, #e9f6ed 100%);
   --control-bg-accent-hover: linear-gradient(180deg, #f1f8f3 0%, #e9f1eb 100%);
+  /* Light: the neutral label DARKENS (#5f6459 -> #16181c), so the accent label
+     darkens too — deeper than --color-primary, which is too light to match. */
+  --control-fg-accent-hover: #0a3018;
 }
 
 body {

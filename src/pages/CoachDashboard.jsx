@@ -90,7 +90,7 @@ function BannerAction({ onClick, title, tone = 'primary', children }) {
         fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
         // Neutral at rest like every other control; the tone shows on hover,
         // which is where it matters — this CTA opens work ending in a message.
-        color: hover && live ? accent : 'var(--color-text-dim)',
+        color: hover && live ? 'var(--control-fg-accent-hover)' : 'var(--color-text-dim)',
         background: hover && live ? 'var(--control-bg-accent-hover)' : 'var(--control-bg)',
         border: '1px solid var(--control-bd)',
         boxShadow: 'var(--control-shadow)',
