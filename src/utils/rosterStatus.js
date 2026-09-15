@@ -51,6 +51,7 @@ export function rosterStatus(lens, s) {
   return {
     text: t.reasons[0],
     tone: t.tone,
+    fix: t.fix,
     title: t.reasons.length > 1 ? t.reasons.join(' \u00b7 ') : undefined,
   }
 }

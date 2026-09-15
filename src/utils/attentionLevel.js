@@ -65,7 +65,10 @@ export function gradeLogging(s) {
 export function gradeCompliance(s) {
   const all = s?.complianceItems || []
   // No targets means no scale, so there is no grade to give — not a failure.
-  if (!all.length) return { text: 'No targets set', tone: 'setup' }
+  // `fix` names the section that resolves this, so the roster can offer it as
+  // an action instead of a dead-end label. Nothing-logged has no `fix`: only the
+  // client can resolve that one.
+  if (!all.length) return { text: 'No targets set', tone: 'setup', fix: 'targets' }
   const items = all.filter(i => i.hasData)
   if (!items.length) return { text: 'Nothing logged', tone: 'setup' }
   // Aggregate, never per-metric: a column showing Calories for one client and
@@ -98,10 +101,11 @@ export function attentionLevel(stats) {
 
   const worst = graded[0]
   const reasons = graded.filter(g => g.tone !== 'green').map(g => g.text)
+  // Carry the winning grade's fix through, so Attention can offer it too.
   // 'setup' still RANKS as yellow so it does not sink to the bottom with the
   // greens; only its colour differs.
   const level = worst.tone === 'green' ? 'green' : worst.tone === 'setup' ? 'yellow' : worst.tone
-  return { level, tone: worst.tone, reasons }
+  return { level, tone: worst.tone, reasons, fix: worst.fix }
 }
 
 // Sort comparator: red first, then yellow, then green. Within a level, more

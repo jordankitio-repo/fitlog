@@ -541,14 +541,29 @@ A dash means none submitted this period.`} />
                       style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}
                       title={status.title}
                     >
-                      <span style={{
-                        fontSize: 'var(--text-sm)',
-                        fontWeight: status.tone === 'green' || status.tone === 'setup' ? 500 : 700,
-                        color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      }}>
-                        {status.text}
-                      </span>
+                      {status.fix ? (
+                        // A gap the coach can close in seconds should not be a
+                        // dead-end label. Responds with its TYPE like the column
+                        // header — it sits in a data cell, and a box here would
+                        // read as a chip.
+                        <button
+                          type="button"
+                          className="ds-fixbtn"
+                          onClick={() => navigate(`/client/${c.client_id}?focus=${status.fix}`)}
+                        >
+                          {status.text}
+                          <Icon name="right" size={12} strokeWidth={2.5} />
+                        </button>
+                      ) : (
+                        <span style={{
+                          fontSize: 'var(--text-sm)',
+                          fontWeight: status.tone === 'green' || status.tone === 'setup' ? 500 : 700,
+                          color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {status.text}
+                        </span>
+                      )}
                       {s?.lockInfo?.locked && (
                         <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--color-error)' }}>Locked</span>
                       )}

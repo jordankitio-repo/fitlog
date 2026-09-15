@@ -28,8 +28,12 @@ describe('rosterStatus', () => {
       expect(r.text).toBe('11/14 days on target')
       expect(r.tone).toBe('green')
     })
-    it('greys out when there are no targets — no grade exists', () => {
-      expect(rosterStatus('compliance', stats())).toEqual({ text: 'No targets set', tone: 'setup' })
+    it('greys out when there are no targets, and names what fixes it', () => {
+      expect(rosterStatus('compliance', stats())).toEqual({ text: 'No targets set', tone: 'setup', fix: 'targets' })
+    })
+    it('offers no fix for "nothing logged" — only the client can resolve that', () => {
+      const r = rosterStatus('compliance', stats({ complianceItems: [comp('Calories', 0, false)] }))
+      expect(r.fix).toBeUndefined()
     })
     it('greys out when targets exist but nothing was logged against them', () => {
       const r = rosterStatus('compliance', stats({ complianceItems: [comp('Calories', 0, false)] }))

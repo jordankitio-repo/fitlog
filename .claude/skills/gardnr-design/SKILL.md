@@ -248,6 +248,12 @@ on the top edge, a 1px drop shadow.
 
 **D2. Every control needs a visible hover AND a pressed state — that ANIMATE.**
 
+**A gap the reader can close should be an action, not a label.** "No targets
+set" was a dead end naming a job the coach can finish in seconds; it navigates
+to that client's targets now. The GRADE carries the hint (`fix: 'targets'`) so
+the view never matches on text, and grades with no user-fixable cause — "Nothing
+logged", which only the client can resolve — carry none and stay plain.
+
 **A label that is also a control responds with its TYPE, not a fill.** A
 sortable column header is a label first: a box appearing behind it on hover
 drags the eye away from the rows it describes. The text and its chevron go
