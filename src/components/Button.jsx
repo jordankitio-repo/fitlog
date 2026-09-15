@@ -51,6 +51,34 @@ function Button({
     lg: { padding: '12px 24px', fontSize: 'var(--text-body)' },
   }
 
+  // ── The elevation ladder ────────────────────────────────────────────────
+  // Elevation encodes INVITATION: how much a control wants to be pressed, which
+  // is the same thing as its rank in the action hierarchy. Both the Vercel and
+  // Cloudflare dashboards run this exact ladder.
+  //
+  //   1  ACCENT + ELEVATED   filled brand colour, accent shadow.
+  //                          "Do the thing." AT MOST ONE PER VIEW.
+  //                          primary · danger-solid
+  //                          (their "Get tickets" / "Add New")
+  //
+  //   2  NEUTRAL + ELEVATED  raised surface, hairline border, 1px shadow.
+  //                          Actions you're expected to reach for.
+  //                          muted · outline · danger · ai
+  //                          (their "Learn more" / "Upgrade to Pro")
+  //
+  //   3  PALE                no border, no shadow, no resting fill. Present but
+  //                          not competing: Cancel, Remove, dismiss.
+  //                          ghost
+  //                          (their sidebar nav / "Upgrade")
+  //
+  //   4  NO CHROME           nothing until hover. Icon-only affordances.
+  //                          ui/IconButton
+  //                          (their "···" overflow menus)
+  //
+  // The mistake to avoid is rank inflation: when three controls in a row are all
+  // elevated, none of them reads as the answer. If everything is raised, nothing
+  // is. Pick the rank by what you want pressed, not by what looks nicest alone.
+  //
   // Each variant declares its rest AND hover surface. The old code had a single
   // `filter: brightness(1.12)` hover, which is a no-op on a transparent
   // background — every secondary button in the app had no hover feedback at all,
@@ -62,7 +90,7 @@ function Button({
     },
     muted: {
       rest: { background: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
-      hover: { background: 'var(--control-bg-hover)', borderColor: 'var(--control-bd-hover)', color: 'var(--color-text)' },
+      hover: { background: 'var(--control-bg-hover)', color: 'var(--color-text)' },
     },
     outline: {
       rest: { background: 'var(--control-bg)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
@@ -84,7 +112,9 @@ function Button({
     // "Cancel" beside a primary action. Still gets a real hover.
     ghost: {
       rest: { background: 'transparent', color: 'var(--color-muted)', border: '1px solid transparent', boxShadow: 'none' },
-      hover: { background: 'var(--color-surface-2)', color: 'var(--color-text)' },
+      // A soft tint, deliberately weaker than rank 2's resting surface, so the
+      // two ranks never read as the same control.
+      hover: { background: 'color-mix(in srgb, var(--color-text) 8%, transparent)', color: 'var(--color-text)' },
     },
   }
 
@@ -104,8 +134,7 @@ function Button({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setPressed(false) }}
-      onFocus={() => setHovered(true)}
-      onBlur={() => { setHovered(false); setPressed(false) }}
+      onBlur={() => setPressed(false)}
       onPointerDown={() => setPressed(true)}
       onPointerUp={() => setPressed(false)}
       disabled={disabled || loading}

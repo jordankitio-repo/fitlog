@@ -156,6 +156,24 @@ makes a control feel like a control.
 
 Navigable rows get a direction cue (a chevron), not just a label.
 
+**The elevation ladder — elevation encodes INVITATION**, i.e. how much a control
+wants to be pressed, which is its rank in the action hierarchy:
+
+| Rank | Treatment | Use | Variant |
+|---|---|---|---|
+| 1 | accent fill + accent shadow | the one action. **Max one per view.** | `primary`, `danger-solid` |
+| 2 | raised neutral surface + hairline + shadow | expected actions | `muted`, `outline`, `danger`, `ai` |
+| 3 | pale — no border, no shadow, no resting fill | present, not competing (Cancel, Remove) | `ghost` |
+| 4 | no chrome until hover | icon-only affordances | `ui/IconButton` |
+
+**Rank inflation is the failure mode.** When three controls in a row are all
+elevated, none reads as the answer. Pick the rank by what you want pressed.
+
+**Hover must not stick.** Never set hover state from `onFocus` — a clicked
+button keeps focus, so the hover never leaves. `:focus-visible` in index.css
+already gives keyboard users the green ring; that is the correct affordance.
+And hover should light the SURFACE, not flash the border to near-white.
+
 ### 6. Type does hierarchy, so boxes don't have to.
 Page title `--text-title` · panel heading `--text-body`/600 · eyebrow
 `--text-xs` uppercase · row primary `--text-base`/600 · row secondary

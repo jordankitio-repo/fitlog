@@ -10,8 +10,7 @@ export default function Pill({ active = false, style, children, ...rest }) {
     <button
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setPressed(false) }}
-      onFocus={() => setHovered(true)}
-      onBlur={() => { setHovered(false); setPressed(false) }}
+      onBlur={() => setPressed(false)}
       onPointerDown={() => setPressed(true)}
       onPointerUp={() => setPressed(false)}
       style={{
