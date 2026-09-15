@@ -17,14 +17,20 @@ import { Pill, Field, Icon, Panel, Row, Tracker } from '../components/ui'
 const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
 
-// Page-level triage headline — NOT a card. Rule 1: the page itself is never a
-// box, so this sits on the page ground with space separating it, not a border.
 // A banner CTA. Every headline number that names work the coach has to do is
 // one of these, so a count is never a dead end: it says how many AND takes you
 // to the first one.
-function BannerAction({ onClick, title, children }) {
+//
+// `tone` carries the KIND of work, which is why these are not interchangeable.
+// Two identically-styled CTAs side by side force the coach to read both before
+// knowing which one matters:
+//   primary  the recurring job — check-ins waiting to be reviewed
+//   warning  a setup gap — a client with no targets logs data that cannot be
+//            graded against anything, so nothing downstream works until it is set
+function BannerAction({ onClick, title, tone = 'primary', children }) {
   const [hover, setHover] = useState(false)
   const live = Boolean(onClick)
+  const accent = tone === 'warning' ? 'var(--color-warning)' : 'var(--color-primary)'
   return (
     <button
       onClick={onClick}
@@ -34,9 +40,9 @@ function BannerAction({ onClick, title, children }) {
       title={title}
       style={{
         fontFamily: 'inherit', fontSize: 'var(--text-xs)', fontWeight: 700,
-        color: hover && live ? 'var(--color-on-accent)' : 'var(--color-primary)',
-        background: hover && live ? 'var(--color-primary)' : 'var(--control-bg)',
-        border: `1px solid ${hover && live ? 'var(--color-primary)' : 'color-mix(in srgb, var(--color-primary) 40%, transparent)'}`,
+        color: hover && live ? 'var(--color-on-accent)' : accent,
+        background: hover && live ? accent : 'var(--control-bg)',
+        border: `1px solid ${hover && live ? accent : `color-mix(in srgb, ${accent} 40%, transparent)`}`,
         boxShadow: hover && live ? 'var(--control-shadow-accent)' : 'var(--control-shadow)',
         borderRadius: '999px', padding: '6px 13px',
         cursor: live ? 'pointer' : 'default',
@@ -75,7 +81,7 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick, onTargetsClick 
           </BannerAction>
         )}
         {roster.noTargets > 0 && (
-          <BannerAction onClick={onTargetsClick} title="Open the first client who has no targets">
+          <BannerAction onClick={onTargetsClick} tone="warning" title="Open the first client who has no targets">
             {roster.noTargets} {roster.noTargets === 1 ? 'client needs' : 'clients need'} targets
           </BannerAction>
         )}
