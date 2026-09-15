@@ -2301,8 +2301,10 @@ async function sendMessage(text) {
             onToggle={() => toggleSection('measurements')}
             info="Recommended re-measure cadence — about every 2 weeks while cutting, every 4 weeks otherwise (industry standard; circumference moves slowly and tape error is ~1–1.5 cm). Flags when the client's tape data is overdue."
             action={measStatus?.due ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, fontSize: 'var(--text-xs)', fontWeight: 600, background: 'var(--color-warning-dim)', border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}>
-                <span style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: 'var(--color-warning)' }} />
+              /* C1: status is plain coloured text. This was the last tinted
+                 pill with a dot in the app — the decision that introduced it
+                 (Jul 19, measurement cadence) predates the ban. */
+              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-warning)' }}>
                 Re-measure due · {measStatus.daysSince}d
               </span>
             ) : null}
