@@ -299,7 +299,13 @@ body {
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 500;
-  color: var(--color-muted);
+  /* --color-faint, not --color-muted: it shares the column header's exact
+     progression (faint -> dim -> text), so the two interactive bits of type on
+     this screen travel the same distance on hover. Starting at muted landed on
+     the same colour but moved half as far, which read as a weaker response.
+     It also separates this grey — one the coach can act on — from the static
+     grey of "Nothing logged", which nobody can fix from here. */
+  color: var(--color-faint);
   white-space: nowrap;
   transition: color 140ms ease;
 }

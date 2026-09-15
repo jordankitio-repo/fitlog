@@ -280,6 +280,15 @@ restarting it. That reads as a stutter. `.ds-sortbtn`, `.ds-fixbtn` and
 `.ds-bannercta` are pure CSS and have none of it. `Button` still uses state for
 its variant map; it is acceptable at 8px radius but is the known exception.
 
+**Type-only controls share ONE progression: `--color-faint` → `--color-text-dim`
+on hover → `--color-text` while held.** Matching only the destination is not
+enough — start from the same place too, or one travels half as far and reads as
+a weaker response. `.ds-sortbtn` and `.ds-fixbtn` are byte-identical on this:
+Δ −80 in light, Δ +122 in dark.
+
+Starting at `--color-faint` also separates type a reader can act on from the
+static greys around it.
+
 **A label that is also a control responds with its TYPE, not a fill.** A
 sortable column header is a label first: a box appearing behind it on hover
 drags the eye away from the rows it describes. The text and its chevron go
