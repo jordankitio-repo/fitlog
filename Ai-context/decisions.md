@@ -456,6 +456,28 @@
 
 ---
 
+### Hierarchy ranks: size, then colour, then weight — and weight is a ramp (Sep 15 2026)
+**Reason:** Size and colour had tokens and a lint rule. Weight had neither, so it drifted to eight raw values across 38 files, and the coach roster ended up carrying **four font weights at a single 13px size** — more distinctions than a reader can resolve, so two of them were doing no work. Calibrated against `dash.cloudflare.com`, which runs its whole dashboard on 400/500 and spends 600 exactly once, on the page title; nothing there is 700. Both products use Inter, so what read as calmer there was the *setting*, not the typeface — the answer to "should we buy a font" was no.
+**Consequences:** `--weight-normal` 400 / `--weight-medium` 500 (the workhorse) / `--weight-semibold` 600 (emphasis) / `--weight-bold` 700 (**display numerals only, never UI text**). Reach for weight LAST — it is the weakest of the three signals and the one that drifts. Roster went 16 type styles → 14, and 700 now appears nowhere in the UI. If a screen feels heavier than a reference you admire, check weights before reaching for a new face.
+
+### The spacing scale is numeric, not t-shirt (Sep 15 2026)
+**Reason:** The five `--space-*` tokens had **23 uses in the entire app** while the roster alone rendered **11 distinct gaps**, 7 of them off-ramp. The tokens existed and a rule said to use them; nothing enforced it. Numeric names because the type ramp already proves t-shirt names drift — `--text-base` (14) is *smaller* than `--text-body` (16) and needs a standing warning comment to be used safely. A number cannot disagree with what it means.
+**Consequences:** `--space-2 -4 -6 -8 -10 -12 -16 -20 -24 -32`; old `--space-xs…-xl` kept as aliases so nothing breaks. Sub-8px steps are real and measured, not filler (2px stacks a name over its email, 6px sets a numeral against its label, 10px is control interior). Roster gaps: 11 distinct → 8, all scale steps, with only two values normalised (18→16, 14→16).
+
+### Status is plain coloured text — supersedes the tinted status pill (Sep 15 2026)
+**Reason:** Supersedes the earlier "status/triage = tinted pill with a 7px dot" pattern (see the Jun 16 design-system entry above and the measurement-cadence entry, both of which cite it). The pill-with-a-dot is the most recognisable AI-dashboard tell; the user has banned it project-wide. The dot never said anything the label hadn't, and a pill cannot align down a column the way text can. **The deeper failure was documentary:** the written system spent months *prescribing* that pattern in a rejected-patterns entry sitting nine rules above the one banning it outright, sourced to a screen that had stopped rendering it. A rule that outlives the code it describes does more damage than no rule.
+**Consequences:** Status = plain coloured text, no container/border/dot. `--weight-semibold` for red/amber, `--weight-normal` for green/grey; green keeps `--color-success` and must never collapse to grey, or a healthy client reads like an unconfigured one. Last instances removed from `ClientView`, `StatCard` and `NotificationCenter`. **Corollary:** metric tokens are FILL colours, not text colours — every one fails WCAG AA as text on a light card (calories 1.62:1 … carbs 2.85:1, vs 4.5:1) while all pass in dark. "Colour the number" means the status tones only. A 7px dot had no contrast requirement because a shape is not text.
+
+### Lint rules land as the closing step of a migration, not the opening one (Sep 15 2026)
+**Reason:** Weight and spacing both have ramps but no rule, because turning them on today fails **135** and **510** call sites respectively — all in Dashboard, Log and ClientView, the three screens queued for the layout migration that will rewrite most of those call sites anyway. Tokenising them first is work done twice. (Measured, not estimated; the first guess was ~180 and was wrong in both directions.)
+**Consequences:** Both rules ship as the last commit of that migration. Separately, widening the *hex* rule was worth doing immediately — it cost 14 sites, all documented exemptions, and it found a real theming bug: `ComplianceBreakdown` and `EnergyBalanceRead` each defined `GOOD = '#34d399'` / `WEAK = '#fbbf24'`, the **dark-mode** values of tokens that flip in light, so both had been painting dark-theme colours on a white ground.
+
+### Audit the rendered page, not the source (Sep 15 2026)
+**Reason:** Complements the Jun 9 "verify with the Playwright harness" decision: screenshots catch what *looks* wrong, computed styles catch what *is* wrong. Nearly every defect in this pass was invisible in a diff — chips sitting 4px short of the buttons beside them, a banner numeral that never went through its own helper, a hover that desynced by 125ms because `background-image` is a discrete property, five stat colours failing contrast in exactly one theme.
+**Consequences:** Walk the live DOM and tally computed `fontSize`/`fontWeight`/`gap`/`borderRadius`/heights; compute WCAG ratios rather than eyeballing them. **Most of these had shipped long before anyone noticed and were only exposed when something *adjacent* changed** — the `6/9 checked in` numeral had been wrong at 15px-vs-13px for months and only became visible when its three siblings moved to 20px. Expect a ramp change to surface older bugs, and budget for them.
+
+---
+
 ## Open Product Decisions (not yet resolved)
 
 These are flagged in `features.md` and need a call before the relevant feature ships.
