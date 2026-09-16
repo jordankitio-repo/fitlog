@@ -370,6 +370,51 @@ changes and so never needs to animate. Surface and label now arrive together.
 Pressed sinks the surface (`--control-shadow-active` + `translateY(0.5px)`); one
 frame of physics is what makes a control feel like a control.
 
+**A blanket `button:hover` rule will silently overwrite every designed one.**
+Two legacy rules in `index.css` applied to every `<button>` in the app, and both
+survived long after the control system replaced them:
+
+```css
+button:not(:disabled):hover { filter: brightness(1.08); transition: filter .15s ease; }
+.btn:hover:not(:disabled)   { filter: brightness(1.12); }
+.btn:active:not(:disabled)  { filter: brightness(0.95); transform: scale(0.97); }
+```
+
+They did three things, none of them visible in the component source:
+
+1. **They re-coloured every measured hover.** Every variant's hover surface was
+   rendering 12% brighter than the token it was tuned to. The luminance tables
+   in this document described the *spec*, not the screen, until these were
+   removed. `Button.jsx` even narrates the 1.12 rule in the past tense — only
+   the JS half had ever been deleted.
+2. **They ran a second press animation.** `scale(0.97)` on top of the 0.5px
+   surface sink the ladder defines, so a press had two competing physics.
+3. **They hijacked the transition list.** `transition` declared *inside* a
+   `:hover` rule replaces the component's own list for exactly as long as the
+   cursor is over the element. Measured on the top-bar Feedback item:
+
+```
+hover+ 20ms  filter=brightness(1.009)  bg=rgb(238,240,238)   <- bg SNAPPED, no easing
+hover+200ms  filter=brightness(1.08)   bg=rgb(238,240,238)
+leave+ 20ms  filter=none               bg=rgb(240,242,240)   <- filter SNAPPED back
+leave+200ms  filter=none               bg=rgb(251,252,251)
+```
+
+The fill jumps in, the brightness jumps out. That reads as a glitchy hover, and
+it is invisible in the component's CSS because the component's CSS is correct.
+
+The fix is an opt-out, not a deletion — a plain unstyled `<button>` still wants
+a fallback. Any control that declares its own hover carries **`ds-control`**,
+and the blanket rules are `button:not(:disabled):not(.ds-control)`. `Button`,
+`Pill`, `.gnav-util`, `.cv-rail-item`, `.cv-rail-back`, `.ds-disclosure`,
+`.ds-sortbtn`, `.ds-fixbtn` and `.gw-tile` all carry it. **Add it to anything
+new that styles its own `:hover`.**
+
+**Never transition from `transparent`.** `transparent` is `rgba(0,0,0,0)`, so
+fading it to an opaque colour interpolates through translucent BLACK and the
+hover arrives as a smear. Start from the surrounding surface's own colour
+instead, so both ends are opaque.
+
 **Hover must not stick.** Never set hover from `onFocus` — a clicked button
 keeps focus, so the hover never leaves. `:focus-visible` already gives keyboard
 users the ring. Hover lights the SURFACE; it does not flash the border.
@@ -382,11 +427,50 @@ when you do:
 | Variant | At rest | On hover / press |
 |---|---|---|
 | `muted` | neutral raised | neutral, brighter |
-| `action` | **identical to `muted`** | **green**: surface, border and label |
+| `action` | **identical to `muted`** | **green**: surface and label |
+| `danger` | **identical to `muted`** | **red**: surface and label |
 
-`action` is for a control that **acts on a client** — sends a nudge, sends an
-invite, opens work ending in a message to a real person. `muted` only
-navigates.
+**A commit action is filled green. The exception is one that repeats down a
+list.** Both variants are for a control that acts on a client — sends a nudge,
+sends an invite, opens work ending in a message to a real person — and what
+separates them is how many appear at once, not what they do:
+
+| | Renders | Variant |
+|---|---|---|
+| Save targets · Add note · Mark reviewed · Send to client | once, the panel's one commit | `primary` |
+| Send invite · "N check-ins to review" | once, the view's one commit | `primary` |
+| Nudge | **per row, on up to nine rows at once** | `action` |
+
+The tempting rule is "permanent is green, conditional is neutral" — Nudge only
+appears when a client has gone quiet, so it feels temporary. But the check-ins
+CTA is conditional too (`checkInsToReview > 0`) and it is green. Conditional is
+not the axis; **repetition** is. Nine green buttons stacked down a roster stop
+reading as *do this* and start reading as *this row is marked* — colour
+signalling state instead of action, which is B2's line. One green button in a
+view has nothing to be confused with.
+
+The green in `action` is therefore revealed rather than advertised: at rest it
+is identical to `muted`, and the hue arrives on hover and press — the moment
+you are about to commit, which is when "this reaches a real person" is worth
+saying.
+
+`muted` only navigates. `danger` is built the same way for the same reason: it used to stand
+in permanent red-on-red — red text AND a red border — which left nothing to
+escalate to at the moment of commitment, and put a standing red button on a
+page whose red is supposed to mean *a client is in trouble*. `danger-solid` is
+the confirm step, and it is the only red fill.
+
+**A revealed hue has to lift the same distance whichever hue it is**, or the
+two consequences are not equally weighted. Measured, rest → hover:
+
+| | surface | label |
+|---|---|---|
+| dark: neutral / green / red | 30.0 / 31.7 / 31.3 | 207 → 240 / 232.6 / 230.0 |
+| light: neutral / green / red | 245.4 / 231.9 / 232.9 | 62.6 → 23.7 / 38.2 / 38.5 |
+
+Red caps out less saturated than green because R is already at its ceiling when
+the luminance matches — the same "exact parity is not reachable" trade stated
+for green below. Land close, same direction, and say where the gap is.
 
 **The green is revealed, not advertised.** At rest the two are the same, because
 nine rows of standing colour say nothing and a roster full of green buttons is
@@ -429,17 +513,31 @@ from D2 and it holds for `action` too.
 
 | Rank | Treatment | Use | Variant |
 |---|---|---|---|
-| 1 | accent fill + accent shadow | the one action. **Max one per view** | `primary`, `danger-solid` |
+| 1 | accent fill + accent shadow | the one commit. **Max one per PANEL, never repeated down a list** | `primary`, `danger-solid` |
 | 2 | raised neutral + hairline + shadow | expected actions | `muted`, `outline`, `danger`, `ai` |
 | 3 | **still a button**: flat fill, soft border, no shadow | present but not inviting | `ghost` |
 | 4 | no chrome until hover | icon-only | `ui/IconButton` |
 
 **Rank inflation is the failure mode.** Three elevated controls in a row and
-none reads as the answer. Rank 1 means *the one action on this VIEW*, not on
-this panel: "Send invite" was filled green at the foot of the roster, making an
-occasional setup task the loudest thing on a screen whose job is scanning. It is
-rank 2. The only rank 1 left is the empty-state CTA, which renders only when
-there is nothing else to do. **Rank 3 is not chrome-less** — deleting the boundary
+none reads as the answer.
+
+**This rule used to read "max one per VIEW", and it was wrong in a way worth
+recording.** It was written off one bad instance — "Send invite" filled green at
+the foot of the roster, making an occasional setup task the loudest thing on a
+screen whose job is scanning — and it generalised from that single case to a
+per-screen quota. Applied literally to ClientView it demoted every commit on the
+page: Save targets, Add note, Mark reviewed and Send to client all went neutral,
+and a record page with fourteen panels ended up with no affirmative action
+anywhere. Four green buttons that each finish a different job are not competing;
+they are never on screen in the same glance.
+
+What actually causes inflation is **repetition, not count**. Nine Nudges down a
+roster compete because they are the same button answering nine times. One commit
+per panel does not, so the quota is per panel — and a control that renders once
+per row is rank 2 regardless (see D3). **A rule derived from one instance
+usually encodes the instance, not the principle.**
+
+**Rank 3 is not chrome-less** — deleting the boundary
 turns a button into a link and the affordance vanishes until hover. Rank is
 expressed INSIDE the boundary: fill weight, border strength, text colour.
 
@@ -497,10 +595,18 @@ be reproduced without knowing that.
 | CoachDashboard controls | 30px ×13 + 26px ×4 | **30px ×17** |
 | Profile | already compliant (8 surfaces, depth 1, 2 paddings) | Panel-migrated |
 | NotificationCenter | severity as a dot, grey reason text, 700 weights, hardcoded shadow, 9 off-scale spacings | **status text graded like the roster's column; ramp weights; `--shadow-dropdown`** |
+| ClientView | 17 nested bordered surfaces · 17 source paddings · 44 raw weights (19 of them 700) · 62 raw px spacings · 0 layout primitives · 7 hand-rolled controls | **2 (both controls) · 8 · 0 · 0 · Field/Select/Textarea/Pill · 4, each a genuinely distinct shape** |
+
+**Measure the SOURCE as well as the render on this page.** ClientView's rendered
+numbers barely moved (4716px → 4699, 33 boxes → 32, depth already 1) because the
+seeded demo client exercises almost none of the deep paths: the three-deep Sent
+reports tree needs sent reports, and the bordered meal cards need a logged meal.
+The render is the truth about what a reader sees on ONE dataset; the source is
+the truth about what the page can draw. A screen can be measured "clean" purely
+because the fixture is thin.
 
 **Still to do:** Dashboard (6518px · 74 surfaces · 60 nested · depth 3 · 17
-paddings — the worst screen in the app), Log, ClientView (4693px · 38 · 23 ·
-depth 2 · 8).
+paddings — the worst screen in the app), Log.
 
 ## Color tokens
 
@@ -661,8 +767,14 @@ Each carries an `eslint-disable` with a reason. Leave them alone:
   background and destroy contrast.
 - **`BarcodeScanner`** — white on a 92%-black scrim over live camera video, not
   a themed surface.
-- **The streak-card gradient palette** (`#86efac`, `#6ee7b7`) and the
-  **decorative check-in badge** in ClientView (`#1e3a5f`/`#93c5fd`).
+- **The streak-card gradient palette** (`#86efac`, `#6ee7b7`). The entry that
+  used to sit beside it — a "decorative check-in badge in ClientView"
+  (`#1e3a5f`/`#93c5fd`) — named the read/unread pills on *Sent reports*, not a
+  check-in badge, and it is gone: C1 made them plain status text. The sanction
+  had also been hiding a contrast bug, since the `Read` pill painted
+  `--color-success` on a hardcoded `#064e3b`, i.e. a themed green on an
+  unthemed near-black. **A literal exempted by name outlives the thing it
+  named** — say what the literal IS, and re-check the entry when that code moves.
 - **The 9px "i" glyph** in `.info-tip-mark` — iconography centred in a 14px
   circle, not text. The 11px floor governs text.
 - **The landing page** (`.lp` in `src/pages/landing.css`) is intentionally
@@ -690,10 +802,22 @@ colours on a white ground. The `MUTED` const sitting directly beneath them was
 already a token, so the conversion had simply stopped halfway.
 
 **Weight and spacing still have no rule.** Measured, not estimated: turning them
-on today fails **135** call sites for weight and **510** for spacing, across
-Dashboard, Log and ClientView. Those three pages are queued for the layout
-migration, which will rewrite most of those call sites anyway — tokenizing them
-first is work done twice. Add both rules as the CLOSING step of that migration.
+on today fails **95** call sites for weight and **328** for spacing, down from
+135/510 once ClientView was migrated (it alone carried 44 and 62). What remains
+is concentrated in the two unmigrated pages: Dashboard (20 weight · 72 spacing)
+and Log (26 · 104). Both are queued for the layout migration, which will rewrite
+most of those call sites anyway — tokenizing them first is work done twice. Add
+both rules as the CLOSING step of that migration.
+
+**One trap when sweeping spacing mechanically.** chart.js options are plain JS
+objects read by a canvas, and they take NUMBERS: a sweep that rewrites
+`padding: 10` to `padding: 'var(--space-10)'` inside `chartOptions` will take
+down the whole page with a `Maximum call stack size exceeded` out of chart.js's
+font resolver. `npm run build` does not catch it — esbuild is happy, and the
+crash only appears at runtime. The same sweep is how the pre-existing
+`color: 'var(--color-success)'` on the weight axis was found: it had never
+rendered green, because a canvas cannot read a CSS variable. Screenshot the page
+after any mechanical sweep; a green build is not evidence.
 
 The escape hatch is `eslint-disable-next-line no-restricted-syntax -- <reason>`.
 **A literal with a stated reason is a decision; a literal without one is a

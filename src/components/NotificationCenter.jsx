@@ -209,11 +209,11 @@ export default function NotificationCenter({ profile }) {
         type="button"
         onClick={toggle}
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
-        style={{
-          position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 38, height: 38, borderRadius: 'var(--radius)', background: 'none', border: 'none',
-          color: 'var(--color-muted)', cursor: 'pointer',
-        }}
+        className="gnav-util gnav-util--icon ds-control"
+        /* Shape and hover come from .gnav-util, the same class Feedback uses —
+           matching them by construction instead of by copying numbers. Only
+           `position` stays inline, for the unread badge anchored to it. */
+        style={{ position: 'relative' }}
       >
         <BellIcon />
         {unread > 0 && (

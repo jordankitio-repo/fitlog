@@ -124,17 +124,20 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   const isWideScreen =
     path === '/' || path === '/log' || path === '/profile' || path.startsWith('/client/')
   // The rail + content pages (a client's full record and the coach/settings
-  // Profile) get extra room so they span the same width instead of one sitting
-  // in a narrower column than the other.
-  const isExtraWide = path.startsWith('/client/') || path === '/profile'
+  // Profile) OWN THEIR LAYOUT. They render a full-height sidebar flush to the
+  // viewport edge, which a centred max-width <main> makes impossible — the rail
+  // ends up marooned mid-page with a band of empty background to its left, and
+  // reads as a floating card rather than navigation. So <main> gets out of the
+  // way entirely and .cv-shell / .cv-main supply their own padding.
+  const ownsLayout = path.startsWith('/client/') || path === '/profile'
 
   // Clients carry the floating chat bubble (FAB, bottom-right) on every page;
   // give the content extra bottom clearance so it never sits on a control
   // (e.g. the "Log Steps" button) when scrolled to the end.
   const hasChatFab = profile?.role === 'client'
-  const mainStyle = isLanding
+  const mainStyle = (isLanding || ownsLayout)
     ? { width: '100%' }
-    : { maxWidth: isExtraWide ? '1560px' : isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: hasChatFab ? '24px 16px 96px' : '24px 16px' }
+    : { maxWidth: isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: hasChatFab ? '24px 16px 96px' : '24px 16px' }
 
   return (
     <>

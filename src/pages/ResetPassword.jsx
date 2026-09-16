@@ -74,8 +74,8 @@ function ResetPassword() {
       {error && <p style={{ color: 'var(--color-error)' }}>{error}</p>}
 
       <button onClick={handleReset} disabled={loading} style={{
-        backgroundColor: 'var(--color-primary)',
-        color: 'var(--color-on-accent)',
+        backgroundColor: 'var(--color-primary-fill)',
+        color: 'var(--color-on-primary-fill)',
         border: 'none',
         borderRadius: '8px',
         padding: '10px 20px',

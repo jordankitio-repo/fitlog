@@ -17,9 +17,9 @@ export default function Pill({ active = false, style, children, ...rest }) {
         // row controls; the type scale is the only thing held back from Button.
         // Everything else — padding, height, hover, press — comes from Button,
         // so a chip is exactly as tall as the Open/Nudge buttons below it. The
-        // lighter type alone would leave it 4px short, hence the explicit floor.
+        // height floor that used to live here now lives on Button's `sm` size,
+        // where every control of that size inherits it instead of this one.
         fontSize: 'var(--text-xs)',
-        minHeight: '30px',
         ...style,
       }}
       {...rest}

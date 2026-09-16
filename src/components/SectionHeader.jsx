@@ -1,4 +1,6 @@
 import InfoTip from './InfoTip'
+import Badge from './ui/Badge'
+import Icon from './ui/Icon'
 
 function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, info, action, children, animated = true }) {
   return (
@@ -7,22 +9,40 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, info, ac
         onClick={onToggle}
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <h2 style={{ margin: 0 }}>{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+          {/* A5: a panel heading is --text-body / medium, which is what ui/Panel
+              renders on the roster. The bare global h2 (--text-lg) made every
+              section title on ClientView and Profile a full step larger than
+              every panel title on the reference screen. */}
+          <h2 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.005em' }}>{title}</h2>
           {info && (
             // Stop the click so tapping the "i" reveals the tip instead of collapsing.
             <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
               <InfoTip text={info} />
             </span>
           )}
-          {badge && (
-            <span style={{ backgroundColor: badgeColor || 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>{badge}</span>
-          )}
+          {/* ui/Badge's own docs name tone="solid" as "the count badge in
+              SectionHeader" — it had simply never been wired up here, so this
+              was a hand-rolled copy of the primitive that described it, at 700
+              where the primitive is 500. */}
+          {badge && <Badge tone="solid" color={badgeColor || 'var(--color-primary)'}>{badge}</Badge>}
           {/* Action sits in the title cluster (not the right) so it never
               collides with the absolutely-positioned drag grip. */}
           {!collapsed && action}
         </div>
-        <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{collapsed ? '▶' : '▼'}</span>
+        {/* Rejected pattern 4 applies to text glyphs too: ▶/▼ are geometric
+            shapes from whatever the OS picks, next to an icon set that is all
+            feather line art. One mark (D4), rotated — the chevron pointing down
+            is the same chevron pointing right. */}
+        <Icon
+          name="right"
+          size="14px"
+          style={{
+            color: 'var(--color-muted)',
+            transform: collapsed ? 'none' : 'rotate(90deg)',
+            transition: 'transform 180ms ease',
+          }}
+        />
       </div>
       {animated ? (
         <div style={{
@@ -34,7 +54,7 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, info, ac
           <div style={{ minHeight: 0 }}>{children}</div>
         </div>
       ) : (
-        !collapsed && <div style={{ paddingTop: '8px' }}>{children}</div>
+        !collapsed && <div style={{ paddingTop: 'var(--space-8)' }}>{children}</div>
       )}
     </>
   )

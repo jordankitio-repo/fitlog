@@ -27,7 +27,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 
 const checkinInputStyle = { backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-base)', width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }
 const checkinPillStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '999px', padding: '6px 16px', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
-const checkinPillActive = { background: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: 'var(--color-on-accent)' }
+const checkinPillActive = { background: 'var(--color-primary-fill)', borderColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)' }
 import { cardStyle as baseCardStyle } from '../utils/styles'
 import { Line, Bar } from 'react-chartjs-2'
 import {
@@ -991,7 +991,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
           <input type="date" aria-label="Selected date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
           <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
-          {isToday && <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
+          {isToday && <span style={{ backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
           {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
 	        </div>
 	      </div>
@@ -1077,7 +1077,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                       {weekReports.length} {weekReports.length === 1 ? 'message' : 'messages'}
                     </span>
                     {weekUnread > 0 && (
-                      <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
+                      <span style={{ backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
                         {weekUnread} unread
                       </span>
                     )}
@@ -1093,7 +1093,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                             Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </p>
                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            {!r.read_at && <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 6px', borderRadius: '999px' }}>NEW</span>}
+                            {!r.read_at && <span style={{ backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 6px', borderRadius: '999px' }}>NEW</span>}
                             {r.read_at && (
                               <button onClick={() => archiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>
                                 Archive

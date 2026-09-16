@@ -57,13 +57,15 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
           from the numerator, not size (A5: size and colour before weight). */}
       {seg('var(--color-text)', <>{checkedIn}<span style={{ color: 'var(--color-muted)' }}>/{total}</span></>, 'checked in')}
       <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-10)', flexWrap: 'wrap' }}>
-        {/* Just a Button. It acts on clients (it opens work that ends in a
-            message), so variant="action" — the same one Nudge uses, and
-            therefore the same hover, press and timing by construction. Only the
-            pill radius differs, because it sits on the page not in a row. */}
+        {/* Just a Button. It is a COMMIT action — it opens work that ends in a
+            message to a real person — so it takes the filled brand green, the
+            same green as the active View pill below it. Nudge stays `action`
+            (neutral until hover) because it fires on a single row and appears
+            on several at once; a column of green would be noise. Only the pill
+            radius differs here, because it sits on the page not in a row. */}
         {roster.checkInsToReview > 0 && (
           <Button
-            variant="action"
+            variant="primary"
             size="sm"
             onClick={onReviewClick}
             disabled={!onReviewClick}
@@ -449,7 +451,7 @@ A dash means none submitted this period.`} />
                 <span className="ds-colhead">Client</span>
                 <button
                   type="button"
-                  className="ds-colhead ds-sortbtn"
+                  className="ds-colhead ds-sortbtn ds-control"
                   onClick={() => setSortDir(d => (d === 'worst' ? 'best' : 'worst'))}
                   aria-label={`${LENS_HEADERS[sortBy] ?? LENS_HEADERS.attention}, ${sortDir} first. Click to reverse.`}
                 >
@@ -490,7 +492,7 @@ A dash means none submitted this period.`} />
                         // read as a chip.
                         <button
                           type="button"
-                          className="ds-fixbtn"
+                          className="ds-fixbtn ds-control"
                           onClick={() => navigate(`/client/${c.client_id}?focus=${status.fix}`)}
                         >
                           {status.text}
@@ -556,7 +558,12 @@ A dash means none submitted this period.`} />
       {/* Invite section */}
       <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
         <h2>Invite a client</h2>
-        <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
+        {/* A button PAIRED WITH A TEXT INPUT matches the input, not the 30px
+            standalone control height — `stretch` is doing that here on purpose,
+            and it is why this one is `md` while every free-standing button on
+            these two screens is `sm`. Cloudflare's "Invite members" sits level
+            with its search field for the same reason. */}
+        <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap', alignItems: 'stretch' }}>
           <Field
             ref={inviteInputRef}
             type="email"
@@ -570,7 +577,7 @@ A dash means none submitted this period.`} />
             }}
             style={{ flex: 1, width: 'auto' }}
           />
-          <Button onClick={checkAndInvite} variant="action" loading={inviting} disabled={inviting}>Send invite</Button>
+          <Button onClick={checkAndInvite} variant="primary" size="md" loading={inviting} disabled={inviting}>Send invite</Button>
         </div>
         {soloAccountDetected && (
           <div style={{
@@ -588,7 +595,7 @@ A dash means none submitted this period.`} />
             <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
               <Button
                 onClick={() => sendInvite(pendingInviteEmail, true)}
-                variant="action"
+                variant="primary"
                 size="sm"
                 loading={inviting}
                 disabled={inviting}

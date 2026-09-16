@@ -48,10 +48,16 @@ function Button({
     whiteSpace: 'nowrap',
   }
 
+  // A height floor per size, not just padding. Without it an icon-only button
+  // is as tall as its glyph — the day-stepper arrows came out 27px next to
+  // 30px text buttons in the same strip, which is the kind of 3px that reads
+  // as sloppy without being obviously wrong. ui/Pill used to carry this floor
+  // alone; it belongs on the size, so every control of a given size agrees by
+  // construction rather than by each call site remembering.
   const sizes = {
-    sm: { padding: '6px 12px', fontSize: 'var(--text-sm)' },
-    md: { padding: '10px 20px', fontSize: 'var(--text-base)' },
-    lg: { padding: '12px 24px', fontSize: 'var(--text-body)' },
+    sm: { padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px' },
+    md: { padding: '10px 20px', fontSize: 'var(--text-base)', minHeight: '39px' },
+    lg: { padding: '12px 24px', fontSize: 'var(--text-body)', minHeight: '45px' },
   }
 
   // ── The elevation ladder ────────────────────────────────────────────────
@@ -60,7 +66,12 @@ function Button({
   // Cloudflare dashboards run this exact ladder.
   //
   //   1  ACCENT + ELEVATED   filled brand colour, accent shadow.
-  //                          "Do the thing." AT MOST ONE PER VIEW.
+  //                          "Do the thing." AT MOST ONE PER PANEL, and never
+  //                          repeated down a list — nine of the same green
+  //                          button in a roster read as marked rows, not as
+  //                          actions. (This used to say "per VIEW", which
+  //                          demoted every commit on a 14-panel record page.
+  //                          See D3 in docs/design-system.md.)
   //                          primary · danger-solid
   //                          (their "Get tickets" / "Add New")
   //
@@ -102,7 +113,7 @@ function Button({
   // which is most of why they read as dead.
   const variants = {
     primary: {
-      rest: { backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
+      rest: { backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
       hover: { filter: 'brightness(1.08)' },
     },
     // Acts on a client: sends a nudge, sends an invite. IDENTICAL to `muted` at
@@ -125,9 +136,23 @@ function Button({
       rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
       hover: { backgroundColor: 'var(--color-primary-dim)', borderColor: 'var(--color-primary)' },
     },
+    // Destructive, and built exactly like `action`: identical to `muted` at rest,
+    // red on hover and press. It used to stand in permanent red-on-red — red
+    // text AND a red border, with nothing left to escalate to when you actually
+    // committed. A page with a standing red button reads as broken rather than
+    // careful, and it drowns out the red that means a CLIENT is in trouble.
+    // Consequence is revealed as you commit; `danger-solid` is the confirm.
     danger: {
-      rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-error)', border: '1px solid color-mix(in srgb, var(--color-error) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
-      hover: { backgroundColor: 'color-mix(in srgb, var(--color-error) 12%, transparent)', borderColor: 'var(--color-error)' },
+      rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
+      // Surface and label only. The border never moves on hover, same as action.
+      // Tuned to lift the SAME distance as `action`, so "this reaches a client"
+      // and "this destroys something" are equally loud and differ only in cast.
+      // Measured luminance (rest -> hover):
+      //   dark  surface  neutral 30.0 -> green 31.7 · red 31.3
+      //   dark  label    207      -> neutral 240 · green 232.6 · red 230.0
+      //   light surface  245.4    -> green 231.9 · red 232.9
+      //   light label    62.6     -> neutral 23.7 · green 38.2 · red 38.5
+      hover: { backgroundColor: 'var(--control-bg-danger-hover)', color: 'var(--control-fg-danger-hover)' },
     },
     'danger-solid': {
       rest: { backgroundColor: 'var(--color-error)', color: 'var(--color-on-accent)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
@@ -177,7 +202,7 @@ function Button({
       onPointerUp={() => setPressed(false)}
       disabled={disabled || loading}
       aria-label={ariaLabel}
-      className="btn"
+      className="btn ds-control"
       {...rest}
       style={{ ...base, ...sizes[size], ...v.rest, ...style, ...hoverStyle, ...activeStyle }}
     >

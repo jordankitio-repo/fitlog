@@ -46,7 +46,7 @@ export default function PWAUpdatePrompt() {
       <button
         onClick={() => updateServiceWorker(true)}
         style={{
-          background: 'var(--color-primary)', color: 'var(--color-on-accent)', border: 'none',
+          background: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', border: 'none',
           borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 'var(--text-base)', cursor: 'pointer',
         }}
       >

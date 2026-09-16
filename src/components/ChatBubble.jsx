@@ -62,7 +62,7 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
       <button className="chat-launcher" onClick={handleOpen} aria-label="Open messages"
         style={{
           width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
-          backgroundColor: 'var(--color-primary)', color: 'var(--color-on-accent)', boxShadow: '0 4px 16px rgba(0,0,0,0.45)',
+          backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', boxShadow: '0 4px 16px rgba(0,0,0,0.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
         <ChatIcon />

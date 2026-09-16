@@ -1894,7 +1894,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginRight: '2px' }}>Unit:</span>
               {['in', 'cm'].map(u => (
-                <button key={u} type="button" onClick={() => setMeas({ ...meas, unit: u })} style={{ ...pillBtnStyle, ...(meas.unit === u ? { backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: 'var(--color-on-accent)' } : {}) }}>{u}</button>
+                <button key={u} type="button" onClick={() => setMeas({ ...meas, unit: u })} style={{ ...pillBtnStyle, ...(meas.unit === u ? { backgroundColor: 'var(--color-primary-fill)', borderColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)' } : {}) }}>{u}</button>
               ))}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>

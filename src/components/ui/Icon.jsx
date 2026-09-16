@@ -19,6 +19,9 @@ const PATHS = {
   right:    <polyline points="9 18 15 12 9 6" />,
   info:     <><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></>,
   leaf:     <><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" /><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" /></>,
+  // Marks a saved meal — a group of entries logged together. Replaces a 🍽
+  // emoji, which rendered in the OS font and was the app's last emoji-as-icon.
+  utensils: <><path d="M7 2v8a2 2 0 0 0 2 2v10" /><path d="M4 2v5" /><path d="M10 2v5" /><path d="M18 2c-1.7 1.5-2.5 3.7-2.5 6 0 1.7.6 2.7 1.8 3.1V22" /></>,
 }
 
 export default function Icon({ name, size = '1em', strokeWidth = 1.75, style, ...rest }) {
