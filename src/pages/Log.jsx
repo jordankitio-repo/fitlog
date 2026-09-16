@@ -1122,7 +1122,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           >
             <span aria-hidden="true" style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', width: 12 }}>{open ? '▾' : '▸'}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>🍽 {item.name}</p>
+            <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}><Icon name="utensils" style={{ color: 'var(--color-muted)' }} /> {item.name}</p>
             <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--color-muted)' }}>
               {item.entries.length} item{item.entries.length === 1 ? '' : 's'}{!hideCalories ? ` · ${item.calories} kcal` : ''}
               {(() => {
@@ -1193,7 +1193,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       {/* Weight */}
       <div style={sectionStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ borderLeft: '3px solid var(--color-weight)', paddingLeft: '10px' }}>Weight</h2>
+          <h2>Weight</h2>
           {savedWeight && !weightExpanded && (
             <button onClick={() => setWeightExpanded(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', padding: '4px 8px' }}>Edit</button>
           )}
@@ -1227,7 +1227,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Nutrition */}
       <div style={sectionStyle}>
-        <h2 style={{ borderLeft: '3px solid var(--color-calories)', paddingLeft: '10px' }}>Nutrition</h2>
+        <h2>Nutrition</h2>
 
         {/* Macro totals */}
         <div className="tnum" style={{ display: 'grid', gridTemplateColumns: `repeat(${hideCalories ? 3 : 4}, 1fr)`, gap: '8px' }}>
@@ -1296,7 +1296,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                       fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                     }}
                   >
-                    <span aria-hidden="true" style={{ fontSize: 'var(--text-sm)', lineHeight: 1 }}>☑</span> Select
+                    <Icon name="check" /> Select
                   </button>
                 )}
               </div>
@@ -1367,7 +1367,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>or into:</span>
                               {containers.map(c => (
-                                <button key={c.id} onClick={() => groupSelectedIntoMeal(c)} style={pillBtnStyle}>🍽 {c.name}</button>
+                                <button key={c.id} onClick={() => groupSelectedIntoMeal(c)} style={pillBtnStyle}><Icon name="utensils" /> {c.name}</button>
                               ))}
                             </div>
                           ) : null
@@ -1405,7 +1405,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </svg>
             <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>Nothing logged yet today</p>
             <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', maxWidth: '36ch', lineHeight: 1.5 }}>
-              Add your first item below to start today's diary — search a food or scan a barcode.
+              Search a food or scan a barcode.
             </p>
           </div>
         )}
@@ -1415,7 +1415,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: entries.length > 0 ? '4px' : '0' }}>
             {addingToMeal && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
-                <span>Adding to <strong style={{ color: 'var(--color-text)' }}>🍽 {addingToMeal.name}</strong></span>
+                <span>Adding to <strong style={{ color: 'var(--color-text)' }}>{addingToMeal.name}</strong></span>
                 <button onClick={() => { clearNutritionForm(); setNutritionExpanded(false) }} style={selectLinkStyle}>Cancel</button>
               </div>
             )}
@@ -1658,13 +1658,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {/* Saved meals — opens a modal so a long list never stretches the page */}
         {!nutritionExpanded && !showCopyPanel && savedMeals.length > 0 && (
           <button onClick={() => setShowSavedMeals(true)} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: 'var(--radius)', padding: '7px 12px', fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            🍽 Saved meals <span style={{ color: 'var(--color-muted)' }}>({savedMeals.length})</span>
+            <Icon name="utensils" /> Saved meals <span style={{ color: 'var(--color-muted)' }}>({savedMeals.length})</span>
           </button>
         )}
         <Modal open={showSavedMeals} title="Saved meals" onClose={() => { setShowSavedMeals(false); setLogPickId(null); setEditingSavedMealId(null) }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {savedMeals.length === 0 ? (
-              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>No saved meals yet. Save one from a logged meal (🔖), or via Select → Save as meal.</p>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>No saved meals yet. Save one from any logged meal.</p>
             ) : savedMeals.map(m => {
               const t = mealTotals(m.items)
               const pending = loggingMealId === m.id
@@ -1764,7 +1764,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Cardio */}
       <div style={sectionStyle}>
-        <h2 style={{ borderLeft: '3px solid var(--color-cardio)', paddingLeft: '10px' }}>Cardio</h2>
+        <h2>Cardio</h2>
 
         {cardioEntries.map(e => (
           <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
@@ -1816,7 +1816,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Steps */}
       <div style={sectionStyle}>
-        <h2 style={{ borderLeft: '3px solid var(--color-steps)', paddingLeft: '10px' }}>Steps</h2>
+        <h2>Steps</h2>
 
         {savedSteps && !stepsExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1854,7 +1854,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Body measurements */}
       <div style={sectionStyle}>
-        <h2 style={{ borderLeft: '3px solid var(--color-weight)', paddingLeft: '10px' }}>Measurements</h2>
+        <h2>Measurements</h2>
 
         {/* Gentle re-measure reminder once the latest is past ~monthly (steady
             cadence — deliberately not nagging; the coach view is phase-precise). */}

@@ -216,15 +216,28 @@ export default function NotificationCenter({ profile }) {
         style={{ position: 'relative' }}
       >
         <BellIcon />
-        {unread > 0 && (
-          <span style={{
-            position: 'absolute', top: 'var(--space-4)', right: 'var(--space-4)', minWidth: 16, height: 16, padding: '0 var(--space-4)',
-            borderRadius: '999px', background: 'var(--color-error)', color: 'var(--color-on-accent)', fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '2px solid var(--color-surface)',
-          }}>{unread > 9 ? '9+' : unread}</span>
-        )}
       </button>
+      {/* The badge hangs off the WRAPPER, not the button. Inside a 38px button
+          that already centres a 20px bell there is nowhere for a 24px-wide
+          "9+" to go: at top/right 4px it covered the bell's whole upper half,
+          so the glyph read as clipped rather than badged. Out here it can sit
+          past the corner and overlap nothing. aria-hidden because the button's
+          aria-label already announces the count. */}
+      {unread > 0 && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute', top: '-2px', right: '-2px',
+            minWidth: 16, height: 16, padding: '0 var(--space-4)', boxSizing: 'border-box',
+            borderRadius: '999px', background: 'var(--color-error)', color: 'var(--color-on-accent)',
+            fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', lineHeight: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            /* Reads as a separate object sitting on the bar, not part of the bell. */
+            border: '2px solid var(--color-surface)',
+            pointerEvents: 'none',
+          }}
+        >{unread > 9 ? '9+' : unread}</span>
+      )}
 
       {open && (
         <>
