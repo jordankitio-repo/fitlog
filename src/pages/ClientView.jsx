@@ -1594,7 +1594,7 @@ async function sendMessage(text) {
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
                   <span style={{ fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-md)' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI brief to walk in prepared, just for you</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>Private brief before a call</span>
                 </span>
               </button>
 
@@ -1605,7 +1605,7 @@ async function sendMessage(text) {
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
                   <span style={{ fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-md)' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI draft to review and send the client</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>Draft to review, then send</span>
                 </span>
               </button>
             </div>
@@ -1874,7 +1874,7 @@ async function sendMessage(text) {
             <div>
               <p style={{ fontWeight: 'var(--weight-semibold)', margin: 0 }}>Hide calories from client</p>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-                For clients with a sensitive relationship with calorie tracking.
+                For clients who shouldn't see numbers.
               </p>
             </div>
             <button
@@ -2001,14 +2001,14 @@ async function sendMessage(text) {
               fontWeight: 'var(--weight-normal)',
               color: dayComplete ? 'var(--color-success)' : 'var(--color-muted)',
             }}>
-              {dayComplete ? <><Icon name="check" /> Client marked this day complete</> : 'Day not marked complete. Totals may be partial'}
+              {dayComplete ? <><Icon name="check" /> Day complete</> : 'Day not complete. Totals may be partial'}
             </span>
           </div>
           {entries.length === 0 ? (
             <EmptyState
               icon={null}
               title="No entries for this day"
-              description="Client hasn't logged any nutrition yet."
+              description="Try another day."
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-20)' }}>
@@ -2098,7 +2098,7 @@ async function sendMessage(text) {
               >
                 Customize questions <Icon name="right" />
               </Button>
-              <InfoTip text="Check-in questions are shared by all your clients. Editing them on your Profile changes every client's check-in." />
+              <InfoTip text="These questions are shared by every client. Editing them changes all check-ins." />
             </div>
           </div>
           {!clientCheckIn ? (
@@ -2157,7 +2157,7 @@ async function sendMessage(text) {
                     <Textarea
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
-                      placeholder="Optional comment for the client…"
+                      placeholder="Comment for the client (optional)…"
                       rows={2}
                       aria-label="Comment for the client"
                       style={{ resize: 'vertical' }}
@@ -2177,7 +2177,7 @@ async function sendMessage(text) {
               value={coachNotes}
               onChange={(e) => setCoachNotes(e.target.value)}
               readOnly={!editingNotes}
-              placeholder="Notes history will appear here…"
+              placeholder="No notes yet…"
               rows={6}
               aria-label="Notes history"
               style={{
@@ -2239,7 +2239,7 @@ async function sendMessage(text) {
                     onWindowChange={changeEbWindow}
                   />
                 </div>
-              ) : chartEmpty('No progress data yet', 'Appears once weight or nutrition is logged.')
+              ) : chartEmpty('No progress data yet', 'Needs weight or nutrition logged.')
             )}
           </SectionHeader>
         </div>
@@ -2357,7 +2357,7 @@ async function sendMessage(text) {
                   )}
                 </>
               )
-            })() : chartEmpty('No weight logged yet', 'Appears once your client logs weight.'))}
+            })() : chartEmpty('No weight logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
       )}
@@ -2367,7 +2367,7 @@ async function sendMessage(text) {
           <SectionHeader title="Calories: last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (calorieHistory.length > 0 ? (
               <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={calorieChartOptions} />
-            ) : chartEmpty('No nutrition logged yet', 'Appears once your client logs food.'))}
+            ) : chartEmpty('No nutrition logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
       )}
@@ -2377,7 +2377,7 @@ async function sendMessage(text) {
           <SectionHeader title="Cardio: last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (cardioHistory.length > 0 ? (
               <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
-            ) : chartEmpty('No cardio logged yet', 'Appears once your client logs cardio.'))}
+            ) : chartEmpty('No cardio logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
       )}
@@ -2387,7 +2387,7 @@ async function sendMessage(text) {
           <SectionHeader title="Steps: last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (stepsHistory.length > 0 ? (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
-            ) : chartEmpty('No steps logged yet', 'Appears once your client logs steps.'))}
+            ) : chartEmpty('No steps logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
       )}
@@ -2409,7 +2409,7 @@ async function sendMessage(text) {
             ) : null}
           >
             {!sectionsCollapsed.measurements && (measHistory.length === 0
-              ? chartEmpty("No measurements yet. They're added on the client's Log page.")
+              ? chartEmpty("No measurements yet", "Your client adds these.")
               : (() => {
               const latest = measHistory[measHistory.length - 1]
               const unit = latest.unit || 'in'
@@ -2511,7 +2511,7 @@ async function sendMessage(text) {
             gap: 'var(--space-10)'
           }}>
             <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
-              This will end the coaching relationship and return <strong>{clientProfile?.full_name}</strong> to a solo account. Their data is preserved and they can continue tracking independently.
+              Ends coaching. <strong>{clientProfile?.full_name}</strong> keeps their data and continues solo.
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
               <Button

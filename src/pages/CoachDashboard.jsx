@@ -387,7 +387,7 @@ function CoachDashboard({ profile }) {
               </svg>
             )}
             title="Add your first client"
-            description="Invite someone you coach by email. They get a link to join, and their logging shows up here for you to track."
+            description="Invite by email. They join, and their logging appears here."
             action={<Button variant="primary" onClick={focusInvite}>Invite your first client <Icon name="right" /></Button>}
           />
         ) : (

@@ -473,14 +473,29 @@ a:hover {
   transition: opacity 0.15s ease;
 }
 
-/* Focus states */
+/* Focus states.
+   The glow that used to live here — `box-shadow: 0 0 0 2px rgba(34,197,94,.2)`
+   — was three problems in one line. It fired on `:focus`, so merely CLICKING a
+   dropdown lit it up, when a mouse user already knows what they clicked. It
+   was a halo where a border would do. And the rgba was the DARK-mode green
+   hardcoded, so on the light theme the halo was a different green from the
+   border it surrounded — the same unthemed-literal bug found in
+   ComplianceBreakdown and the Sent-reports pill.
+   What replaces it: the BORDER alone, which is what Cloudflare's focused field
+   does. No outer ring either — browsers treat :focus-visible as always-on for
+   a field that accepts typing, so a ring would come back on every mouse click,
+   which is the behaviour being removed. A full-perimeter border going from
+   --color-border to the brand green is a large, high-contrast change and
+   carries WCAG 2.4.7 on its own. */
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
+  /* !important is load-bearing: controlStyle sets `border` as an INLINE style,
+     which beats any stylesheet rule. Drop this and fields lose their focus
+     indicator entirely — the state this rule exists to show. */
   border-color: var(--color-primary) !important;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 140ms ease;
 }
 
 /* Visible keyboard focus for every interactive control (WCAG 2.4.7). Scoped to
