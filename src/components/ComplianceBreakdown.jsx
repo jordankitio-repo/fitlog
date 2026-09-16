@@ -123,7 +123,7 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
 
       {b.insufficient ? (
         <p style={{ fontSize: 'var(--text-sm)', color: MUTED, margin: 0 }}>
-          Not enough logged days yet to compare weekdays vs weekends.
+          Not enough logged days yet.
         </p>
       ) : (
         <>
