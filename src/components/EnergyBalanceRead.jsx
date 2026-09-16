@@ -197,7 +197,7 @@ function ReadinessBlock({ readiness: rd, windowDays }) {
   const need = (row, unit) => (row.ok ? '' : ` · need ${row.need}${unit}`)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <p style={{ fontSize: 'var(--text-sm)', color: MUTED, margin: '0 0 2px' }}>Not enough data yet. Still needs:</p>
+      <p style={{ fontSize: 'var(--text-sm)', color: MUTED, margin: '0 0 2px' }}>Not enough logged days yet</p>
       <ReadyRow ok={rd.weighIns.ok} label="Weigh-ins" detail={`${rd.weighIns.have} in ${windowDays} days${need(rd.weighIns, '')}`} />
       <ReadyRow ok={rd.span.ok} label="Weigh-in span" detail={`${rd.span.have} days${need(rd.span, ' days')}`} />
       <ReadyRow ok={rd.logging.ok} label="Nutrition logging" detail={`${rd.logging.have}/${windowDays} days${need(rd.logging, ' days')}`} />

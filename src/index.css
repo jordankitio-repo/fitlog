@@ -473,6 +473,33 @@ a:hover {
   transition: opacity 0.15s ease;
 }
 
+/* Select chevron — ours, not the OS's.
+   `padding-right` does NOT move a native select's arrow: Chrome places it at a
+   fixed inset from the BORDER and padding only pushes the text, which is why
+   widening the padding left the glyph just as wedged. The only way to control
+   it is to suppress the native arrow and paint our own.
+   Doing it here rather than in ui/Select reaches all twelve selects in the app,
+   eleven of which are raw <select> elements on pages not yet migrated — and it
+   retires twelve OS-font glyphs in favour of the same chevron the icon set
+   uses everywhere else (the ▶/▼ problem again, in a different costume).
+   The stroke is a literal per theme because a background-image SVG cannot read
+   `currentColor` or a CSS variable; both values ARE --color-muted. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-12) center;
+  background-size: 16px 16px;
+  /* !important for the same reason as the focus border below: controlStyle
+     sets `padding` as an INLINE style, which beats any stylesheet rule, so
+     without this the label would run under the chevron. */
+  padding-right: var(--space-32) !important;
+}
+:root[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6469' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
 /* Focus states.
    The glow that used to live here — `box-shadow: 0 0 0 2px rgba(34,197,94,.2)`
    — was three problems in one line. It fired on `:focus`, so merely CLICKING a

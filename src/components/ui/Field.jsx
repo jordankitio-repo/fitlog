@@ -28,9 +28,6 @@ export function Field({ as = 'input', label, error, style, children, ...rest }) 
 
 export function Textarea(props) { return <Field as="textarea" {...props} /> }
 
-// A native <select> draws its own arrow hard against the padding edge, so the
-// control's uniform 12px leaves the chevron looking wedged into the border.
-// Extra right padding is the only thing that moves it inward.
-export function Select({ style, ...props }) {
-  return <Field as="select" style={{ paddingRight: 'var(--space-20)', ...style }} {...props} />
-}
+// The chevron and its clearance are handled for EVERY select in index.css —
+// see the `select` rule there — so this stays a thin preset.
+export function Select(props) { return <Field as="select" {...props} /> }

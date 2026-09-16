@@ -2485,7 +2485,7 @@ async function sendMessage(text) {
             action), so it takes the type rather than the whole component. */}
         <h2 style={{ fontSize: 'var(--text-body)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.005em' }}>Coaching</h2>
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-          End the coaching relationship and return {clientProfile?.full_name || 'this client'} to a solo account. Their data is preserved.
+          Ends coaching. {clientProfile?.full_name || 'This client'} keeps their data and continues solo.
         </p>
         {!showOffboardConfirm ? (
           <div>
@@ -2511,7 +2511,7 @@ async function sendMessage(text) {
             gap: 'var(--space-10)'
           }}>
             <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
-              Ends coaching. <strong>{clientProfile?.full_name}</strong> keeps their data and continues solo.
+              Offboard <strong>{clientProfile?.full_name}</strong>? You can't undo this.
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
               <Button
