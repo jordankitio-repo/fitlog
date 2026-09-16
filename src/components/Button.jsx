@@ -77,7 +77,7 @@ function Button({
   //
   //   2  NEUTRAL + ELEVATED  raised surface, hairline border, 1px shadow.
   //                          Actions you're expected to reach for.
-  //                          muted · outline · danger · ai
+  //                          muted · danger · ai
   //
   //                          `action` is rank 2 too and looks identical at
   //                          rest; it turns GREEN on hover/press because it
@@ -132,10 +132,14 @@ function Button({
       rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-text-dim)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)' },
       hover: { backgroundColor: 'var(--control-bg-hover)', color: 'var(--color-text)' },
     },
-    outline: {
-      rest: { backgroundColor: 'var(--control-bg)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 45%, transparent)', boxShadow: 'var(--control-shadow)' },
-      hover: { backgroundColor: 'var(--color-primary-dim)', borderColor: 'var(--color-primary)' },
-    },
+    // `outline` is DELETED, not merely unused. It stood in permanent green —
+    // green text inside a green-tinted border — which is the advertised-green
+    // this system moved away from when `action` made the hue something revealed
+    // at the moment of commitment. In practice it read as a ring drawn round a
+    // button for no stated reason, and it never sat beside a `muted` sibling
+    // without looking like a different kind of control. All nine call sites are
+    // `muted`; anything that genuinely needs to say "this reaches a client"
+    // is `action`, and the one commit per panel is `primary`.
     // Destructive, and built exactly like `action`: identical to `muted` at rest,
     // red on hover and press. It used to stand in permanent red-on-red — red
     // text AND a red border, with nothing left to escalate to when you actually

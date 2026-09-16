@@ -517,7 +517,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <input ref={avatarInputRef} type="file" accept="image/*" onChange={onPickAvatar} style={{ display: 'none' }} />
-              <Button onClick={() => avatarInputRef.current?.click()} variant="outline" size="sm" loading={avatarBusy}>
+              <Button onClick={() => avatarInputRef.current?.click()} variant="muted" size="sm" loading={avatarBusy}>
                 {avatarUrl ? 'Change photo' : 'Upload photo'}
               </Button>
               {avatarUrl && <Button onClick={onRemoveAvatar} variant="ghost" size="sm" disabled={avatarBusy}>Remove</Button>}
@@ -970,7 +970,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             or laptop goes missing.
           </p>
           <div>
-            <Button onClick={signOutEverywhere} variant="outline" loading={globalSignOutBusy}>
+            <Button onClick={signOutEverywhere} variant="muted" loading={globalSignOutBusy}>
               Sign out everywhere
             </Button>
           </div>
@@ -986,7 +986,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file.
           </p>
           <div>
-            <Button onClick={exportData} variant="outline" loading={exportLoading}>
+            <Button onClick={exportData} variant="muted" loading={exportLoading}>
               {exportLoading ? 'Exporting...' : 'Download data'}
             </Button>
           </div>

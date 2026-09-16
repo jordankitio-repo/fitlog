@@ -1,6 +1,6 @@
 import { energyBalanceRead, WINDOW_OPTIONS } from '../utils/energyBalanceRead'
 import InfoTip from './InfoTip'
-import { Icon } from './ui'
+import { Icon, Pill } from './ui'
 
 // Coach-only instrument. We state only what we measured — maintenance (derived
 // transparently from the two rows below it), the weight trend, and compliance
@@ -124,26 +124,21 @@ function WindowSelector({ windowDays, onWindowChange }) {
         · window<InfoTip text="How far back to read. Shorter = more recent but noisier (the band widens); longer = steadier but reflects older behavior. 21 days is the default — long enough that daily water swings don't dominate the weight trend, short enough to track the current phase." />
       </span>
       <span role="group" aria-label="Energy balance window" style={{ display: 'inline-flex', gap: 4 }}>
-        {WINDOW_OPTIONS.map((d) => {
-          const active = d === windowDays
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => onWindowChange(d)}
-              aria-pressed={active}
-              style={{
-                fontSize: 'var(--text-xs)', fontWeight: 600, padding: '2px 8px', borderRadius: 999, lineHeight: 1.5,
-                border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                background: active ? 'var(--color-primary-dim)' : 'transparent',
-                color: active ? 'var(--color-primary)' : MUTED,
-                cursor: 'pointer',
-              }}
-            >
-              {d / 7}w
-            </button>
-          )
-        })}
+        {/* These are filter chips, so they are the app's filter chip — ui/Pill,
+            the same control as the roster's View lenses. The hand-rolled pair
+            they replace marked "selected" as a tinted outline, which is the
+            one thing every other chip in the app does NOT do: selected is a
+            filled green. Two conventions for one idea, one component apart. */}
+        {WINDOW_OPTIONS.map((d) => (
+          <Pill
+            key={d}
+            active={d === windowDays}
+            onClick={() => onWindowChange(d)}
+            aria-pressed={d === windowDays}
+          >
+            {d / 7}w
+          </Pill>
+        ))}
       </span>
     </span>
   )

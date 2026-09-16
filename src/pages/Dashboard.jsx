@@ -946,7 +946,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	          <p style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
 	            It's been {measurementStatus({ lastMeasuredIso, cadenceDays: 28 }).daysSince} days since your last measurements — a good time for a fresh set.
 	          </p>
-	          <Button onClick={() => navigate('/log')} variant="outline" size="sm">Update</Button>
+	          <Button onClick={() => navigate('/log')} variant="muted" size="sm">Update</Button>
 	          <button
 	            onClick={() => {
 	              if (lastMeasuredIso) localStorage.setItem(`meas_reminder_dismissed_${profile.id}_${lastMeasuredIso}`, 'true')
@@ -992,7 +992,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           <input type="date" aria-label="Selected date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
           <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
           {isToday && <span style={{ backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
-          {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
+          {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">Today</Button>}
 	        </div>
 	      </div>
 
@@ -1016,7 +1016,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal <Icon name="right" /></Button>
             {profile?.role !== 'client' && (
-              <Button variant="outline" onClick={() => navigate('/profile?focus=targets')}>Set your targets</Button>
+              <Button variant="muted" onClick={() => navigate('/profile?focus=targets')}>Set your targets</Button>
             )}
           </div>
         </div>

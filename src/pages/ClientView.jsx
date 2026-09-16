@@ -2071,7 +2071,6 @@ async function sendMessage(text) {
               questionnaire (which is per-coach, so it lives on Profile). */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Cadence:</span>
               {/* D2: these are Pills. The hand-rolled copy they replace set its
                   own padding and so stood 4px short of every other chip in the
                   app, the exact bug the Pill minHeight floor exists to prevent. */}
@@ -2209,7 +2208,7 @@ async function sendMessage(text) {
                   </Button>
                 ) : (
                   <>
-                    <Button onClick={() => { saveCoachNotes(); setEditingNotes(false) }} variant="outline" size="sm">
+                    <Button onClick={() => { saveCoachNotes(); setEditingNotes(false) }} variant="muted" size="sm">
                       Save edits
                     </Button>
                     <Button onClick={() => { fetchCoachNotes(); setEditingNotes(false) }} variant="ghost" size="sm">

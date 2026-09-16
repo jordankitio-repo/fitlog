@@ -518,10 +518,17 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  /* !important is load-bearing: controlStyle sets `border` as an INLINE style,
-     which beats any stylesheet rule. Drop this and fields lose their focus
-     indicator entirely — the state this rule exists to show. */
-  border-color: var(--color-primary) !important;
+  /* NEUTRAL, not brand green. A browser matches :focus-visible on anything you
+     can type into even when you reached it with a mouse, so a green border here
+     is unavoidable-on-click by design — it fired every time you opened a
+     dropdown and read as the app flashing at you. Green is the action colour;
+     "this field has the caret" is not an action. A step up the neutral border
+     ramp is what Cloudflare's focused field does, and it still satisfies
+     WCAG 2.4.7 as a full-perimeter change.
+     !important is load-bearing: controlStyle sets `border` as an INLINE style,
+     which beats any stylesheet rule. Drop it and fields lose focus indication
+     entirely — verified by doing exactly that. */
+  border-color: var(--color-border-strong) !important;
   transition: border-color 140ms ease;
 }
 

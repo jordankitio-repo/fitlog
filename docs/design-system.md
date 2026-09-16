@@ -460,6 +460,15 @@ escalate to at the moment of commitment, and put a standing red button on a
 page whose red is supposed to mean *a client is in trouble*. `danger-solid` is
 the confirm step, and it is the only red fill.
 
+**`outline` is deleted.** It stood in permanent green — green text inside a
+green-tinted border — which is exactly the advertised green this system moved
+away from when `action` made the hue something revealed at the moment of
+commitment. It read as a ring drawn round a button for no stated reason, and it
+never sat beside a `muted` sibling without looking like a different kind of
+control (the notes row had all three at once: a filled green, an outlined
+green, and a grey ghost). All nine call sites are `muted`. **Removed rather
+than left unused**, so it cannot be reached for again.
+
 **A revealed hue has to lift the same distance whichever hue it is**, or the
 two consequences are not equally weighted. Measured, rest → hover:
 
@@ -514,7 +523,7 @@ from D2 and it holds for `action` too.
 | Rank | Treatment | Use | Variant |
 |---|---|---|---|
 | 1 | accent fill + accent shadow | the one commit. **Max one per PANEL, never repeated down a list** | `primary`, `danger-solid` |
-| 2 | raised neutral + hairline + shadow | expected actions | `muted`, `outline`, `danger`, `ai` |
+| 2 | raised neutral + hairline + shadow | expected actions | `muted`, `danger`, `ai` |
 | 3 | **still a button**: flat fill, soft border, no shadow | present but not inviting | `ghost` |
 | 4 | no chrome until hover | icon-only | `ui/IconButton` |
 

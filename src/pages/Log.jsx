@@ -1206,7 +1206,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               <span style={{ fontSize: 'var(--text-body)', color: 'var(--color-muted)', marginLeft: '6px' }}>{savedWeight.unit}</span>
             </div>
             {savedWeight.weighed_at && <p style={{ fontSize: 'var(--text-sm)' }}>{formatTime(savedWeight.weighed_at)}</p>}
-            <Button onClick={() => setWeightExpanded(true)} variant="outline" size="sm" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>+ Log Weight</Button>
+            <Button onClick={() => setWeightExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>+ Log Weight</Button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1845,7 +1845,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {!stepsExpanded && (
           <Button
             onClick={() => setStepsExpanded(true)}
-            variant="outline"
+            variant="muted"
             size="sm"
             style={{ alignSelf: 'flex-start', borderColor: 'var(--color-steps)', color: 'var(--color-steps)' }}
           >+ Log Steps</Button>
