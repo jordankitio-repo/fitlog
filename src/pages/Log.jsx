@@ -1229,24 +1229,33 @@ function Log({ session, profile, hasSoloPremium = true }) {
       <div style={sectionStyle}>
         <h2>Nutrition</h2>
 
-        {/* Macro totals */}
+        {/* Macro totals. The numerals are NEUTRAL, not metric-coloured.
+            Metric tokens are FILL colours — dark-first data hues that the light
+            theme carries over unchanged — so as text on a light card they
+            measured 2.22:1 (calories), 2.69:1 (protein) and 2.20:1 (fat)
+            against a 4.5:1 floor. Only carbs had ever been given a light
+            override. This is the same call StatCard already made: the label
+            underneath names the metric, so the colour was carrying nothing the
+            reader needed, and it was costing legibility to do it. The metric
+            hue still does its real job two panels over, filling Dashboard's
+            progress bars, where a shape has no contrast requirement. */}
         <div className="tnum" style={{ display: 'grid', gridTemplateColumns: `repeat(${hideCalories ? 3 : 4}, 1fr)`, gap: '8px' }}>
           {!hideCalories && (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 700, color: 'var(--color-calories)' }}>{totalCalories}</div>
+              <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalCalories}</div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Calories</div>
             </div>
           )}
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 700, color: 'var(--color-protein)' }}>{totalProtein}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalProtein}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Protein</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 700, color: 'var(--color-carbs)' }}>{totalCarbs}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalCarbs}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Carbs</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 700, color: 'var(--color-fat)' }}>{totalFat}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalFat}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Fat</div>
           </div>
         </div>
