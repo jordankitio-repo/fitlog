@@ -76,12 +76,14 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
           width: '56px', height: '56px', padding: 0,
           borderRadius: '50%',
           boxShadow: 'var(--shadow-dropdown)',
-          /* Button's --control-sheen is a top highlight sized for a ~30px
-             control; light mode's is 30% white. Across a 56px circle that
-             stops being a lift and becomes a visible top-to-bottom gradient,
-             which the system allows only on streak and milestone cards. A FAB
-             is a flat brand disc. */
-          backgroundImage: 'none',
+          /* The sheen STAYS. It was suppressed here once, on the reading that a
+             56px circle makes --control-sheen read as a gradient and the system
+             allows gradients only on streak and milestone cards. That was the
+             wrong rule: the ban is on decorative gradients painted onto cards,
+             while --control-sheen IS the control recipe — the top highlight
+             every filled Button in the app already carries. Removing it made
+             this the one filled button without it, which is the inconsistency
+             the conversion was meant to end. */
         }}
       >
         <ChatIcon />
