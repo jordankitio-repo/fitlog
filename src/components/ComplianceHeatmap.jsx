@@ -17,11 +17,11 @@ function getColor(calories, target, hasLog) {
   if (!target) return SCALE.onTarget
 
   const pct = calories / target
-  // On-target is a band (90-110%). Missing it in EITHER direction is one
-  // colour — see complianceScale.js for why four could not be made separable.
-  // Over still never reads as green, which was the point of splitting it out.
-  if (pct >= 0.9 && pct <= 1.1) return SCALE.onTarget
-  if (pct >= 0.6) return SCALE.offTarget
+  // On-target is a band (90-110%); over target gets its own color so a day of
+  // overeating never reads as green. Matches summarizeCompliance buckets.
+  if (pct > 1.1) return SCALE.over
+  if (pct >= 0.9) return SCALE.onTarget
+  if (pct >= 0.6) return SCALE.under
   return SCALE.wellUnder
 }
 
@@ -173,9 +173,10 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
 
       <div style={{ display: 'flex', gap: 12, marginTop: 12, marginLeft: 28, alignItems: 'center', flexWrap: 'wrap' }}>
         {[
-          { color: SCALE.onTarget,  label: 'On target' },
-          { color: SCALE.offTarget, label: 'Off target' },
-          { color: SCALE.wellUnder, label: 'Under 60%' },
+          { color: SCALE.onTarget,  label: '90-110%' },
+          { color: SCALE.over,      label: '>110%' },
+          { color: SCALE.under,     label: '60-89%' },
+          { color: SCALE.wellUnder, label: '<60%' },
           { color: 'var(--color-border)', label: 'No log' },
         ].map(({ color, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

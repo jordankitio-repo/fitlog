@@ -33,7 +33,7 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
         { num: `${s.logged}/${s.elapsed}`, label: 'Days logged', color: 'var(--color-text)', wide: true },
         ...(s.hasTarget ? [
           { num: s.onTarget, label: 'On-target', color: COMPLIANCE.onTarget },
-          { num: s.over, label: 'Over', color: COMPLIANCE.offTarget },
+          { num: s.over, label: 'Over', color: COMPLIANCE.over },
           { num: s.partial + s.under, label: 'Under', color: COMPLIANCE.wellUnder },
           { num: `${s.avgOfTarget}%`, label: 'Avg of target', color: 'var(--color-text)' },
         ] : []),
