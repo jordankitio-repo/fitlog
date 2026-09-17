@@ -1343,6 +1343,12 @@ async function sendMessage(text) {
     scales: {
       x: { ticks: { display: false }, grid: { display: false }, border: { display: false } },
       y: {
+        // beginAtZero: false is LOAD-BEARING. A person's weight moves a few
+        // percent; on a 0-200 axis a 10 lb cut is a flat line and the plot says
+        // nothing at a glance — which is exactly what it was doing. `grace`
+        // then keeps the trace off the top and bottom edges.
+        beginAtZero: false,
+        grace: '15%',
         ticks: { color: CHART_SERIES, maxTicksLimit: 4, callback: (v) => `${v}` },
         grid: { color: CHART.grid, drawTicks: false },
         border: { display: false },
@@ -2270,7 +2276,7 @@ async function sendMessage(text) {
                         Weight <span style={{ color: 'var(--color-faint)' }}>({weightDisplayUnit})</span>
                       </p>
                       <div style={{ height: '140px' }}>
-                        <Chart type="bar" data={getCorrelatedChartData('weight')} options={{ ...weightPlotOptions, maintainAspectRatio: false }} />
+                        <Line data={getCorrelatedChartData('weight')} options={{ ...weightPlotOptions, maintainAspectRatio: false }} />
                       </div>
                     </div>
                   )}
