@@ -107,6 +107,22 @@
      success + warning + error covered three of the four buckets; this names the
      fourth so the scale stops being re-declared as literals at each call site. */
   --color-over: #fb923c;
+
+  /* ── Compliance heatmap scale ─────────────────────────────────────────
+     Its OWN steps, not the UI status tokens, because the two are solving
+     different problems. A status TOKEN has to be legible type on a panel; a
+     heatmap cell has to be separable from the cell next to it, including for a
+     red-green colourblind reader. Validated with the dataviz skill's checker
+     (all-pairs, OKLab ΔE, Machado-Oliveira-Fernandes deutan/protan at 1.0):
+     the UI tokens FAIL as a scale — light error↔warning ΔE 9.1, below the 15
+     floor at which two fills stop being tellable apart with full colour vision.
+     Dark steps are darker than the light ones on purpose. That is not a typo:
+     the mark lightness band for a dark surface is OKLCH L 0.48–0.67, and the
+     app's dark status tokens sit at 0.71–0.84, i.e. too bright to read as
+     distinct fills. Dark mode is SELECTED here, never flipped. */
+  --compliance-good: #16a34a;
+  --compliance-off:  #d97706;
+  --compliance-low:  #b91c1c;
   /* Dark mode accents are BRIGHT (green #22c55e, red #f87171), so white text on
      them fails WCAG AA (~2.3:1). Dark text reads ~7:1. Light mode flips this back
      to white (its accents are darker). */
@@ -216,6 +232,10 @@
   --color-success: #16a34a;
   --color-warning: #b45309;
   --color-over: #c2410c;   /* orange-700: the bright #fb923c washes out on white */
+  /* Light steps, validated separately against #fbfcfb — see the dark block. */
+  --compliance-good: #15803d;
+  --compliance-off:  #f59e0b;
+  --compliance-low:  #dc2626;
   --color-warning-dim: rgba(180, 83, 9, 0.10);
   /* red-700: white-on-error (danger buttons) and error text both pass AA on white. */
   --color-error: #b91c1c;
