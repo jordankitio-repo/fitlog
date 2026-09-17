@@ -1851,7 +1851,10 @@ async function sendMessage(text) {
                       onClick={() => setCollapsedSentWeeks(prev => ({ ...prev, [week]: !isCollapsed }))}
                     >
                       <span className="ds-chev"><Icon name="right" /></span>
-                      <span>Week of {week}</span>
+                      {/* The key is an ISO date because it sorts; the LABEL is
+                          for a person. "Week of 2026-09-06" is a database row
+                          shown to a coach. */}
+                      <span>Week of {parseLocalDateString(week).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                       <span style={{ color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>
                         {weekReports.length} {weekReports.length === 1 ? 'report' : 'reports'}
                         {unreadCount > 0 && `, ${unreadCount} unread`}
