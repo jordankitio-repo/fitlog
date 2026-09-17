@@ -224,7 +224,23 @@
   --color-text-dim: #3b3f45;
   --color-muted: #5f6469;
   --color-faint: #8a9097;
-  --color-carbs: #b3933f;
+  /* ── Metric ramp, LIGHT steps ─────────────────────────────────────────
+     The missing half. These seven were dark-first values with no light
+     override but carbs, so on a light card every one of them failed AA as
+     text — calories 1.62:1, weight 1.87:1, fat 2.20:1, protein 2.69:1 — which
+     is why StatCard's numerals, Log's macro totals and the metric bar charts
+     all had to go neutral or wash out. In dark they clear 4.66–12.6:1, which
+     is exactly why it shipped unnoticed.
+     Each is the 700 step of its own hue, so the colour language stays the same
+     ("green is calories") while actually being readable. Measured as text on
+     the #fbfcfb card: 4.79–6.91:1, all clear of the 4.5 floor. */
+  --color-calories: #15803d;
+  --color-protein: #b91c1c;
+  --color-carbs: #a16207;
+  --color-fat: #c2410c;
+  --color-weight: #047857;
+  --color-cardio: #1d4ed8;
+  --color-steps: #6d28d9;
   /* Light-mode accents are darker, so filled buttons keep WHITE text. */
   --color-on-accent: #ffffff;
   /* Bright dark-mode green/amber/red are low-contrast on white — darken for light. */

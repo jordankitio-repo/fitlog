@@ -1,6 +1,6 @@
 import { cardStyle } from '../utils/styles'
 
-function StatCard({ label, value, sub }) {
+function StatCard({ label, value, sub, color }) {
   return (
     <div
       className="stat-card"
@@ -14,19 +14,21 @@ function StatCard({ label, value, sub }) {
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
       }}
     >
-      {/* C1: no legend dot — it only repeated what the label already said, and
-          a grid of them reads as a chart legend that has lost its chart.
-          The colour does NOT move onto the number. Metric tokens are dark-first
-          DATA colours (the light theme flips only the neutral ramp and primary,
-          so the accents carry over unchanged); they clear AA on a dark card and
-          fail it on a light one at every metric — measured on this component:
-          calories 1.62:1, weight 1.87:1, fat 2.20:1, protein 2.69:1,
-          carbs 2.85:1, against 4.5:1. A 7px dot had no contrast requirement
-          because it is a shape; a numeral does. The label names the metric, so
-          the colour was carrying nothing the reader needed. */}
+      {/* C1: still no legend dot — it only repeated what the label already said,
+          and a grid of them reads as a chart legend that has lost its chart.
+          The metric colour IS back on the label, and the reason it can be is
+          that the ramp was fixed rather than worked around. It used to be
+          dark-first only: on a light card every metric failed AA as text
+          (calories 1.62:1, weight 1.87:1, fat 2.20:1), so the honest move then
+          was to drop the colour. index.css now carries a light 700 step per
+          metric, measured at 4.79–6.91:1, so the colour can do its job again.
+          It sits on the LABEL, not the numeral: the label is what names the
+          metric, and the value stays in text ink so a column of numbers reads
+          as one column (the dataviz rule — text never wears the data colour;
+          a coloured mark beside it carries identity). */}
       <p style={{
         fontSize: 'var(--text-xs)',
-        color: 'var(--color-muted)',
+        color: color || 'var(--color-muted)',
         fontWeight: 'var(--weight-medium)',
         textTransform: 'uppercase',
         letterSpacing: '0.08em',

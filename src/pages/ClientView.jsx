@@ -1702,7 +1702,7 @@ async function sendMessage(text) {
       <div id="section-stats" style={sectionCardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-16)' }}>
-            <StatCard label="Calories" value={totals.calories} color="#fbbf24" />
+            <StatCard label="Calories" value={totals.calories} color="var(--color-calories)" />
             <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
             <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
             <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
