@@ -96,6 +96,47 @@ const SECTION_LABELS = {
   weightChart: 'Weight', calorieChart: 'Calories', cardioChart: 'Cardio', stepsChart: 'Steps',
   measurements: 'Measurements',
 }
+// Open/closed state per section, remembered across reloads (see the effect in
+// the component). `groundwork` is the AI panel, which is not a REORDERABLE key
+// but collapses the same way, so it rides along in the same record.
+const COLLAPSED_KEY = 'gardnr-cv-collapsed'
+const COLLAPSED_DEFAULTS = {
+  stats: false,
+  consistency: false,
+  sentReports: false,
+  targets: false,
+  nutritionLog: false,
+  checkIn: false,
+  privateNotes: false,
+  correlatedChart: false,
+  weightChart: true,
+  calorieChart: true,
+  cardioChart: true,
+  stepsChart: true,
+  measurements: false,
+  groundwork: false,
+}
+
+// Stored values are layered OVER the defaults, never used in place of them, so
+// a section added after a coach last saved still gets its intended default
+// instead of appearing as `undefined` (which renders expanded, silently
+// undoing the decision to ship the charts closed).
+function loadCollapsed() {
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_KEY)
+    if (!raw) return { ...COLLAPSED_DEFAULTS }
+    const saved = JSON.parse(raw)
+    if (!saved || typeof saved !== 'object') return { ...COLLAPSED_DEFAULTS }
+    const next = { ...COLLAPSED_DEFAULTS }
+    for (const k of Object.keys(COLLAPSED_DEFAULTS)) {
+      if (typeof saved[k] === 'boolean') next[k] = saved[k]
+    }
+    return next
+  } catch {
+    return { ...COLLAPSED_DEFAULTS }
+  }
+}
+
 const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'measurements']
 
 // Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
@@ -203,26 +244,31 @@ function ClientView({ profile }) {
   const [messages, setMessages] = useState([])
   const [callBriefing, setCallBriefing] = useState('')
   const [briefingLoading, setBriefingLoading] = useState(false)
-  const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
   const [showOffboardConfirm, setShowOffboardConfirm] = useState(false)
   const [offboarding, setOffboarding] = useState(false)
   const [nudging, setNudging] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
-  const [sectionsCollapsed, setSectionsCollapsed] = useState({
-    stats: false,
-    consistency: false,
-    sentReports: false,
-    targets: false,
-    nutritionLog: false,
-    checkIn: false,
-    privateNotes: false,
-    correlatedChart: false,
-    weightChart: true,
-    calorieChart: true,
-    cardioChart: true,
-    stepsChart: true,
-    measurements: false,
-  })
+  const [sectionsCollapsed, setSectionsCollapsed] = useState(loadCollapsed)
+  const [aiToolsCollapsed, setAiToolsCollapsed] = useState(() => loadCollapsed().groundwork)
+
+  // Persist the open/closed state of every section. Written on change rather
+  // than saved to profiles.layout (where cardOrder lives) because a collapse is
+  // a per-viewer convenience toggled many times a session — a DB round-trip per
+  // click would be chatty and can fail, and the preference is about how this
+  // coach likes to read, not about the client record. Same call the
+  // energy-balance window already makes with `gardnr-eb-window`.
+  //
+  // It is deliberately GLOBAL, not per client: the sections are identical on
+  // every client record, so a coach who keeps the charts shut wants them shut
+  // for all of them, not to re-close them on each one.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        COLLAPSED_KEY,
+        JSON.stringify({ ...sectionsCollapsed, groundwork: aiToolsCollapsed }),
+      )
+    } catch { /* private mode / quota — the page still works, it just forgets */ }
+  }, [sectionsCollapsed, aiToolsCollapsed])
 
   function formatTime(timeStr) {
     if (!timeStr) return null
