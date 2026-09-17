@@ -10,7 +10,7 @@
 ---
 
 ## Current Commit
-`b11bdcd` on branch **`feat/passwordless-client-auth`** (Sep 15) — **ClientView design-system pass + the two global hover bugs it exposed.** Pushed to the branch; NOT merged.
+`e732513` on branch **`feat/passwordless-client-auth`** (Sep 16) — **design pass carried onto the shared controls, Log and the compliance scale.** Pushed to the branch; NOT merged.
 
 ## Production
 - **Live URL:** https://www.gardnr.fit (primary) — tryfitlog.com 308-redirects here until expiry
@@ -30,6 +30,16 @@
 ---
 
 ## Recently Shipped (most recent first)
+
+**Design pass: shared controls, Log, the compliance scale (Sep 16 2026, branch `feat/passwordless-client-auth`, `5929118`…`e732513` — pushed to branch, NOT merged)**
+- **Driven from screenshots.** Every item below started as the user pointing at one thing; most turned out to be a class of thing. The pattern worth keeping: when a report names one instance, look for the rule that produced it — "this button doesn't respect our system" was `variant="outline"`, and there were nine.
+- **`outline` deleted** (9 call sites → `muted`), **field focus** is a neutral border with no ring and no glow, **the select chevron** is drawn by us on bare `select` so all twelve selects get it, **TargetCalculator** joins the system (its toggle is a `Pill`, its second filled green is neutral), and the **energy-balance window chips** are `Pill`s.
+- **Log carried the #1 rejected pattern five times** — a coloured left-edge bar on every section heading, the tell already removed from three other surfaces, surviving on the one page nobody had swept. Plus five emoji/text glyphs → the icon set.
+- **Two real accessibility defects, both measured:** Log's macro totals rendered metric tokens as TEXT at 2.20–2.69:1 against a 4.5 floor; and the compliance heatmap's two middle buckets were **ΔE 4.1 apart in light** (0.1 under deuteranopia) — the same colour, measurably. Both fixed; see `decisions.md` for the palette work, including why "reuse dark's colours and darken them" is what caused the second one.
+- **Section collapse state now persists** (localStorage, global across clients, layered over defaults).
+- **Two latent bugs found by doing the above:** `Button` was clobbering a caller's `className`, silently dropping `ds-control` and re-enabling the global hover blanket; and the notification badge sat inside a 38px button that already centred a 20px bell, so "9+" covered the glyph.
+- **Wrong turns, recorded because they cost time:** a select padding "fix" that did nothing (a native arrow ignores padding); folding the compliance scale to three buckets (passes cleanly, but the ask was distinguishable colours, not fewer); and suppressing `--control-sheen` on the chat FAB (the gradient ban is about cards, not the control recipe).
+- **Verification:** `npm run lint` unchanged at 11 errors / 6 warnings, 214 unit tests green, both themes screenshotted, palettes run through the dataviz validator rather than eyeballed.
 
 **ClientView design-system pass + two global hover bugs (Sep 15 2026, branch `feat/passwordless-client-auth`, `b11bdcd` — pushed to branch, NOT merged)**
 - **Why:** ClientView was the last page still building its layout out of hand-written divs — the doc's own "still to do" list. Source metrics before → after: **17 nested bordered surfaces → 2** (both controls), **17 distinct paddings → 7**, **44 raw font weights → 0**, **62 raw px spacings → 0**, **7 hand-rolled buttons → 4** (each a genuinely distinct shape), **1 emoji-as-icon → 0**, **2 native `title` tooltips → 0**, **0 tabular numerals → 9**.
