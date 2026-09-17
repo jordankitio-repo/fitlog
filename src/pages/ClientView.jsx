@@ -16,7 +16,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
-import { CHART } from '../utils/chartTheme'
+import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
 import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from '../utils/weightTarget'
 import { measurementCadenceDays, measurementStatus } from '../utils/measurementCadence'
 import { useMediaQuery } from '../hooks/useMediaQuery'
@@ -1217,7 +1217,19 @@ async function sendMessage(text) {
     ? normUnit(clientTargets.weight_goal_unit)
     : normUnit(weightHistory[weightHistory.length - 1]?.unit)
 
-  function getCorrelatedChartData() {
+  // SMALL MULTIPLES, not a dual axis. This used to plot weight (lbs, left axis)
+  // against calorie/cardio compliance (%, right axis) on one plot — the #1
+  // charting mistake, because where the two scales line up is arbitrary, so the
+  // chart invents a correlation that is not in the data. Weight at 180 sitting
+  // level with 100% of target means nothing; move either axis and the "story"
+  // changes. Two stacked plots share the x range instead: each has one axis,
+  // the reader still reads them together, and nothing is implied that the data
+  // does not say.
+  //
+  // `which` selects the plot. 'weight' is its own measure in real units;
+  // 'compliance' is calories + cardio, both already normalised to % of target,
+  // so they legitimately share one scale.
+  function getCorrelatedChartData(which) {
     // Union and sort on the FULL date. Sorting the MM-DD label instead is what
     // put January to the left of the previous December.
     const allDates = [...new Set([
@@ -1230,7 +1242,7 @@ async function sendMessage(text) {
     const cardioTarget = parseInt(clientTargets.cardio_minutes) || null
     const datasets = []
 
-    if (weightHistory.length > 0) {
+    if (which === 'weight' && weightHistory.length > 0) {
       datasets.push({
         type: 'line', label: 'Weight',
         data: allDates.map(iso => {
@@ -1239,11 +1251,12 @@ async function sendMessage(text) {
         }),
         // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
         borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)',
-        tension: 0.3, fill: false, yAxisID: 'yWeight', pointRadius: 3, spanGaps: true,
+        tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 5,
+        borderWidth: MARK.lineWidth, spanGaps: true,
       })
     }
 
-    if (calorieHistory.length > 0 && calTarget) {
+    if (which === 'compliance' && calorieHistory.length > 0 && calTarget) {
       const pct = allDates.map(iso => {
         const cal = calorieHistory.find(d => d.iso === iso)?.calories
         return cal ? Math.round((cal / calTarget) * 100) : null
@@ -1258,31 +1271,32 @@ async function sendMessage(text) {
       datasets.push({
         type: 'bar', label: 'Calories %',
         data: pct,
-        backgroundColor: pct.map(v => barColor(v, 0.7)),
-        borderColor: pct.map(v => barColor(v, 1)),
-        borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
+        backgroundColor: pct.map(v => barColor(v, 1)),
+        borderWidth: 0, borderRadius: MARK.barRadius, maxBarThickness: MARK.barThickness,
       })
     }
 
-    if (cardioHistory.length > 0 && cardioTarget) {
+    if (which === 'compliance' && cardioHistory.length > 0 && cardioTarget) {
       datasets.push({
         type: 'bar', label: 'Cardio %',
         data: allDates.map(iso => {
           const mins = cardioHistory.find(d => d.iso === iso)?.minutes
           return mins ? Math.round((mins / cardioTarget) * 100) : null
         }),
-        // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
-        backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6',
-        borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
+        // rgba, so the hex rule no longer matches and the disable that used to
+        // sit here is gone with it. Still the cardio metric token by hand,
+        // because a canvas cannot resolve a CSS var.
+        backgroundColor: 'rgba(59, 130, 246, 1)',
+        borderWidth: 0, borderRadius: MARK.barRadius, maxBarThickness: MARK.barThickness,
       })
     }
 
     // 100%-of-target reference line, so over/under reads at a glance against the
     // % bars (drawn on the same right axis).
-    if ((calorieHistory.length > 0 && calTarget) || (cardioHistory.length > 0 && cardioTarget)) {
+    if (which === 'compliance' && ((calorieHistory.length > 0 && calTarget) || (cardioHistory.length > 0 && cardioTarget))) {
       datasets.push({
         type: 'line', label: 'Target', data: allDates.map(() => 100),
-        yAxisID: 'yPct', borderColor: CHART.targetLine, borderDash: [4, 4],
+        borderColor: CHART.targetLine, borderDash: [4, 4],
         borderWidth: 1, pointRadius: 0, fill: false, tension: 0,
       })
     }
@@ -1321,34 +1335,31 @@ async function sendMessage(text) {
     return { labels: calorieHistory.map(d => d.date), datasets }
   }
 
-  const correlatedChartOptions = {
-    responsive: true,
-    animation: false,
-    plugins: {
-      legend: { display: true, labels: { color: CHART.tick, boxWidth: 12, padding: 16 } },
-      tooltip: {
-        backgroundColor: CHART.tooltipBg, borderColor: CHART.tooltipBorder, borderWidth: 1,
-        titleColor: CHART.tooltipTitle, bodyColor: CHART.tooltipBody, padding: 10, cornerRadius: 6,
-      }
-    },
+  // One axis each. The top plot hides its x labels — the bottom plot carries
+  // them for both, which is what makes two stacked plots read as one figure
+  // rather than two charts that happen to be near each other.
+  const weightPlotOptions = {
+    ...baseChartOptions({ singleSeries: true }),
     scales: {
-      x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
-      yWeight: {
-        type: 'linear', position: 'left',
-        // chart.js cannot read CSS variables from a canvas. These two were
-        // var(--color-success), which resolves to nothing on a canvas, so the
-        // axis this code meant to paint green has always rendered in chart.js's
-        // default grey. CHART_SERIES is the matched literal, as elsewhere here.
-        title: { display: true, text: `Weight (${weightDisplayUnit})`, color: CHART_SERIES },
-        ticks: { color: CHART_SERIES }, grid: { color: CHART.grid },
+      x: { ticks: { display: false }, grid: { display: false }, border: { display: false } },
+      y: {
+        ticks: { color: CHART_SERIES, maxTicksLimit: 4, callback: (v) => `${v}` },
+        grid: { color: CHART.grid, drawTicks: false },
+        border: { display: false },
       },
-      yPct: {
-        type: 'linear', position: 'right', min: 0, max: 150,
-        title: { display: true, text: '% of target', color: CHART.tick },
-        ticks: { color: CHART.tick, callback: (v) => `${v}%` },
-        grid: { display: false },
-      }
-    }
+    },
+  }
+  const compliancePlotOptions = {
+    ...baseChartOptions(),
+    scales: {
+      x: { ticks: { color: CHART.tick }, grid: { display: false }, border: { color: CHART.grid } },
+      y: {
+        min: 0, max: 150,
+        ticks: { color: CHART.tick, maxTicksLimit: 4, callback: (v) => `${v}%` },
+        grid: { color: CHART.grid, drawTicks: false },
+        border: { display: false },
+      },
+    },
   }
 
   // A2: two densities and no third. These sections are read and typed into, so
@@ -1387,45 +1398,20 @@ async function sendMessage(text) {
     goToSection(key)
   }
 
-  const chartOptions = {
-    responsive: true,
-    animation: false,
-    plugins: {
-      legend: {
-        display: true,
-        labels: {
-          color: CHART.tick,
-          boxWidth: 12,
-          padding: 12,
-          font: { size: 11 },
-        }
-      },
-      tooltip: {
-        backgroundColor: CHART.tooltipBg,
-        borderColor: CHART.tooltipBorder,
-        borderWidth: 1,
-        titleColor: CHART.tooltipTitle,
-        bodyColor: CHART.tooltipBody,
-        padding: 10,
-        cornerRadius: 6,
-        displayColors: false,
-      }
-    },
-    scales: {
-      x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
-      y: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } }
-    }
-  }
+  const chartOptions = baseChartOptions()
 
-  // Value-axis title so every chart names its metric + unit (matches the
-  // weight-trend chart). Same base options; only the y-axis title differs.
-  const withYTitle = (base, text) => ({
-    ...base,
-    scales: { ...base.scales, y: { ...base.scales.y, title: { display: true, text, color: CHART.tick } } },
-  })
-  const calorieChartOptions = withYTitle(chartOptions, 'Calories (kcal)')
-  const cardioChartOptions = withYTitle(chartOptions, 'Cardio (min)')
-  const stepsChartOptions = withYTitle(chartOptions, 'Steps')
+  // The rotated y-axis title is GONE from these three. "Calories (kcal)" set
+  // sideways down the left duplicated the card heading directly above it
+  // ("Calories: last 30 days") and spent a column of width restating it. The
+  // ticks carry the unit; the heading carries the metric.
+  //
+  // Each is a single series plus its target line, so the legend box goes too —
+  // one swatch restating the title. The target line still needs naming, so it
+  // keeps a legend entry of its own where one is drawn.
+  const metricChartOptions = baseChartOptions({ singleSeries: true })
+  const calorieChartOptions = metricChartOptions
+  const cardioChartOptions = metricChartOptions
+  const stepsChartOptions = metricChartOptions
 
   // Compact options for the measurement small-multiples (no legend, short).
   const miniChartOptions = {
@@ -2273,7 +2259,26 @@ async function sendMessage(text) {
             {!sectionsCollapsed.correlatedChart && (
               (weightHistory.length > 0 || calorieHistory.length > 0) ? (
                 <div style={{ paddingTop: 'var(--space-8)' }}>
-                  <Chart type="bar" data={getCorrelatedChartData()} options={correlatedChartOptions} />
+                  {/* Two stacked plots sharing one x range — see
+                      getCorrelatedChartData for why this is not one chart. */}
+                  {weightHistory.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
+                        Weight <span style={{ color: 'var(--color-faint)' }}>({weightDisplayUnit})</span>
+                      </p>
+                      <div style={{ height: '140px' }}>
+                        <Chart type="bar" data={getCorrelatedChartData('weight')} options={{ ...weightPlotOptions, maintainAspectRatio: false }} />
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 'var(--space-16)' }}>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
+                      Against target <span style={{ color: 'var(--color-faint)' }}>(%)</span>
+                    </p>
+                    <div style={{ height: '180px' }}>
+                      <Chart type="bar" data={getCorrelatedChartData('compliance')} options={{ ...compliancePlotOptions, maintainAspectRatio: false }} />
+                    </div>
+                  </div>
                   <EnergyBalanceRead
                     calorieSeries={energySeries.calories}
                     weightSeries={energySeries.weights}
@@ -2324,14 +2329,18 @@ async function sendMessage(text) {
                   data: dispHistory.map(d => d.weight),
                   // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
                   borderColor: '#34d399',
-                  backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                  // A ~10% wash, not a saturated block — and a 2px line, which
+                  // is the app's one line weight.
+                  backgroundColor: `rgba(52, 211, 153, ${MARK.areaAlpha})`,
+                  borderWidth: MARK.lineWidth,
                   // Reached-goal marker: on-brand green (NOT gold — gold is the
                   // product's warning color), a clean dot not a generic star; the
                   // growth-motif leaf lives in the caption below. Theme-agnostic
                   // pop on both cards: a deep-green fill (#15803d) carries contrast
                   // on the light card, a white ring carries it on the dark card —
                   // each does its job on the theme where the other washes out.
-                  pointRadius: dispHistory.map((_, i) => (isMark(i) ? 7 : 3)),
+                  pointRadius: dispHistory.map((_, i) => (isMark(i) ? 7 : 0)),
+                  pointHoverRadius: 5,
                   pointStyle: 'circle',
                   pointBackgroundColor: dispHistory.map((_, i) => (isMark(i) ? '#15803d' : '#34d399')),
                   pointBorderColor: dispHistory.map((_, i) => (isMark(i) ? '#ffffff' : '#34d399')),
@@ -2344,6 +2353,7 @@ async function sendMessage(text) {
                   data: computeRollingAverage(dispHistory),
                   borderColor: 'rgba(52, 211, 153, 0.45)',
                   backgroundColor: 'transparent',
+                  borderWidth: MARK.lineWidth,
                   borderDash: [4, 4],
                   pointRadius: 0,
                   tension: 0.3,
@@ -2505,7 +2515,7 @@ async function sendMessage(text) {
                               <div style={{ height: '180px' }}>
                                 <Line
                                   data={{ labels: pts.map(r => r.logged_date.slice(5)), datasets: [{ label: s.label, data: pts.map(r => r[s.key]), borderColor: CHART_SERIES, backgroundColor: 'rgba(52, 211, 153, 0.12)', pointRadius: 3, tension: 0.3, fill: true }] }}
-                                  options={withYTitle(miniChartOptions, unit)}
+                                  options={miniChartOptions}
                                 />
                               </div>
                             </div>
