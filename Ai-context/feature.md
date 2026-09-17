@@ -1,5 +1,5 @@
 Gardnr — Master Feature & Implementation List
-Last updated: July 31, 2026 (solo-pricing consistency pass — paid Solo tier retired, coach pricing deferred)
+Last updated: September 17, 2026 (compliance-reporting backlog added — see COMPLIANCE REPORTING BACKLOG below)
 
 SHIPPED (live in prod, Jul 12–13) — do NOT re-propose:
 - **The landing page, rebuilt.** Mobile visitors and Googlebot were being served the **login form** as the homepage (the rule keyed off screen *width*, not launch context) — fixed. Entry JS chunk **1,580 KB → ~290 KB**. `robots.txt` + `sitemap.xml` + canonical + JSON-LD (all four previously absent; the first two returned the SPA's HTML). Copy moved to `src/pages/landingContent.js`. Pricing section **deleted** (there is no price). Instruments cut 12 → 3 + a chip list. **FAQ** and **founder note** added.
@@ -9,6 +9,77 @@ SHIPPED (live in prod, Jul 12–13) — do NOT re-propose:
 - **Ten production bugs fixed** — full list at the top of `current-state.md` → Recently Shipped. Not one of them was in the Open Bugs table.
 
 **#1 PRIORITY IS NOT A FEATURE.** It's **coach outreach** — `docs/coach-outreach.md`. This page tells coaches their week is food screenshots and rebuilt spreadsheets; **that came from desk research, not from a coach's mouth.** Do not build the next thing on this list until five coaches have been asked. If they say their problem is *getting* clients rather than *seeing* compliance, this is an excellent tool for the wrong bottleneck — and everything below is moot.
+
+## COMPLIANCE REPORTING BACKLOG (added Sep 17 2026) — ordered, do not reorder casually
+
+**Sequencing agreed with the user:** finish the design/aesthetic pass on the
+remaining pages first (Log, Dashboard — see Tier 4), *then* start this list at
+Tier 0. This whole list sits UNDER the coach-outreach priority above: if five
+coaches say their problem is getting clients rather than seeing compliance,
+none of this matters.
+
+Ordered by **dependency first, then value per effort**. Every item was surfaced
+or verified in the Sep 17 session; the verified ones name what was checked.
+
+### Tier 0 — the blocker. Nothing else is trustworthy until this ships.
+1. **Snapshot targets so history stops moving.** VERIFIED: `targets` is one
+   mutable row per user (9 rows / 9 users). Every past day is graded against
+   TODAY's target, so changing a client's calories silently rewrites their
+   entire compliance record. A record you can change by editing a field is not
+   a record. Every Tier 1 number is provisional until this exists.
+
+### Tier 1 — make the number already on screen honest. Data exists; no new client behaviour.
+2. **Fix the definition of a "logged day."** Any single entry currently counts.
+   The validated marker in the literature is **two or more eating occasions per
+   day** (PMC6856872). One logged coffee should not equal a full day — this
+   inflates every consistency figure displayed.
+3. **Grade more than calories.** VERIFIED: `complianceSummary.js` takes one
+   input, `calorieTarget`. Protein, carbs, fat, cardio and steps are targets the
+   coach sets, charts the app draws, and nothing grades. Protein first — research
+   links higher protein to HIGHER calorie adherence, so it is plausibly a
+   leading indicator rather than just another macro.
+4. **Reconcile self-report against actual.** VERIFIED: `adherence_rating` is
+   collected weekly, shown on the roster and the check-in card, and never
+   compared to computed compliance. "Says 9/10, data says 62%" is the highest
+   coaching value per line of code on this list.
+
+### Tier 2 — the intelligence layer (the vision's "WHY compliance is slipping")
+**Ship ONE of these, get coaches using it, then the next** — the vision's
+standing rule. Not all three.
+5. **Disengagement early-warning.** The churn sequence is missed check-in →
+   slower and shorter replies → logging stops. Triage fires on the LAST stage,
+   so it alerts weeks after the drift began. `messages` already carries
+   created_at + read_at on both sides and `check_ins` knows who missed. Makes
+   triage predictive instead of reactive, and it is the only item here that is
+   genuinely differentiated rather than table stakes. **Pick this one first.**
+6. **Surface client tenure.** Self-monitoring decline starts at weeks 3–5. The
+   app never displays how long anyone has been enrolled, so the danger window
+   cannot be watched. Small, and it sharpens #5.
+7. **Separate "the client failed" from "the plan is wrong."** A 95%-compliant
+   client who is not progressing currently reads identically to a
+   non-compliant one on every surface. EnergyBalanceRead already has the
+   ingredients.
+
+### Tier 3 — the time story (what gets sold)
+8. **Put prep inside the check-in loop.** Meeting prep is a separate button in
+   a different section; the coach still works out what changed since last week.
+   The loop being sold is 10–15 min per check-in → under 3.
+9. **Period-over-period deltas on headline numbers.** The Cloudflare
+   `1.59k ↗ 56.4%` pattern. It is what makes a number mean something without
+   reading a shape, and it is the visible half of #8.
+
+### Tier 4 — known design debt, bounded (do this part FIRST, per the sequencing note)
+10. **Log and Dashboard are unmigrated** — measured Sep 16: 46 raw font weights,
+    176 raw px spacings, 43 hand-rolled buttons between them. `docs/design-system.md`
+    calls Dashboard the worst screen in the app.
+11. **Re-colour what the metric ramp now allows.** Log's macro totals went
+    neutral and `metricBarChart` resolves colour in JS, both because the metric
+    tokens had no light steps. They do now (added Sep 17).
+12. **Check the measurement mini-charts for the flat-line bug.** Same
+    `beginAtZero` trap that flattened the progress weight plot — a waist going
+    34.5″ → 31.9″ would vanish on a 0–40 axis.
+13. **Smaller:** `ui/Badge` needs an `onColor` prop if solid badges spread; the
+    dark compliance scale still sits at ΔE 10.6 as a stated, documented trade.
 
 SHIPPED since (live in prod, Jun 17) — do NOT re-propose:
 - **Onboarding target calculator (#30)** + **body measurements (#27)** + **measurement trend charts** + **Profile→Charts visibility toggles** + chart **empty-state hints** + ClientView **status pill**. (See Tier 2 table + current-state.md.)
