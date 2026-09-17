@@ -182,6 +182,12 @@ function ClientView({ profile }) {
   const measViewMid = useMediaQuery('(min-width: 640px)')
   const measColsMax = measViewWide ? 3 : measViewMid ? 2 : 1
   const [calorieHistory, setCalorieHistory] = useState([])
+  // The selected DAY's cardio + steps. Read per-day like weightEntry rather
+  // than plucked out of the 30-day histories below: those exist to draw charts
+  // and are windowed, so a coach stepping back past the window would see "—"
+  // for a day the client did log.
+  const [dayCardio, setDayCardio] = useState(null)
+  const [daySteps, setDaySteps] = useState(null)
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
   const [clientTargets, setClientTargets] = useState({
@@ -381,6 +387,7 @@ function ClientView({ profile }) {
   useEffect(() => {
     fetchEntries()
     fetchWeight()
+    fetchDayActivity()
   }, [clientId, selectedDate])
 
   async function fetchClientProfile() {
@@ -567,6 +574,19 @@ function ClientView({ profile }) {
     if (error) console.error('Error fetching weight:', error)
     else setWeightEntry(data?.[0] ?? null)
   }
+  // Cardio is summed because a client can log several sessions in one day;
+  // steps is a single row per day.
+  async function fetchDayActivity() {
+    const [{ data: c, error: ce }, { data: st, error: se }] = await Promise.all([
+      supabase.from('cardio_log').select('duration').eq('user_id', clientId).eq('logged_date', selectedDate),
+      supabase.from('steps_log').select('steps').eq('user_id', clientId).eq('logged_date', selectedDate).limit(1),
+    ])
+    if (ce) console.error('Error fetching cardio:', ce)
+    else setDayCardio(c?.length ? c.reduce((n, r) => n + (r.duration || 0), 0) : null)
+    if (se) console.error('Error fetching steps:', se)
+    else setDaySteps(st?.[0]?.steps ?? null)
+  }
+
   // Each history row carries BOTH forms of its date:
   //   iso  — '2026-07-12', the full date. Sort and key on this, always.
   //   date — '07-12', for the axis label only.
@@ -1706,6 +1726,12 @@ async function sendMessage(text) {
             <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
             <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
             <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
+            {/* Cardio and Steps were never on this panel, though the coach sets a
+                target for both and the page carries a chart for each — so the
+                client's own Dashboard showed seven metrics for a day while the
+                coach's view of the same day showed five. */}
+            <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} color="var(--color-cardio)" />
+            <StatCard label="Steps" value={daySteps ? daySteps.toLocaleString() : '—'} color="var(--color-steps)" />
             <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
           </div>
         </SectionHeader>
