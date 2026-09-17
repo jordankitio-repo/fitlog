@@ -24,6 +24,7 @@ function Button({
   fullWidth = false,
   type = 'button',
   ariaLabel,
+  className = '',
   style = {},
   ...rest
 }) {
@@ -206,7 +207,11 @@ function Button({
       onPointerUp={() => setPressed(false)}
       disabled={disabled || loading}
       aria-label={ariaLabel}
-      className="btn ds-control"
+      /* MERGED, not overwritten. `className` used to fall through in ...rest,
+         which is spread after this line — so any caller passing one silently
+         dropped `ds-control` and handed itself back to the global hover
+         blanket, with no visible symptom until someone measured the hover. */
+      className={`btn ds-control ${className}`.trim()}
       {...rest}
       style={{ ...base, ...sizes[size], ...v.rest, ...style, ...hoverStyle, ...activeStyle }}
     >
