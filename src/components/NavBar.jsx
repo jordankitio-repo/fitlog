@@ -27,6 +27,15 @@ function NavIcon({ label, size = 19 }) {
   }
 }
 
+// Which tab owns a route. /reports/:id is the coach surface's detail pane —
+// the same page with the rail still on it — so it lights Coach rather than
+// leaving the bar with nothing marked while the reader is open.
+function isActive(to, path) {
+  if (to === '/') return path === '/'
+  if (to === '/coach') return path.startsWith('/coach') || path.startsWith('/reports')
+  return path === to || path.startsWith(to + '/')
+}
+
 function NavBar({ profile }) {
   const location = useLocation()
   const isMobile = useMediaQuery('(max-width: 600px)')
@@ -101,9 +110,7 @@ function NavBar({ profile }) {
         </nav>
         <nav className="gnav-bottom" aria-label="Primary">
           {links.map((l) => {
-            const active = l.to === '/'
-              ? location.pathname === '/'
-              : location.pathname === l.to || location.pathname.startsWith(l.to + '/')
+            const active = isActive(l.to, location.pathname)
             return (
               <Link
                 key={l.to + l.label}
@@ -137,7 +144,7 @@ function NavBar({ profile }) {
           <Link
             key={l.to + l.label}
             to={l.to}
-            className={`gnav-link${location.pathname === l.to ? ' active' : ''}`}
+            className={`gnav-link${isActive(l.to, location.pathname) ? ' active' : ''}`}
           >
             {l.label}
           </Link>

@@ -454,11 +454,110 @@ body {
 /* The client's coach surface: the conversation, full page rather than a bubble
    pinned to a corner. A2 comfortable — this is something people read and type
    into. */
-.coach-thread { display: flex; flex-direction: column; gap: var(--space-20); }
-.coach-msgs {
-  display: flex; flex-direction: column; gap: var(--space-12);
-  max-height: 56vh; overflow-y: auto; padding-right: var(--space-4);
+/* The coach surface owns its layout (App.jsx `ownsLayout`), so <main> supplies
+   no padding and the columns supply their own. Single column below 1024px,
+   exactly as before; above it the archive becomes a real sidebar.
+
+   Why a sidebar at all: an 800px column centred in a 1700px window spent the
+   other 900px on nothing, which is a `max-width` doing all the layout thinking.
+   The measure was never the problem — a 1700px chat line is unreadable and
+   .rep-reader already caps its own — so the fix is to put something real beside
+   the column rather than to widen it. This is the shape ClientView already
+   uses, and the reason its rail reads as navigation: flush to the window edge,
+   full height, one border between it and the content. */
+.coach-shell { display: block; }
+.coach-rail { display: none; }
+/* The conversation keeps a measure and CENTRES in whatever the rail leaves,
+   the same argument .rep-reader makes: capped but left-aligned, a column clings
+   to one edge and the leftover reads as abandonment; centred, it reads as
+   margin. */
+.coach-main { padding: var(--space-24) var(--space-16) 0; max-width: 900px; margin-inline: auto; }
+
+@media (min-width: 1024px) {
+  /* gap:0 on purpose, as in .cv-shell: the breathing room either side of the
+     divider comes from the rail's padding and the content's, so the single
+     border sits centred in it. */
+  .coach-shell--railed { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 0; align-items: start; }
+  .coach-shell--railed .coach-rail {
+    display: flex; flex-direction: column;
+    position: sticky; top: 56px; align-self: start;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+    background-color: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    padding: var(--space-20) var(--space-16);
+  }
+  .coach-shell--railed .coach-main { padding-inline: var(--space-32); }
+  /* The archive is on screen; a link to it would be a second door into the
+     room you are standing in. It stays rendered below 1024px, where the rail
+     is not, so the route is never unreachable. */
+  .coach-shell--railed .coach-head-link { display: none; }
 }
+
+/* The rail's own heading. Eyebrow role (A5) with the count as a muted numeral,
+   the same pairing the "Show older reports" control uses. */
+.coach-rail-head {
+  display: flex; align-items: baseline; gap: var(--space-8);
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase;
+  font-weight: var(--weight-medium); color: var(--color-faint);
+}
+.coach-rail-count { margin-left: auto; letter-spacing: 0; color: var(--color-muted); }
+/* The rail list. Scoped to the LIST, not to the sidebar that happens to hold
+   it, because /coach/reports renders the same list full-width on mobile — and
+   a second styling of the same rows is how one list became three designs.
+   Two lines for the lead: a 320px row cannot hold one. */
+.rep-list-rail .rep-row { padding: var(--space-12) 0; }
+.rep-list-rail .rep-row-lead {
+  white-space: normal; line-height: 1.5;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.rep-list-rail .rep-row:hover { background-color: var(--color-surface-2); }
+/* The row whose report the detail pane is showing. Declared AFTER :hover so
+   the selection holds while the pointer crosses the list.
+
+   A brand tint, where .cv-rail-item.is-active deliberately takes none: that
+   rail's marker is scroll-driven, and a filled marker chasing the scroll is
+   what made it restless. This one is ROUTE-driven and stationary — you clicked
+   it and it stays — which is the case that rule's own note carves out for
+   .gnav-tab-pill. No left-edge accent bar; that is the first rejected pattern
+   in the book. */
+.rep-list-rail .rep-row-active,
+.rep-list-rail .rep-row-active:hover { background-color: var(--color-primary-dim); }
+.rep-list-rail .rep-row-active .rep-row-title { color: var(--color-text); }
+.rep-list-rail .rep-month:first-child { margin-top: var(--space-8); }
+
+/* The page is a column the height of the viewport, so the thread scrolls in
+   whatever room is left and the composer stays put. The 56vh cap this replaces
+   was clipping the thread at a fixed height while the PAGE kept a third of a
+   screen of dead space underneath it: two scrollbars and an empty page, for a
+   surface whose whole job is one list. 104px is the nav (56) plus <main>'s own
+   vertical padding (24 + 24). */
+.coach-page {
+  display: flex; flex-direction: column; gap: var(--space-24);
+  height: calc(100dvh - 104px);
+}
+.coach-thread { display: flex; flex-direction: column; gap: var(--space-20); flex: 1 1 auto; min-height: 0; }
+.coach-msgs {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: var(--space-4);
+}
+/* A3 in miniature: 4px inside a run of messages from one person, 12px between
+   runs. The gap is what groups them, so a second message needs no repeated
+   name, avatar or timestamp to read as the same speaker continuing. */
+.coach-msg:not(.coach-msg-cont), .coach-report { margin-top: var(--space-8); }
+/* A thread shorter than its container stacks from the BOTTOM, against the
+   composer, the way every conversation surface does. A client three weeks in
+   otherwise got two messages pinned to the top of a 1000px column with a
+   chasm under them. Done with `margin-top: auto` on the first item rather than
+   `justify-content: flex-end`, which clips the top of the list once the
+   content does overflow and leaves the earliest messages unreachable. */
+/* Declared after the grouping margins so it wins the tie on specificity: a
+   thread shorter than its container still stacks from the bottom. */
+.coach-msgs > :first-child { margin-top: auto; }
+/* Below the breakpoint the fixed bottom tab bar takes 80px of <main>'s
+   padding (see body.has-bottom-nav), so the column has that much less to fill. */
+@media (max-width: 600px) { .coach-page { height: calc(100dvh - 160px); } }
 .coach-msg {
   max-width: 78%; align-self: flex-start;
   background-color: var(--color-surface);
@@ -475,8 +574,78 @@ body {
   border-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
 }
 .coach-msg-body { margin: 0; font-size: var(--text-base); line-height: 1.6; white-space: pre-wrap; }
-.coach-msg-when { margin: var(--space-6) 0 0; font-size: var(--text-xs); color: var(--color-muted); }
+
+/* The day separator. Centred and quiet, between the messages rather than
+   under them: it is structure, not an attribute of a bubble. The weekday
+   carries the weight, the clock time stays muted and tabular so a column of
+   them does not jitter. */
+.coach-day {
+  align-self: center; margin: var(--space-16) 0 var(--space-8);
+  font-size: var(--text-xs); font-weight: var(--weight-medium);
+  color: var(--color-text-dim);
+}
+
+/* The read receipt, under the last message you sent. Outside the bubble and
+   right-aligned to it, because it is the system speaking, not the sender. */
+.coach-receipt {
+  align-self: flex-end; margin: 0;
+  font-size: var(--text-xs); color: var(--color-faint);
+}
 .coach-compose { display: flex; flex-direction: column; gap: var(--space-12); align-items: flex-start; }
+
+/* The coach identity, and the way to the archive. The link sits on this row
+   rather than on one of its own: horizontally it reads as "something about this
+   person", where a second row under the name reads as navigation under the
+   navigation. */
+.coach-head { display: flex; align-items: center; gap: var(--space-12); flex-wrap: wrap; }
+/* It wraps to its own line rather than squeezing, because at 320px the row was
+   setting "All / reports" over two lines beside a name doing the same. Still
+   right-aligned there, by the same `margin-left: auto`. */
+.coach-head-link { width: auto; text-decoration: none; margin-left: auto; white-space: nowrap; }
+
+/* A report, in the thread. Same envelope as the coach's messages, because it
+   arrived from the same person at that point in the conversation, and the
+   chevron plus the eyebrow are what say it opens somewhere. It is pressable, so
+   it lights a SURFACE on hover the way .rep-row does (D2: reserve fills for
+   things that are buttons first). Starts from its own resting colour, never
+   `transparent`. */
+.coach-report {
+  /* Overrides .coach-msg's 78% bubble cap: a message is a bubble, a report is
+     the width of the thread. Left at 78% the card stopped short of the
+     composer's edge below it, which reads as a misalignment rather than a
+     decision. */
+  width: 100%; max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.coach-report:hover { background-color: var(--color-surface-2); }
+.coach-report:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.coach-report-body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.coach-report-kind {
+  font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-faint); font-weight: var(--weight-medium);
+}
+.coach-report-head { display: flex; align-items: baseline; gap: var(--space-8); }
+.coach-report-title { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
+.coach-report-unread { font-size: var(--text-xs); color: var(--color-muted); }
+/* Two lines, because a wide card can afford them and one line of a report's
+   opening paragraph is a teaser. Clamped, never a fixed height under a
+   gradient: that gradient has to know its backdrop's exact colour, and a card
+   that changes colour on hover has two. */
+.coach-report-lead {
+  font-size: var(--text-sm); color: var(--color-muted); line-height: 1.55;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+/* The card is the full width of the thread while a message is a bubble at 78%.
+   That is the point: a report is not a message, and on a wide column the
+   difference should be visible before the eyebrow is read. */
 
 /* The report reader. A page whose whole job is one column of prose.
    `margin-inline: auto` is the load-bearing line: left-aligned in a full-width
