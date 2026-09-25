@@ -8,6 +8,9 @@ import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
+import ReportProse from '../components/ReportProse'
+import { relativeTime } from '../utils/relativeTime'
+import { leadOf } from '../utils/reportFeed'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
@@ -16,7 +19,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
-import { CHART } from '../utils/chartTheme'
+import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
 import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from '../utils/weightTarget'
 import { measurementCadenceDays, measurementStatus } from '../utils/measurementCadence'
 import { useMediaQuery } from '../hooks/useMediaQuery'
@@ -57,11 +60,22 @@ import {
   Legend,
   Filler
 } from 'chart.js'
+import { Icon, Pill, Field, Select, Textarea } from '../components/ui'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, Title, Tooltip, Legend, Filler
 )
+
+// These three are literals on purpose. The first two are values OF a custom
+// property (--gw-accent), which the .gw-tile gradient consumes directly; the
+// third is a chart.js dataset colour on a canvas that cannot read a CSS var.
+// Keep them matched to --color-ai and --color-weight by hand.
+/* eslint-disable no-restricted-syntax -- see above */
+const GW_ACCENT_AI = '#a78bfa'
+const GW_ACCENT_REPORT = '#34d399'
+const CHART_SERIES = '#34d399'
+/* eslint-enable no-restricted-syntax */
 
 function computeRollingAverage(data, window = 7) {
   return data.map((_, i) => {
@@ -85,6 +99,47 @@ const SECTION_LABELS = {
   weightChart: 'Weight', calorieChart: 'Calories', cardioChart: 'Cardio', stepsChart: 'Steps',
   measurements: 'Measurements',
 }
+// Open/closed state per section, remembered across reloads (see the effect in
+// the component). `groundwork` is the AI panel, which is not a REORDERABLE key
+// but collapses the same way, so it rides along in the same record.
+const COLLAPSED_KEY = 'gardnr-cv-collapsed'
+const COLLAPSED_DEFAULTS = {
+  stats: false,
+  consistency: false,
+  sentReports: false,
+  targets: false,
+  nutritionLog: false,
+  checkIn: false,
+  privateNotes: false,
+  correlatedChart: false,
+  weightChart: true,
+  calorieChart: true,
+  cardioChart: true,
+  stepsChart: true,
+  measurements: false,
+  groundwork: false,
+}
+
+// Stored values are layered OVER the defaults, never used in place of them, so
+// a section added after a coach last saved still gets its intended default
+// instead of appearing as `undefined` (which renders expanded, silently
+// undoing the decision to ship the charts closed).
+function loadCollapsed() {
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_KEY)
+    if (!raw) return { ...COLLAPSED_DEFAULTS }
+    const saved = JSON.parse(raw)
+    if (!saved || typeof saved !== 'object') return { ...COLLAPSED_DEFAULTS }
+    const next = { ...COLLAPSED_DEFAULTS }
+    for (const k of Object.keys(COLLAPSED_DEFAULTS)) {
+      if (typeof saved[k] === 'boolean') next[k] = saved[k]
+    }
+    return next
+  } catch {
+    return { ...COLLAPSED_DEFAULTS }
+  }
+}
+
 const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'measurements']
 
 // Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
@@ -118,6 +173,7 @@ function ClientView({ profile }) {
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
   const [report, setReport] = useState('')
+  const [reportSubject, setReportSubject] = useState('')
   const [reportWeekRange, setReportWeekRange] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [weightHistory, setWeightHistory] = useState([])
@@ -130,6 +186,12 @@ function ClientView({ profile }) {
   const measViewMid = useMediaQuery('(min-width: 640px)')
   const measColsMax = measViewWide ? 3 : measViewMid ? 2 : 1
   const [calorieHistory, setCalorieHistory] = useState([])
+  // The selected DAY's cardio + steps. Read per-day like weightEntry rather
+  // than plucked out of the 30-day histories below: those exist to draw charts
+  // and are windowed, so a coach stepping back past the window would see "—"
+  // for a day the client did log.
+  const [dayCardio, setDayCardio] = useState(null)
+  const [daySteps, setDaySteps] = useState(null)
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
   const [clientTargets, setClientTargets] = useState({
@@ -188,30 +250,38 @@ function ClientView({ profile }) {
     if (error) console.error(error)
   }
   const [sentReports, setSentReports] = useState([])
-  const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
+  // Per-report expansion replaces the per-week collapse map the folder tree
+  // needed. Sent reports default closed: the coach wrote them, so the useful
+  // scan is "which landed", not re-reading their own prose.
+  const [openSentReports, setOpenSentReports] = useState({})
   const [messages, setMessages] = useState([])
   const [callBriefing, setCallBriefing] = useState('')
   const [briefingLoading, setBriefingLoading] = useState(false)
-  const [aiToolsCollapsed, setAiToolsCollapsed] = useState(false)
   const [showOffboardConfirm, setShowOffboardConfirm] = useState(false)
   const [offboarding, setOffboarding] = useState(false)
   const [nudging, setNudging] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
-  const [sectionsCollapsed, setSectionsCollapsed] = useState({
-    stats: false,
-    consistency: false,
-    sentReports: false,
-    targets: false,
-    nutritionLog: false,
-    checkIn: false,
-    privateNotes: false,
-    correlatedChart: false,
-    weightChart: true,
-    calorieChart: true,
-    cardioChart: true,
-    stepsChart: true,
-    measurements: false,
-  })
+  const [sectionsCollapsed, setSectionsCollapsed] = useState(loadCollapsed)
+  const [aiToolsCollapsed, setAiToolsCollapsed] = useState(() => loadCollapsed().groundwork)
+
+  // Persist the open/closed state of every section. Written on change rather
+  // than saved to profiles.layout (where cardOrder lives) because a collapse is
+  // a per-viewer convenience toggled many times a session — a DB round-trip per
+  // click would be chatty and can fail, and the preference is about how this
+  // coach likes to read, not about the client record. Same call the
+  // energy-balance window already makes with `gardnr-eb-window`.
+  //
+  // It is deliberately GLOBAL, not per client: the sections are identical on
+  // every client record, so a coach who keeps the charts shut wants them shut
+  // for all of them, not to re-close them on each one.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        COLLAPSED_KEY,
+        JSON.stringify({ ...sectionsCollapsed, groundwork: aiToolsCollapsed }),
+      )
+    } catch { /* private mode / quota — the page still works, it just forgets */ }
+  }, [sectionsCollapsed, aiToolsCollapsed])
 
   function formatTime(timeStr) {
     if (!timeStr) return null
@@ -275,14 +345,6 @@ function ClientView({ profile }) {
     setToast({ message, type })
   }
 
-  function groupByWeek(list) {
-    const grouped = {}
-    list.forEach(r => {
-      if (!grouped[r.week_of]) grouped[r.week_of] = []
-      grouped[r.week_of].push(r)
-    })
-    return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]))
-  }
 
   useEffect(() => {
     const subscription = supabase
@@ -324,6 +386,7 @@ function ClientView({ profile }) {
   useEffect(() => {
     fetchEntries()
     fetchWeight()
+    fetchDayActivity()
   }, [clientId, selectedDate])
 
   async function fetchClientProfile() {
@@ -510,6 +573,19 @@ function ClientView({ profile }) {
     if (error) console.error('Error fetching weight:', error)
     else setWeightEntry(data?.[0] ?? null)
   }
+  // Cardio is summed because a client can log several sessions in one day;
+  // steps is a single row per day.
+  async function fetchDayActivity() {
+    const [{ data: c, error: ce }, { data: st, error: se }] = await Promise.all([
+      supabase.from('cardio_log').select('duration').eq('user_id', clientId).eq('logged_date', selectedDate),
+      supabase.from('steps_log').select('steps').eq('user_id', clientId).eq('logged_date', selectedDate).limit(1),
+    ])
+    if (ce) console.error('Error fetching cardio:', ce)
+    else setDayCardio(c?.length ? c.reduce((n, r) => n + (r.duration || 0), 0) : null)
+    if (se) console.error('Error fetching steps:', se)
+    else setDaySteps(st?.[0]?.steps ?? null)
+  }
+
   // Each history row carries BOTH forms of its date:
   //   iso  — '2026-07-12', the full date. Sort and key on this, always.
   //   date — '07-12', for the axis label only.
@@ -951,6 +1027,7 @@ async function addNoteEntry() {
 
     const data = await response.json()
     setReport(data.report || data.error || 'Failed to generate report.')
+    setReportSubject(data.subject || '')
     setReportWeekRange({
       startDate: weekRange.startDate,
       endDate: weekRange.endDate,
@@ -977,6 +1054,7 @@ async function addNoteEntry() {
         coach_id: session.user.id,
         client_id: clientId,
         content: report,
+        subject: reportSubject.trim() || null,
         week_of: weekRange.startDate
       }])
 
@@ -1160,7 +1238,19 @@ async function sendMessage(text) {
     ? normUnit(clientTargets.weight_goal_unit)
     : normUnit(weightHistory[weightHistory.length - 1]?.unit)
 
-  function getCorrelatedChartData() {
+  // SMALL MULTIPLES, not a dual axis. This used to plot weight (lbs, left axis)
+  // against calorie/cardio compliance (%, right axis) on one plot — the #1
+  // charting mistake, because where the two scales line up is arbitrary, so the
+  // chart invents a correlation that is not in the data. Weight at 180 sitting
+  // level with 100% of target means nothing; move either axis and the "story"
+  // changes. Two stacked plots share the x range instead: each has one axis,
+  // the reader still reads them together, and nothing is implied that the data
+  // does not say.
+  //
+  // `which` selects the plot. 'weight' is its own measure in real units;
+  // 'compliance' is calories + cardio, both already normalised to % of target,
+  // so they legitimately share one scale.
+  function getCorrelatedChartData(which) {
     // Union and sort on the FULL date. Sorting the MM-DD label instead is what
     // put January to the left of the previous December.
     const allDates = [...new Set([
@@ -1173,19 +1263,21 @@ async function sendMessage(text) {
     const cardioTarget = parseInt(clientTargets.cardio_minutes) || null
     const datasets = []
 
-    if (weightHistory.length > 0) {
+    if (which === 'weight' && weightHistory.length > 0) {
       datasets.push({
         type: 'line', label: 'Weight',
         data: allDates.map(iso => {
           const row = weightHistory.find(d => d.iso === iso)
           return row ? Math.round(convertWeight(row.weight, normUnit(row.unit || weightDisplayUnit), weightDisplayUnit) * 10) / 10 : null
         }),
+        // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
         borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)',
-        tension: 0.3, fill: false, yAxisID: 'yWeight', pointRadius: 3, spanGaps: true,
+        tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 5,
+        borderWidth: MARK.lineWidth, spanGaps: true,
       })
     }
 
-    if (calorieHistory.length > 0 && calTarget) {
+    if (which === 'compliance' && calorieHistory.length > 0 && calTarget) {
       const pct = allDates.map(iso => {
         const cal = calorieHistory.find(d => d.iso === iso)?.calories
         return cal ? Math.round((cal / calTarget) * 100) : null
@@ -1200,30 +1292,32 @@ async function sendMessage(text) {
       datasets.push({
         type: 'bar', label: 'Calories %',
         data: pct,
-        backgroundColor: pct.map(v => barColor(v, 0.7)),
-        borderColor: pct.map(v => barColor(v, 1)),
-        borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
+        backgroundColor: pct.map(v => barColor(v, 1)),
+        borderWidth: 0, borderRadius: MARK.barRadius, maxBarThickness: MARK.barThickness,
       })
     }
 
-    if (cardioHistory.length > 0 && cardioTarget) {
+    if (which === 'compliance' && cardioHistory.length > 0 && cardioTarget) {
       datasets.push({
         type: 'bar', label: 'Cardio %',
         data: allDates.map(iso => {
           const mins = cardioHistory.find(d => d.iso === iso)?.minutes
           return mins ? Math.round((mins / cardioTarget) * 100) : null
         }),
-        backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6',
-        borderWidth: 1, borderRadius: 3, yAxisID: 'yPct',
+        // rgba, so the hex rule no longer matches and the disable that used to
+        // sit here is gone with it. Still the cardio metric token by hand,
+        // because a canvas cannot resolve a CSS var.
+        backgroundColor: 'rgba(59, 130, 246, 1)',
+        borderWidth: 0, borderRadius: MARK.barRadius, maxBarThickness: MARK.barThickness,
       })
     }
 
     // 100%-of-target reference line, so over/under reads at a glance against the
     // % bars (drawn on the same right axis).
-    if ((calorieHistory.length > 0 && calTarget) || (cardioHistory.length > 0 && cardioTarget)) {
+    if (which === 'compliance' && ((calorieHistory.length > 0 && calTarget) || (cardioHistory.length > 0 && cardioTarget))) {
       datasets.push({
         type: 'line', label: 'Target', data: allDates.map(() => 100),
-        yAxisID: 'yPct', borderColor: CHART.targetLine, borderDash: [4, 4],
+        borderColor: CHART.targetLine, borderDash: [4, 4],
         borderWidth: 1, pointRadius: 0, fill: false, tension: 0,
       })
     }
@@ -1262,44 +1356,47 @@ async function sendMessage(text) {
     return { labels: calorieHistory.map(d => d.date), datasets }
   }
 
-  const correlatedChartOptions = {
-    responsive: true,
-    animation: false,
-    plugins: {
-      legend: { display: true, labels: { color: CHART.tick, boxWidth: 12, padding: 16 } },
-      tooltip: {
-        backgroundColor: CHART.tooltipBg, borderColor: CHART.tooltipBorder, borderWidth: 1,
-        titleColor: CHART.tooltipTitle, bodyColor: CHART.tooltipBody, padding: 10, cornerRadius: 6,
-      }
-    },
+  // One axis each. The top plot hides its x labels — the bottom plot carries
+  // them for both, which is what makes two stacked plots read as one figure
+  // rather than two charts that happen to be near each other.
+  const weightPlotOptions = {
+    ...baseChartOptions({ singleSeries: true }),
     scales: {
-      x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
-      yWeight: {
-        type: 'linear', position: 'left',
-        title: { display: true, text: `Weight (${weightDisplayUnit})`, color: 'var(--color-success)' },
-        ticks: { color: 'var(--color-success)' }, grid: { color: CHART.grid },
+      x: { ticks: { display: false }, grid: { display: false }, border: { display: false } },
+      y: {
+        // beginAtZero: false is LOAD-BEARING. A person's weight moves a few
+        // percent; on a 0-200 axis a 10 lb cut is a flat line and the plot says
+        // nothing at a glance — which is exactly what it was doing. `grace`
+        // then keeps the trace off the top and bottom edges.
+        beginAtZero: false,
+        grace: '15%',
+        ticks: { color: CHART_SERIES, maxTicksLimit: 4, callback: (v) => `${v}` },
+        grid: { color: CHART.grid, drawTicks: false },
+        border: { display: false },
       },
-      yPct: {
-        type: 'linear', position: 'right', min: 0, max: 150,
-        title: { display: true, text: '% of target', color: CHART.tick },
-        ticks: { color: CHART.tick, callback: (v) => `${v}%` },
-        grid: { display: false },
-      }
-    }
+    },
+  }
+  const compliancePlotOptions = {
+    ...baseChartOptions(),
+    scales: {
+      x: { ticks: { color: CHART.tick }, grid: { display: false }, border: { color: CHART.grid } },
+      y: {
+        min: 0, max: 150,
+        ticks: { color: CHART.tick, maxTicksLimit: 4, callback: (v) => `${v}%` },
+        grid: { color: CHART.grid, drawTicks: false },
+        border: { display: false },
+      },
+    },
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '6px 12px',
-    color: 'var(--color-text)',
-    fontSize: '1rem'
-  }
-
+  // A2: two densities and no third. These sections are read and typed into, so
+  // they take ui/Panel's `comfortable` body padding verbatim — cardStyle's
+  // --space-md (16px) was a third density, and it made every panel on this page
+  // sit tighter than every Panel on the roster.
   const sectionCardStyle = {
     ...cardStyle,
-    display: 'flex', flexDirection: 'column', gap: '12px'
+    padding: 'var(--space-20) var(--space-24)',
+    display: 'flex', flexDirection: 'column', gap: 'var(--space-12)'
   }
 
   // The section rail's items, in the same live order the page renders (stats
@@ -1316,11 +1413,6 @@ async function sendMessage(text) {
     if (k === 'sentReports') return sentReports.length > 0
     return true
   })
-  const railSections = [
-    { key: 'messages', label: 'Messages' },
-    ...['stats', ...mergeOrder(cardOrder, presentReorderable)].map(key => ({ key, label: SECTION_LABELS[key] })),
-  ]
-
   // Rail clicks: the "Messages" item opens the chat bubble (which listens for
   // ?focus=chat); everything else scrolls to its section.
   function handleRailJump(key) {
@@ -1333,45 +1425,20 @@ async function sendMessage(text) {
     goToSection(key)
   }
 
-  const chartOptions = {
-    responsive: true,
-    animation: false,
-    plugins: {
-      legend: {
-        display: true,
-        labels: {
-          color: CHART.tick,
-          boxWidth: 12,
-          padding: 12,
-          font: { size: 11 },
-        }
-      },
-      tooltip: {
-        backgroundColor: CHART.tooltipBg,
-        borderColor: CHART.tooltipBorder,
-        borderWidth: 1,
-        titleColor: CHART.tooltipTitle,
-        bodyColor: CHART.tooltipBody,
-        padding: 10,
-        cornerRadius: 6,
-        displayColors: false,
-      }
-    },
-    scales: {
-      x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
-      y: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } }
-    }
-  }
+  const chartOptions = baseChartOptions()
 
-  // Value-axis title so every chart names its metric + unit (matches the
-  // weight-trend chart). Same base options; only the y-axis title differs.
-  const withYTitle = (base, text) => ({
-    ...base,
-    scales: { ...base.scales, y: { ...base.scales.y, title: { display: true, text, color: CHART.tick } } },
-  })
-  const calorieChartOptions = withYTitle(chartOptions, 'Calories (kcal)')
-  const cardioChartOptions = withYTitle(chartOptions, 'Cardio (min)')
-  const stepsChartOptions = withYTitle(chartOptions, 'Steps')
+  // The rotated y-axis title is GONE from these three. "Calories (kcal)" set
+  // sideways down the left duplicated the card heading directly above it
+  // ("Calories: last 30 days") and spent a column of width restating it. The
+  // ticks carry the unit; the heading carries the metric.
+  //
+  // Each is a single series plus its target line, so the legend box goes too —
+  // one swatch restating the title. The target line still needs naming, so it
+  // keeps a legend entry of its own where one is drawn.
+  const metricChartOptions = baseChartOptions({ singleSeries: true })
+  const calorieChartOptions = metricChartOptions
+  const cardioChartOptions = metricChartOptions
+  const stepsChartOptions = metricChartOptions
 
   // Compact options for the measurement small-multiples (no legend, short).
   const miniChartOptions = {
@@ -1397,6 +1464,77 @@ async function sendMessage(text) {
     ? measurementStatus({ lastMeasuredIso: measHistory[measHistory.length - 1].logged_date, cadenceDays: measurementCadenceDays(measDirection) })
     : null
 
+  // Right-hand values for the rail. Only the handful of sections that can be
+  // "behind" get one — a value on every row would be noise, and a rail where
+  // everything is annotated annotates nothing. Tones match the roster's status
+  // column so amber means the same thing in both places.
+  const unreadFromClient = messages.filter(m => !m.read_at && m.sender_id === clientId).length
+  const railMeta = {
+    messages: unreadFromClient > 0 ? { meta: unreadFromClient, metaTone: 'warning' } : null,
+    checkIn: !clientCheckIn ? { meta: 'Due', metaTone: 'warning' } : (!clientCheckIn.reviewed_at ? { meta: 'New', metaTone: 'success' } : null),
+    nutritionLog: daysSinceLog != null && daysSinceLog >= 3
+      ? { meta: `${daysSinceLog}d`, metaTone: daysSinceLog >= 4 ? 'error' : 'warning' }
+      : null,
+    measurements: measStatus?.due ? { meta: 'Due', metaTone: 'warning' } : null,
+    sentReports: sentReports.filter(r => !r.read_at).length > 0
+      ? { meta: `${sentReports.filter(r => !r.read_at).length} unread` }
+      : null,
+  }
+  const railItem = (key, label) => ({ key, label, ...(railMeta[key] || {}) })
+
+  // Two groups, and the split is structural rather than thematic: Messages is
+  // the one row that does not scroll to a section (it opens the chat), so it
+  // cannot sit in a list the scroll-spy drives. Everything below it stays in
+  // the page's live order — the coach can drag the sections around, and a rail
+  // sorted any other way would make the active highlight jump while scrolling.
+  const railGroups = [
+    { label: null, items: [railItem('messages', 'Messages')] },
+    {
+      label: 'This client',
+      items: ['stats', ...mergeOrder(cardOrder, presentReorderable)].map(key => railItem(key, SECTION_LABELS[key])),
+    },
+    // Pinned to the foot of the rail, above a rule — the same place Cloudflare
+    // parks "Manage account". Coaching is the one section that is about the
+    // RELATIONSHIP rather than the client's data, and it was the only section
+    // on the page the rail could not reach at all.
+    { label: null, pin: 'bottom', items: [railItem('coaching', 'Coaching')] },
+  ]
+
+  // The rail's slack, spent on the numbers every other section is implicitly
+  // measured against. A coach reading the nutrition log, the calorie chart or a
+  // check-in is comparing to these the whole way down, and until now had to
+  // scroll back to the Targets panel to see them. Reference only — no borders,
+  // no fills (a bordered card inside the rail would be a panel inside a panel),
+  // just a label and a tabular column.
+  const targetRows = [
+    { label: 'Calories', value: clientTargets.calories },
+    { label: 'Protein', value: clientTargets.protein, unit: 'g' },
+    { label: 'Carbs', value: clientTargets.carbs, unit: 'g' },
+    { label: 'Fat', value: clientTargets.fat, unit: 'g' },
+    { label: 'Steps', value: clientTargets.steps },
+  ].filter(r => r.value !== '' && r.value != null)
+
+  const railFooter = targetRows.length > 0 ? (
+    <>
+      <p className="cv-rail-grouplabel">Daily targets</p>
+      <dl className="cv-railstats">
+        {targetRows.map(r => (
+          <div key={r.label} className="cv-railstat">
+            <dt>{r.label}</dt>
+            <dd className="tnum">{Number(r.value).toLocaleString()}{r.unit || ''}</dd>
+          </div>
+        ))}
+      </dl>
+    </>
+  ) : (
+    /* No targets is a gap the coach can close in seconds, so it is an action
+       rather than a dead label — the same call the roster makes on its own
+       "No targets set" cell. */
+    <button type="button" className="cv-rail-settargets ds-control" onClick={() => goToSection('targets')}>
+      Set daily targets <Icon name="right" />
+    </button>
+  )
+
   // Shown inside a chart section when the client hasn't logged that data yet —
   // uses the app's EmptyState (icon + title + hint), not bare text.
   const chartEmpty = (title, description) => (
@@ -1413,42 +1551,58 @@ async function sendMessage(text) {
 
   return (
     <>
-    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    {/* The rail owns column 1 for the WHOLE page, header included, so it starts
+        at the top of the content and can run the full height of the viewport.
+        It used to begin below the title row, which left its own full-height
+        calc overflowing the fold and pushed anything pinned to its foot off
+        the bottom of the screen. */}
+    <div className="page-fade-in cv-shell">
+      <SectionRail groups={railGroups} footer={railFooter} activeKey={activeSection} onJump={handleRailJump}
+        onBack={() => navigate('/')} backLabel="All clients" />
+      <div className="cv-main">
       <div className="cv-titlerow">
-        <div><Button onClick={() => navigate('/')} variant="ghost" size="sm">← Back</Button></div>
-        <div style={{ flex: 1, minWidth: '180px', display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
-        <Avatar url={clientProfile?.avatar_url} name={clientProfile?.full_name || ''} size={52} style={{ marginTop: '4px' }} />
+        <div style={{ flex: 1, minWidth: '180px', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-16)', flexWrap: 'wrap' }}>
+        <Avatar url={clientProfile?.avatar_url} name={clientProfile?.full_name || ''} size={52} style={{ marginTop: 'var(--space-4)' }} />
         <div style={{ flex: 1, minWidth: '180px' }}>
           <h1>{clientProfile?.full_name || 'Client'}</h1>
-          <p style={{ fontSize: 'var(--text-base)', marginTop: '2px' }}>{clientProfile?.email}</p>
-          {/* At-a-glance triage status (same engine as the roster), as a tinted
-              status pill — matches the Locked pill + roster treatment. Lock is
-              filtered out here since it has its own detailed pill below. */}
+          <p style={{ fontSize: 'var(--text-base)', marginTop: 'var(--space-2)' }}>{clientProfile?.email}</p>
+          {/* At-a-glance triage status, from the same engine as the roster so
+              the two screens never disagree about a client. Lock is filtered
+              out here because it gets its own line, with its Unlock action,
+              directly below. */}
           {statusStats && (() => {
             const status = attentionLevel({ ...statusStats, lockInfo })
             const reasons = status.reasons.filter(r => r !== 'Locked')
             if (status.level !== 'green' && reasons.length === 0) return null
             const tone = status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)'
             return (
-              <div style={{ marginTop: '10px' }}>
+              <div style={{ marginTop: 'var(--space-10)' }}>
+                {/* C1: status is plain coloured text — no container, no border,
+                    no dot. This was the last tinted-pill-with-a-dot in the app;
+                    the label already carries the meaning, so the dot only ever
+                    repeated it. Green keeps --color-success rather than going
+                    muted: green and grey must never collide (B1), or a healthy
+                    client reads identically to an unconfigured one. */}
                 <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '7px',
-                  fontSize: 'var(--text-sm)', fontWeight: 600, padding: '4px 12px', borderRadius: '999px',
-                  backgroundColor: status.level === 'green' ? 'var(--color-bg)' : `color-mix(in srgb, ${tone} 15%, transparent)`,
-                  border: `1px solid ${tone}`, color: tone,
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: status.level === 'green' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
+                  color: tone,
                 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '999px', backgroundColor: tone }} />
                   {status.level === 'green' ? 'On track' : reasons.join(' · ')}
                 </span>
               </div>
             )
           })()}
           {lockInfo.locked && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap', marginTop: 'var(--space-10)' }}>
+              {/* C1: status is plain coloured text. This was a tinted 999px pill
+                  with a red border sitting four lines under the status line that
+                  had already been converted — the two read as different systems
+                  on the same header. Unlock stays a control; the label does not. */}
               <span style={{
-                fontSize: 'var(--text-sm)', fontWeight: 700, padding: '3px 10px',
-                borderRadius: '999px', backgroundColor: 'var(--color-bg)',
-                border: '1px solid var(--color-error)', color: 'var(--color-error)'
+                fontSize: 'var(--text-sm)',
+                fontWeight: 'var(--weight-semibold)',
+                color: 'var(--color-error)',
               }}>
                 Locked
               </span>
@@ -1464,114 +1618,131 @@ async function sendMessage(text) {
           if (!nudge) return null
           const label = nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log'
           return (
-            <button
+            /* D2/D3: this is the roster's Nudge, so it is the roster's control
+               — <Button variant="action">, not a second implementation of it.
+               The hand-rolled pill it replaces had already drifted: its hover
+               brightened the BORDER, which was removed from every other control
+               in the app. Rank 2 (acts on a client), never rank 1. */
+            <Button
               onClick={() => nudgeClient(nudge)}
+              variant="action"
+              size="sm"
+              loading={nudging}
               disabled={nudging}
-              className="nudge-btn"
-              title={nudge.key === 'checkin' ? 'Emails them a reminder to do this week’s check-in' : 'Emails them a prompt to get back to logging'}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: '999px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: '0.82rem', fontWeight: 600, cursor: nudging ? 'default' : 'pointer', opacity: nudging ? 0.6 : 1, whiteSpace: 'nowrap' }}
+              ariaLabel={nudge.key === 'checkin' ? 'Email this client a reminder to do their check-in' : 'Email this client a prompt to get back to logging'}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
               {nudging ? 'Nudging…' : label}
-            </button>
+            </Button>
           )
         })()}
         </div>
       </div>
 
-      <div className="cv-shell">
-        <SectionRail sections={railSections} activeKey={activeSection} onJump={handleRailJump} />
-        <div className="cv-main">
-
-      {/* AI Tools */}
-      <div style={{ ...sectionCardStyle, gap: '16px' }}>
-        <div
-          onClick={() => setAiToolsCollapsed(!aiToolsCollapsed)}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
-        >
-          <h2 style={{ margin: 0 }}>Groundwork</h2>
-          <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{aiToolsCollapsed ? '▶' : '▼'}</span>
-        </div>
-
-        {!aiToolsCollapsed && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-              <button className="gw-tile" onClick={generateCallPrep} disabled={briefingLoading}
-                style={{ '--gw-accent': '#a78bfa', display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '16px 18px', borderRadius: 'var(--radius)', background: 'linear-gradient(135deg, rgba(167,139,250,0.08), rgba(167,139,250,0))', border: '1px solid var(--color-border)', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: briefingLoading ? 0.65 : 1 }}>
+      {/* AI Tools. Uses SectionHeader like the other thirteen sections — it was
+          the one section with a hand-rolled header, so it alone had a bare <h2>
+          at the wrong size and no collapse animation. */}
+      <div style={sectionCardStyle}>
+        <SectionHeader title="Groundwork" collapsed={aiToolsCollapsed} onToggle={() => setAiToolsCollapsed(!aiToolsCollapsed)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-12)' }}>
+              <button className="gw-tile ds-control" onClick={generateCallPrep} disabled={briefingLoading}
+                style={{ '--gw-accent': GW_ACCENT_AI, display: 'flex', alignItems: 'center', gap: 'var(--space-12)', width: '100%', textAlign: 'left', padding: 'var(--space-16)', borderRadius: 'var(--radius)', backgroundColor: 'var(--control-bg)', backgroundImage: 'var(--control-sheen)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', fontFamily: 'inherit', opacity: briefingLoading ? 0.65 : 1 }}>
                 <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: 'rgba(167, 139, 250, 0.16)', flexShrink: 0 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
                 </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI brief to walk in prepared — just for you</span>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
+                  <span style={{ fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-md)' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>Private brief before a call</span>
                 </span>
               </button>
 
-              <button className="gw-tile" onClick={generateWeeklyReport} disabled={reportLoading}
-                style={{ '--gw-accent': '#34d399', display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '16px 18px', borderRadius: 'var(--radius)', background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0))', border: '1px solid var(--color-border)', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', opacity: reportLoading ? 0.65 : 1 }}>
+              <button className="gw-tile ds-control" onClick={generateWeeklyReport} disabled={reportLoading}
+                style={{ '--gw-accent': GW_ACCENT_REPORT, display: 'flex', alignItems: 'center', gap: 'var(--space-12)', width: '100%', textAlign: 'left', padding: 'var(--space-16)', borderRadius: 'var(--radius)', backgroundColor: 'var(--control-bg)', backgroundImage: 'var(--control-sheen)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', fontFamily: 'inherit', opacity: reportLoading ? 0.65 : 1 }}>
                 <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: 'rgba(52, 211, 153, 0.16)', flexShrink: 0 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
                 </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>AI draft to review and send the client</span>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
+                  <span style={{ fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-md)' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>Draft to review, then send</span>
                 </span>
               </button>
             </div>
 
             {callBriefing && (
-              <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-ai)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              /* B2: chrome stays neutral. This card outlined itself in
+                 --color-ai to say "AI output", which is what its purple eyebrow
+                 already says in words. */
+              <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-20)', display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <p style={{ fontWeight: 600 }}>Meeting brief — {clientProfile?.full_name}</p>
+                  <p style={{ fontWeight: 'var(--weight-medium)' }}>Meeting brief for {clientProfile?.full_name}</p>
                   <Button onClick={() => setCallBriefing('')} variant="ghost" size="sm">Dismiss</Button>
                 </div>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ai)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Not visible to client</p>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ai)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Not visible to client</p>
                 <pre style={{ color: 'var(--color-text)', fontSize: 'var(--text-base)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{callBriefing}</pre>
               </div>
             )}
 
             {report && (
-              <div style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <p style={{ fontWeight: 600 }}>Weekly Report</p>
-                <textarea
+              <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-20)', display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+                {/* The subject the client will see in their archive. Editable,
+                    because the model drafts it and the coach is the one who
+                    signs it — and because a list of 25 reports is only as
+                    scannable as its worst title. */}
+                <Field
+                  label="Subject"
+                  value={reportSubject}
+                  onChange={(e) => setReportSubject(e.target.value)}
+                  maxLength={120}
+                  placeholder="What happened this week, in a few words"
+                />
+                <Textarea
                   value={report}
                   onChange={(e) => setReport(e.target.value)}
                   rows={20}
-                  style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '14px', color: 'var(--color-text)', fontSize: 'var(--text-base)', lineHeight: '1.7', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
+                  aria-label="Weekly report draft"
+                  style={{ lineHeight: '1.7', resize: 'vertical' }}
                 />
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <Button onClick={sendReport} variant="primary">Send to client</Button>
-                  <Button onClick={() => setReport('')} variant="ghost">Discard</Button>
+                <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
+                  <Button onClick={sendReport} variant="primary" size="sm">Send to client</Button>
+                  <Button onClick={() => { setReport(''); setReportSubject('') }} variant="ghost" size="sm">Discard</Button>
                 </div>
               </div>
             )}
           </div>
-        )}
+        </SectionHeader>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Button onClick={goToPrevDay} variant="muted" size="sm">←</Button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+        <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
 
-        <input
+        <Field
           type="date"
           value={selectedDate}
           max={toLocalDateString(new Date())}
+          aria-label="Day to view"
           onChange={(e) => setSelectedDate(e.target.value)}
-          style={inputStyle}
+          style={{ width: 'auto' }}
         />
 
-        <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm">→</Button>
+        <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
 
-        {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="outline" size="sm">Today</Button>}
+        {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">Today</Button>}
       </div>
 
       <div id="section-stats" style={sectionCardStyle}>
         <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            <StatCard label="Calories" value={totals.calories} color="#fbbf24" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-16)' }}>
+            <StatCard label="Calories" value={totals.calories} color="var(--color-calories)" />
             <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
             <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
             <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
+            {/* Cardio and Steps were never on this panel, though the coach sets a
+                target for both and the page carries a chart for each — so the
+                client's own Dashboard showed seven metrics for a day while the
+                coach's view of the same day showed five. */}
+            <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} color="var(--color-cardio)" />
+            <StatCard label="Steps" value={daySteps ? daySteps.toLocaleString() : '—'} color="var(--color-steps)" />
             <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
           </div>
         </SectionHeader>
@@ -1581,45 +1752,45 @@ async function sendMessage(text) {
 
       <div key="consistency" id="section-consistency" style={sectionCardStyle}>
         <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Current streak <InfoTip text={CONSISTENCY_TIPS.streak} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.streak > 0 ? 'var(--color-success)' : 'var(--color-muted)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-12)' }}>
+            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Current streak <InfoTip text={CONSISTENCY_TIPS.streak} /></p>
+              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.streak > 0 ? 'var(--color-success)' : 'var(--color-muted)' }}>
                 {consistency.streak}
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}> days</span>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}> days</span>
               </p>
             </div>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 7 days <InfoTip text={CONSISTENCY_TIPS.last7} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)' }}>
-                {consistency.days7}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Last 7 days <InfoTip text={CONSISTENCY_TIPS.last7} /></p>
+              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)' }}>
+                {consistency.days7}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/7</span>
               </p>
             </div>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Last 30 days <InfoTip text={CONSISTENCY_TIPS.last30} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)' }}>
-                {consistency.days30}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/30</span>
+            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Last 30 days <InfoTip text={CONSISTENCY_TIPS.last30} /></p>
+              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)' }}>
+                {consistency.days30}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/30</span>
               </p>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon-Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)', marginTop: 'var(--space-12)' }}>
+            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Weekdays (Mon-Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
+              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                 {consistency.weekdayLogged}
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/{consistency.weekdayTotal}</span>
               </p>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 'var(--space-2)' }}>
                 {consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}%
               </p>
             </div>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat-Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
-              <p style={{ fontWeight: 700, fontSize: '1.5rem', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
+            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Weekends (Sat-Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
+              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                 {consistency.weekendLogged}
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/{consistency.weekendTotal}</span>
               </p>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 'var(--space-2)' }}>
                 {consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}%
               </p>
             </div>
@@ -1628,14 +1799,14 @@ async function sendMessage(text) {
             <div style={{
               backgroundColor: 'var(--color-bg)',
               borderRadius: 'var(--radius)',
-              padding: '14px 18px',
-              marginTop: '12px',
+              padding: 'var(--space-12) var(--space-16)',
+              marginTop: 'var(--space-12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
             }}>
               <div>
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>
                   Best week (last 90 days) <InfoTip text={CONSISTENCY_TIPS.bestWeek} />
                 </p>
                 <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0 }}>
@@ -1645,17 +1816,17 @@ async function sendMessage(text) {
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <p style={{
-                  fontWeight: 700,
-                  fontSize: '1.5rem',
+                <p className="tnum" style={{
+                  fontWeight: 'var(--weight-bold)',
+                  fontSize: 'var(--text-title)',
                   color: consistency.bestWeekCount === 7 ? 'var(--color-success)' : consistency.bestWeekCount >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
                   margin: 0,
                   lineHeight: 1,
                 }}>
                   {consistency.bestWeekCount}
-                  <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
+                  <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/7</span>
                 </p>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 'var(--space-2)' }}>
                   days logged
                 </p>
               </div>
@@ -1663,21 +1834,21 @@ async function sendMessage(text) {
           )}
           <div style={{
             borderTop: '1px solid var(--color-border)',
-            paddingTop: 18,
-            marginTop: 18,
+            paddingTop: 'var(--space-16)',
+            marginTop: 'var(--space-16)',
           }}>
             <p style={{
               fontSize: 'var(--text-xs)',
               color: 'var(--color-muted)',
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
-              fontWeight: 600,
-              marginBottom: 16,
+              fontWeight: 'var(--weight-semibold)',
+              marginBottom: 'var(--space-16)',
               marginTop: 0,
             }}>
-              Calorie Compliance - Last 90 Days
+              Calorie compliance, last 90 days
             </p>
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-24)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <div style={{ flex: '1 1 300px', minWidth: 0, maxWidth: 440 }}>
                 <ComplianceHeatmap
                   logsByDate={heatmapData}
@@ -1704,69 +1875,70 @@ async function sendMessage(text) {
       {sentReports.length > 0 && (
         <div key="sentReports" id="section-sentReports" style={sectionCardStyle}>
           <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')}>
-            {groupByWeek(sentReports).map(([week, weekReports]) => {
-              const isCollapsed = collapsedSentWeeks[week] !== false
-              const unreadCount = weekReports.filter(r => !r.read_at).length
-              return (
-                <div key={week} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-                  <div
-                    onClick={() => setCollapsedSentWeeks(prev => ({ ...prev, [week]: !isCollapsed }))}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', backgroundColor: 'var(--color-bg)' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontWeight: 600, fontSize: 'var(--text-base)' }}>Week of {week}</span>
-                      <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
-                        {weekReports.length} {weekReports.length === 1 ? 'report' : 'reports'}
-                      </span>
-                      {unreadCount > 0 && (
-                        /* eslint-disable-next-line no-restricted-syntax -- decorative "unread" badge palette */
-                        <span style={{ backgroundColor: '#1e3a5f', color: '#93c5fd', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
-                          {unreadCount} unread
+            {/* The same ROW the client chooses from (.rep-row in index.css),
+                so the two sides of one relationship present these the same way.
+                It expands in place here rather than navigating: the coach is
+                inside a client record with a rail beside them, and their
+                question is "which landed / what did I say", not a sit-down
+                read. No sender column — every report here is from the viewer.
+
+                Crucially it does NOT open the client's reader route, because
+                that marks the report read, and `read_at` is the client's state:
+                it is the very thing this list reports back to the coach. */}
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              {sentReports.map(r => {
+                const open = Boolean(openSentReports[r.id])
+                return (
+                  <div key={r.id}>
+                    <button
+                      type="button"
+                      className="rep-row rep-row-nosender ds-control"
+                      aria-expanded={open}
+                      onClick={() => setOpenSentReports(prev => ({ ...prev, [r.id]: !open }))}
+                    >
+                      <span className="rep-row-body">
+                        <span className="rep-row-head">
+                          <span className="rep-row-when">{relativeTime(r.created_at)}</span>
+                          {/* C1 status text. Read is graded green — the report
+                              landed, which is the outcome the coach is checking
+                              for. Unread is ungraded (B1: nothing to grade yet). */}
+                          <span style={{
+                            fontSize: 'var(--text-xs)',
+                            color: r.read_at ? 'var(--color-success)' : 'var(--color-muted)',
+                          }}>
+                            {r.read_at ? 'Read' : 'Unread'}
+                          </span>
+                          {r.archived && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)' }}>Archived</span>}
                         </span>
-                      )}
-                    </div>
-                    <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{isCollapsed ? '▶' : '▼'}</span>
+                        {!open && <span className="rep-row-lead">{leadOf(r.content)}</span>}
+                      </span>
+                      <span className="ds-chev" style={{ color: 'var(--color-faint)', display: 'inline-flex' }}>
+                        <Icon name="right" size={16} />
+                      </span>
+                    </button>
+                    {open && (
+                      <div style={{ padding: '0 0 var(--space-16)', maxWidth: '68ch' }}>
+                        <ReportProse content={r.content} />
+                      </div>
+                    )}
                   </div>
-                  {!isCollapsed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
-                      {weekReports.map(r => (
-                        <div key={r.id} style={{ borderLeft: `3px solid ${r.read_at ? 'var(--color-success)' : 'var(--color-primary)'}`, backgroundColor: 'var(--color-bg)', borderRadius: '0 var(--radius) var(--radius) 0', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-                              Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {r.archived && (
-                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', backgroundColor: 'var(--color-border)', padding: '2px 7px', borderRadius: '999px' }}>Archived</span>
-                              )}
-                              {/* eslint-disable-next-line no-restricted-syntax -- decorative read/unread report-status palette */}
-                              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', backgroundColor: r.read_at ? '#064e3b' : '#1e3a5f', color: r.read_at ? 'var(--color-success)' : '#93c5fd' }}>
-                                {r.read_at ? '✓ Read' : 'Unread'}
-                              </span>
-                            </div>
-                          </div>
-                          <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: 'var(--text-base)' }}>{r.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </SectionHeader>
         </div>
       )}
 
-      <div key="targets" id="section-targets" style={{ ...sectionCardStyle, gap: '16px' }}>
+      <div key="targets" id="section-targets" style={{ ...sectionCardStyle, gap: 'var(--space-16)' }}>
         <SectionHeader title="Client targets" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
-          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: '8px' }}>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: 'var(--space-8)' }}>
             Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '14px 0', borderBottom: '1px solid var(--color-border)', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-16)', padding: 'var(--space-12) 0', borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-12)' }}>
             <div>
-              <p style={{ fontWeight: 600, margin: 0 }}>Hide calories from client</p>
+              <p style={{ fontWeight: 'var(--weight-semibold)', margin: 0 }}>Hide calories from client</p>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-                For clients with a sensitive relationship with calorie tracking.
+                For clients who shouldn't see numbers.
               </p>
             </div>
             <button
@@ -1791,19 +1963,21 @@ async function sendMessage(text) {
           </div>
           {/* Onboarding assessment → starting macros, so a new client isn't a
               blank slate. Fills the calorie/macro inputs; coach reviews + saves. */}
-          <div style={{ marginBottom: '4px' }}>
-            <button
-              type="button"
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            {/* D2: a control is a Button. This was a bare green text link with
+                no hover and no pressed state, beside real Buttons. */}
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setShowTargetCalc(v => !v)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-primary)', padding: 0 }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="4" y="2" width="16" height="20" rx="2" /><line x1="8" y1="6" x2="16" y2="6" /><line x1="8" y1="10" x2="8" y2="10" /><line x1="12" y1="10" x2="12" y2="10" /><line x1="16" y1="10" x2="16" y2="10" /><line x1="8" y1="14" x2="8" y2="14" /><line x1="12" y1="14" x2="12" y2="14" /><line x1="16" y1="14" x2="16" y2="14" /><line x1="8" y1="18" x2="16" y2="18" />
               </svg>
               {showTargetCalc ? 'Hide calculator' : 'Calculate from stats'}
-            </button>
+            </Button>
             {showTargetCalc && (
-              <div style={{ marginTop: '12px' }}>
+              <div style={{ marginTop: 'var(--space-12)' }}>
                 <TargetCalculator
                   defaultWeightUnit={clientTargets.weight_goal_unit}
                   initial={{
@@ -1822,7 +1996,7 @@ async function sendMessage(text) {
               </div>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
             {[
               { label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
               { label: 'Protein (g)', key: 'protein', placeholder: 'e.g. 150' },
@@ -1831,44 +2005,47 @@ async function sendMessage(text) {
               { label: 'Cardio (min/day)', key: 'cardio_minutes', placeholder: 'e.g. 30' },
               { label: 'Steps/day', key: 'steps', placeholder: 'e.g. 10000' },
             ].map(f => (
-              <div key={f.key}>
-                <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px', color: 'var(--color-muted)' }}>{f.label}</p>
-                <input
-                  type="number"
-                  placeholder={f.placeholder}
-                  value={clientTargets[f.key]}
-                  onChange={(e) => setClientTargets({ ...clientTargets, [f.key]: e.target.value })}
-                  style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', width: '100%' }}
-                />
-              </div>
+              /* ui/Field, not a local input. These had drifted from controlStyle
+                 on both axes the primitive exists to hold still: 10px 14px
+                 against its 10px 12px, and --text-body against its --text-base. */
+              <Field
+                key={f.key}
+                label={f.label}
+                type="number"
+                placeholder={f.placeholder}
+                value={clientTargets[f.key]}
+                onChange={(e) => setClientTargets({ ...clientTargets, [f.key]: e.target.value })}
+              />
             ))}
           </div>
-          <div style={{ marginTop: '4px' }}>
-            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px', color: 'var(--color-muted)' }}>Weight goal</p>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', color: 'var(--color-muted)' }}>Weight goal</p>
+            <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
+              <Field
                 type="number"
                 placeholder="e.g. 175"
+                aria-label="Weight goal"
                 value={clientTargets.weight_goal}
                 onChange={(e) => setClientTargets({ ...clientTargets, weight_goal: e.target.value })}
-                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', flex: 1 }}
+                style={{ flex: 1, width: 'auto' }}
               />
-              <select
+              <Select
                 value={clientTargets.weight_goal_unit}
+                aria-label="Weight goal unit"
                 onChange={(e) => {
                   const unit = e.target.value
                   setClientTargets(prev => ({ ...prev, weight_goal_unit: unit, weight_goal: convertGoalValue(prev.weight_goal, prev.weight_goal_unit, unit) }))
                 }}
-                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '1rem', width: '80px', cursor: 'pointer' }}
+                style={{ width: '80px', cursor: 'pointer' }}
               >
                 <option value="lbs">lbs</option>
                 <option value="kg">kg</option>
-              </select>
+              </Select>
             </div>
           </div>
-          <div style={{ marginTop: '8px' }}>
-            <Button onClick={saveClientTargets} variant="primary">
-              {targetsSaved ? 'Saved ✓' : 'Save targets'}
+          <div style={{ marginTop: 'var(--space-8)' }}>
+            <Button onClick={saveClientTargets} variant="primary" size="sm">
+              {targetsSaved ? <>Saved <Icon name="check" /></> : 'Save targets'}
             </Button>
           </div>
         </SectionHeader>
@@ -1876,58 +2053,68 @@ async function sendMessage(text) {
 
       <div key="nutritionLog" id="section-nutritionLog" style={sectionCardStyle}>
         <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')}>
-          <div style={{ marginBottom: '10px' }}>
+          {/* C1: status is plain coloured text. This was a bordered, tinted
+              container whose fill and border were raw rgba of the dark-theme
+              green, so on the light theme it drew a dark-mode tint on a white
+              card. Green is graded (the day is closed); "not marked complete"
+              is not a failing, so it stays ungraded grey (B1). */}
+          <div style={{ marginBottom: 'var(--space-10)' }}>
             <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              fontSize: 'var(--text-sm)', fontWeight: 600,
-              padding: '4px 10px', borderRadius: 'var(--radius)',
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--space-6)',
+              fontSize: 'var(--text-sm)',
+              fontWeight: 'var(--weight-normal)',
               color: dayComplete ? 'var(--color-success)' : 'var(--color-muted)',
-              backgroundColor: dayComplete ? 'rgba(52,211,153,0.12)' : 'var(--color-bg)',
-              border: `1px solid ${dayComplete ? 'rgba(52,211,153,0.4)' : 'var(--color-border)'}`,
             }}>
-              {dayComplete ? '✓ Client marked this day complete' : 'Day not marked complete — totals may be partial'}
+              {dayComplete ? <><Icon name="check" /> Day complete</> : 'Day not complete. Totals may be partial'}
             </span>
           </div>
           {entries.length === 0 ? (
             <EmptyState
               icon={null}
               title="No entries for this day"
-              description="Client hasn't logged any nutrition yet."
+              description="Try another day."
             />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-20)' }}>
               {groupEntriesByMeal(entries).map((group) => (
-                <div key={group.key} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
-                    <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
+                <div key={group.key} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-4)' }}>
+                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)' }}>{group.label}</span>
                     <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{group.calories} cal</span>
                   </div>
+                  {/* A1: these were bordered cards inside the section card. A
+                      logged item is a record in a list, so it is a Row — hairline
+                      divider, no box. Spacing carries the grouping (A3). */}
                   {groupLoggedMeals(group.entries).map((item) => item.type === 'meal' ? (
-                    <div key={item.id} style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-                        <span style={{ fontWeight: 700 }}>🍽 {item.name}</span>
-                        <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-base)' }}>{item.calories} cal</span>
+                    <div key={item.id} className="ds-row" style={{ padding: 'var(--space-12) 0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-6)' }}>
+                        {/* Rejected pattern 4: emoji are not icons. Monochrome
+                            feather SVG, stroke=currentColor, like every other
+                            glyph in the app. */}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-6)', fontWeight: 'var(--weight-medium)' }}>
+                          <Icon name="utensils" style={{ color: 'var(--color-muted)' }} /> {item.name}
+                        </span>
+                        <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-base)' }}>{item.calories} cal</span>
                       </div>
                       {item.entries.map((entry) => (
-                        <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+                        <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) 0', fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                           <span>{entry.food}</span>
                           <span>{entry.calories} cal · P {entry.protein}g · {entry.serving_size}{entry.serving_unit}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div key={item.entry.id} style={{
-                      backgroundColor: 'var(--color-bg)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius)',
-                      padding: '14px 20px',
+                    <div key={item.entry.id} className="ds-row" style={{
+                      padding: 'var(--space-12) 0',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      gap: 'var(--space-12)',
+                      flexWrap: 'wrap',
                     }}>
                       <span>{item.entry.food}</span>
-                      <div style={{ display: 'flex', gap: '16px', fontSize: 'var(--text-base)' }}>
-                        <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{item.entry.calories} cal</span>
+                      <div style={{ display: 'flex', gap: 'var(--space-16)', fontSize: 'var(--text-base)' }}>
+                        <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)' }}>{item.entry.calories} cal</span>
                         <span style={{ color: 'var(--color-muted)' }}>P: {item.entry.protein}g</span>
                         <span style={{ color: 'var(--color-muted)' }}>C: {item.entry.carbs}g</span>
                         <span style={{ color: 'var(--color-muted)' }}>F: {item.entry.fat}g</span>
@@ -1946,100 +2133,99 @@ async function sendMessage(text) {
         <SectionHeader title={checkinInterval > 1 ? "This period's check-in" : "This week's check-in"} collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
           {/* Check-in config: this client's cadence + a pointer to the shared
               questionnaire (which is per-coach, so it lives on Profile). */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', paddingBottom: '12px', marginBottom: '4px', borderBottom: '1px solid var(--color-border)' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Cadence:</span>
-              {CADENCE_OPTIONS.map(opt => {
-                const active = checkinInterval === opt.weeks
-                return (
-                  <button
-                    key={opt.weeks}
-                    type="button"
-                    onClick={() => updateCadence(opt.weeks)}
-                    disabled={savingCadence}
-                    aria-pressed={active}
-                    style={{
-                      background: active ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: active ? 'var(--color-on-accent)' : 'var(--color-muted)',
-                      border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                      borderRadius: '999px', padding: '4px 10px', fontSize: 'var(--text-xs)',
-                      fontWeight: 600, cursor: savingCadence ? 'default' : 'pointer', fontFamily: 'inherit',
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
+              {/* D2: these are Pills. The hand-rolled copy they replace set its
+                  own padding and so stood 4px short of every other chip in the
+                  app, the exact bug the Pill minHeight floor exists to prevent. */}
+              {CADENCE_OPTIONS.map(opt => (
+                <Pill
+                  key={opt.weeks}
+                  active={checkinInterval === opt.weeks}
+                  onClick={() => updateCadence(opt.weeks)}
+                  disabled={savingCadence}
+                  aria-pressed={checkinInterval === opt.weeks}
+                >
+                  {opt.label}
+                </Pill>
+              ))}
             </div>
-            <button
-              onClick={() => navigate('/profile?focus=questionnaire')}
-              title="Check-in questions apply to all your clients — edit them on your Profile"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-primary)', padding: 0 }}
-            >
-              Customize questions →
-            </button>
+            {/* D5: no native title. The "applies to every client" caveat is
+                real information nothing else on the page shows, so it moves to
+                the app's own portaled bubble rather than an OS grey box. */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+              <Button
+                onClick={() => navigate('/profile?focus=questionnaire')}
+                variant="ghost"
+                size="sm"
+              >
+                Customize questions <Icon name="right" />
+              </Button>
+              <InfoTip text="These questions are shared by every client. Editing them changes all check-ins." />
+            </div>
           </div>
           {!clientCheckIn ? (
-            <div style={{ paddingTop: '8px' }}>
+            <div style={{ paddingTop: 'var(--space-8)' }}>
               <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'} ({cadenceLabel(checkinInterval).toLowerCase()}).</p>
             </div>
           ) : (
             <>
               {Array.isArray(clientCheckIn.answers) && clientCheckIn.answers.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
                   {clientCheckIn.answers.map((a, i) => (
                     <div key={a.question_id || i}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.prompt}</p>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.prompt}</p>
                       {a.type === 'text'
                         ? <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{(a.value && String(a.value).trim()) ? a.value : '—'}</p>
-                        : <p style={{ fontWeight: 700, fontSize: '1.125rem' }}>{formatAnswer(a)}</p>}
+                        : <p style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-subhead)' }}>{formatAnswer(a)}</p>}
                     </div>
                   ))}
                 </div>
               ) : (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Adherence</p>
-                      <p style={{ fontWeight: 700, fontSize: 'var(--text-lg)' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
+                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Adherence</p>
+                      <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
                     </div>
-                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Energy level</p>
-                      <p style={{ fontWeight: 700, fontSize: 'var(--text-lg)' }}>{clientCheckIn.energy_level}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
+                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Energy level</p>
+                      <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{clientCheckIn.energy_level}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
                     </div>
                   </div>
                   {clientCheckIn.obstacles && (
-                    <div style={{ paddingTop: '4px' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
+                    <div style={{ paddingTop: 'var(--space-4)' }}>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 'var(--space-8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
                       <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
                     </div>
                   )}
                   {clientCheckIn.notes && (
-                    <div style={{ paddingTop: '4px' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
+                    <div style={{ paddingTop: 'var(--space-4)' }}>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 'var(--space-8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
                       <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
                     </div>
                   )}
                 </>
               )}
-              <div style={{ paddingTop: '12px', marginTop: '4px', borderTop: '1px solid var(--color-border)' }}>
+              <div style={{ paddingTop: 'var(--space-12)', marginTop: 'var(--space-4)', borderTop: '1px solid var(--color-border)' }}>
                 {clientCheckIn.reviewed_at ? (
                   <>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 600 }}>✓ Reviewed</p>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}><Icon name="check" /> Reviewed</p>
                     {clientCheckIn.coach_comment && (
-                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6', marginTop: '6px' }}>{clientCheckIn.coach_comment}</p>
+                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6', marginTop: 'var(--space-6)' }}>{clientCheckIn.coach_comment}</p>
                     )}
                   </>
                 ) : (
                   <>
-                    <textarea
+                    <Textarea
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
-                      placeholder="Optional comment for the client…"
+                      placeholder="Comment for the client (optional)…"
                       rows={2}
-                      style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'inherit', fontSize: 'var(--text-base)', resize: 'vertical' }}
+                      aria-label="Comment for the client"
+                      style={{ resize: 'vertical' }}
                     />
-                    <Button onClick={reviewCheckIn} variant="primary" size="sm" loading={reviewing} style={{ marginTop: '8px' }}>Mark reviewed</Button>
+                    <Button onClick={reviewCheckIn} variant="primary" size="sm" loading={reviewing} style={{ marginTop: 'var(--space-8)' }}>Mark reviewed</Button>
                   </>
                 )}
               </div>
@@ -2050,48 +2236,35 @@ async function sendMessage(text) {
 
       <div key="privateNotes" id="section-privateNotes" style={sectionCardStyle}>
         <SectionHeader title="Private notes" collapsed={sectionsCollapsed.privateNotes} onToggle={() => toggleSection('privateNotes')}>
-            <textarea
+            <Textarea
               value={coachNotes}
               onChange={(e) => setCoachNotes(e.target.value)}
               readOnly={!editingNotes}
-              placeholder="Notes history will appear here..."
+              placeholder="No notes yet…"
               rows={6}
+              aria-label="Notes history"
               style={{
-                backgroundColor: 'var(--color-bg)',
-                border: `1px solid ${editingNotes ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                borderRadius: 'var(--radius)',
-                padding: '12px 14px',
+                borderColor: editingNotes ? 'var(--color-primary)' : 'var(--color-border)',
                 color: editingNotes ? 'var(--color-text)' : 'var(--color-muted)',
                 fontSize: 'var(--text-sm)',
                 lineHeight: '1.8',
                 resize: editingNotes ? 'vertical' : 'none',
                 fontFamily: 'monospace',
-                width: '100%',
-                cursor: editingNotes ? 'text' : 'default'
+                cursor: editingNotes ? 'text' : 'default',
               }}
             />
-            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <textarea
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-12)', display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+              <Textarea
                 value={newNoteEntry}
                 onChange={(e) => setNewNoteEntry(e.target.value)}
-                placeholder="Add a note..."
+                placeholder="Add a note…"
                 rows={3}
-                style={{
-                  backgroundColor: 'var(--color-bg)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius)',
-                  padding: '10px 14px',
-                  color: 'var(--color-text)',
-                  fontSize: 'var(--text-base)',
-                  lineHeight: '1.6',
-                  resize: 'vertical',
-                  fontFamily: 'inherit',
-                  width: '100%'
-                }}
+                aria-label="Add a note"
+                style={{ lineHeight: '1.6', resize: 'vertical' }}
               />
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-8)', alignItems: 'center' }}>
                 <Button onClick={addNoteEntry} variant="primary" size="sm">
-                  {notesSaved ? 'Saved ✓' : 'Add note'}
+                  {notesSaved ? <>Saved <Icon name="check" /></> : 'Add note'}
                 </Button>
                 {!editingNotes ? (
                   <Button onClick={() => setEditingNotes(true)} variant="ghost" size="sm">
@@ -2099,7 +2272,7 @@ async function sendMessage(text) {
                   </Button>
                 ) : (
                   <>
-                    <Button onClick={() => { saveCoachNotes(); setEditingNotes(false) }} variant="outline" size="sm">
+                    <Button onClick={() => { saveCoachNotes(); setEditingNotes(false) }} variant="muted" size="sm">
                       Save edits
                     </Button>
                     <Button onClick={() => { fetchCoachNotes(); setEditingNotes(false) }} variant="ghost" size="sm">
@@ -2117,8 +2290,27 @@ async function sendMessage(text) {
           <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
             {!sectionsCollapsed.correlatedChart && (
               (weightHistory.length > 0 || calorieHistory.length > 0) ? (
-                <div style={{ paddingTop: '8px' }}>
-                  <Chart type="bar" data={getCorrelatedChartData()} options={correlatedChartOptions} />
+                <div style={{ paddingTop: 'var(--space-8)' }}>
+                  {/* Two stacked plots sharing one x range — see
+                      getCorrelatedChartData for why this is not one chart. */}
+                  {weightHistory.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
+                        Weight <span style={{ color: 'var(--color-faint)' }}>({weightDisplayUnit})</span>
+                      </p>
+                      <div style={{ height: '140px' }}>
+                        <Line data={getCorrelatedChartData('weight')} options={{ ...weightPlotOptions, maintainAspectRatio: false }} />
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 'var(--space-16)' }}>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
+                      Against target <span style={{ color: 'var(--color-faint)' }}>(%)</span>
+                    </p>
+                    <div style={{ height: '180px' }}>
+                      <Chart type="bar" data={getCorrelatedChartData('compliance')} options={{ ...compliancePlotOptions, maintainAspectRatio: false }} />
+                    </div>
+                  </div>
                   <EnergyBalanceRead
                     calorieSeries={energySeries.calories}
                     weightSeries={energySeries.weights}
@@ -2129,7 +2321,7 @@ async function sendMessage(text) {
                     onWindowChange={changeEbWindow}
                   />
                 </div>
-              ) : chartEmpty('No progress data yet', 'Appears once weight or nutrition is logged.')
+              ) : chartEmpty('No progress data yet', 'Needs weight or nutrition logged.')
             )}
           </SectionHeader>
         </div>
@@ -2167,15 +2359,20 @@ async function sendMessage(text) {
                 {
                   label: 'Weight',
                   data: dispHistory.map(d => d.weight),
+                  // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
                   borderColor: '#34d399',
-                  backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                  // A ~10% wash, not a saturated block — and a 2px line, which
+                  // is the app's one line weight.
+                  backgroundColor: `rgba(52, 211, 153, ${MARK.areaAlpha})`,
+                  borderWidth: MARK.lineWidth,
                   // Reached-goal marker: on-brand green (NOT gold — gold is the
                   // product's warning color), a clean dot not a generic star; the
                   // growth-motif leaf lives in the caption below. Theme-agnostic
                   // pop on both cards: a deep-green fill (#15803d) carries contrast
                   // on the light card, a white ring carries it on the dark card —
                   // each does its job on the theme where the other washes out.
-                  pointRadius: dispHistory.map((_, i) => (isMark(i) ? 7 : 3)),
+                  pointRadius: dispHistory.map((_, i) => (isMark(i) ? 7 : 0)),
+                  pointHoverRadius: 5,
                   pointStyle: 'circle',
                   pointBackgroundColor: dispHistory.map((_, i) => (isMark(i) ? '#15803d' : '#34d399')),
                   pointBorderColor: dispHistory.map((_, i) => (isMark(i) ? '#ffffff' : '#34d399')),
@@ -2188,6 +2385,7 @@ async function sendMessage(text) {
                   data: computeRollingAverage(dispHistory),
                   borderColor: 'rgba(52, 211, 153, 0.45)',
                   backgroundColor: 'transparent',
+                  borderWidth: MARK.lineWidth,
                   borderDash: [4, 4],
                   pointRadius: 0,
                   tension: 0.3,
@@ -2225,58 +2423,58 @@ async function sendMessage(text) {
                 <>
                   <Line data={{ labels: dispHistory.map(d => d.date), datasets }} options={weightChartOptions} />
                   {wt && (
-                    <p style={{ fontSize: 'var(--text-sm)', margin: '10px 2px 0', color: 'var(--color-muted)' }}>
+                    <p style={{ fontSize: 'var(--text-sm)', margin: 'var(--space-10) var(--space-2) 0', color: 'var(--color-muted)' }}>
                       {wt.reached ? (
                         <>
-                          <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }}>
+                          <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-4)' }}>
                               <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
                               <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
                             </svg>
                             Reached goal
                           </span>
                           {wt.direction === 'maintain'
-                            ? <> — holding at {wt.goal} {wt.displayUnit}</>
-                            : <> — first hit {wt.goal} {wt.displayUnit} on {new Date(wt.reachedIso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</>}
+                            ? <>. Holding at {wt.goal} {wt.displayUnit}</>
+                            : <>. First hit {wt.goal} {wt.displayUnit} on {new Date(wt.reachedIso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</>}
                         </>
                       ) : (
-                        <><strong style={{ color: 'var(--color-text)', fontWeight: 600 }}>{wt.remainingAbs} {wt.displayUnit}</strong> {wt.direction === 'up' ? 'to gain' : 'to lose'} to reach the {wt.goal} {wt.displayUnit} goal</>
+                        <><strong style={{ color: 'var(--color-text)', fontWeight: 'var(--weight-semibold)' }}>{wt.remainingAbs} {wt.displayUnit}</strong> {wt.direction === 'up' ? 'to gain' : 'to lose'} to reach the {wt.goal} {wt.displayUnit} goal</>
                       )}
                     </p>
                   )}
                 </>
               )
-            })() : chartEmpty('No weight logged yet', 'Appears once your client logs weight.'))}
+            })() : chartEmpty('No weight logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
       )}
 
       {!hiddenCharts.includes('calorieChart') && (
         <div key="calorieChart" id="section-calorieChart" style={sectionCardStyle}>
-          <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
+          <SectionHeader title="Calories: last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (calorieHistory.length > 0 ? (
               <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={calorieChartOptions} />
-            ) : chartEmpty('No nutrition logged yet', 'Appears once your client logs food.'))}
+            ) : chartEmpty('No nutrition logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
       )}
 
       {!hiddenCharts.includes('cardioChart') && (
         <div key="cardioChart" id="section-cardioChart" style={sectionCardStyle}>
-          <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio: last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (cardioHistory.length > 0 ? (
               <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
-            ) : chartEmpty('No cardio logged yet', 'Appears once your client logs cardio.'))}
+            ) : chartEmpty('No cardio logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
       )}
 
       {!hiddenCharts.includes('stepsChart') && (
         <div key="stepsChart" id="section-stepsChart" style={sectionCardStyle}>
-          <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps: last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (stepsHistory.length > 0 ? (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
-            ) : chartEmpty('No steps logged yet', 'Appears once your client logs steps.'))}
+            ) : chartEmpty('No steps logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
       )}
@@ -2287,16 +2485,18 @@ async function sendMessage(text) {
             title="Body measurements"
             collapsed={sectionsCollapsed.measurements}
             onToggle={() => toggleSection('measurements')}
-            info="Recommended re-measure cadence — about every 2 weeks while cutting, every 4 weeks otherwise (industry standard; circumference moves slowly and tape error is ~1–1.5 cm). Flags when the client's tape data is overdue."
+            info="Recommended re-measure cadence: about every 2 weeks while cutting, every 4 weeks otherwise (industry standard; circumference moves slowly and tape error is ~1–1.5 cm). Flags when the client's tape data is overdue."
             action={measStatus?.due ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600, background: 'var(--color-warning-dim)', border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}>
-                <span style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: 'var(--color-warning)' }} />
+              /* C1: status is plain coloured text. This was the last tinted
+                 pill with a dot in the app — the decision that introduced it
+                 (Jul 19, measurement cadence) predates the ban. */
+              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-warning)' }}>
                 Re-measure due · {measStatus.daysSince}d
               </span>
             ) : null}
           >
             {!sectionsCollapsed.measurements && (measHistory.length === 0
-              ? chartEmpty("No measurements yet — added on the client's Log page.")
+              ? chartEmpty("No measurements yet", "Your client adds these.")
               : (() => {
               const latest = measHistory[measHistory.length - 1]
               const unit = latest.unit || 'in'
@@ -2304,21 +2504,21 @@ async function sendMessage(text) {
               if (sites.length === 0) return <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>No measurements recorded yet.</p>
               return (
                 <>
-                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '12px' }}>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-12)' }}>
                     Latest {new Date(latest.logged_date + 'T00:00:00').toLocaleDateString()}{measStatus ? ` · ${measStatus.daysSince === 0 ? 'today' : `${measStatus.daysSince}d ago`}` : ''}{measHistory.length > 1 ? ' · change since first recorded' : ''}
                   </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-12)' }}>
                     {sites.map(s => {
                       const firstRow = measHistory.find(r => r[s.key] != null)
                       const delta = firstRow && firstRow.logged_date !== latest.logged_date ? +(latest[s.key] - firstRow[s.key]).toFixed(1) : null
                       return (
-                        <div key={s.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-                          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>{s.label}</p>
-                          <p style={{ fontWeight: 700, fontSize: '1.5rem', color: 'var(--color-text)' }}>
-                            {latest[s.key]}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}> {unit}</span>
+                        <div key={s.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
+                          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>{s.label}</p>
+                          <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: 'var(--color-text)' }}>
+                            {latest[s.key]}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}> {unit}</span>
                           </p>
                           {delta != null && delta !== 0 && (
-                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', fontWeight: 600, margin: 0 }}>
+                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', fontWeight: 'var(--weight-semibold)', margin: 0 }}>
                               {delta > 0 ? '+' : ''}{delta} {unit}
                             </p>
                           )}
@@ -2338,16 +2538,16 @@ async function sendMessage(text) {
                     let cols = Math.min(measColsMax, trendSites.length)
                     if (cols > 1 && trendSites.length % cols === 1) cols -= 1
                     return (
-                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '16px', marginTop: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 'var(--space-16)', marginTop: 'var(--space-16)' }}>
                         {trendSites.map(s => {
                           const pts = measHistory.filter(r => r[s.key] != null)
                           return (
-                            <div key={s.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '12px' }}>
-                              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 6px' }}>{s.label} <span style={{ color: 'var(--color-faint)' }}>({unit})</span></p>
+                            <div key={s.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
+                              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 var(--space-6)' }}>{s.label} <span style={{ color: 'var(--color-faint)' }}>({unit})</span></p>
                               <div style={{ height: '180px' }}>
                                 <Line
-                                  data={{ labels: pts.map(r => r.logged_date.slice(5)), datasets: [{ label: s.label, data: pts.map(r => r[s.key]), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.12)', pointRadius: 3, tension: 0.3, fill: true }] }}
-                                  options={withYTitle(miniChartOptions, unit)}
+                                  data={{ labels: pts.map(r => r.logged_date.slice(5)), datasets: [{ label: s.label, data: pts.map(r => r[s.key]), borderColor: CHART_SERIES, backgroundColor: 'rgba(52, 211, 153, 0.12)', pointRadius: 3, tension: 0.3, fill: true }] }}
+                                  options={miniChartOptions}
                                 />
                               </div>
                             </div>
@@ -2365,10 +2565,14 @@ async function sendMessage(text) {
 
       </Reorderable>
 
-      <div style={{ ...sectionCardStyle }}>
-        <h2>Coaching</h2>
+      <div id="section-coaching" style={{ ...sectionCardStyle }}>
+        {/* A5: a panel heading is --text-body / medium. This was the last bare
+            global h2 on the page, so it rendered a step larger than the thirteen
+            SectionHeader titles above it. It is not collapsible (one short
+            action), so it takes the type rather than the whole component. */}
+        <h2 style={{ fontSize: 'var(--text-body)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.005em' }}>Coaching</h2>
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-          End the coaching relationship and return {clientProfile?.full_name || 'this client'} to a solo account. Their data is preserved.
+          Ends coaching. {clientProfile?.full_name || 'This client'} keeps their data and continues solo.
         </p>
         {!showOffboardConfirm ? (
           <div>
@@ -2381,19 +2585,22 @@ async function sendMessage(text) {
             </Button>
           </div>
         ) : (
+          /* "What IS wanted": a uniform tint on a notice, never a coloured
+             border round it (B2 — never colour a whole card border to signal
+             state). The tint was a raw rgba of the dark-theme red, so it did
+             not follow the theme; color-mix off the token does. */
           <div style={{
-            padding: '14px 16px',
-            border: '1px solid var(--color-error)',
+            padding: 'var(--space-16)',
             borderRadius: 'var(--radius)',
-            backgroundColor: 'rgba(248,113,113,0.05)',
+            backgroundColor: 'color-mix(in srgb, var(--color-error) 10%, transparent)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px'
+            gap: 'var(--space-10)'
           }}>
             <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
-              This will end the coaching relationship and return <strong>{clientProfile?.full_name}</strong> to a solo account. Their data is preserved and they can continue tracking independently.
+              Offboard <strong>{clientProfile?.full_name}</strong>? You can't undo this.
             </p>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
               <Button
                 onClick={offboardClient}
                 variant="danger-solid"
@@ -2416,7 +2623,6 @@ async function sendMessage(text) {
       </div>
         </div>
       </div>
-    </div>
     <ChatBubble
       key={clientId}
       messages={messages}

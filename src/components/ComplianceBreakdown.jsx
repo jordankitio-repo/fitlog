@@ -8,8 +8,8 @@ import { complianceBreakdown } from '../utils/complianceBreakdown'
 // Each segment is judged on its OWN merit, so a client who under-eats on
 // weekdays AND over-eats on weekends shows both bars diverging.
 
-const GOOD = '#34d399'
-const WEAK = '#fbbf24'
+const GOOD = 'var(--color-success)'
+const WEAK = 'var(--color-warning)'
 const MUTED = 'var(--color-muted)'
 const MAX_BAR = 46 // each side of the center line spans up to this % of the track
 
@@ -37,7 +37,7 @@ function Row({ label, seg, target }) {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '78px 1fr 64px', alignItems: 'center', gap: 10 }}>
-      <span style={{ fontSize: '0.8rem', fontWeight: near ? 500 : 700, color: near ? 'var(--color-text)' : WEAK }}>
+      <span style={{ fontSize: 'var(--text-sm)', fontWeight: near ? 500 : 700, color: near ? 'var(--color-text)' : WEAK }}>
         {label}
       </span>
 
@@ -55,7 +55,7 @@ function Row({ label, seg, target }) {
         )}
         {clamped && (
           <span style={{
-            position: 'absolute', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem',
+            position: 'absolute', top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)',
             fontWeight: 700, color: WEAK, lineHeight: 1,
             ...(delta > 0 ? { left: `${50 + MAX_BAR}%`, marginLeft: 2 } : { right: `${50 + MAX_BAR}%`, marginRight: 2 }),
           }}>
@@ -67,7 +67,7 @@ function Row({ label, seg, target }) {
         )}
       </div>
 
-      <span style={{ fontSize: '0.78rem', fontWeight: 600, color, textAlign: 'right' }}>{value}</span>
+      <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color, textAlign: 'right' }}>{value}</span>
     </div>
   )
 }
@@ -115,22 +115,22 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
       display: 'flex', flexDirection: 'column', gap: 12,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ fontSize: '0.7rem', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+        <p style={{ fontSize: 'var(--text-xs)', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
           Weekday vs weekend
         </p>
-        <p style={{ fontSize: '0.72rem', color: MUTED, margin: 0 }}>vs {targetLabel} cal target · last 90 days</p>
+        <p style={{ fontSize: 'var(--text-xs)', color: MUTED, margin: 0 }}>vs {targetLabel} cal target · last 90 days</p>
       </div>
 
       {b.insufficient ? (
-        <p style={{ fontSize: '0.8rem', color: MUTED, margin: 0 }}>
-          Not enough logged days yet to compare weekdays vs weekends.
+        <p style={{ fontSize: 'var(--text-sm)', color: MUTED, margin: 0 }}>
+          Not enough logged days yet.
         </p>
       ) : (
         <>
           {/* axis hint */}
           <div style={{ display: 'grid', gridTemplateColumns: '78px 1fr 64px', alignItems: 'center', gap: 10 }}>
             <span />
-            <div style={{ position: 'relative', fontSize: '0.62rem', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ position: 'relative', fontSize: 'var(--text-xs)', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               <span style={{ position: 'absolute', left: 0 }}>under</span>
               <span style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>target</span>
               <span style={{ position: 'absolute', right: 0 }}>over</span>
@@ -144,7 +144,7 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
           </div>
 
           {headline && (
-            <p style={{ fontSize: '0.82rem', color: 'var(--color-text)', margin: '2px 0 0' }}>{headline}</p>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', margin: '2px 0 0' }}>{headline}</p>
           )}
         </>
       )}

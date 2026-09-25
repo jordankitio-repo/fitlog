@@ -5,10 +5,22 @@
 // When no target is set, bars fall back to the metric's own color.
 import { CHART } from './chartTheme'
 
-const GREEN = (a) => `rgba(52, 211, 153, ${a})`
-const AMBER = (a) => `rgba(251, 191, 36, ${a})`
-const RED = (a) => `rgba(248, 113, 113, ${a})`
-const ORANGE = (a) => `rgba(251, 146, 60, ${a})`
+// Theme-aware, because these are FILLS on a card whose colour flips. The four
+// literals here used to be the dark-mode status values only — measured against
+// the light card they come out at 1.87 / 1.62 / 2.69 / 2.20 against a 3:1 floor
+// for marks, i.e. the bars washed out in light mode. Same bug as Log's macro
+// numerals and the compliance heatmap: a dark-first hue used on a light ground.
+// chart.js can't read a CSS variable, so the theme is resolved in JS instead.
+import { resolveTheme } from './theme'
+
+const LIGHT = { green: '22,101,52', amber: '180,83,9', red: '153,27,27', orange: '194,65,12' }
+const DARK  = { green: '52,211,153', amber: '251,191,36', red: '248,113,113', orange: '251,146,60' }
+const ramp = () => (resolveTheme() === 'light' ? LIGHT : DARK)
+
+const GREEN = (a) => `rgba(${ramp().green}, ${a})`
+const AMBER = (a) => `rgba(${ramp().amber}, ${a})`
+const RED = (a) => `rgba(${ramp().red}, ${a})`
+const ORANGE = (a) => `rgba(${ramp().orange}, ${a})`
 
 // Same 90 / 60 thresholds the rest of the app uses for "on target". For
 // one-directional metrics (cardio, steps) more is better, so there's no upper
@@ -25,9 +37,12 @@ export function metricBarData({ history, valueKey, dateKey = 'date', label, targ
   const datasets = [{
     label,
     data: history.map((d) => d[valueKey]),
-    backgroundColor: history.map((d) => barColor(d[valueKey], 0.7)),
-    borderColor: history.map((d) => barColor(d[valueKey], 1)),
-    borderWidth: 1,
+    // Solid fill, NO stroke. A border drawn round a mark is ink that isn't data;
+    // the gap between bars is the mechanism that separates them. The old
+    // 0.7-alpha fill plus a full-strength 1px outline also read muddy, because
+    // every bar was two tones of the same hue.
+    backgroundColor: history.map((d) => barColor(d[valueKey], 1)),
+    borderWidth: 0,
     borderRadius: 4,
     // Cap width so a chart with fewer logged days (e.g. cardio) doesn't balloon
     // into fat bars — keeps all the metric charts visually consistent.

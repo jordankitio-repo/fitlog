@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { track } from '@vercel/analytics'
 import { supabase } from '../supabase'
+import { SIGNED_OUT_REASON_KEY } from '../hooks/useSessionPolicy'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
 import PasswordInput from '../components/PasswordInput'
 import { getPasswordValidationError } from '../utils/passwordValidation'
+import { controlStyle } from '../components/ui'
 
 function Login() {
   const [searchParams] = useSearchParams()
@@ -23,12 +25,29 @@ function Login() {
   const [showForgot, setShowForgot] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotStatus, setForgotStatus] = useState('')
+  // Passwordless sign-in. Clients created by an invite have no password at all,
+  // so this is their only door back in after a session ends — not a convenience.
+  const [otpStage, setOtpStage] = useState('none') // 'none' | 'email' | 'code'
+  const [otpEmail, setOtpEmail] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [otpStatus, setOtpStatus] = useState('')
+  const [otpBusy, setOtpBusy] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('mode') === 'signup' && searchParams.get('role') === 'coach') {
       track('signup_started')
     }
   }, [searchParams])
+
+  // A policy sign-out is otherwise indistinguishable from a bug. Read it once,
+  // then clear it so it doesn't reappear on the next visit.
+  const [signedOutReason] = useState(() => {
+    try {
+      const reason = localStorage.getItem(SIGNED_OUT_REASON_KEY)
+      if (reason) localStorage.removeItem(SIGNED_OUT_REASON_KEY)
+      return reason || ''
+    } catch { return '' }
+  })
 
   function friendlyError(message) {
     if (!message || message === 'Failed to fetch' || message.toLowerCase().includes('networkerror') || message.toLowerCase().includes('failed to fetch')) {
@@ -125,15 +144,68 @@ function Login() {
     }
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '10px 14px',
-    color: 'var(--color-text)',
-    fontSize: '1rem',
-    width: '100%'
+  const NEUTRAL_CODE_SENT = "If that email has an account, we've sent a 6-digit code."
+
+  async function sendLoginCode() {
+    const target = otpEmail.trim()
+    if (!/\S+@\S+\.\S+/.test(target)) { setOtpStatus('Enter a valid email.'); return }
+
+    setOtpBusy(true)
+    setOtpStatus('')
+    try {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: target,
+        // MUST stay false. Without it this endpoint silently creates an account
+        // for any address typed into it — a typo becomes a live user, and /login
+        // becomes an open signup that bypasses the role picker entirely.
+        options: { shouldCreateUser: false },
+      })
+      // "signups not allowed" just means no account exists. Reporting that would
+      // turn this box into an account-existence oracle, so the copy and the next
+      // step are identical either way; a nonexistent account simply never gets a
+      // code that works.
+      if (otpError && !/signup|not allowed|not found/i.test(otpError.message || '')) {
+        setOtpStatus(friendlyError(otpError.message))
+      } else {
+        setOtpStage('code')
+        setOtpStatus(NEUTRAL_CODE_SENT)
+      }
+    } catch {
+      setOtpStatus('Unable to connect to our servers. Please try again in a few minutes.')
+    }
+    setOtpBusy(false)
   }
+
+  async function verifyLoginCode() {
+    const entered = otpCode.trim()
+    if (!/^\d{6}$/.test(entered)) { setOtpStatus('Enter the 6-digit code from your email.'); return }
+
+    setOtpBusy(true)
+    setOtpStatus('')
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: otpEmail.trim(),
+        token: entered,
+        type: 'email',
+      })
+      // On success App's onAuthStateChange takes over and renders the dashboard.
+      if (verifyError) setOtpStatus('That code is incorrect or has expired.')
+    } catch {
+      setOtpStatus('Unable to connect to our servers. Please try again in a few minutes.')
+    }
+    setOtpBusy(false)
+  }
+
+  function exitOtp() {
+    setOtpStage('none')
+    setOtpStatus('')
+    setOtpCode('')
+  }
+
+  const otpMode = !isSignUp && otpStage !== 'none'
+
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   // Text-styled button: keyboard- and screen-reader-accessible, looks like the
   // plain centered links it replaced (mode toggle, forgot-password).
@@ -142,7 +214,7 @@ function Login() {
     border: 'none',
     padding: '4px',
     font: 'inherit',
-    fontSize: '0.875rem',
+    fontSize: 'var(--text-base)',
     cursor: 'pointer',
     textAlign: 'center',
     width: '100%',
@@ -159,7 +231,66 @@ function Login() {
     }}>
       <Link to="/" aria-label="Gardnr home"><Logo size={40} /></Link>
       <h1>{isSignUp ? 'Create account' : 'Sign in'}</h1>
+      {signedOutReason && !isSignUp && (
+        <p style={{
+          fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6,
+          padding: '10px 14px', borderRadius: 'var(--radius)',
+          backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
+        }}>
+          {signedOutReason}
+        </p>
+      )}
 
+      {otpMode ? (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {otpStage === 'email' ? (
+          <>
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
+              We'll email you a 6-digit code. No password needed.
+            </p>
+            <input
+              type="email"
+              aria-label="Email for sign-in code"
+              placeholder="Email"
+              autoComplete="email"
+              value={otpEmail}
+              onChange={(e) => setOtpEmail(e.target.value)}
+              style={inputStyle}
+            />
+            {otpStatus && <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-error)', margin: 0 }}>{otpStatus}</p>}
+            <Button onClick={sendLoginCode} variant="primary" fullWidth loading={otpBusy}>
+              Send code
+            </Button>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
+              {NEUTRAL_CODE_SENT} Enter it below.
+            </p>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              aria-label="Sign-in code"
+              maxLength={6}
+              placeholder="000000"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+              style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: 'var(--text-lg)' }}
+            />
+            {otpStatus && otpStatus !== NEUTRAL_CODE_SENT && (
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-error)', margin: 0 }}>{otpStatus}</p>
+            )}
+            <Button onClick={verifyLoginCode} variant="primary" fullWidth loading={otpBusy}>
+              Sign in
+            </Button>
+          </>
+        )}
+        <button type="button" onClick={exitOtp} style={textButton}>
+          Back to sign in
+        </button>
+      </div>
+      ) : (<>
       <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {isSignUp && (
         <>
@@ -171,7 +302,7 @@ function Login() {
             onChange={(e) => { setFullName(e.target.value); setErrors(p => ({ ...p, fullName: '' })) }}
             style={{ ...inputStyle, borderColor: errors.fullName ? '#f87171' : 'var(--color-border)' }}
           />
-          {errors.fullName && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.fullName}</p>}
+          {errors.fullName && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-8px' }}>{errors.fullName}</p>}
         </>
       )}
 
@@ -183,7 +314,7 @@ function Login() {
         onChange={(e) => { setEmail(e.target.value); setErrors(p => ({ ...p, email: '' })) }}
         style={{ ...inputStyle, borderColor: errors.email ? '#f87171' : 'var(--color-border)' }}
       />
-      {errors.email && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.email}</p>}
+      {errors.email && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-8px' }}>{errors.email}</p>}
       <PasswordInput
         aria-label="Password"
         placeholder="Password"
@@ -191,11 +322,11 @@ function Login() {
         onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })) }}
         style={{ ...inputStyle, borderColor: errors.password ? '#f87171' : 'var(--color-border)' }}
       />
-      {errors.password && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-8px' }}>{errors.password}</p>}
+      {errors.password && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-8px' }}>{errors.password}</p>}
 
       {isSignUp && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>I am a...</p>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>I am a...</p>
           <div style={{ display: 'flex', gap: '8px' }}>
             {['solo', 'coach'].map((r) => (
               <button
@@ -213,7 +344,7 @@ function Login() {
                   color: role === r ? 'var(--color-text)' : 'var(--color-muted)',
                   cursor: 'pointer',
                   fontWeight: role === r ? 600 : 400,
-                  fontSize: '0.875rem'
+                  fontSize: 'var(--text-base)'
                 }}
               >
                 {r === 'solo' ? 'Individual' : 'Coach'}
@@ -221,7 +352,7 @@ function Login() {
             ))}
           </div>
           {role === 'coach' && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
               You'll be able to invite and manage clients from your dashboard.
             </p>
           )}
@@ -244,9 +375,9 @@ function Login() {
           </span>
         </label>
       )}
-      {errors.agreed && <p style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '-4px' }}>{errors.agreed}</p>}
+      {errors.agreed && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-4px' }}>{errors.agreed}</p>}
 
-      {error && <p style={{ color: '#f87171' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--color-error)' }}>{error}</p>}
 
       <Button type="submit" variant="primary" fullWidth>
         {isSignUp ? 'Create account' : 'Sign in'}
@@ -277,7 +408,7 @@ function Login() {
           Send reset link
         </Button>
         {forgotStatus && (
-          <p style={{ fontSize: '0.875rem', color: forgotStatus.includes('Check') ? 'var(--color-primary)' : '#f87171', textAlign: 'center' }}>
+          <p style={{ fontSize: 'var(--text-base)', color: forgotStatus.includes('Check') ? 'var(--color-primary)' : 'var(--color-error)', textAlign: 'center' }}>
             {forgotStatus}
           </p>
         )}
@@ -292,6 +423,16 @@ function Login() {
     )}
   </div>
 )}
+      {!isSignUp && (
+        <button
+          type="button"
+          onClick={() => { setOtpStage('email'); setOtpEmail(email); setError('') }}
+          style={textButton}
+        >
+          Email me a sign-in code instead
+        </button>
+      )}
+      </>)}
       <button
         type="button"
         onClick={() => { setIsSignUp(!isSignUp); setError(''); setErrors({}) }}

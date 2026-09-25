@@ -40,14 +40,14 @@ export default function PWAUpdatePrompt() {
         paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
       }}
     >
-      <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--color-text)' }}>
+      <span style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>
         A new version of Gardnr is available.
       </span>
       <button
         onClick={() => updateServiceWorker(true)}
         style={{
-          background: 'var(--color-primary)', color: '#fff', border: 'none',
-          borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+          background: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', border: 'none',
+          borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 'var(--text-base)', cursor: 'pointer',
         }}
       >
         Update
@@ -57,7 +57,7 @@ export default function PWAUpdatePrompt() {
         aria-label="Dismiss"
         style={{
           background: 'transparent', color: 'var(--color-muted)', border: 'none',
-          cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: '0 4px',
+          cursor: 'pointer', fontSize: 'var(--text-subhead)', lineHeight: 1, padding: '0 4px',
         }}
       >
         ×

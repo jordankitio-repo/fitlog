@@ -44,7 +44,7 @@ Role is set on first login via RolePicker. New users (including OAuth) see RoleP
 - **React 19 + Vite** (JSX, no TypeScript)
 - **react-router-dom** for routing
 - **Chart.js** via react-chartjs-2 (Line, Bar, mixed Chart); `Filler` plugin registered in Dashboard.jsx and ClientView.jsx
-- Styling: **inline styles + a CSS-variable design-system layer** (no Tailwind). Tokens in `index.css` (`--color-*` semantic + per-metric, `--space-*`, `--text-xs…xl` incl. `--text-base`, `--radius`, `--shadow-card`); primitives in **`src/components/ui/`** (`Card`, `Field`/`Textarea`/`Select`, `Pill`, `IconButton`, `Badge` + barrel) alongside `Button`/`Modal`/`ConfirmDialog`/`StatCard`/`SectionHeader`/`Toast`/`EmptyState`. All 5 main pages reference tokens (Jun 16). **Guardrail:** an ESLint `no-restricted-syntax` rule (scoped to those pages in `eslint.config.js`) errors on a raw hex used as a `color:` value. **Never tokenize** chart.js dataset colors / SVG `stroke`/`fill` / `--gw-accent` (canvas + SVG attrs can't read CSS vars) — those stay literal with an inline `eslint-disable`. (See `decisions.md` + `[[design-system]]` memory.)
+- Styling: **inline styles + a CSS-variable design-system layer** (no Tailwind). Tokens in `index.css` (`--color-*` semantic + per-metric; **`--text-*` 10-step size ramp**; **`--weight-normal/medium/semibold/bold`**; **`--space-2…-32`, a numeric scale** with the old `--space-xs…-xl` kept as aliases; `--radius`; `--shadow-card` + **`--shadow-dropdown`**); primitives in **`src/components/ui/`** (`Card`, `Field`/`Textarea`/`Select`, `Pill`, `IconButton`, `Badge` + barrel) alongside `Button`/`Modal`/`ConfirmDialog`/`StatCard`/`SectionHeader`/`Toast`/`EmptyState`. All 5 main pages reference tokens (Jun 16). **Guardrail:** two ESLint `no-restricted-syntax` rules over **all of `src/`** — a raw `fontSize`, and **a raw hex bound to any property OR const** (widened Sep 15 from `key.name='color'`, which a palette keyed by anything else walked straight past). `src/utils/chartTheme.js` is exempt at file level. **No rule yet for weight (135 sites) or spacing (510)** — those land as the closing step of the Dashboard/Log/ClientView migration. **Never tokenize** chart.js dataset colors / SVG `stroke`/`fill` / `--gw-accent` (canvas + SVG attrs can't read CSS vars) — those stay literal with an inline `eslint-disable`. **The full system lives in [`docs/design-system.md`](../docs/design-system.md)** — that file is the canonical reference, not this bullet. `.claude/skills/gardnr-design/SKILL.md` is a loader that auto-fires on UI work and points at it; it deliberately restates nothing, so there is only ever one copy to maintain. (See also `decisions.md` + `[[design-system]]` memory.)
 - **Theming:** dark default + light mode via tokenized CSS-variable ramp. `utils/theme.js` owns the `gardnr-theme` preference (`auto`|`light`|`dark`); resolved value on `<html data-theme>`; `:root[data-theme="light"]` flips the ramp; pre-paint inline script in `index.html`. Chart chrome uses theme-agnostic literals (`utils/chartTheme.js`) because canvas can't read CSS vars. (Full rationale in `decisions.md` → Design & UX.)
 - **Inter** font from Google Fonts; type scale via CSS vars (`--text-xl` … `--text-xs`)
 - **PWA:** `vite-plugin-pwa` (`registerType:'prompt'`, `injectRegister:false`) + service worker; `PWAUpdatePrompt` surfaces updates; build stamp (`__BUILD_TIME__` via Vite `define`) shown in Profile for cache diagnosis. Scrollbar chrome hidden in the installed app via `@media (display-mode: standalone)` (`index.css`).
@@ -103,9 +103,12 @@ src/
     ChatBubble.jsx / ClientChat.jsx — bottom-right messaging; PWAUpdatePrompt.jsx — service-worker update toast
     InfoTip.jsx — portaled, viewport-clamped "i" tooltip; ChartColorToggle.jsx — per-chart plain-colors switch
     ReportBody.jsx — collapses a coach report to a faded preview; tap opens the full report in a blurred-backdrop modal (Dashboard active + archived)
+  hooks/
+    useSessionPolicy.js — coach-tier session caps (30d absolute / 14d idle); see Authentication
   utils/
     passwordValidation.js, styles.js (cardStyle), lockState.js (resolveLockState),
     dateHelpers.js, inviteValidation.js (getInviteBlockReason)
+    inviteErrors.js (maps accept_invitation error symbols → user-facing copy)
     theme.js (day/night), chartTheme.js (CHART literals for canvas), notifyRefresh.js (bell refresh event)
     clientStats.js (computeClientStats/computeClientAlerts — shared by bell + CoachDashboard)
     attentionLevel.js (coach triage), nudgeReason.js (nudge reason), metricBarChart.js, usePlainCharts.js
@@ -177,15 +180,26 @@ supabase/
 - Unique: `(coach_id, client_id)`
 
 **invitations**
-- `id`, `coach_id`, `client_email`, `token`, `status` ('pending'|'accepted'), `account_exists` bool default false, `created_at`
-- `account_exists` is snapshotted at send time (migration `20260614140000`) so the anon Join page can show "sign in to accept" vs "create account" without reading profiles.
+- `id`, `coach_id`, `client_email`, `token`, `status` ('pending'|'accepted'), `account_exists` bool default false, `created_at`, **`expires_at` (default now()+14d), `redeemed_at`** (migration `20260825000000`)
+- **Tokens used to be valid forever** — the table had only `created_at`. `expires_at` + `redeemed_at` (single-use) are now the *only* defenses on redemption, since IP rate limiting was deliberately declined. Live pending invites were backfilled to `created_at + 14 days`.
+- `account_exists` is snapshotted at send time (migration `20260614140000`). **Advisory only since Aug 25** — `redeem-invite` does a live `auth_user_exists()` check, so a stale flag can't misroute the Join page.
 - **Security fix (Jun 15, `20260615000000`):** invitations were previously **world-readable** — a `FOR SELECT USING(true)` policy meant any user (incl. anon) could enumerate the whole table (every invitee email + secret join token). RLS can't scope a SELECT to the query's `token=eq.X` filter. Dropped that policy; the Join page now reads a single invite via the token-gated `get_invitation_by_token` RPC below.
+- **`service_role` still has no table grant, on purpose.** Every read and write goes through a SECURITY DEFINER function (which executes as the table owner), so `redeem-invite` never touches the table directly. Least privilege preserved by doing *less*, not more.
+
+**step_up_challenges** (migration `20260825010000`)
+- `user_id`, `purpose` (check-constrained), `code_hash`, `expires_at`, `consumed_at`, attempt counter. Same shape as `rate_limits`: RLS enabled, **no anon/authenticated policies** — only `service_role` and the SECURITY DEFINER RPCs touch it. Driven by **`issue_step_up(...)`** and **`verify_step_up(...)`** (service_role grant only). Codes are stored as SHA-256 of `"<purpose>:<code>"`, never plaintext. Single-use, 10-min TTL, **dead after 5 wrong attempts** even if the right code arrives later, and re-issuing supersedes the old code + resets the counter.
 
 **RPC `invite_email_status(email)`** (SECURITY DEFINER, migration `20260614140000`)
 - Returns `{id, role}` for an email; granted to `authenticated` only. Lets the coach's invite box detect an existing account despite profiles RLS hiding other users' rows. Reveals nothing beyond id+role.
 
-**RPC `get_invitation_by_token(p_token text)`** (SECURITY DEFINER, migration `20260615000000`)
-- Returns the single `pending` invitation matching the (secret) token; granted to `anon` + `authenticated`. Replaces the dropped world-read policy — you can only fetch an invite if you already hold its token (no enumeration). Used by the anon Join page.
+**RPC `get_invitation_by_token(p_token text)`** (SECURITY DEFINER, migration `20260615000000`; tightened `20260825000000`)
+- Returns the single `pending` invitation matching the (secret) token; granted to `anon` + `authenticated`. Replaces the dropped world-read policy — you can only fetch an invite if you already hold its token (no enumeration). Used by the anon Join page. **Now also requires `expires_at > now()` and `redeemed_at is null`.**
+
+**RPC `accept_invitation(p_token text, p_user_id uuid, p_full_name text)`** (SECURITY DEFINER, migration `20260825000000`)
+- The atomic core of an accept — see Coach–Client System → Invite flow. Two callers: `redeem-invite` as service_role with an explicit `p_user_id` (new account), and the **browser directly** via `supabase.rpc()` once authenticated (existing account), where `p_user_id` falls back to `auth.uid()`. Email match is enforced inside via `auth.jwt() ->> 'email'`, so a signed-in caller passing someone else's `p_user_id` is ignored → `invite_email_mismatch`. Raises a distinct symbol per failure mode (`invite_not_found` / `invite_already_used` / `invite_expired` / `invite_email_mismatch` / `coach_cannot_accept` / `already_coached`) so the Join page can say something useful; `src/utils/inviteErrors.js` maps them to copy.
+
+**RPC `auth_user_exists(p_email text)`** (SECURITY DEFINER, migration `20260825000000`)
+- Live "does this address have an auth account?" for `redeem-invite`. **`service_role` grant only** — it is explicitly *not* executable by `anon`/`authenticated`, which would be an open user-enumeration oracle. Asserted by the test suite, not just by intent.
 
 **notifications** (migration `20260614120000`)
 - `id`, `user_id` (→ auth.users, on delete cascade), `type`, `title`, `body`, `href`, `created_at`, `read_at`
@@ -239,14 +253,50 @@ All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsec
 
 ## Authentication
 
-- Email/password via Supabase Auth
+**Two tiers, deliberately different (Aug 25 2026).** Coaches keep passwords; clients are passwordless by default. The blast radius isn't comparable — a coach account reaches every one of their clients' health data — and the client tier is where adoption is won or lost. Full design + the six recorded decisions: `docs/passwordless-auth-design.md`.
+
+- Email/password via Supabase Auth (coach signup, and any client who opts into one)
+- **Passwordless client invites** — `/join?token=X` → `redeem-invite` mints a session directly for an email with no account; an email that *does* have an account is refused and routed through a 6-digit code. See Coach–Client System → Invite flow.
+- **OTP sign-in** (`Login.jsx`, "Email me a sign-in code instead") — `signInWithOtp({ shouldCreateUser: false })` → `verifyOtp({ type: 'email' })`. This is **load-bearing, not a convenience**: a passwordless client who loses a session has no other door. `shouldCreateUser: false` is mandatory — without it `/login` becomes an open signup that mints accounts from typos and bypasses the role picker. The "code sent" copy is deliberately neutral (identical whether or not the account exists) so the box isn't an account-existence oracle.
+  - **6-digit code, never a magic link**: a link opens in the OS default browser, which is frequently not the browser holding the installed PWA, so the session lands in the wrong place. Requires `{{ .Token }}` in the Supabase email template.
 - Google OAuth via Supabase + Google Cloud Console
   - Redirect URI: `https://mlqaurxefttbqsrllbyj.supabase.co/auth/v1/callback`
   - `redirectTo: window.location.origin` (no trailing slash)
   - Allowlist includes localhost:5173 variants + production URL + `/reset-password`
   - **Currently in testing mode** — only manually-added test users can sign in via Google. Needs Google verification before public launch.
 - New users with `role = null` → RolePicker before main app
-- Password policy: min 8 chars, lower + upper + digit + symbol, via `getPasswordValidationError` — enforced client-side on signup (Login.jsx), change (Profile.jsx), and reset (ResetPassword.jsx, aligned Jun 8 2026; previously a weaker 6-char rule) and in Supabase. Profile.jsx requires current password to change.
+- Password policy: min 8 chars, lower + upper + digit + symbol, via `getPasswordValidationError` — enforced client-side on signup (Login.jsx), change (Profile.jsx), and reset (ResetPassword.jsx, aligned Jun 8 2026; previously a weaker 6-char rule) and in Supabase.
+
+### Step-up re-authentication (Aug 25 2026)
+
+A live session is no longer enough to do something irreversible — the account's *mailbox* has to confirm it. Two mechanisms, each native to its layer:
+
+| Action | Mechanism |
+|---|---|
+| Change/add a password | GoTrue's own reauthentication nonce: `auth.reauthenticate()` → emailed code → `updateUser({ password }, { nonce })` |
+| Delete the account | `step_up_challenges` table + a code emailed via Resend, verified **inside** `delete-account` |
+| Data export | **not gated, deliberately** — it runs entirely in the browser under the user's own RLS, so a prompt would be theatre |
+| Coach offboarding a client | **not gated, deliberately** — reversible and routine; prompts on routine actions train people to click through |
+
+- **`updateUser(attrs, { currentPassword })` was never a check.** `currentPassword` is not a supabase-js option and was silently ignored, so Profile's old "Current password" box authorized nothing — any live session could change the password. The nonce is the actual fix. Enabling **Auth → "Secure password change"** makes the nonce mandatory inside the auth server too, so a modified client can't bypass it.
+- `delete-account` **fails closed**: no valid 6-digit code, no deletion. The browser can't skip the step by not asking.
+
+### Session policy (`src/hooks/useSessionPolicy.js`, wired in `App.jsx`)
+
+| | Absolute cap | Inactivity | Why |
+|---|---|---|---|
+| Client | 90 days (Supabase project setting) | **none** | Own data only, personal device, daily habit *is* the product |
+| Coach | 30 days | 14 days | Blast radius is N clients' health data; they're the payer, friction is tolerable |
+
+Supabase session limits apply **project-wide, not per role**, so the project carries the *client* tier and the tighter coach tier is enforced in the hook — checked on load, on tab focus (the case that matters: a laptop reopened weeks later), and every 5 min while open. The in-app half is client-side and therefore clearable; that's accepted, because the threat model is a lost device, not a coach evading their own timeout, and the Supabase time-box is the backstop a cleared localStorage can't reach past. A policy sign-out writes a reason that `Login.jsx` shows once — without it, a security logout is indistinguishable from a bug and gets reported as one.
+
+**No idle timeout for clients is a decision, not an omission.** Idle timeouts defend unattended *shared terminals* (why they appear in HIPAA/FFIEC guidance). A client on a personal phone behind Face ID isn't that threat, and the timer would only ever fire on the lapsed client `nudge-client` exists to win back.
+
+**Profile also offers "Sign out everywhere"** (`signOut({ scope: 'global' })`) — the control people actually reach for when a device goes missing.
+
+> ⚠️ **Custom SMTP (Resend) in Supabase Auth is a hard go-live blocker.** Default auth email is capped near 4/hour, so **OTP sign-in and the password nonce do not work in production until it's configured.** The deletion code goes through Resend directly and is unaffected.
+
+> **PWA install is a dependency, not a nicety.** Safari ITP evicts localStorage after 7 idle days for *tabs*; installed PWAs are exempt. An uninstalled passwordless client silently logs out weekly.
 
 ---
 
@@ -308,11 +358,32 @@ All tables have RLS **enabled** (verified table-by-table via `pg_class.relrowsec
 
 ## Coach–Client System
 
-### Invite flow
+### Invite flow (passwordless since Aug 25 2026)
+
+The token in the emailed link is a 122-bit random UUID that only ever reached the invitee's inbox, so **holding it already proves control of that mailbox** — the same proof an emailed OTP establishes. We stop discarding that proof and let it buy a session directly, but only one way:
+
+```
+                 ┌─ no account ──► redeem-invite ──► session. Done. One tap.
+  /join?token=X ─┤
+                 └─ account exists ─► 6-digit code ─► accept_invitation() ─► linked.
+```
+
+**That asymmetry is the entire security model.** A forwarded link can *create* an account (bounded by expiry + single-use, and recoverable). It can never *enter* one — that would be account takeover.
+
 1. Coach enters client email in CoachDashboard → creates `invitations` row, then `notify-invite` **emails the join link to that address** (Resend). The copyable link stays on screen as a fallback; a failed/unconfigured send never blocks inviting (Jun 16).
-2. Client clicks link → `/join?token=xxx`. `Join.jsx` validates via `get_invitation_by_token` (RPC) and personalizes with the inviting coach's name via `invite-info` ("<Coach> invited you to Gardnr").
-3. Client signs up or logs in → `Join.jsx` sets `profiles.role = client`, creates `coach_clients` row, then lands on `/` (the client first-run card guides the first log).
-4. Existing users see contextual "you're already a Gardnr user" messaging; existing data preserved
+2. Client clicks link → `/join?token=xxx`. `Join.jsx` validates via `get_invitation_by_token` (RPC — now also filters expired + already-redeemed, so a dead link fails *here* rather than at redemption) and personalizes with the coach's name via `invite-info`.
+3. `Join.jsx` has three modes, all landing on the **same atomic `accept_invitation()` RPC**:
+   - **`accept`** (no session, the common case) — name + one button → `redeem-invite` creates the auth user with **no password**, accepts, and returns a `hashed_token` the browser exchanges for a session via `verifyOtp({ type: 'magiclink' })`. No email is sent.
+   - **`code`** — `redeem-invite` answered `requiresOtp` because the address already has an account. **Nothing was consumed**; the token survives the round trip. Client enters the emailed code, then the browser calls `accept_invitation()` itself as the authenticated user.
+   - **`connect`** — already signed in in this browser: one confirm, same RPC.
+4. A solo user becoming a client gets their Solo Premium sub paused (`pause-solo-subscription`) — only on the paths where an account already existed; a user created seconds ago has nothing to pause.
+
+**`accept_invitation(p_token, p_user_id, p_full_name)`** — one `SECURITY DEFINER` transaction doing *every* database mutation of an accept: claim the token under `SELECT ... FOR UPDATE`, guard (caller isn't a coach, has no active coach), upsert `profiles` with `role='client'`, insert `coach_clients`. This replaced **three sequential client-side writes**, where a tab closed mid-sequence stranded a client with a profile but no coach.
+
+- **The `FOR UPDATE` is load-bearing.** Single-use is the *primary* defense (IP rate limiting was deliberately declined), so the claim must be atomic or two concurrent redeems both win. Guarded by `passwordlessInvite.test.js` test 3, which is verified in both directions — **remove the lock and it fails.**
+- **Never put `role: 'client'` in `user_metadata`.** `handle_new_user` whitelists role to `('coach','solo')` on purpose: client is invite-only and self-serve metadata must never be able to claim it. The trigger stays untouched; `accept_invitation` sets the role as service_role instead.
+- **Crash recovery is self-healing:** if the auth user is created but the accept fails outright, `redeem-invite` deletes the orphan so a retry takes the clean path. If the accept request never *completes* (indeterminate), the user is deliberately left in place — a retry takes the `requiresOtp` branch and finishes through the same RPC, at the cost of one shell account.
+- `invitations.account_exists` (snapshotted at invite time) is now **advisory only** — `redeem-invite` does a live `auth_user_exists()` check, so the flag can no longer go stale and the old signup-error pivot is gone.
 
 ### Relationship
 - Coach sets targets, sends messages, generates reports, writes private notes, reads check-ins, nudges inactive clients
@@ -457,7 +528,9 @@ Single text field per coach-client pair, timestamped prepend on each save. Read-
 
 | Function | Auth | Purpose |
 |---|---|---|
-| `delete-account` | user | Role-aware deletion. Coach: offboard clients → delete data → cancel Stripe + delete subscriptions row → auth delete. Solo/client: cancel Stripe + delete subscriptions row → fetch coach info → delete data → auth delete → send emails (client confirmation; coach notification if applicable) |
+| `delete-account` | user **+ step-up code** (Aug 25) | Role-aware deletion. **Refuses outright without a valid 6-digit `stepUpCode`** (verified via `verify_step_up`, single-use) — and **fails closed**: if the code can't be confirmed, nothing is deleted. Coach: offboard clients → delete data → cancel Stripe + delete subscriptions row → auth delete. Solo/client: cancel Stripe + delete subscriptions row → fetch coach info → delete data → auth delete → send emails (client confirmation; coach notification if applicable) |
+| `redeem-invite` | none — **the invite token IS the credential** (Aug 25) | Passwordless invite accept. Peeks the invite (no mutation) → live `auth_user_exists()` → **account exists**: returns `{ requiresOtp }` and consumes *nothing*; **no account**: admin-creates the user with no password, calls `accept_invitation()`, then `admin/generate_link` returns a `hashed_token` (the endpoint returns the link rather than mailing it, so **no email is sent**). Postgres error symbols are mapped to user-facing copy; "never existed", "already used" and "revoked" all share one message, since they're indistinguishable to a stranger. |
+| `request-step-up` | user (verified in-function) (Aug 25) | Emails a one-time 6-digit code for an irreversible action. Purposes are whitelisted **both here and by a table check constraint**, so a caller can't invent one and get mail sent on our behalf. Code is CSPRNG + rejection-sampled (naive `% 1000000` skews the low end), stored only as a SHA-256 of `"<purpose>:<code>"`, 10-min TTL. **Always sent to the address on the verified JWT**, never one from the request body — otherwise it's an open relay. Rate-limited 5/15min per user, failing *open* (a limiter hiccup must not lock someone out of their own settings). |
 | `check-trial-eligibility` | user | Returns { coach_trial_used, solo_trial_used } from trial_ledger. Called by CoachPaywall on mount. |
 | `nutrition-coach` | user + role (**solo gate defaults OFF — free**) | AI nutrition advice; guarded by a 30/hr rate cap + response cache, not a paywall |
 | `food-search` | user (`verify_jwt`) | Food name search proxying USDA FoodData Central (key server-side). Generic foods only (Foundation/SR Legacy/FNDDS); normalizes to per-100g macros. Uses FDC's **POST** endpoint (GET 400s on URL-encoded commas in `dataType`). Barcode lookups stay on OpenFoodFacts. |
@@ -544,10 +617,31 @@ One command spins a fully self-contained, hosted copy of the app **from any bran
 
 ## Testing
 
-**~111 unit tests** across `src/utils/*.test.js` (pure helpers: lock state, dates, compliance breakdown/summary, attention level + `summarizeRoster`, nudge reason, energy balance, card order, password/invite validation, `meals`, `savedMeals`). Run with `npm test` (watch) / `npx vitest run`. Config in `vite.config.js`; the RLS suite is excluded from the unit run.
+**195 unit tests** across `src/utils/*.test.js` (pure helpers: lock state, dates, compliance breakdown/summary, attention level + `summarizeRoster`, nudge reason, energy balance, card order, password/invite validation, `meals`, `savedMeals`). Run with `npm test` (watch) / `npx vitest run`. Config in `vite.config.js`; the RLS suite is excluded from the unit run.
 
 ### RLS + billing integration harness (`tests/rls/`, Jun 15)
-`npm run rls:setup` boots a **local Supabase stack** (Colima/Docker), loads `supabase/schema/prod_public.sql` (the prod baseline) + post-baseline migrations, then `npm run test:rls` runs **~71 tests** (`vitest --config vitest.integration.config.js`) that exercise **real RLS** as real signed-in users (service-role seeds; anon-key clients carry each user's JWT). Covers tenant isolation across every table (cross-tenant reads return empty; forbidden writes error), coach-private notes, billing invariants (trial-ledger abuse prevention, subscription idempotency), the invitations token-RPC, owner-only saved meals, active-only `day_complete`, and the check-in review RPC + guard trigger. `scripts/seed-demo-roster.mjs` (+ `shoot-roster.mjs`) seeds a realistic demo roster for manual/visual QA (demo coach `demo.coach@gardnr.test`). This harness caught the world-readable-invitations leak and the missing-grant / service-role-guard bugs before they shipped.
+`npm run rls:setup` boots a **local Supabase stack** (Colima/Docker), loads `supabase/schema/prod_public.sql` (the prod baseline) + post-baseline migrations, then `npm run test:rls` runs **136 tests** (`vitest --config vitest.integration.config.js`) that exercise **real RLS** as real signed-in users (service-role seeds; anon-key clients carry each user's JWT). Covers tenant isolation across every table (cross-tenant reads return empty; forbidden writes error), coach-private notes, billing invariants (trial-ledger abuse prevention, subscription idempotency), the invitations token-RPC, owner-only saved meals, active-only `day_complete`, the check-in review RPC + guard trigger, and (Aug 25) the passwordless invite + step-up RPCs.
+
+**Testing a lock requires a direct `pg` connection, not PostgREST** (`tests/rls/env.js` exposes `dbUrl`; `pg` is a devDependency). PostgREST gives every request its own transaction and ends it before responding, so lock/visibility behaviour can't be exercised through the REST API. Two traps, both of which produced a **green test over a broken guarantee** and are worth knowing before writing another one:
+- *Racing N calls through PostgREST proves nothing* — whether the transactions actually overlap is a timing accident. The first version passed against a function with **no locking at all**. Replaced by a pinned interleaving: a direct `pg` connection holds the row mid-claim, the accept is fired, and only then does the holder commit.
+- *supabase-js query builders are lazy thenables* — `const p = admin.rpc(...)` sends nothing until something subscribes, so the call reached the database only at the final `await`, i.e. *after* the commit, and again passed against the unlocked function. The test now calls `.then()` to force dispatch before the sleep.
+
+### Testing the edge FUNCTIONS, not just the RPCs they call (Sep 14)
+
+`redeemInviteFn.test.js` (7) + `stepUpFn.test.js` (9) drive the functions over real HTTP. They need **edge-runtime + inbucket**, which the default stack excludes, so `scripts/rls-local-setup.sh` takes an `EXCLUDES` override:
+
+```bash
+EXCLUDES="vector,analytics,imgproxy,realtime,storage,studio,meta" npm run rls:setup
+```
+
+Both files probe the endpoint first and **skip** (not fail) when it isn't served, so the default run is unaffected. Two things they cover that an RPC test structurally cannot:
+
+- **The session handoff** — that `admin/generate_link`'s `hashed_token` is actually accepted by `verifyOtp({ type: 'magiclink' })`. The entire one-tap invite promise rests on that pairing, and nothing else asserts it.
+- **`delete-account` fails closed** — an HTTP request that simply *omits* the code is refused. "The browser can't skip the step by not asking" is only true if that's tested through the function. Every negative case asserts **the account still exists afterwards**; a gate returning 403 while deleting anyway would pass a status-code-only test. The valid-code case (200, user gone) is what keeps the negatives from passing vacuously.
+
+Not covered, deliberately: **email delivery**. `request-step-up` needs `RESEND_API_KEY`, which a local stack has no business holding — the test asserts a challenge row is issued and stops short of claiming the mail works.
+
+**Rule: a test guarding an atomicity claim must be checked in both directions** — remove the guarantee and watch it fail. `passwordlessInvite.test.js` test 3 and `stepUp.test.js`'s concurrent-consume test both are (re-verified Sep 14 2026: with `for update` stripped from `accept_invitation`, test 3 fails and both callers redeem the same token). `scripts/seed-demo-roster.mjs` (+ `shoot-roster.mjs`) seeds a realistic demo roster for manual/visual QA (demo coach `demo.coach@gardnr.test`). This harness caught the world-readable-invitations leak and the missing-grant / service-role-guard bugs before they shipped.
 
 ### Visual QA (Playwright)
 `scripts/shoot.mjs` and `scripts/shoot-all.mjs` (Playwright + Chromium, devDeps) screenshot real pages at phone + desktop widths using throwaway accounts, then delete them. `shoot-all.mjs` also covers gated screens: a throwaway coach gets a `trialing` `subscriptions` row injected (service-role key from `supabase projects api-keys`) to clear the paywall, and a throwaway client is linked via a **client-token** `coach_clients` insert (service_role has no INSERT grant there — the real path is the client inserting their own row in the Join flow). Run `node scripts/shoot.mjs [baseUrl]` (defaults to local dev; pass `https://www.gardnr.fit` for prod) and read `/tmp/shots/*.png`. **Run after any UI change** — these were built after a sticky-nav bug shipped that only surfaced when actually viewing a scrolled page. For richer (non-empty) screenshots, seed a test account with `test-data.sql` (30 days of solo logs).

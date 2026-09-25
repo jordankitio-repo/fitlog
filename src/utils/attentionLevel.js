@@ -1,6 +1,12 @@
 // Coach attention triage — collapse a client's already-computed facts into a
 // single red / yellow / green level plus the human reasons behind it.
 //
+// Attention is the ROLL-UP lens: it surfaces whoever is worst across ALL three
+// dimensions — logging, compliance, check-in — and names which one. Any of them
+// can reach red. The other lenses each report one dimension for every client;
+// this one reports the worst dimension per client, which is why it is the
+// default and why it does not simply repeat "Last logged".
+//
 // Doctrine (see Ai-context/decisions.md → "No fabricated-confidence numbers"):
 // every signal here is an OBSERVED FACT (days since log, lock state, a check-in
 // that didn't happen, a weak compliance count). There is no score, no percentage,
@@ -23,44 +29,96 @@ const WEAK_COMPLIANCE = 3
 // existing needsAttention threshold).
 const STALE_LOG_DAYS = 4
 
+// Reasons that mean "nothing has been set up to measure against" rather than
+// "this client is slipping". They rank for the coach's attention like a yellow,
+// but they are rendered GREY, because grey is the absence of a grade and there
+// is no grade to give: no target, no scale, no performance to colour.
+// ── The three dimensions ─────────────────────────────────────────────────────
+// Each grades ONE thing for a client and returns { text, tone }. The roster's
+// lenses render these directly; Attention takes the worst of the three. That is
+// the whole relationship, in code rather than in prose: Attention cannot drift
+// from the lenses because it is built out of them.
+//
+// tone: 'red' intervene · 'yellow' watch · 'green' fine · 'setup' nothing to
+// grade against (rendered grey — see the colour rule in the design skill).
+
+// Worst to best. Exported so the roster sorts by exactly the grade it renders:
+// a column and its ordering must never come from two different calculations.
+//
+// Grey sits ABOVE yellow: a dimension nobody can measure is worse than one
+// measuring badly. If a client's compliance is grey and their check-in is
+// yellow, Attention grabs the grey. Red still beats grey, so a client who has
+// not logged in five days outranks one who just needs targets setting.
+export const TONE_RANK = { red: 0, setup: 1, yellow: 2, green: 3 }
+
+export function gradeLogging(s) {
+  // A locked client outranks the day count: the lock is why they stopped.
+  if (s?.lockInfo?.locked) return { text: 'Locked', tone: 'red' }
+  const d = s?.daysSinceLog
+  if (d === null || d === undefined) return { text: 'Never logged', tone: 'red' }
+  if (d >= STALE_LOG_DAYS) return { text: `${d} days no log`, tone: 'red' }
+  if (d >= 2) return { text: `${d} days no log`, tone: 'yellow' }
+  if (d === 1) return { text: 'Logged yesterday', tone: 'green' }
+  return { text: 'Logged today', tone: 'green' }
+}
+
+export function gradeCompliance(s) {
+  const all = s?.complianceItems || []
+  // No targets means no scale, so there is no grade to give — not a failure.
+  // `fix` names the section that resolves this, so the roster can offer it as
+  // an action instead of a dead-end label. Nothing-logged has no `fix`: only the
+  // client can resolve that one.
+  if (!all.length) return { text: 'No targets set', tone: 'setup', fix: 'targets' }
+  const items = all.filter(i => i.hasData)
+  if (!items.length) return { text: 'Nothing logged', tone: 'setup' }
+  // Aggregate, never per-metric: a column showing Calories for one client and
+  // Steps for the next cannot be read down the page.
+  const sum = items.reduce((t, i) => t + i.value, 0)
+  const max = items.length * 7
+  const ratio = sum / max
+  const tone = ratio < WEAK_COMPLIANCE / 7 ? 'red' : ratio < 5 / 7 ? 'yellow' : 'green'
+  return { text: `${sum}/${max} days on target`, tone }
+}
+
+export function gradeCheckin(s) {
+  // red    not submitted — the client owes it
+  // yellow submitted, unreviewed — the coach owes it
+  // green  reviewed — the loop is closed
+  if (!s?.checkIn) return { text: 'No check-in', tone: 'red' }
+  if (!s.checkIn.reviewed_at) return { text: 'Awaiting your review', tone: 'yellow' }
+  return { text: 'Reviewed', tone: 'green' }
+}
+
+// Attention = the worst of the three, and the reasons are every non-green
+// dimension, worst first. Any dimension can reach red, so a client who logs
+// faithfully but hits nothing, or whose check-in period is closing empty, ranks
+// with the clients who stopped logging — which is the point.
 export function attentionLevel(stats) {
-  if (!stats) return { level: 'green', reasons: [] }
+  if (!stats) return { level: 'green', tone: 'green', reasons: [] }
 
-  const { daysSinceLog, checkIn, complianceItems, lockInfo } = stats
+  const graded = [gradeLogging(stats), gradeCompliance(stats), gradeCheckin(stats)]
+    .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone])
 
-  const red = []
-  const yellow = []
-
-  // --- Red: intervene now ---
-  if (daysSinceLog === null) {
-    red.push('Never logged')
-  } else if (daysSinceLog >= STALE_LOG_DAYS) {
-    red.push(`${daysSinceLog} days no log`)
-  }
-  if (lockInfo?.locked) red.push('Locked')
-
-  // --- Yellow: watch (only meaningful if not already red) ---
-  if (daysSinceLog !== null && daysSinceLog >= 2 && daysSinceLog < STALE_LOG_DAYS) {
-    yellow.push(`${daysSinceLog} days no log`)
-  }
-  if (!checkIn) yellow.push('No check-in')
-  const weak = (complianceItems || []).filter(i => i.hasData && i.value < WEAK_COMPLIANCE)
-  weak.forEach(i => yellow.push(`${i.label} ${i.value}/7`))
-
-  if (red.length > 0) return { level: 'red', reasons: red.concat(yellow) }
-  if (yellow.length > 0) return { level: 'yellow', reasons: yellow }
-  return { level: 'green', reasons: [] }
+  const worst = graded[0]
+  const reasons = graded.filter(g => g.tone !== 'green').map(g => g.text)
+  // Carry the winning grade's fix through, so Attention can offer it too.
+  // 'setup' still RANKS as yellow so it does not sink to the bottom with the
+  // greens; only its colour differs.
+  const level = worst.tone === 'green' ? 'green' : worst.tone === 'setup' ? 'yellow' : worst.tone
+  return { level, tone: worst.tone, reasons, fix: worst.fix }
 }
 
 // Sort comparator: red first, then yellow, then green. Within a level, more
 // reasons (more things wrong) ranks higher.
-const LEVEL_RANK = { red: 0, yellow: 1, green: 2 }
-
+// Ordered by TONE, not level. `level` collapses grey into yellow (so a setup gap
+// still counts as needing review in the rollup), which meant the roster sorted a
+// grey and a yellow as equals and fell through to the reason count. Tone keeps
+// them apart: red, then grey, then yellow, then green.
 export function compareByAttention(sa, sb) {
   const a = attentionLevel(sa)
   const b = attentionLevel(sb)
-  const byLevel = LEVEL_RANK[a.level] - LEVEL_RANK[b.level]
-  if (byLevel !== 0) return byLevel
+  const byTone = TONE_RANK[a.tone] - TONE_RANK[b.tone]
+  if (byTone !== 0) return byTone
   return b.reasons.length - a.reasons.length
 }
 

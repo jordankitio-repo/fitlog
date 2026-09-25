@@ -59,49 +59,73 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
 
   if (!open) {
     return createPortal((
-      <button className="chat-launcher" onClick={handleOpen} aria-label="Open messages"
+      /* D2: a control that needs a different SHAPE overrides the shape — it does
+         not get rebuilt. This was a hand-rolled <button>, which meant it had no
+         hover and no pressed state at all (only the global brightness blanket),
+         and it carried a hardcoded `0 4px 16px rgba(0,0,0,0.45)` — a shadow
+         tuned for a near-black ground that smears on the light theme, the same
+         bug the account menu and notification centre already had. As a Button
+         it inherits the hover, the press sink and the timing by construction;
+         only the circle is local. */
+      <Button
+        className="chat-launcher"
+        onClick={handleOpen}
+        ariaLabel="Open messages"
+        variant="primary"
         style={{
-          width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
-          backgroundColor: 'var(--color-primary)', color: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.45)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+          width: '56px', height: '56px', padding: 0,
+          borderRadius: '50%',
+          boxShadow: 'var(--shadow-dropdown)',
+          /* The sheen STAYS. It was suppressed here once, on the reading that a
+             56px circle makes --control-sheen read as a gradient and the system
+             allows gradients only on streak and milestone cards. That was the
+             wrong rule: the ban is on decorative gradients painted onto cards,
+             while --control-sheen IS the control recipe — the top highlight
+             every filled Button in the app already carries. Removing it made
+             this the one filled button without it, which is the inconsistency
+             the conversion was meant to end. */
+        }}
+      >
         <ChatIcon />
         {unread > 0 && (
           <span style={{
-            position: 'absolute', top: -2, right: -2, minWidth: 20, height: 20, padding: '0 5px',
-            borderRadius: 10, backgroundColor: '#f87171', color: '#fff', fontSize: '0.7rem', fontWeight: 700,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--color-bg)',
+            position: 'absolute', top: '-2px', right: '-2px',
+            minWidth: 20, height: 20, padding: '0 var(--space-4)', boxSizing: 'border-box',
+            borderRadius: '999px', backgroundColor: 'var(--color-error)', color: 'var(--color-on-accent)',
+            fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', lineHeight: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid var(--color-bg)',
           }}>{unread}</span>
         )}
-      </button>
+      </Button>
     ), document.body)
   }
 
   return createPortal((
     <div className="chat-panel" style={{
       backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-      borderRadius: 'var(--radius)', boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+      borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <Avatar url={recipientAvatarUrl} name={recipientName} size={28} />
-          <span style={{ fontWeight: 700, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipientName}</span>
+          <span style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-md)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipientName}</span>
         </span>
-        <button onClick={() => setOpen(false)} aria-label="Close messages" style={{ background: 'transparent', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1, padding: '0 4px' }}>×</button>
+        <button onClick={() => setOpen(false)} aria-label="Close messages" style={{ background: 'transparent', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-title)', lineHeight: 1, padding: '0 4px' }}>×</button>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {messages.length === 0 ? (
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>No messages yet. Send one below.</p>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No messages yet. Send one below.</p>
         ) : messages.map(m => {
           const isMe = m.sender_id === currentUserId
           return (
             <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: 4 }}>
-              <div style={{ maxWidth: '80%', backgroundColor: isMe ? 'var(--color-primary)' : 'var(--color-bg)', border: isMe ? 'none' : '1px solid var(--color-border)', borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '10px 14px' }}>
-                <p style={{ fontSize: '0.875rem', lineHeight: 1.5, color: isMe ? '#fff' : 'var(--color-text)' }}>{m.content}</p>
+              <div style={{ maxWidth: '80%', backgroundColor: isMe ? 'var(--color-primary-fill)' : 'var(--color-bg)', border: isMe ? 'none' : '1px solid var(--color-border)', borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '10px 14px' }}>
+                <p style={{ fontSize: 'var(--text-base)', lineHeight: 1.5, color: isMe ? 'var(--color-on-primary-fill)' : 'var(--color-text)' }}>{m.content}</p>
               </div>
-              <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)' }}>{new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
           )
         })}
@@ -110,13 +134,13 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
 
       <div style={{ padding: 12, borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)' }}>
         {sendError && (
-          <p style={{ margin: '0 0 8px', fontSize: '0.8rem', color: 'var(--color-error)' }}>
-            Couldn&apos;t send — check your connection and try again.
+          <p style={{ margin: '0 0 8px', fontSize: 'var(--text-sm)', color: 'var(--color-error)' }}>
+            Couldn&apos;t send. Check your connection and try again.
           </p>
         )}
         <div style={{ display: 'flex', gap: 8 }}>
           <input type="text" placeholder={`Message ${recipientName}...`} value={text} onChange={e => { setText(e.target.value); if (sendError) setSendError(false) }} onKeyDown={e => e.key === 'Enter' && handleSend()}
-            style={{ flex: 1, minWidth: 0, backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.875rem' }} />
+            style={{ flex: 1, minWidth: 0, backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-base)' }} />
           <Button onClick={handleSend} disabled={sending} loading={sending} variant="primary">Send</Button>
         </div>
       </div>

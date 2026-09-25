@@ -4,6 +4,11 @@ import { BrowserMultiFormatReader } from '@zxing/browser'
 // Owns the camera stream end-to-end so it can be released deterministically.
 // The old html5-qrcode version left the MediaStream running on close (black
 // screen until a full refresh) and was unreliable at 1D barcode pickup.
+// Not a themed surface: pure black behind live camera video, which must stay
+// black on both themes.
+// eslint-disable-next-line no-restricted-syntax -- see above
+const SCRIM_BG = '#000'
+
 function BarcodeScanner({ onDetected, onClose }) {
   const videoRef = useRef(null)
   const controlsRef = useRef(null)
@@ -64,7 +69,10 @@ function BarcodeScanner({ onDetected, onClose }) {
       alignItems: 'center', justifyContent: 'center',
       zIndex: 1000, gap: '16px', padding: '20px',
     }}>
-      <p style={{ color: '#fff', fontWeight: 600, fontSize: '1rem', margin: 0 }}>
+      {/* White is literal on purpose: this overlay sits on a 92%-black scrim
+          over live camera video, not on a themed surface. */}
+      {/* eslint-disable-next-line no-restricted-syntax -- on camera scrim, not a themed surface */}
+      <p style={{ color: '#fff', fontWeight: 600, fontSize: 'var(--text-body)', margin: 0 }}>
         Point camera at a barcode
       </p>
       <video
@@ -72,14 +80,15 @@ function BarcodeScanner({ onDetected, onClose }) {
         muted
         playsInline
         autoPlay
-        style={{ width: '100%', maxWidth: '400px', borderRadius: '12px', background: '#000', aspectRatio: '4 / 3', objectFit: 'cover' }}
+        style={{ width: '100%', maxWidth: '400px', borderRadius: '12px', background: SCRIM_BG, aspectRatio: '4 / 3', objectFit: 'cover' }}
       />
       <button
         onClick={handleCancel}
         style={{
+          // eslint-disable-next-line no-restricted-syntax -- on camera scrim, not a themed surface
           backgroundColor: 'transparent', color: '#fff',
           border: '1px solid #fff', borderRadius: '8px',
-          padding: '10px 24px', cursor: 'pointer', fontSize: '1rem', marginTop: '8px',
+          padding: '10px 24px', cursor: 'pointer', fontSize: 'var(--text-body)', marginTop: '8px',
         }}
       >
         Cancel

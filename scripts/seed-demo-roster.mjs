@@ -13,8 +13,14 @@ const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 const PASSWORD = 'Demo!Passw0rd123'
 const COACH_EMAIL = 'demo.coach@gardnr.test'
 
-const dstr = (off) => { const d = new Date(); d.setDate(d.getDate() - off); return d.toISOString().slice(0, 10) }
-const weekSunday = () => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().slice(0, 10) }
+// LOCAL date formatting, never toISOString(). toISOString() converts to UTC, so
+// west of Greenwich an evening run rolls every date forward a day: seeded
+// check-ins landed on week_of 09-14 while the app (which computes the week
+// start locally) looked for 09-13, and every client showed "No check-in"
+// despite having one. The app's own toLocalDateString does exactly this.
+const local = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const dstr = (off) => { const d = new Date(); d.setDate(d.getDate() - off); return local(d) }
+const weekSunday = () => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return local(d) }
 
 async function delUser(email) {
   const { data } = await admin.auth.admin.listUsers({ perPage: 1000 })
@@ -32,15 +38,15 @@ async function makeUser(email, full_name, role) {
 // log = which of the last N days have a nutrition entry; onTarget hits >=90% of
 // targets; weak = logs but well under. Designed to span red / yellow / green.
 const SPECS = [
-  { first: 'Ava',  name: 'Ava — on track',       log: [0, 1, 2, 3, 4, 5, 6], onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Ben',  name: 'Ben — on track',       log: [0, 1, 2, 3, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Cara', name: 'Cara — on track',      log: [0, 1, 2, 4, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Dan',  name: 'Dan — weak macros',    log: [0, 1, 2, 3, 4, 5, 6], onTarget: false, targets: true,  checkIn: true },
-  { first: 'Eve',  name: 'Eve — no check-in',    log: [0, 1, 2, 3, 4],        onTarget: true,  targets: true,  checkIn: false },
-  { first: 'Finn', name: 'Finn — no targets set', log: [0, 1, 2, 3],          onTarget: true,  targets: false, checkIn: true },
-  { first: 'Gia',  name: 'Gia — 3 days quiet',   log: [3, 4, 5],              onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Hugo', name: 'Hugo — 5 days quiet',  log: [5, 6],                 onTarget: true,  targets: true,  checkIn: false },
-  { first: 'Iris', name: 'Iris — never logged',  log: [],                     onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Ava',  name: 'Ava Lindqvist',       log: [0, 1, 2, 3, 4, 5, 6], onTarget: true,  targets: true,  checkIn: true },
+  { first: 'Ben',  name: 'Ben Osei',       log: [0, 1, 2, 3, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
+  { first: 'Cara', name: 'Cara Whitfield',      log: [0, 1, 2, 4, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
+  { first: 'Dan',  name: 'Dan Moreau',    log: [0, 1, 2, 3, 4, 5, 6], onTarget: false, targets: true,  checkIn: true },
+  { first: 'Eve',  name: 'Eve Nakamura',    log: [0, 1, 2, 3, 4],        onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Finn', name: 'Finn Halloran', log: [0, 1, 2, 3],          onTarget: true,  targets: false, checkIn: true },
+  { first: 'Gia',  name: 'Gia Ferrante',   log: [3, 4, 5],              onTarget: true,  targets: true,  checkIn: true },
+  { first: 'Hugo', name: 'Hugo Bennett',  log: [5, 6],                 onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Iris', name: 'Iris Calder',  log: [],                     onTarget: true,  targets: true,  checkIn: false },
 ]
 
 const coachId = await makeUser(COACH_EMAIL, 'Demo Coach', 'coach')

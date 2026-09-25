@@ -16,7 +16,12 @@ cd "$(dirname "$0")/.."
 
 # vector/analytics can't mount the docker socket under Colima; the rest aren't
 # needed for RLS testing. Keep db, auth, rest, kong.
-EXCLUDES="vector,analytics,edge-runtime,functions,imgproxy,inbucket,realtime,storage,studio,meta"
+#
+# Override to bring more of the stack up — testing the edge FUNCTIONS (rather
+# than the RPCs they call) needs edge-runtime + functions, and reading an auth
+# email needs inbucket:
+#   EXCLUDES="vector,analytics,imgproxy,realtime,storage,studio,meta" npm run rls:setup
+EXCLUDES="${EXCLUDES:-vector,analytics,edge-runtime,functions,imgproxy,inbucket,realtime,storage,studio,meta}"
 BASELINE_CUTOFF="20260614140000"   # baseline dump == prod public schema as of this migration
 MIG_DIR="supabase/migrations"
 MIG_HIDE="supabase/.migrations.hidden"

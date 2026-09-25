@@ -15,6 +15,15 @@
   --color-border-strong: #2a2a2a; /* stronger borders, chart gridlines */
   --color-primary: #22c55e;
   --color-primary-dim: rgba(34, 197, 94, 0.12);
+  /* The filled accent SURFACE, split from the accent HUE above because the two
+     roles want opposite things in dark mode. --color-primary has to stay bright
+     to work as TEXT and as a focus ring on a near-black page; at that
+     brightness, poured across a whole button it glares. green-700 reads as
+     unmistakably the same green, sits calmly on #0a0a0a, and takes white type
+     at 5.0:1. In LIGHT these collapse back to one value — there, the brand
+     green is already dark. */
+  --color-primary-fill: #15803d;
+  --color-on-primary-fill: #ffffff;
   --color-text: #f0f0f0;          /* primary text */
   --color-text-dim: #cfcfcf;      /* secondary text */
   --color-muted: #888;            /* muted text */
@@ -24,6 +33,59 @@
      the decorative --color-border which is deliberately faint. */
   --color-control-border: rgba(255, 255, 255, 0.16);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-dropdown: 0 12px 32px rgba(0, 0, 0, 0.5);
+  /* ── Raised control surfaces ──────────────────────────────────────────
+     The recipe both Vercel's and Cloudflare's dashboards use, and the thing
+     that separates a control that feels pressable from a flat outline: a
+     barely-perceptible vertical gradient, a hairline highlight along the top
+     edge, and a 1px drop shadow. Individually invisible; together they read as
+     a physical surface sitting above the page.
+     A transparent button with a 1px border is the "dead" look — and its hover
+     was a literal no-op, because filter: brightness() on transparent changes
+     nothing. */
+  /* Solid colours, not gradients: background-image is a DISCRETE property, so a
+     gradient snaps to its final value the instant a hover starts while the
+     label interpolates over 140ms. The box flashed green and the text caught up
+     afterwards. A solid background-color interpolates, so the whole control
+     arrives together. The vertical sheen lives in --control-sheen, a constant
+     overlay that never changes and therefore never needs to animate. */
+  --control-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 100%);
+  --control-bg: #161616;
+  --control-bg-hover: #1e1e1e;
+  --control-bd: rgba(255, 255, 255, 0.13);
+  --control-bd-hover: rgba(255, 255, 255, 0.22);
+  --control-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --control-shadow-active: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  /* On a filled accent the highlight does the work; the shadow stays soft. */
+  --control-shadow-accent: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* Green-tinted control surface. Same physical recipe as --control-*, washed
+     with the brand colour, for a control that ACTS ON A CLIENT — sends a nudge,
+     sends an invite, opens work that ends in a message to a real person. Plain
+     --control-* stays for navigation, which changes nothing for anybody.
+     Elevation encodes invitation; hue encodes consequence.
+     The hover lift matches --control-bg-hover in LIGHTNESS exactly — only the
+     cast differs, so a green control never lifts harder than a neutral one. */
+  --control-bg-accent: #122619;
+  --control-bg-accent-hover: #19221d;
+  /* Hover label: tracks --color-text in DIRECTION and roughly in luminance, with
+     a green cast. Full-saturation --color-primary darkened the label by 52 while
+     the neutral hover brightened it by 33 — opposite directions, and an 83%
+     chroma jump, which is why the green read far stronger than the grey. */
+  --control-fg-accent-hover: #cbf3d9;
+  /* Red-tinted control surface — the same idea as --control-bg-accent, for a
+     control whose consequence is DESTRUCTIVE rather than just outward-facing.
+     Neutral at rest so a page does not sit there shouting, red the moment you
+     are about to commit. Lightness tracks --control-bg-hover; only the cast
+     differs, so a destructive control never lifts harder than a neutral one. */
+  --control-bg-danger-hover: #281d1d;
+  --control-fg-danger-hover: #fce0e0;
+  /* ── Inset surface — the inverse of --control-* ───────────────────────
+     Controls sit ABOVE the page: gradient, top highlight, drop shadow. This
+     sits BELOW it: a shadow cast inward from the top lip and a faint catch of
+     light along the bottom, which is what a carved recess does. Used where
+     something is MISSING rather than actionable — "No targets set", "Nothing
+     logged" — so absence reads as a hole in the page instead of just grey
+     text. Elevation says press me; recession says nothing is here yet. */
 
   /* Metric data colors — one per tracked dimension */
   --color-calories: #22c55e;
@@ -41,25 +103,93 @@
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-warning-dim: rgba(251, 191, 36, 0.12); /* soft amber fill for attention/nudge cards */
+  /* "Over target" on the compliance scale (on-target/over/under/well-under).
+     success + warning + error covered three of the four buckets; this names the
+     fourth so the scale stops being re-declared as literals at each call site. */
+  --color-over: #fb923c;
+
+  /* ── Compliance heatmap scale ─────────────────────────────────────────
+     Its own steps, not the UI status tokens: a status token has to be legible
+     TYPE on a panel, a heatmap cell has to be separable from the cell beside
+     it. DARK IS UNCHANGED from the original status values — it reads well and
+     the brightness is the point. Stated honestly, it does not fully pass the
+     dataviz checker: `over` #fb923c and `low` #f87171 sit ΔE 10.6 apart under
+     normal vision against a floor of 15, the same red-vs-orange collision that
+     broke light. Every fix for it requires DARKENING one of the two, which
+     costs exactly the pop that makes this scale work on a near-black ground,
+     so it is a known, deliberate trade rather than an oversight. */
+  --compliance-good:  #34d399;
+  --compliance-over:  #fb923c;
+  --compliance-under: #fbbf24;
+  --compliance-low:   #f87171;
   /* Dark mode accents are BRIGHT (green #22c55e, red #f87171), so white text on
      them fails WCAG AA (~2.3:1). Dark text reads ~7:1. Light mode flips this back
      to white (its accents are darker). */
   --color-on-accent: #06240f; /* dark text/icons on a filled accent (primary/error/…) */
 
   --radius: 8px;
-  --space: 16px;
-  --space-xs: 8px;
-  --space-sm: 12px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
+  /* Spacing scale — numeric names, because the value IS the name. The type ramp
+     learned this the hard way: its t-shirt names are NOT size-ordered
+     (--text-base 14px is smaller than --text-body 16px) and need a warning
+     comment to be used safely. A number cannot drift from what it means.
+     The sub-8px steps exist because the reference screen genuinely uses them:
+     2px stacks a name over its email, 6px sets a numeral against its label,
+     10px is control interior. Measured on the roster, not invented. */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
 
-  --text-xl: 1.75rem;
-  --text-lg: 1.25rem;
-  --text-md: 0.9375rem;
-  --text-base: 0.875rem;  /* body default — the single most common size (91x) */
-  --text-sm: 0.8125rem;
-  --text-xs: 0.6875rem;
+  /* Legacy t-shirt aliases — 23 call sites app-wide. Kept so nothing breaks;
+     new code uses the numeric scale above. */
+  --space: var(--space-16);
+  --space-xs: var(--space-8);
+  --space-sm: var(--space-12);
+  --space-md: var(--space-16);
+  --space-lg: var(--space-24);
+  --space-xl: var(--space-32);
+
+  /* Type ramp — the ONLY allowed font sizes. Ten steps, ordered small→large.
+     Six steps (the original ramp) under-served real usage: the codebase had
+     grown 26 distinct raw sizes because 16px, 24px and 32px had no token. That
+     is below every mainstream system (Apple HIG 11 styles, Carbon 12, Material
+     3 15 roles), so the ramp was extended rather than the call sites squeezed.
+     --text-xs is the FLOOR: 11px is Apple HIG's minimum legible size (Material
+     says 12sp). Never ship type smaller than --text-xs.
+     NOTE the names are inherited and are NOT t-shirt-ordered (--text-base 14px
+     is SMALLER than --text-body 16px). Size order is exactly the order below —
+     that listing is the source of truth, not the name. */
+  --text-xs: 0.6875rem;      /* 11px — floor; labels, dot-grid captions */
+  --text-sm: 0.8125rem;      /* 13px — secondary/meta text */
+  --text-base: 0.875rem;     /* 14px — body default, the most common size */
+  --text-md: 0.9375rem;      /* 15px — emphasised body */
+  --text-body: 1rem;         /* 16px — comfortable reading / primary controls */
+  --text-subhead: 1.125rem;  /* 18px — one notch above body: modal/dialog titles,
+                                macro totals, nav brand */
+  --text-lg: 1.25rem;        /* 20px — section headings, stat values */
+  --text-title: 1.5rem;      /* 24px — large stat numerals, plan prices */
+  --text-xl: 1.75rem;        /* 28px — page titles (h1), hero headings */
+  --text-display: 2rem;      /* 32px — display numerals, celebration counts */
+
+  /* Weight ramp — the ONLY allowed font weights, and the axis this system was
+     missing. Size and colour were both tokenised and lint-enforced; weight was
+     not, so it drifted to eight raw values (400/500/600/650/700/800/900) across
+     38 files, and the roster ended up carrying FOUR weights at a single size —
+     more distinctions than a reader can resolve at 13px.
+     Calibrated against dash.cloudflare.com, which runs its entire dashboard on
+     400 and 500 and spends 600 exactly once, on the page title. Nothing there
+     is 700. Weight is the WEAKEST hierarchy signal of the three: reach for size
+     and colour first, and step weight only once those are spent. */
+  --weight-normal: 400;    /* body copy, labels, calm status */
+  --weight-medium: 500;    /* the workhorse: controls, names, row content */
+  --weight-semibold: 600;  /* emphasis: page titles, urgent status, stat values */
+  --weight-bold: 700;      /* reserved for display numerals. Not for UI text. */
 }
 
 /* Light theme — JS sets data-theme="light" on <html> (resolving the auto/system
@@ -67,8 +197,13 @@
    with carbs darkened so the pale tan stays legible on white. */
 :root[data-theme="light"] {
   color-scheme: light;
+  /* A three-step light ramp: page < panel < control. Panels were pure #ffffff,
+     which left a raised control nowhere lighter to go — so on a panel it had to
+     read as DARKER than its backdrop while on the page it read as lighter, and
+     the same button lifted in one place and sank in the other. Taking panels a
+     few points off white restores the direction everywhere. */
   --color-bg: #f4f5f4;
-  --color-surface: #ffffff;
+  --color-surface: #fbfcfb;
   --color-surface-2: #eef0ee;
   --color-border: #e4e6e4;
   --color-border-strong: #d2d5d2;
@@ -78,6 +213,9 @@
      and only raises white-on-primary contrast for filled buttons/pills. */
   --color-primary: #166534;
   --color-primary-dim: rgba(22, 163, 74, 0.13);
+  /* Light needs no split: --color-primary is already green-800. */
+  --color-primary-fill: var(--color-primary);
+  --color-on-primary-fill: #ffffff;
   /* violet-700, not the dark-theme violet-400 #a78bfa: on the light surface the
      AI button's purple text/border was ~2.3:1 (washed out, unreadable). #6d28d9
      clears AA on --color-surface-2. */
@@ -86,23 +224,79 @@
   --color-text-dim: #3b3f45;
   --color-muted: #5f6469;
   --color-faint: #8a9097;
-  --color-carbs: #b3933f;
+  /* ── Metric ramp, LIGHT steps ─────────────────────────────────────────
+     The missing half. These seven were dark-first values with no light
+     override but carbs, so on a light card every one of them failed AA as
+     text — calories 1.62:1, weight 1.87:1, fat 2.20:1, protein 2.69:1 — which
+     is why StatCard's numerals, Log's macro totals and the metric bar charts
+     all had to go neutral or wash out. In dark they clear 4.66–12.6:1, which
+     is exactly why it shipped unnoticed.
+     Each is the 700 step of its own hue, so the colour language stays the same
+     ("green is calories") while actually being readable. Measured as text on
+     the #fbfcfb card: 4.79–6.91:1, all clear of the 4.5 floor. */
+  --color-calories: #15803d;
+  --color-protein: #b91c1c;
+  --color-carbs: #a16207;
+  --color-fat: #c2410c;
+  --color-weight: #047857;
+  --color-cardio: #1d4ed8;
+  --color-steps: #6d28d9;
   /* Light-mode accents are darker, so filled buttons keep WHITE text. */
   --color-on-accent: #ffffff;
   /* Bright dark-mode green/amber/red are low-contrast on white — darken for light. */
   --color-success: #16a34a;
   --color-warning: #b45309;
+  --color-over: #c2410c;   /* orange-700: the bright #fb923c washes out on white */
+  /* Light steps, SELECTED against #fbfcfb rather than flipped. All six checks
+     pass all-pairs; worst normal-vision pair is under↔over at ΔE 15.5, up from
+     4.1. `low` goes to red-800 and `over` to orange-600 so the two reds stop
+     converging, and `under` to amber-500 so it reads as yellow rather than as
+     a second brown. */
+  --compliance-good:  #16a34a;
+  --compliance-over:  #ea580c;
+  --compliance-under: #f59e0b;
+  --compliance-low:   #991b1b;
   --color-warning-dim: rgba(180, 83, 9, 0.10);
   /* red-700: white-on-error (danger buttons) and error text both pass AA on white. */
   --color-error: #b91c1c;
   --color-control-border: rgba(0, 0, 0, 0.18);
   /* Softer, cooler shadow so white cards lift gently instead of looking smudged. */
   --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-dropdown: 0 12px 32px -8px rgba(16, 24, 40, 0.18), 0 2px 6px rgba(16, 24, 40, 0.06);
+  --control-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%);
+  --control-bg: #ffffff;
+  --control-bg-hover: #f4f6f4;
+  --control-bd: rgba(16, 24, 40, 0.15);
+  --control-bd-hover: rgba(16, 24, 40, 0.26);
+  --control-shadow: 0 1px 2px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --control-shadow-active: inset 0 1px 2px rgba(16, 24, 40, 0.12);
+  --control-shadow-accent: 0 1px 2px rgba(16, 24, 40, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --control-bg-accent: #e9f6ed;
+  /* Chroma beats luminance parity HERE. On a near-white panel a green tint held
+     to the neutral hover's exact lightness comes out at ~3% saturation, which is
+     no green at all — the rule made the signal invisible. These carry a real
+     mint cast (~12%) and so darken about twice as far as the neutral hover.
+     Still a light tint, and a signal you can see beats a ratio you cannot. */
+  --control-bg-accent-hover: #d3efdf;
+  /* Light: the neutral label DARKENS (#5f6459 -> #16181c), so the accent label
+     darkens too — deeper than --color-primary, which is too light to match. */
+  --control-fg-accent-hover: #0a3018;
+  /* Same trade as the green: on a near-white panel a red held to the neutral
+     hover's exact lightness washes out, so this carries a real blush. */
+  --control-bg-danger-hover: #fbe4e4;
+  --control-fg-danger-hover: #6b1414;
 }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
+  /* Inter is the PRODUCT UI face; DM Sans (landing.css) is the BRAND face. The
+     split is deliberate, not a leftover — Inter is drawn for interface text at
+     small sizes (tall x-height, disambiguated 1/l/I, real tabular figures),
+     which a numbers-dense tracker needs; DM Sans is a geometric display face
+     that carries the brand on marketing surfaces. Mainstream systems split the
+     same way (Apple SF Pro vs SF Display, Atlassian Charlie Text vs Display,
+     GitHub system-UI vs Mona Sans). Don't "unify" these without re-deciding. */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 1.5;
@@ -110,9 +304,365 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Design-system rows (src/components/ui/Row.jsx). A row is a record inside a
+   Panel: no border, no background, no radius — just a hairline between rows,
+   and none after the last one. */
+.ds-row { border-bottom: 1px solid var(--color-border); }
+.ds-row:last-child { border-bottom: none; }
+
+/* Column header for an aligned row list. Sits in the same grid as the rows, so
+   every label lands directly over its column. */
+.ds-colhead {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.roster-head { padding-top: 10px !important; padding-bottom: 10px !important; }
+/* A sortable column header. It is a real button — a control that reorders the
+   table must look pressable — but it stays at header weight so it never
+   competes with the row content it describes. */
+.ds-sortbtn {
+  /* Hug the label: as a grid child it would stretch to the full column width. */
+  justify-self: start;
+  width: fit-content;
+  background: none;
+  border: none;
+  padding: 0 var(--space-6) 0 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  transition: color 140ms ease;
+}
+/* No fill on hover: a column header is a label first and a control second, and
+   a box appearing behind it drags the eye away from the rows it describes. Only
+   the type and its chevron respond — stronger on hover, strongest while held,
+   back to the resting weight on release. */
+.ds-sortbtn:hover { color: var(--color-text-dim); }
+.ds-sortbtn:active { color: var(--color-text); }
+.ds-sortbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* A status cell that is also an action. Same behaviour as .ds-sortbtn: the type
+   and its chevron carry the interaction, never a fill — this sits inside a data
+   column, and a box here would read as a chip. The chevron is the affordance,
+   matching "Open >". */
+.ds-fixbtn {
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  /* --color-faint, not --color-muted: it shares the column header's exact
+     progression (faint -> dim -> text), so the two interactive bits of type on
+     this screen travel the same distance on hover. Starting at muted landed on
+     the same colour but moved half as far, which read as a weaker response.
+     It also separates this grey — one the coach can act on — from the static
+     grey of "Nothing logged", which nobody can fix from here. */
+  color: var(--color-faint);
+  white-space: nowrap;
+  transition: color 140ms ease;
+}
+.ds-fixbtn:hover { color: var(--color-text-dim); }
+.ds-fixbtn:active { color: var(--color-text); }
+.ds-fixbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; border-radius: 3px; }
+
+/* A group label that is also a disclosure — the "Week of ..." headers in Sent
+   reports. Same rule as .ds-sortbtn: the type and its chevron carry the
+   interaction, never a fill. It rests one step UP the ramp from .ds-sortbtn
+   (text-dim, not faint) because this is a group label at 13px rather than an
+   11px column head, and faint is #555 in dark. Same direction, same
+   destination — stated here so it reads as a decision, not drift. */
+.ds-disclosure {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  background: none;
+  border: none;
+  padding: var(--space-6) 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-align: left;
+  color: var(--color-text-dim);
+  transition: color 140ms ease;
+}
+.ds-disclosure:hover { color: var(--color-text); }
+.ds-disclosure:active { color: var(--color-text); }
+.ds-disclosure:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 3px; }
+/* The chevron rotates rather than swapping glyph: D4 keeps one forward mark,
+   and a rotation is the same mark pointing somewhere else. */
+.ds-disclosure .ds-chev { transition: transform 180ms ease; flex-shrink: 0; }
+.ds-disclosure[aria-expanded="true"] .ds-chev { transform: rotate(90deg); }
+
+/* Roster row — the coach's scanning surface. Columns collapse to a two-line
+   stack below 900px, where a five-column grid stops being scannable. */
+.ds-statcell {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding-right: var(--space-12);
+}
+.ds-statcell + .ds-statcell {
+  padding-left: var(--space-12);
+  border-left: 1px solid var(--color-border);
+}
+/* ui/IconButton. It is D3 rank 4 — no chrome until you touch it — and it was
+   the one control in the set that declared NO hover at all, so the blanket
+   `button:not(.ds-control):hover` fallback styled it: a brightness filter on an
+   already-muted glyph, plus the scale(0.97) press the control system replaced.
+   It now carries `ds-control` and the type-only progression D2 states once:
+   --color-faint -> --color-text-dim on hover -> --color-text while held. That
+   is byte-identical to .ds-sortbtn and .ds-fixbtn on purpose — three controls
+   that respond the same way should not be three implementations of it.
+   No surface fill: rank 4 has no chrome to light, and fading one up from
+   transparent would interpolate through translucent black. */
+.ds-iconbtn { color: var(--color-faint); transition: color 140ms ease; }
+.ds-iconbtn:hover { color: var(--color-text-dim); }
+.ds-iconbtn:active { color: var(--color-text); }
+.ds-iconbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 3px; }
+/* The danger variant grades rather than dims, so it keeps its hue and only
+   travels toward full strength. */
+.ds-iconbtn.ds-iconbtn-danger { color: var(--color-error); opacity: 0.8; transition: opacity 140ms ease; }
+.ds-iconbtn.ds-iconbtn-danger:hover,
+.ds-iconbtn.ds-iconbtn-danger:active { opacity: 1; }
+
+/* Coach-report prose lists (ReportProse). The marker is chrome, so it takes a
+   neutral token and never the text colour — B2. Hanging indent so a wrapped
+   bullet lines up under its own text rather than under the marker, which is
+   the difference between a list and a stack of ragged lines. */
+.rp-list { list-style-position: outside; }
+.rp-list li::marker { color: var(--color-faint); }
+.rp-list ul, .rp-list ol { margin: var(--space-6) 0 0; padding-left: 1.15em; }
+
+/* The client's coach surface: the conversation, full page rather than a bubble
+   pinned to a corner. A2 comfortable — this is something people read and type
+   into. */
+.coach-thread { display: flex; flex-direction: column; gap: var(--space-20); }
+.coach-msgs {
+  display: flex; flex-direction: column; gap: var(--space-12);
+  max-height: 56vh; overflow-y: auto; padding-right: var(--space-4);
+}
+.coach-msg {
+  max-width: 78%; align-self: flex-start;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-12) var(--space-16);
+}
+/* The client's own messages take the accent tint — B2 keeps chrome neutral, and
+   this is the one place hue carries data: WHO said it. Not a second colour per
+   sender, just self vs not. */
+.coach-msg-mine {
+  align-self: flex-end;
+  background-color: var(--color-primary-dim);
+  border-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
+}
+.coach-msg-body { margin: 0; font-size: var(--text-base); line-height: 1.6; white-space: pre-wrap; }
+.coach-msg-when { margin: var(--space-6) 0 0; font-size: var(--text-xs); color: var(--color-muted); }
+.coach-compose { display: flex; flex-direction: column; gap: var(--space-12); align-items: flex-start; }
+
+/* The report reader. A page whose whole job is one column of prose.
+   `margin-inline: auto` is the load-bearing line: left-aligned in a full-width
+   page, a 68ch measure clung to one edge and left most of a wide screen empty,
+   so a short report read as an error state. Centred, that same space is margin.
+   Type steps UP here — leaving the dashboard was the point, and --text-base at
+   a dashboard's density is not a reading size. */
+.rep-reader {
+  max-width: 68ch;
+  margin-inline: auto;
+  padding-block: var(--space-8) var(--space-32);
+}
+.rep-reader-title {
+  font-size: var(--text-xl); font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em; margin: var(--space-24) 0 0;
+}
+.rep-reader-title + .rep-reader-head { margin-top: var(--space-12); }
+.rep-reader-head {
+  display: flex; align-items: center; gap: var(--space-12);
+  margin: var(--space-24) 0;
+  padding-bottom: var(--space-20);
+  border-bottom: 1px solid var(--color-border);
+}
+.rep-reader-prose { font-size: var(--text-body); line-height: 1.75; }
+.rep-reader-prose p { margin-top: var(--space-16); }
+
+/* The next issue, at the foot. A reader who just finished one report is the
+   likeliest person in the app to want another; sending them back to a list to
+   get it is the one thing every archive that works avoids. It also gives the
+   bottom of a short report something to be. */
+.rep-reader-nav {
+  display: flex; justify-content: space-between; gap: var(--space-16);
+  margin-top: var(--space-32); padding-top: var(--space-20);
+  border-top: 1px solid var(--color-border);
+}
+.rep-reader-step {
+  display: flex; align-items: center; gap: var(--space-10);
+  background: none; border: none; padding: var(--space-8) 0; cursor: pointer;
+  font: inherit; text-align: left; color: var(--color-faint);
+  transition: color 140ms ease;
+}
+.rep-reader-step-next { text-align: right; margin-left: auto; }
+.rep-reader-step:hover { color: var(--color-text-dim); }
+.rep-reader-step:active { color: var(--color-text); }
+.rep-reader-step:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 3px; }
+.rep-reader-step > span { display: flex; flex-direction: column; gap: var(--space-2); }
+.rep-reader-step-k {
+  font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase;
+  font-weight: var(--weight-medium);
+}
+.rep-reader-step-v { font-size: var(--text-sm); color: var(--color-text); }
+
+/* A coach report in a LIST — a row you choose, not a document you read here.
+   Reading moved to its own page (/reports/:id), because a long-form report
+   inside a dashboard section can only ever be a teaser: expanding one pushed
+   every chart below it down the page, and collapsed it satisfied nobody.
+
+   Not a card. A list of choices wants rhythm and a hairline; twelve boxes is
+   what made this read as a filing cabinet. */
+.rep-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-12);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-16) 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+/* A divider BETWEEN rows, via adjacency — never `:last-child`, which silently
+   matched every row back when each sat in its own wrapper. */
+.rep-row:first-child { border-top: none; }
+/* The whole row is the target, so it lights a surface rather than only its
+   type (D2: reserve fills for things that are buttons first — this one is).
+   Starts from the panel's own colour, never `transparent`, or the fade
+   interpolates through translucent black. */
+.rep-row:hover { background-color: var(--color-surface-2); }
+.rep-row:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; border-radius: var(--radius); }
+
+/* The coach's own sent list: every report is from the viewer, so there is no
+   sender column and the body starts at the panel edge. */
+.rep-row-nosender { grid-template-columns: minmax(0, 1fr) auto; }
+.rep-row[aria-expanded="true"] .ds-chev { transform: rotate(90deg); }
+.rep-row .ds-chev { transition: transform 180ms ease; }
+
+/* Month separator in the archive. The eyebrow role (A5) — a divider that names
+   itself, not a heading competing with the rows under it. The first one drops
+   its top rule because the card edge is already there. */
+.rep-month {
+  font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-faint); font-weight: var(--weight-medium);
+  margin: var(--space-24) 0 var(--space-4);
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--color-border);
+}
+.rep-month:first-child { margin-top: var(--space-12); padding-top: 0; border-top: none; }
+/* A row directly after a month label starts that month, so it must not draw a
+   second rule under the label. */
+.rep-month + .rep-row { border-top: none; }
+
+.rep-row-body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.rep-row-head { display: flex; align-items: baseline; gap: var(--space-8); }
+/* The row title. When a report has a subject this is it; when it does not, the
+   date takes the slot so the row never loses its lead element. */
+.rep-row-title { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text); }
+.rep-row-when { font-size: var(--text-sm); color: var(--color-muted); }
+.rep-row-unread { font-size: var(--text-xs); color: var(--color-muted); }
+/* One line. The lead IS the summary, so it is cut at the column edge rather
+   than at a character count that would land mid-word. */
+.rep-row-lead {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A StatCell strip that WRAPS. The roster's strip never does — its cells are
+   narrow and fixed — so `.ds-statcell + .ds-statcell`'s border-LEFT was safe
+   there. The consistency strip on My Progress sizes its cells `1 1 160px`, and
+   once they stack that same rule paints a vertical hairline down the left of a
+   cell with nothing beside it: a rule separating a thing from the margin.
+   Below the wrap point the divider turns horizontal, which is what a stacked
+   list wants. The breakpoint sits just ABOVE where three 160px cells stop
+   fitting, so there is no in-between state that wraps to two columns and keeps
+   the vertical rule. */
+.ds-statstrip { display: flex; flex-wrap: wrap; row-gap: var(--space-16); }
+@media (max-width: 620px) {
+  .ds-statstrip { display: block; }
+  .ds-statstrip .ds-statcell { padding-right: 0; }
+  .ds-statstrip .ds-statcell + .ds-statcell {
+    padding-left: 0;
+    border-left: none;
+    margin-top: var(--space-16);
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+@media (max-width: 900px) {
+  .roster-row { grid-template-columns: 1fr auto !important; row-gap: 10px !important; }
+  .roster-row > :nth-child(2) { grid-column: 1 / -1; }
+  .roster-row > :nth-child(3) { grid-column: 1; }
+  .roster-row > :nth-child(4) { grid-column: 2; justify-self: end; }
+  .roster-row > :nth-child(5) { grid-column: 1 / -1; justify-content: flex-start !important; }
+}
+
+/* Skip link — off-screen until focused, then pinned top-left over the nav. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -64px;
+  z-index: 5000;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: var(--color-primary);
+  color: var(--color-on-accent);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  transition: top 120ms ease;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* Tabular (monospaced-width) figures. Required on any number that sits in a
+   column, updates in place, or is compared against a sibling — stat values,
+   macro rows, tables, timers, compliance grids. Proportional figures make those
+   jitter and mis-align as digits change. Prose keeps the default figures. */
+.tnum,
+.stat-card-value,          /* StatCard's big value */
+table,
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
 h1 {
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.02em;
   line-height: 1.2;
   margin: 0;
@@ -120,7 +670,7 @@ h1 {
 
 h2 {
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: -0.01em;
   line-height: 1.4;
   margin: 0;
@@ -138,8 +688,20 @@ html, body, #root {
   max-width: 100vw;
 }
 
-/* Hover states */
-button:not(:disabled):hover {
+/* Hover states — the BLANKET fallback, for a plain <button> that has no styling
+   of its own. Anything carrying `ds-control` declares its own hover and press
+   and must be excluded, because this rule does two damaging things to a
+   designed control:
+     1. It stacks `filter: brightness(1.08)` on top of a hover colour that was
+        chosen and measured, so the rendered colour is not the one specified.
+     2. It declares `transition: filter` INSIDE the :hover state, which REPLACES
+        the component's own transition list for as long as the cursor is over
+        it. Measured on the Feedback item before the fix: at hover+20ms the
+        background had already snapped to its final value with no easing while
+        only the filter animated, and at leave+20ms the filter had snapped back
+        to none while only the background eased. The fill jumped in and the
+        brightness jumped out. That is the "glitchy hover". */
+button:not(:disabled):not(.ds-control):hover {
   filter: brightness(1.08);
   transition: filter 0.15s ease;
 }
@@ -149,14 +711,63 @@ a:hover {
   transition: opacity 0.15s ease;
 }
 
-/* Focus states */
+/* Select chevron — ours, not the OS's.
+   `padding-right` does NOT move a native select's arrow: Chrome places it at a
+   fixed inset from the BORDER and padding only pushes the text, which is why
+   widening the padding left the glyph just as wedged. The only way to control
+   it is to suppress the native arrow and paint our own.
+   Doing it here rather than in ui/Select reaches all twelve selects in the app,
+   eleven of which are raw <select> elements on pages not yet migrated — and it
+   retires twelve OS-font glyphs in favour of the same chevron the icon set
+   uses everywhere else (the ▶/▼ problem again, in a different costume).
+   The stroke is a literal per theme because a background-image SVG cannot read
+   `currentColor` or a CSS variable; both values ARE --color-muted. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-12) center;
+  background-size: 16px 16px;
+  /* !important for the same reason as the focus border below: controlStyle
+     sets `padding` as an INLINE style, which beats any stylesheet rule, so
+     without this the label would run under the chevron. */
+  padding-right: var(--space-32) !important;
+}
+:root[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6469' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* Focus states.
+   The glow that used to live here — `box-shadow: 0 0 0 2px rgba(34,197,94,.2)`
+   — was three problems in one line. It fired on `:focus`, so merely CLICKING a
+   dropdown lit it up, when a mouse user already knows what they clicked. It
+   was a halo where a border would do. And the rgba was the DARK-mode green
+   hardcoded, so on the light theme the halo was a different green from the
+   border it surrounded — the same unthemed-literal bug found in
+   ComplianceBreakdown and the Sent-reports pill.
+   What replaces it: the BORDER alone, which is what Cloudflare's focused field
+   does. No outer ring either — browsers treat :focus-visible as always-on for
+   a field that accepts typing, so a ring would come back on every mouse click,
+   which is the behaviour being removed. A full-perimeter border going from
+   --color-border to the brand green is a large, high-contrast change and
+   carries WCAG 2.4.7 on its own. */
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--color-primary) !important;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  /* NEUTRAL, not brand green. A browser matches :focus-visible on anything you
+     can type into even when you reached it with a mouse, so a green border here
+     is unavoidable-on-click by design — it fired every time you opened a
+     dropdown and read as the app flashing at you. Green is the action colour;
+     "this field has the caret" is not an action. A step up the neutral border
+     ramp is what Cloudflare's focused field does, and it still satisfies
+     WCAG 2.4.7 as a full-perimeter change.
+     !important is load-bearing: controlStyle sets `border` as an INLINE style,
+     which beats any stylesheet rule. Drop it and fields lose focus indication
+     entirely — verified by doing exactly that. */
+  border-color: var(--color-border-strong) !important;
+  transition: border-color 140ms ease;
 }
 
 /* Visible keyboard focus for every interactive control (WCAG 2.4.7). Scoped to
@@ -192,8 +803,10 @@ summary:focus-visible {
   }
 }
 
-/* Button press */
-button:not(:disabled):active {
+/* Button press — same blanket, same exclusion. A designed control sinks its
+   surface (--control-shadow-active + 0.5px); scaling the whole element to 0.97
+   on top of that is a second, louder press animation fighting the first. */
+button:not(:disabled):not(.ds-control):active {
   filter: brightness(0.95);
   transform: scale(0.97);
   transition: filter 0.1s ease, transform 0.1s ease;
@@ -221,8 +834,17 @@ nav a:hover {
 .gnav-link {
   display: inline-flex;
   align-items: center;
+  /* A soft rounded RECTANGLE, the same 8px as `.gnav-util` beside it in this
+     bar and `.cv-rail-item` in the coach's sidebar. It was a 999px capsule, and
+     that put TWO shapes for the same kind of thing in one top bar: the nav
+     links were capsules while the Feedback button and the bell three pixels to
+     their right were squircles. The rule .gnav-util already states is the one
+     that governs here — 999px is the app's shape for a control you press
+     REPEATEDLY (sort chips, cadence toggles, ui/Pill), and a destination you
+     navigate to is not that. The coach side was already right, which is why
+     the mismatch only showed on a client's bar. */
   padding: 7px 13px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   color: var(--color-muted);
   text-decoration: none;
   font-size: var(--text-sm);
@@ -259,6 +881,19 @@ nav a:hover {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 .gnav-menu-item:hover { background-color: var(--color-surface-2); }
+
+/* Destructive menu item. Signing out is the one action here you can't undo with
+   a click, so it reads in the error colour and sits below a rule — the pattern
+   every account menu uses, and the reason you never hit it by accident. */
+.gnav-menu-item.danger { color: var(--color-error); }
+.gnav-menu-item.danger:hover {
+  background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+.gnav-menu-sep {
+  height: 1px;
+  background: var(--color-border);
+  margin: 6px -6px;
+}
 .gnav-menu-item.active { color: var(--color-primary); font-weight: 600; }
 
 /* Mobile bottom tab bar (Cronometer-style): primary nav pinned to the bottom
@@ -288,7 +923,7 @@ nav a:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: var(--space-6);
   min-height: 60px;
   padding: 8px 4px;
   color: var(--color-muted);
@@ -312,7 +947,7 @@ nav a:hover {
 .gnav-tab.active { color: var(--color-primary); }
 .gnav-tab.active .gnav-tab-pill { background-color: var(--color-primary-dim); }
 .gnav-tab-label {
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;
@@ -338,14 +973,14 @@ button, a, input, select, textarea {
   transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.btn:hover:not(:disabled) {
-  filter: brightness(1.12);
-}
-
-.btn:active:not(:disabled) {
-  filter: brightness(0.95);
-  transform: scale(0.97);
-}
+/* The `.btn` brightness/scale pair that used to live here is GONE. Button.jsx
+   describes it in the past tense — "the old code had a single filter:
+   brightness(1.12) hover" — but only the JS half was ever removed, so for every
+   release since, each variant's measured hover colour was being rendered 12%
+   brighter than specified and each press ran scale(0.97) on top of the 0.5px
+   surface sink the ladder defines. Two press animations, and a colour system
+   whose numbers described the spec rather than the screen.
+   Button declares its own hover and press; nothing belongs here. */
 
 /* Page fade-in */
 @keyframes fadeIn {
@@ -379,19 +1014,23 @@ button, a, input, select, textarea {
 .today-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  gap: var(--space-16);
 }
 @media (max-width: 600px) {
   .today-stats-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: var(--space-8);
   }
+  /* A3: was `11px 13px`, two numbers that appear nowhere else in the app and on
+     no step of the scale. It only rendered below 600px, which is why every
+     desktop measurement of this page came back clean. Nearest steps, and the
+     ratio the tighter cell wanted is preserved. */
   .today-stats-grid .stat-card {
-    padding: 11px 13px !important;
+    padding: var(--space-10) var(--space-12) !important;
     min-height: 0 !important;
   }
   .today-stats-grid .stat-card-value {
-    font-size: 1.4rem !important;
+    font-size: var(--text-title) !important;
   }
 }
 
@@ -469,14 +1108,22 @@ button, a, input, select, textarea {
   .chat-launcher { bottom: 16px; right: 16px; }
 }
 
-/* Groundwork action tiles */
-.gw-tile { transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
+/* Groundwork action tiles — the two large AI actions on ClientView.
+   D2: hover lights the SURFACE, never the border. This used to brighten the
+   border to --gw-accent and lift the card 2px on a hardcoded near-black
+   shadow, which was both the one rule every other control had stopped
+   breaking and a shadow that smeared on the light theme. */
+.gw-tile { transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
 .gw-tile:hover:not(:disabled) {
-  border-color: var(--gw-accent, var(--color-muted));
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background-color: var(--control-bg-hover);
+  box-shadow: var(--shadow-card);
 }
-.gw-tile:active:not(:disabled) { transform: translateY(0); }
+/* Pressed sinks, like every other control. */
+.gw-tile:active:not(:disabled) {
+  box-shadow: var(--control-shadow-active);
+  transform: translateY(0.5px);
+}
+.gw-tile:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .gw-icon { transition: transform 0.15s ease; }
 .gw-tile:hover:not(:disabled) .gw-icon { transform: scale(1.06); }
 .gw-tilewrap { position: relative; }
@@ -490,7 +1137,7 @@ button, a, input, select, textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 9px 12px;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: var(--color-muted);
   line-height: 1.45;
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
@@ -506,6 +1153,8 @@ button, a, input, select, textarea {
 .info-tip-mark {
   width: 14px; height: 14px; border-radius: 50%;
   border: 1px solid var(--color-border); color: var(--color-muted);
+  /* 9px is below the --text-xs text floor ON PURPOSE: this is the "i" glyph
+     centred in a 14px icon circle, not body text. The floor governs text. */
   font-size: 9px; font-weight: 700; font-style: normal; line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
@@ -517,57 +1166,258 @@ button, a, input, select, textarea {
   width: max-content; max-width: 300px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius); padding: 10px 12px;
-  font-size: 0.72rem; line-height: 1.5; color: var(--color-muted);
+  font-size: var(--text-xs); line-height: 1.5; color: var(--color-muted);
   font-weight: 400; text-transform: none; letter-spacing: normal; text-align: left;
   white-space: pre-line; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
   pointer-events: none; z-index: 3000;
 }
 
-/* Nudge button (client header) */
-.nudge-btn { transition: border-color 0.15s ease, background-color 0.15s ease; }
-.nudge-btn:hover:not(:disabled) {
-  border-color: var(--color-muted);
-  background-color: var(--color-bg);
+/* Top-bar utility item — Feedback, and anything else that joins it up there.
+   NOT a button: the top bar is chrome you leave from, and a raised control in
+   it competes with the one real action on the page. Label + glyph that darken
+   on hover, which is the same type-only progression .ds-sortbtn uses. */
+.gnav-util {
+  display: inline-flex; align-items: center; gap: var(--space-8);
+  border: none; cursor: pointer;
+  font: inherit; font-size: var(--text-sm); font-weight: var(--weight-medium);
+  color: var(--color-muted);
+  /* A soft rounded RECTANGLE, not a capsule. A 999px pill is the app's shape
+     for a control you press repeatedly — sort chips, cadence toggles — and it
+     hugged this label so tightly that the hover read as a stray lozenge rather
+     than a target you were pointing at. Cloudflare's Ask AI / Support use the
+     same 8px rectangle with real padding, which is what makes their hover feel
+     like a region rather than an outline. */
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius);
+  /* Rest is the BAR's own colour, not `transparent`. A transparent start is
+     rgba(0,0,0,0), so the fade to an opaque grey interpolates through
+     translucent BLACK and the hover arrives as a smear rather than a
+     brightening. Two opaque colours interpolate cleanly. */
+  background-color: var(--color-surface);
+  transition: color 140ms ease, background-color 140ms ease;
 }
+/* Icon-only variant — the notification bell. Square slot, no label, but the
+   SAME rest colour, hover colour, hover fill, radius and timing, because it
+   sits in the same bar and is the same kind of thing. It previously had no
+   hover of its own at all and was living off the global button brightness
+   blanket, so next to Feedback it barely moved. */
+.gnav-util--icon {
+  width: 38px; height: 38px; padding: 0; justify-content: center;
+}
+.gnav-util:hover { color: var(--color-text); background-color: var(--color-surface-2); }
+.gnav-util:active { color: var(--color-text); }
+.gnav-util:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 /* ClientView section rail — desktop in-page nav (mobile = unchanged stack) */
-.cv-main { display: flex; flex-direction: column; gap: 24px; }
+/* These two pages own their layout (App.jsx `ownsLayout`), so <main> supplies
+   no padding and the content column supplies its own — at every width, since
+   the rail is desktop-only. The generous bottom clearance is for the client
+   chat FAB, which used to be handled by <main>. */
+.cv-main {
+  display: flex; flex-direction: column; gap: var(--space-24); min-width: 0;
+  padding: var(--space-24) var(--space-16) 96px;
+}
 /* Title row mirrors the rail grid on desktop so "← Back" sits over the rail and
    the client name lines up with the content column; plain flex on mobile. */
-.cv-titlerow { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.cv-titlerow { display: flex; align-items: flex-start; gap: var(--space-16); flex-wrap: wrap; }
 .cv-rail { display: none; }
 @media (min-width: 1024px) {
   /* gap:0 on purpose — spacing comes from the rail's padding-right + content's
      padding-left, so the divider (cv-main's full-height left border) sits with
      equal breathing room on each side, like the Vercel/Stripe sidebars. */
-  .cv-shell, .cv-titlerow { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 0; align-items: start; }
+  .cv-shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 0; align-items: start; }
   .cv-rail {
-    display: block; position: sticky; top: 88px; align-self: start;
-    max-height: calc(100vh - 104px); overflow-y: auto; padding-right: 32px;
+    /* A real sidebar: flush to the viewport's left edge, running the full
+       height beneath the nav, with ONE edge (its right border) separating it
+       from the content. This is the shape Vercel and Cloudflare both use, and
+       the reason theirs read as navigation while a centred version reads as a
+       floating card — a sidebar is part of the window's chrome, not an element
+       sitting on the page.
+       Full-height also earns back the bottom-pinned group: in a panel that
+       hugged its content that pin created a dead band, but the foot of a
+       full-height sidebar is exactly where Vercel parks its user row. */
+    display: flex; flex-direction: column;
+    position: sticky; top: 56px; align-self: start;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+    background-color: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    padding: var(--space-16) var(--space-12);
   }
-  .cv-main { border-left: 1px solid var(--color-border); padding-left: 32px; }
-  .cv-titlerow > :nth-child(2) { padding-left: 32px; }
+  /* The rail draws its own edge now, so the content column stops drawing one
+     for it — two lines for one boundary. Left-aligned with a cap rather than
+     centred: a sidebar layout reads from the rail rightwards, and re-centring
+     the content in the leftover space reopens the gap the sidebar just closed. */
+  .cv-main { padding: var(--space-24) var(--space-32) 96px; max-width: 1480px; }
 }
 
 /* Rail nav items — hover highlight follows the cursor; the green selected state
    (driven by scroll-spy / a click) stays put. .is-active is ordered after :hover
    so the selected item keeps its highlight while hovered. */
+/* Groups. The gap ABOVE a group label is what makes the structure visible
+   without a divider — 20px between groups against 2px between rows inside one.
+   Cloudflare's sidebar runs the same contrast, and it is why theirs reads as
+   organised at a glance while a flat list of 13 reads as a wall. */
+/* The way out. Sits above everything, with real air under it — it is not one
+   of the jump targets and must not scan as one. */
+.cv-rail-back {
+  display: flex; align-items: center; gap: var(--space-6);
+  width: 100%;
+  background: none; border: none; cursor: pointer; font: inherit;
+  font-size: var(--text-base); font-weight: var(--weight-medium);
+  color: var(--color-faint);
+  padding: var(--space-8) var(--space-12);
+  min-height: 40px;
+  border-radius: var(--radius);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+/* The rule under the way-out lives on a WRAPPER, never on the button.
+   Carrying the divider and the hover fill on one element meant the fill's
+   bottom edge WAS the line — the hover block sat on it instead of near it,
+   which reads as a rendering fault rather than a boundary. The wrapper owns
+   the rule and the clearance; the button owns its own hover and keeps all
+   four corners rounded, with 12px of daylight between the two. */
+.cv-rail-head {
+  padding-bottom: var(--space-12);
+  margin-bottom: var(--space-12);
+  border-bottom: 1px solid var(--color-border);
+}
+.cv-rail-back:hover { color: var(--color-text); background: var(--color-surface-2); }
+.cv-rail-back:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.cv-rail-group + .cv-rail-group { margin-top: var(--space-24); }
+/* Reference block at the foot of the rail. Takes the column's slack, so the
+   nav sits under the head and this sits just above the pinned group. */
+.cv-rail-footer { margin-top: auto; padding-top: var(--space-24); }
+/* With a footer present the pinned group follows it directly — two `auto`
+   margins in one flex column would split the slack and strand the footer
+   halfway up. */
+.cv-rail-footer ~ .cv-rail-group.is-pinned { margin-top: var(--space-12); }
+
+/* Label / value pairs. No border and no fill: the rail is already a surface,
+   and a card here would be a panel inside a panel. The value column is tabular
+   and right-aligned so the digits stack. */
+.cv-railstats { margin: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.cv-railstat {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-12);
+}
+.cv-railstat dt { font-size: var(--text-sm); color: var(--color-muted); }
+.cv-railstat dd {
+  margin: 0; font-size: var(--text-sm); font-weight: var(--weight-medium);
+  color: var(--color-text-dim);
+}
+
+/* The empty state is an action, and it is a type-only control, so it runs the
+   same faint -> dim -> text progression as .ds-sortbtn and .ds-fixbtn. */
+.cv-rail-settargets {
+  display: inline-flex; align-items: center; gap: var(--space-6);
+  background: none; border: none; cursor: pointer; font: inherit;
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
+  color: var(--color-faint);
+  padding: var(--space-6) var(--space-12);
+  transition: color 140ms ease;
+}
+.cv-rail-settargets:hover { color: var(--color-text-dim); }
+.cv-rail-settargets:active { color: var(--color-text); }
+.cv-rail-settargets:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 3px; }
+
+/* The admin group: follows the nav directly, fenced off by a rule rather than
+   shoved to the viewport floor. Cloudflare parks "Manage account" exactly here
+   — straight after the last nav item, behind a divider — and that reads as a
+   different KIND of destination without needing an arbitrary gap to say so. */
+.cv-rail-group.is-pinned {
+  margin-top: auto;
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--color-border);
+}
+.cv-rail-grouplabel {
+  /* Sentence case, not tracked uppercase. An uppercase letter-spaced eyebrow
+     shouts as loudly as the items it introduces; this has to sit underneath
+     them. The left inset matches the items' padding exactly, so labels and
+     rows share one edge — a label at a different indent is most of what made
+     the column look assembled by hand. */
+  margin: 0 0 var(--space-8) var(--space-12);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-faint);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.cv-rail-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: var(--space-6);
+}
+
 .cv-rail-item {
   width: 100%; text-align: left; cursor: pointer; font-family: inherit;
-  display: flex; align-items: center; gap: 10px;
-  background: transparent; border: none; border-left: 2px solid transparent;
-  color: var(--color-muted); padding: 8px 12px;
-  border-radius: 0 var(--radius) var(--radius) 0;
-  font-size: var(--text-sm); font-weight: 500;
+  display: flex; align-items: center; gap: var(--space-10);
+  background: transparent; border: none;
+  color: var(--color-muted);
+  /* Sidebar density, NOT table density. These started at the 30px control
+     height the roster's buttons use, which is right for a row of controls above
+     a dense table and far too tight for a standing navigation column — 15 rows
+     at 30px with a 2px gap packed into the top third of a full-height sidebar
+     and read as crammed. Vercel and Cloudflare both run ~36-40px rows here.
+     A sidebar row is a destination you read, not a control you aim at in a
+     grid, so it gets its own height. */
+  padding: var(--space-8) var(--space-12);
+  min-height: 40px;
+  border-radius: var(--radius);
+  font-size: var(--text-base); font-weight: var(--weight-medium);
   transition: color 0.12s ease, background-color 0.12s ease;
 }
-.cv-rail-item svg { flex-shrink: 0; opacity: 0.85; }
-.cv-rail-item.is-active svg { opacity: 1; }
-.cv-rail-item:hover { background: var(--color-surface-2); color: var(--color-text); }
-.cv-rail-item.is-active {
-  background: var(--color-primary-dim); border-left-color: var(--color-primary);
-  color: var(--color-text); font-weight: 600;
+.cv-rail-icon { flex-shrink: 0; opacity: 0.8; }
+.cv-rail-label {
+  /* Takes the slack so the meta value is flush right and every value in the
+     rail lands on ONE x-position — the thing that makes a column scannable. */
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* The right-hand value. Tabular so digits line up down the column, and it never
+   competes with the label it belongs to. */
+.cv-rail-meta {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-faint);
+}
+/* Graded exactly like the roster's status column, so "due" means the same thing
+   in the rail as it does on the page. */
+.cv-rail-meta[data-tone="warning"] { color: var(--color-warning); font-weight: var(--weight-medium); }
+.cv-rail-meta[data-tone="error"]   { color: var(--color-error);   font-weight: var(--weight-medium); }
+.cv-rail-meta[data-tone="success"] { color: var(--color-success); }
+
+.cv-rail-item:hover { background: var(--color-surface-2); color: var(--color-text); }
+.cv-rail-item:hover .cv-rail-icon { opacity: 1; }
+.cv-rail-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+/* Active is COLOUR ONLY — no fill, no weight change.
+   This rail is not the sidebar it looks like. Vercel's and Cloudflare's mark
+   which ROUTE you are on, so their block of grey is placed once and then sits
+   still. Ours is an in-page table of contents driven by scroll-spy, so the
+   marker re-targets continuously as you read: a filled block slides down the
+   column the entire time the page is moving, and the eye tracks it instead of
+   the content. Borrowing their visual language for a different mechanism is
+   what made it restless.
+   A filled marker belongs to the POINTER (hover), which the reader is driving.
+   A scroll-driven marker has to be quiet, which is why documentation TOCs mark
+   the active anchor with type alone.
+   Weight deliberately does NOT change: medium -> semibold re-advances the
+   glyphs, so each row would subtly reflow as the marker passed over it, and a
+   column of labels twitching in sequence is the jitter this is meant to end.
+   Colour and icon opacity carry it; both animate without moving anything.
+   (`.gnav-tab-pill` keeps its brand tint — that is the MOBILE tab bar, where
+   the marker is route-driven and stationary, and a tinted active tab is the
+   platform convention on both iOS and Android.) */
+.cv-rail-item.is-active {
+  /* No `background` declared AT ALL, deliberately. This rule sits after
+     :hover, so setting even `transparent` here would win and the active row
+     would be the one row in the rail that stopped responding to the pointer. */
+  color: var(--color-text);
+}
+.cv-rail-item.is-active .cv-rail-icon { opacity: 1; }
 
 /* ─── Coach paywall (pw-) ──────────────────────────────────────────────────
    Trial / subscribe screen. Namespaced, token-driven, both themes via tokens,
@@ -618,14 +1468,14 @@ button, a, input, select, textarea {
 .pw-plan:hover { border-color: var(--color-border-strong); transform: translateY(-2px); }
 .pw-plan.selected { border-color: var(--color-primary); background: var(--color-primary-dim); }
 .pw-plan-badge {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.01em;
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.01em;
   padding: 2px 8px; border-radius: 999px; margin-bottom: 7px; white-space: nowrap;
 }
 .pw-plan-badge.solid { background: var(--color-primary); color: var(--color-on-accent); }
 .pw-plan-badge.soft { background: var(--color-primary-dim); color: var(--color-primary); }
 .pw-plan-badge.ghost { visibility: hidden; }
 .pw-plan-name { font-size: var(--text-sm); color: var(--color-muted); }
-.pw-plan-price { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.pw-plan-price { font-size: var(--text-title); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
 .pw-plan-period { font-size: var(--text-xs); color: var(--color-muted); }
 .pw-plan-permo { font-size: var(--text-xs); font-weight: 700; color: var(--color-primary); min-height: 14px; }
 .pw-features { list-style: none; margin: 0 0 var(--space-lg); padding: 0; display: grid; gap: 11px; }

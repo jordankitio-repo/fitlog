@@ -9,11 +9,21 @@ const OUT = '/tmp/shots'
 import { mkdirSync } from 'node:fs'
 mkdirSync(OUT, { recursive: true })
 
-const env = Object.fromEntries(
-  readFileSync(new URL('../.env', import.meta.url), 'utf8')
-    .split('\n').filter((l) => l.includes('=')).map((l) => {
-      const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^"|"$/g, '')]
-    }))
+function readEnv(name) {
+  try {
+    return Object.fromEntries(
+      readFileSync(new URL(`../${name}`, import.meta.url), 'utf8')
+        .split('\n').filter((l) => l.includes('=') && !l.trim().startsWith('#')).map((l) => {
+          const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^"|"$/g, '')]
+        }))
+  } catch { return {} }
+}
+// Mirror vite's precedence: .env.local overrides .env. Without this the APP
+// talks to the local stack (via .env.local) while the cleanup below fired an
+// authenticated delete at whatever .env names — i.e. PRODUCTION — using a local
+// token. That returned 500 rather than deleting anything, but a throwaway-account
+// cleanup should never be aimed at prod by accident.
+const env = { ...readEnv('.env'), ...readEnv('.env.local') }
 const SUPA = env.VITE_SUPABASE_URL
 const email = `shoot-${Math.random().toString(36).slice(2, 8)}@example.com`
 const password = 'Test!Passw0rd123'
@@ -34,7 +44,23 @@ await page.goto(`${BASE}/login?mode=signup&role=solo`, { waitUntil: 'networkidle
 await page.getByPlaceholder('Full name').fill('Shoot Tester')
 await page.getByPlaceholder('Email').fill(email)
 await page.getByPlaceholder('Password').fill(password)
+// The 18+/ToS confirmation is required before the form will submit.
+const consent = page.locator('input[type=checkbox]')
+if (await consent.count()) await consent.first().check().catch(() => {})
 await page.getByRole('button', { name: 'Create account' }).click()
+
+// Signup lands on Onboarding, not the dashboard. Skip it — these shots are for
+// visual QA of the steady state, not the first-run questionnaire. (Waiting
+// straight for "Today's stats" here is what used to hang this script.)
+await page.waitForTimeout(2500)
+await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+const skipOnboarding = page.getByText('Skip for now')
+if (await skipOnboarding.count()) {
+  await skipOnboarding.first().click()
+  await page.waitForTimeout(2000)
+  // Skipping drops you on /log, so come back to the dashboard.
+  await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+}
 await page.waitForSelector('text=Today\'s stats', { timeout: 20000 })
 
 // --- mobile shots ---
@@ -92,6 +118,7 @@ if (token) {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   })
   console.log('cleanup delete-account:', r.status)
+  if (!r.ok) console.log(`  ^ not deleted: ${email}. Against the default local stack this is expected — npm run rls:setup excludes edge-runtime/functions, so there is no delete-account to call. Harmless on the fake DB.`)
 } else {
   console.log('WARN: no token found, account NOT deleted:', email)
 }

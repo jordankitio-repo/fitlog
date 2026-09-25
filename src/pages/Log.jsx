@@ -14,6 +14,7 @@ import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
 import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '../utils/savedMeals'
+import { controlStyle, Icon } from '../components/ui'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -115,7 +116,32 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [dialog, setDialog] = useState(null) // branded confirm/notice modal config, or null
   const [toast, setToast] = useState(null)   // transient error/success toast, or null
   // Surface a failed write so a save never fails silently (trust on the core loop).
-  function showToast(message, type = 'success') { setToast({ message, type }) }
+  function showToast(message, type = 'success', action = null) { setToast({ message, type, action }) }
+
+  // Deleting a logged row is one tap on a small ✕ and used to be silent and
+  // irreversible. Re-inserting the captured row verbatim (same id, same
+  // created_at) restores it in its original position.
+  async function deleteWithUndo({ table, match, rows, label, refresh }) {
+    const { error } = await supabase.from(table).delete().match(match)
+    if (error) {
+      console.error(`Error deleting from ${table}:`, error)
+      showToast('Couldn\'t delete that. Try again.', 'error')
+      return
+    }
+    refresh()
+    showToast(`${label} deleted.`, 'success', {
+      label: 'Undo',
+      onClick: async () => {
+        const { error: restoreErr } = await supabase.from(table).insert(rows)
+        if (restoreErr) {
+          console.error(`Error restoring ${table}:`, restoreErr)
+          showToast('Couldn\'t undo that.', 'error')
+        } else {
+          refresh()
+        }
+      },
+    })
+  }
   const [showSavedMeals, setShowSavedMeals] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
@@ -333,10 +359,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { data: { session: cs } } = await supabase.auth.getSession()
     const { data: created, error } = await supabase
       .from('saved_meals').insert({ user_id: cs.user.id, name }).select('id').single()
-    if (error) { console.error('Error saving meal:', error); showToast('Couldn\'t save the meal — try again.', 'error'); setSavingMeal(false); return }
+    if (error) { console.error('Error saving meal:', error); showToast('Couldn\'t save the meal. Try again.', 'error'); setSavingMeal(false); return }
     const { error: itemsErr } = await supabase
       .from('saved_meal_items').insert(itemsFromEntries(chosen, { savedMealId: created.id, userId: cs.user.id }))
-    if (itemsErr) { console.error('Error saving meal items:', itemsErr); showToast('Couldn\'t save the meal — try again.', 'error') }
+    if (itemsErr) { console.error('Error saving meal items:', itemsErr); showToast('Couldn\'t save the meal. Try again.', 'error') }
     setSavingMeal(false); exitSelect(); fetchSavedMeals()
   }
 
@@ -346,7 +372,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (ids.length === 0) return
     const { error } = await supabase.from('nutrition_log')
       .update({ meal: mealKey === 'other' ? null : mealKey }).in('id', ids)
-    if (error) { console.error('Error moving entries:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error moving entries:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     exitSelect()
   }
@@ -355,7 +381,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   async function moveEntryToMeal(entryId, mealKey) {
     const { error } = await supabase.from('nutrition_log')
       .update({ meal: mealKey === 'other' ? null : mealKey }).eq('id', entryId)
-    if (error) { console.error('Error moving entry:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error moving entry:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     setMoveItemId(null)
   }
@@ -364,7 +390,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   async function moveLoggedMealToMeal(item, mealKey) {
     const { error } = await supabase.from('nutrition_log')
       .update({ meal: mealKey === 'other' ? null : mealKey }).in('id', item.entries.map(e => e.id))
-    if (error) { console.error('Error moving meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error moving meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     setMoveItemId(null)
   }
@@ -399,7 +425,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { error } = await supabase.from('nutrition_log')
       .update({ logged_meal_id: crypto.randomUUID(), logged_meal_name: name, meal: first?.meal ?? null })
       .in('id', ids)
-    if (error) { console.error('Error grouping meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error grouping meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     setSavingMeal(false); exitSelect()
   }
@@ -439,7 +465,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { error } = await supabase.from('nutrition_log')
       .update({ logged_meal_id: container.id, logged_meal_name: container.name, meal: container.entries[0]?.meal ?? null })
       .in('id', ids)
-    if (error) { console.error('Error adding to meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error adding to meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
     exitSelect()
   }
@@ -448,7 +474,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const ids = [...selectedIds]
     if (ids.length === 0) return
     const { error } = await supabase.from('nutrition_log').delete().in('id', ids)
-    if (error) { console.error('Error deleting entries:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error deleting entries:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
     exitSelect()
   }
@@ -464,7 +490,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         loggedMealId: crypto.randomUUID(), loggedMealName: m.name,
       }),
     )
-    if (error) { console.error('Error logging saved meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error logging saved meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications(); setShowSavedMeals(false) }
     setLoggingMealId(null); setLogPickId(null)
   }
@@ -485,14 +511,18 @@ function Log({ session, profile, hasSoloPremium = true }) {
       logged_meal_id: newId, logged_meal_name: item.name,
     }))
     const { error } = await supabase.from('nutrition_log').insert(rows)
-    if (error) { console.error('Error repeating meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error repeating meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else { fetchEntries(); refreshNotifications() }
   }
 
   async function deleteLoggedMeal(id) {
-    const { error } = await supabase.from('nutrition_log').delete().eq('logged_meal_id', id)
-    if (error) { console.error('Error deleting logged meal:', error); showToast('Something went wrong — try again.', 'error') }
-    else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
+    const rows = entries.filter(e => e.logged_meal_id === id)
+    if (!rows.length) return
+    await deleteWithUndo({
+      table: 'nutrition_log', match: { logged_meal_id: id }, rows,
+      label: rows.length === 1 ? 'Meal' : `Meal (${rows.length} items)`,
+      refresh: () => { fetchEntries(); fetchFrequentFoods(); refreshNotifications() },
+    })
   }
 
   // Save a logged-meal container's foods as a reusable saved meal (named from
@@ -505,7 +535,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const { data: { session: cs } } = await supabase.auth.getSession()
     const { data: created, error } = await supabase
       .from('saved_meals').insert({ user_id: cs.user.id, name: item.name }).select('id').single()
-    if (error) { console.error('Error saving meal:', error); showToast('Couldn\'t save the meal — try again.', 'error'); return }
+    if (error) { console.error('Error saving meal:', error); showToast('Couldn\'t save the meal. Try again.', 'error'); return }
     const { error: itemsErr } = await supabase
       .from('saved_meal_items').insert(itemsFromEntries(item.entries, { savedMealId: created.id, userId: cs.user.id }))
     if (itemsErr) console.error('Error saving meal items:', itemsErr)
@@ -524,7 +554,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   async function deleteSavedMeal(id) {
     const { error } = await supabase.from('saved_meals').delete().eq('id', id)
-    if (error) { console.error('Error deleting saved meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error deleting saved meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else fetchSavedMeals()
   }
 
@@ -533,7 +563,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setEditingSavedMealId(null)
     if (!trimmed) return
     const { error } = await supabase.from('saved_meals').update({ name: trimmed }).eq('id', id)
-    if (error) { console.error('Error renaming saved meal:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error renaming saved meal:', error); showToast('Something went wrong. Try again.', 'error') }
     else fetchSavedMeals()
   }
 
@@ -552,12 +582,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (dayComplete) {
       const { error } = await supabase.from('day_complete')
         .delete().eq('user_id', cs.user.id).eq('logged_date', selectedDate)
-      if (error) { console.error('Error clearing day-complete:', error); showToast('Something went wrong — try again.', 'error') }
+      if (error) { console.error('Error clearing day-complete:', error); showToast('Something went wrong. Try again.', 'error') }
       else setDayComplete(false)
     } else {
       const { error } = await supabase.from('day_complete')
         .upsert({ user_id: cs.user.id, logged_date: selectedDate }, { onConflict: 'user_id,logged_date' })
-      if (error) { console.error('Error marking day complete:', error); showToast('Something went wrong — try again.', 'error') }
+      if (error) { console.error('Error marking day complete:', error); showToast('Something went wrong. Try again.', 'error') }
       else { setDayComplete(true); refreshNotifications() }
     }
     setDayCompleteSaving(false)
@@ -644,7 +674,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       }))
 
     const { error } = await supabase.from('nutrition_log').insert(inserts)
-    if (error) { console.error('Error copying entries:', error); showToast('Something went wrong — try again.', 'error') }
+    if (error) { console.error('Error copying entries:', error); showToast('Something went wrong. Try again.', 'error') }
     else {
       fetchEntries()
       refreshNotifications()
@@ -679,7 +709,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
           serving_size: parseFloat(servingSize) || 100, serving_unit: servingUnit, meal
         }).eq('id', editingEntry.id)
-        if (error) { console.error('Error updating:', error); showToast('Couldn\'t save that food — try again.', 'error') }
+        if (error) { console.error('Error updating:', error); showToast('Couldn\'t save that food. Try again.', 'error') }
         else { setEditingEntry(null); clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
       } else {
         const { error } = await supabase.from('nutrition_log').insert([{
@@ -689,7 +719,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           logged_date: selectedDate, user_id: currentSession.user.id,
           ...(addingToMeal ? { logged_meal_id: addingToMeal.id, logged_meal_name: addingToMeal.name } : {}),
         }])
-        if (error) { console.error('Error saving:', error); showToast('Couldn\'t save that food — try again.', 'error') }
+        if (error) { console.error('Error saving:', error); showToast('Couldn\'t save that food. Try again.', 'error') }
         else { clearNutritionForm(); setNutritionExpanded(false); fetchEntries(); refreshNotifications() }
       }
     } finally {
@@ -726,9 +756,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   async function deleteEntry(id) {
-    const { error } = await supabase.from('nutrition_log').delete().eq('id', id)
-    if (error) { console.error('Error deleting:', error); showToast('Couldn\'t delete that — try again.', 'error') }
-    else { setFeedback(''); fetchEntries(); refreshNotifications() }
+    const row = entries.find(e => e.id === id)
+    if (!row) return
+    setFeedback('')
+    await deleteWithUndo({
+      table: 'nutrition_log', match: { id }, rows: [row], label: row.food_name || 'Entry',
+      refresh: () => { fetchEntries(); refreshNotifications() },
+    })
   }
 
   async function getAIFeedback() {
@@ -741,13 +775,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
       )
       const data = await response.json().catch(() => ({}))
       if (!response.ok || data.error) {
-        showToast(data.error || 'Something went wrong — please try again.', 'error')
+        showToast(data.error || 'Something went wrong. Please try again.', 'error')
         return
       }
       setFeedback(data.message)
     } catch (error) {
       console.error('AI feedback error:', error)
-      showToast('Something went wrong — please try again.', 'error')
+      showToast('Something went wrong. Please try again.', 'error')
     } finally {
       setLoading(false)
     }
@@ -825,7 +859,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         .from('weight_log')
         .update({ weight: parseFloat(weight), unit: weightUnit, weighed_at })
         .eq('id', savedWeight.id)
-      if (error) { console.error(error); showToast('Couldn\'t save your weight — try again.', 'error') } else fetchWeight()
+      if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
     } else {
       const { error } = await supabase
         .from('weight_log')
@@ -836,7 +870,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           user_id: currentSession.user.id,
           weighed_at,
         }])
-      if (error) { console.error(error); showToast('Couldn\'t save your weight — try again.', 'error') } else fetchWeight()
+      if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
     }
   }
 
@@ -859,7 +893,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         calories_burned: parseInt(caloriesBurned) || null,
         avg_heart_rate: parseInt(avgHeartRate) || null
       }).eq('id', editingCardio.id)
-      if (error) { console.error(error); showToast('Couldn\'t save your cardio — try again.', 'error') }
+      if (error) { console.error(error); showToast('Couldn\'t save your cardio. Try again.', 'error') }
       else { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
     } else {
       const { error } = await supabase.from('cardio_log').insert([{
@@ -868,14 +902,18 @@ function Log({ session, profile, hasSoloPremium = true }) {
         avg_heart_rate: parseInt(avgHeartRate) || null,
         logged_date: selectedDate, user_id: currentSession.user.id
       }])
-      if (error) { console.error(error); showToast('Couldn\'t save your cardio — try again.', 'error') }
+      if (error) { console.error(error); showToast('Couldn\'t save your cardio. Try again.', 'error') }
       else { setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
     }
   }
 
   async function deleteCardio(id) {
-    const { error } = await supabase.from('cardio_log').delete().eq('id', id)
-    if (error) { console.error(error); showToast('Couldn\'t delete that — try again.', 'error') } else fetchCardioEntries()
+    const row = cardioEntries.find(e => e.id === id)
+    if (!row) return
+    await deleteWithUndo({
+      table: 'cardio_log', match: { id }, rows: [row], label: row.activity || 'Cardio entry',
+      refresh: fetchCardioEntries,
+    })
   }
 
   function startEditCardio(entry) {
@@ -919,7 +957,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
     if (error) {
       console.error(error)
-      showToast('Couldn\'t save your steps — try again.', 'error')
+      showToast('Couldn\'t save your steps. Try again.', 'error')
       return
     }
     fetchSteps()
@@ -960,7 +998,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const row = { user_id: cs.user.id, logged_date: selectedDate, unit: meas.unit }
     sites.forEach(k => { row[k] = meas[k] === '' ? null : parseFloat(meas[k]) })
     const { error } = await supabase.from('body_measurements').upsert(row, { onConflict: 'user_id,logged_date' })
-    if (error) { console.error(error); showToast('Couldn\'t save measurements — try again.', 'error'); return }
+    if (error) { console.error(error); showToast('Couldn\'t save measurements. Try again.', 'error'); return }
     setMeasExpanded(false)
     fetchMeasurements()
     fetchLastMeasured()
@@ -978,11 +1016,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const totalCarbs = entries.reduce((s, e) => s + (e.carbs || 0), 0)
   const totalFat = entries.reduce((s, e) => s + (e.fat || 0), 0)
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '10px 14px',
-    color: 'var(--color-text)', fontSize: '1rem', minWidth: 0
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   const sectionStyle = {
     ...cardStyle,
@@ -1025,7 +1060,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: selectMode ? 'pointer' : 'default' }}
       >
         {selectMode && (
-          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: 'var(--color-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-xs)' }}>{checked ? '✓' : ''}</span>
+          <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: 'var(--color-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-xs)' }}>{checked ? <Icon name="check" size={12} strokeWidth={3} /> : ''}</span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{entry.food}</p>
@@ -1046,14 +1081,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
                 setBaseServingSize(null); setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
               }}
-              style={{ ...iconBtnStyle, fontSize: '1rem' }}
+              style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }}
               title="Re-log"
-            >↻</button>
+            ><Icon name="repeat" /></button>
             {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
             )}
-            <button onClick={() => startEdit(entry)} style={iconBtnStyle}>✎</button>
-            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }}>✕</button>
+            <button onClick={() => startEdit(entry)} style={iconBtnStyle} aria-label="Edit entry" title="Edit"><Icon name="pencil" /></button>
+            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete entry" title="Delete"><Icon name="x" /></button>
           </div>
         )}
        </div>
@@ -1087,7 +1122,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           >
             <span aria-hidden="true" style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', width: 12 }}>{open ? '▾' : '▸'}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>🍽 {item.name}</p>
+            <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}><Icon name="utensils" style={{ color: 'var(--color-muted)' }} /> {item.name}</p>
             <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--color-muted)' }}>
               {item.entries.length} item{item.entries.length === 1 ? '' : 's'}{!hideCalories ? ` · ${item.calories} kcal` : ''}
               {(() => {
@@ -1100,7 +1135,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
           </button>
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: '1rem' }} title="Repeat meal" aria-label="Repeat meal">↻</button>
+            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal"><Icon name="repeat" /></button>
             <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -1109,9 +1144,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
               </svg>
             </button>
             {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: '1rem', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options">⠿</button>
+              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
             )}
-            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete meal">✕</button>
+            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete meal" title="Delete meal"><Icon name="x" /></button>
           </div>
         </div>
         {moveOpen && moveTargets.length > 0 && (
@@ -1138,27 +1173,46 @@ function Log({ session, profile, hasSoloPremium = true }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
         <h1>Daily Log</h1>
-        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
-          <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: '1rem', lineHeight: 1 }}>←</button>
-          <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-            <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
-            <input
-              type="date"
-              value={selectedDate}
-              max={toLocalDateString(new Date())}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              onClick={(e) => { try { e.currentTarget.showPicker() } catch { /* unsupported → native focus opens it */ } }}
-              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
-            />
-          </label>
-          <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: '1rem', lineHeight: 1 }}>→</button>
+        {/* A3: the stepper is one control (step or pick the same value); "Today"
+            is a separate action, so it sits a group-gap out rather than inside
+            the pill. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-24)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
+            <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="left" /></button>
+            <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
+              <input
+                type="date"
+                value={selectedDate}
+                max={toLocalDateString(new Date())}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                onClick={(e) => { try { e.currentTarget.showPicker() } catch { /* unsupported → native focus opens it */ } }}
+                style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+              />
+            </label>
+            <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="right" /></button>
+          </div>
+          {/* There was no way back to today from a past day at all: only
+              stepping forward a day at a time, or opening the native picker and
+              finding today in it. The `›` goes disabled AT today and said
+              nothing about how to return TO it.
+
+              Same control and variant as My Progress's, and it appears on the
+              same condition — only when there is somewhere to go. No muted
+              "Today" label in the at-today state the way that page has one,
+              because the stepper here already spells the date out in words. */}
+          {!isToday && (
+            <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">
+              Today
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Weight */}
       <div style={sectionStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ borderLeft: '3px solid var(--color-weight)', paddingLeft: '10px' }}>Weight</h2>
+          <h2>Weight</h2>
           {savedWeight && !weightExpanded && (
             <button onClick={() => setWeightExpanded(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', padding: '4px 8px' }}>Edit</button>
           )}
@@ -1167,11 +1221,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {savedWeight && !weightExpanded ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div>
-              <span style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-text)' }}>{savedWeight.weight}</span>
-              <span style={{ fontSize: '1rem', color: 'var(--color-muted)', marginLeft: '6px' }}>{savedWeight.unit}</span>
+              <span style={{ fontSize: 'var(--text-display)', fontWeight: 700, color: 'var(--color-text)' }}>{savedWeight.weight}</span>
+              <span style={{ fontSize: 'var(--text-body)', color: 'var(--color-muted)', marginLeft: '6px' }}>{savedWeight.unit}</span>
             </div>
             {savedWeight.weighed_at && <p style={{ fontSize: 'var(--text-sm)' }}>{formatTime(savedWeight.weighed_at)}</p>}
-            <Button onClick={() => setWeightExpanded(true)} variant="outline" size="sm" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>+ Log Weight</Button>
+            <Button onClick={() => setWeightExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>+ Log Weight</Button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1192,26 +1246,35 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Nutrition */}
       <div style={sectionStyle}>
-        <h2 style={{ borderLeft: '3px solid var(--color-calories)', paddingLeft: '10px' }}>Nutrition</h2>
+        <h2>Nutrition</h2>
 
-        {/* Macro totals */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${hideCalories ? 3 : 4}, 1fr)`, gap: '8px' }}>
+        {/* Macro totals. The numerals are NEUTRAL, not metric-coloured.
+            Metric tokens are FILL colours — dark-first data hues that the light
+            theme carries over unchanged — so as text on a light card they
+            measured 2.22:1 (calories), 2.69:1 (protein) and 2.20:1 (fat)
+            against a 4.5:1 floor. Only carbs had ever been given a light
+            override. This is the same call StatCard already made: the label
+            underneath names the metric, so the colour was carrying nothing the
+            reader needed, and it was costing legibility to do it. The metric
+            hue still does its real job two panels over, filling Dashboard's
+            progress bars, where a shape has no contrast requirement. */}
+        <div className="tnum" style={{ display: 'grid', gridTemplateColumns: `repeat(${hideCalories ? 3 : 4}, 1fr)`, gap: '8px' }}>
           {!hideCalories && (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-calories)' }}>{totalCalories}</div>
+              <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalCalories}</div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Calories</div>
             </div>
           )}
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-protein)' }}>{totalProtein}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalProtein}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Protein</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-carbs)' }}>{totalCarbs}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalCarbs}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Carbs</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-fat)' }}>{totalFat}g</div>
+            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalFat}g</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Fat</div>
           </div>
         </div>
@@ -1233,7 +1296,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             cursor: dayCompleteSaving ? 'default' : 'pointer', opacity: dayCompleteSaving ? 0.6 : 1,
           }}
         >
-          {dayComplete ? '✓ Day marked complete — tap to undo' : 'Mark day complete'}
+          {dayComplete ? <><Icon name="check" /> Day marked complete. Tap to undo</> : 'Mark day complete'}
         </button>
         )}
 
@@ -1261,7 +1324,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                       fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                     }}
                   >
-                    <span aria-hidden="true" style={{ fontSize: 'var(--text-sm)', lineHeight: 1 }}>☑</span> Select
+                    <Icon name="check" /> Select
                   </button>
                 )}
               </div>
@@ -1332,7 +1395,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>or into:</span>
                               {containers.map(c => (
-                                <button key={c.id} onClick={() => groupSelectedIntoMeal(c)} style={pillBtnStyle}>🍽 {c.name}</button>
+                                <button key={c.id} onClick={() => groupSelectedIntoMeal(c)} style={pillBtnStyle}><Icon name="utensils" /> {c.name}</button>
                               ))}
                             </div>
                           ) : null
@@ -1370,7 +1433,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </svg>
             <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>Nothing logged yet today</p>
             <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', maxWidth: '36ch', lineHeight: 1.5 }}>
-              Add your first item below to start today's diary — search a food or scan a barcode.
+              Search a food or scan a barcode.
             </p>
           </div>
         )}
@@ -1380,7 +1443,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: entries.length > 0 ? '4px' : '0' }}>
             {addingToMeal && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
-                <span>Adding to <strong style={{ color: 'var(--color-text)' }}>🍽 {addingToMeal.name}</strong></span>
+                <span>Adding to <strong style={{ color: 'var(--color-text)' }}>{addingToMeal.name}</strong></span>
                 <button onClick={() => { clearNutritionForm(); setNutritionExpanded(false) }} style={selectLinkStyle}>Cancel</button>
               </div>
             )}
@@ -1417,7 +1480,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                   <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>Searching…</p>
                 )}
                 {!foodSearching && foodResults.length === 0 && (
-                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>No matches — enter it manually below.</p>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', padding: '10px 12px', margin: 0 }}>No matches. Enter it manually below.</p>
                 )}
                 {foodResults.map((r, i) => {
                   const macros = [
@@ -1623,13 +1686,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {/* Saved meals — opens a modal so a long list never stretches the page */}
         {!nutritionExpanded && !showCopyPanel && savedMeals.length > 0 && (
           <button onClick={() => setShowSavedMeals(true)} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: 'var(--radius)', padding: '7px 12px', fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            🍽 Saved meals <span style={{ color: 'var(--color-muted)' }}>({savedMeals.length})</span>
+            <Icon name="utensils" /> Saved meals <span style={{ color: 'var(--color-muted)' }}>({savedMeals.length})</span>
           </button>
         )}
         <Modal open={showSavedMeals} title="Saved meals" onClose={() => { setShowSavedMeals(false); setLogPickId(null); setEditingSavedMealId(null) }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {savedMeals.length === 0 ? (
-              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>No saved meals yet. Save one from a logged meal (🔖), or via Select → Save as meal.</p>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>No saved meals yet. Save one from any logged meal.</p>
             ) : savedMeals.map(m => {
               const t = mealTotals(m.items)
               const pending = loggingMealId === m.id
@@ -1656,10 +1719,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
                       </p>
                     </div>
                     {!editing && (
-                      <button onClick={() => { setEditingSavedMealId(m.id); setSavedMealDraft(m.name) }} style={iconBtnStyle} title="Rename saved meal">✎</button>
+                      <button onClick={() => { setEditingSavedMealId(m.id); setSavedMealDraft(m.name) }} style={iconBtnStyle} title="Rename saved meal" aria-label="Rename saved meal"><Icon name="pencil" /></button>
                     )}
                     <button onClick={() => setLogPickId(picking ? null : m.id)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: picking ? 'var(--color-surface)' : 'var(--color-primary)', color: picking ? 'var(--color-text)' : 'var(--color-on-accent)', border: picking ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>{picking ? 'Cancel' : '+ Log'}</button>
-                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} title="Delete saved meal">✕</button>
+                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete saved meal" title="Delete saved meal"><Icon name="x" /></button>
                   </div>
                   {picking && (
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '2px' }}>
@@ -1729,7 +1792,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Cardio */}
       <div style={sectionStyle}>
-        <h2 style={{ borderLeft: '3px solid var(--color-cardio)', paddingLeft: '10px' }}>Cardio</h2>
+        <h2>Cardio</h2>
 
         {cardioEntries.map(e => (
           <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
@@ -1740,8 +1803,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
               </p>
             </div>
             <div style={{ display: 'flex', gap: '2px' }}>
-              <button onClick={() => startEditCardio(e)} style={iconBtnStyle}>✎</button>
-              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }}>✕</button>
+              <button onClick={() => startEditCardio(e)} style={iconBtnStyle} aria-label="Edit cardio entry" title="Edit"><Icon name="pencil" /></button>
+              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete cardio entry" title="Delete"><Icon name="x" /></button>
             </div>
           </div>
         ))}
@@ -1781,7 +1844,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Steps */}
       <div style={sectionStyle}>
-        <h2 style={{ borderLeft: '3px solid var(--color-steps)', paddingLeft: '10px' }}>Steps</h2>
+        <h2>Steps</h2>
 
         {savedSteps && !stepsExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1810,7 +1873,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {!stepsExpanded && (
           <Button
             onClick={() => setStepsExpanded(true)}
-            variant="outline"
+            variant="muted"
             size="sm"
             style={{ alignSelf: 'flex-start', borderColor: 'var(--color-steps)', color: 'var(--color-steps)' }}
           >+ Log Steps</Button>
@@ -1819,7 +1882,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Body measurements */}
       <div style={sectionStyle}>
-        <h2 style={{ borderLeft: '3px solid var(--color-weight)', paddingLeft: '10px' }}>Measurements</h2>
+        <h2>Measurements</h2>
 
         {/* Gentle re-measure reminder once the latest is past ~monthly (steady
             cadence — deliberately not nagging; the coach view is phase-precise). */}
@@ -1859,7 +1922,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginRight: '2px' }}>Unit:</span>
               {['in', 'cm'].map(u => (
-                <button key={u} type="button" onClick={() => setMeas({ ...meas, unit: u })} style={{ ...pillBtnStyle, ...(meas.unit === u ? { backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: 'var(--color-on-accent)' } : {}) }}>{u}</button>
+                <button key={u} type="button" onClick={() => setMeas({ ...meas, unit: u })} style={{ ...pillBtnStyle, ...(meas.unit === u ? { backgroundColor: 'var(--color-primary-fill)', borderColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)' } : {}) }}>{u}</button>
               ))}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
@@ -1894,7 +1957,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         onConfirm={() => { const fn = dialog?.onConfirm; setDialog(null); fn?.() }}
         onCancel={() => setDialog(null)}
       />
-      <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
+      <Toast message={toast?.message} type={toast?.type} action={toast?.action} onClose={() => setToast(null)} />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { energyBalanceRead, WINDOW_OPTIONS } from '../utils/energyBalanceRead'
 import InfoTip from './InfoTip'
+import { Icon, Pill } from './ui'
 
 // Coach-only instrument. We state only what we measured — maintenance (derived
 // transparently from the two rows below it), the weight trend, and compliance
@@ -9,8 +10,8 @@ import InfoTip from './InfoTip'
 // caveat (data quality) or a deviation from the plan; green marks moving toward
 // the goal / hitting the plan. Never a verdict on the outcome itself.
 
-const GOOD = '#34d399'
-const WEAK = '#fbbf24'
+const GOOD = 'var(--color-success)'
+const WEAK = 'var(--color-warning)'
 const MUTED = 'var(--color-muted)'
 const TEXT = 'var(--color-text)'
 const BAND = 0.1 // within ±10% of target = on plan (matches ComplianceBreakdown)
@@ -20,10 +21,10 @@ const toneColor = (tone) => (tone === 'toward' ? GOOD : tone === 'away' ? WEAK :
 function Row({ label, value, note, tip }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-      <span style={{ fontSize: '0.8rem', color: TEXT }}>{label}{tip && <InfoTip text={tip} />}</span>
-      <span style={{ fontSize: '0.8rem', textAlign: 'right' }}>
+      <span style={{ fontSize: 'var(--text-sm)', color: TEXT }}>{label}{tip && <InfoTip text={tip} />}</span>
+      <span style={{ fontSize: 'var(--text-sm)', textAlign: 'right' }}>
         <strong style={{ fontWeight: 600, color: TEXT }}>{value}</strong>
-        {note && <span style={{ fontSize: '0.72rem' }}>{' · '}{note}</span>}
+        {note && <span style={{ fontSize: 'var(--text-xs)' }}>{' · '}{note}</span>}
       </span>
     </div>
   )
@@ -68,14 +69,14 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
   return (
     <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ fontSize: '0.7rem', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+        <p style={{ fontSize: 'var(--text-xs)', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
           Energy balance read
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.72rem', color: MUTED }}>coach-only</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>coach-only</span>
           {onWindowChange
             ? <WindowSelector windowDays={windowDays} onWindowChange={onWindowChange} />
-            : <span style={{ fontSize: '0.72rem', color: MUTED }}>· last {r.windowDays} days</span>}
+            : <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>· last {r.windowDays} days</span>}
         </div>
       </div>
 
@@ -119,30 +120,25 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
 function WindowSelector({ windowDays, onWindowChange }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ fontSize: '0.72rem', color: MUTED }}>
+      <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>
         · window<InfoTip text="How far back to read. Shorter = more recent but noisier (the band widens); longer = steadier but reflects older behavior. 21 days is the default — long enough that daily water swings don't dominate the weight trend, short enough to track the current phase." />
       </span>
       <span role="group" aria-label="Energy balance window" style={{ display: 'inline-flex', gap: 4 }}>
-        {WINDOW_OPTIONS.map((d) => {
-          const active = d === windowDays
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => onWindowChange(d)}
-              aria-pressed={active}
-              style={{
-                fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999, lineHeight: 1.5,
-                border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                background: active ? 'var(--color-primary-dim)' : 'transparent',
-                color: active ? 'var(--color-primary)' : MUTED,
-                cursor: 'pointer',
-              }}
-            >
-              {d / 7}w
-            </button>
-          )
-        })}
+        {/* These are filter chips, so they are the app's filter chip — ui/Pill,
+            the same control as the roster's View lenses. The hand-rolled pair
+            they replace marked "selected" as a tinted outline, which is the
+            one thing every other chip in the app does NOT do: selected is a
+            filled green. Two conventions for one idea, one component apart. */}
+        {WINDOW_OPTIONS.map((d) => (
+          <Pill
+            key={d}
+            active={d === windowDays}
+            onClick={() => onWindowChange(d)}
+            aria-pressed={d === windowDays}
+          >
+            {d / 7}w
+          </Pill>
+        ))}
       </span>
     </span>
   )
@@ -177,8 +173,8 @@ function TrajectoryDeltas({ r, num }) {
 function ReadyRow({ ok, label, detail }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-      <span style={{ color: ok ? GOOD : WEAK, fontWeight: 700, fontSize: '0.8rem', width: 12, flexShrink: 0, textAlign: 'center' }}>{ok ? '✓' : '•'}</span>
-      <span style={{ fontSize: '0.8rem', color: ok ? MUTED : TEXT }}>
+      <span style={{ color: ok ? GOOD : WEAK, fontWeight: 700, fontSize: 'var(--text-sm)', width: 12, flexShrink: 0, textAlign: 'center' }}>{ok ? <Icon name="check" size={12} strokeWidth={3} /> : '•'}</span>
+      <span style={{ fontSize: 'var(--text-sm)', color: ok ? MUTED : TEXT }}>
         {label} <span style={{ color: ok ? MUTED : WEAK, fontWeight: ok ? 400 : 600 }}>{detail}</span>
       </span>
     </div>
@@ -188,7 +184,7 @@ function ReadyRow({ ok, label, detail }) {
 function ReadinessBlock({ readiness: rd, windowDays }) {
   if (!rd) {
     return (
-      <p style={{ fontSize: '0.8rem', color: MUTED, margin: 0 }}>
+      <p style={{ fontSize: 'var(--text-sm)', color: MUTED, margin: 0 }}>
         Need a couple weeks of logging + regular weigh-ins to read energy balance.
       </p>
     )
@@ -196,7 +192,7 @@ function ReadinessBlock({ readiness: rd, windowDays }) {
   const need = (row, unit) => (row.ok ? '' : ` · need ${row.need}${unit}`)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <p style={{ fontSize: '0.8rem', color: MUTED, margin: '0 0 2px' }}>Not enough logged yet to read energy balance:</p>
+      <p style={{ fontSize: 'var(--text-sm)', color: MUTED, margin: '0 0 2px' }}>Not enough logged days yet</p>
       <ReadyRow ok={rd.weighIns.ok} label="Weigh-ins" detail={`${rd.weighIns.have} in ${windowDays} days${need(rd.weighIns, '')}`} />
       <ReadyRow ok={rd.span.ok} label="Weigh-in span" detail={`${rd.span.have} days${need(rd.span, ' days')}`} />
       <ReadyRow ok={rd.logging.ok} label="Nutrition logging" detail={`${rd.logging.have}/${windowDays} days${need(rd.logging, ' days')}`} />

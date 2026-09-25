@@ -13,11 +13,11 @@
 // (the no-fabricated-confidence rule in decisions.md is about logged-data TDEE).
 
 export const ACTIVITY_LEVELS = [
-  { key: 'sedentary', label: 'Sedentary — little/no exercise', mult: 1.2 },
-  { key: 'light', label: 'Light — 1–3 days/wk', mult: 1.375 },
-  { key: 'moderate', label: 'Moderate — 3–5 days/wk', mult: 1.55 },
-  { key: 'very', label: 'Very active — 6–7 days/wk', mult: 1.725 },
-  { key: 'athlete', label: 'Athlete — hard training 2×/day', mult: 1.9 },
+  { key: 'sedentary', label: 'Sedentary, little or no exercise', mult: 1.2 },
+  { key: 'light', label: 'Light, 1–3 days/wk', mult: 1.375 },
+  { key: 'moderate', label: 'Moderate, 3–5 days/wk', mult: 1.55 },
+  { key: 'very', label: 'Very active, 6–7 days/wk', mult: 1.725 },
+  { key: 'athlete', label: 'Athlete, training 2×/day', mult: 1.9 },
 ]
 
 // Pace = target rate of weight change as a fraction of bodyweight per week.

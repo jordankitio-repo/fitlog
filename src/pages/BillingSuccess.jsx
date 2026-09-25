@@ -1,10 +1,11 @@
 import Button from '../components/Button'
+import { Icon } from '../components/ui'
 
 function BillingSuccess() {
   return (
     <div style={{ maxWidth: '400px', margin: '80px auto', display: 'flex', flexDirection: 'column', gap: '24px', padding: '0 16px', textAlign: 'center' }}>
       <div>
-        <p style={{ fontSize: '2rem', marginBottom: '8px' }}>✓</p>
+        <p style={{ marginBottom: '8px', color: 'var(--color-success)' }}><Icon name="check" size={40} /></p>
         <h1>You're all set</h1>
         <p style={{ color: 'var(--color-muted)', marginTop: '8px' }}>
           Your 30-day free trial has started. You won't be charged until the trial ends.

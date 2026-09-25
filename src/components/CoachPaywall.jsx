@@ -23,10 +23,10 @@ function LockIcon() {
 
 // Real, shipped capabilities — no fabricated metrics or social proof.
 const FEATURES = [
-  'Unlimited clients — never pay per seat',
+  'Unlimited clients, never pay per seat',
   'AI weekly reports & call-prep briefings',
   'Compliance triage + one-tap check-in review',
-  'Cancel anytime — your data stays yours',
+  'Cancel anytime. Your data stays yours',
 ]
 
 function CoachPaywall({ subscription, profile, onSignOut }) {
@@ -147,10 +147,10 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
 
   const headline = isCanceled ? 'Welcome back' : trialUsed ? 'Choose your plan' : 'Start your 14-day free trial'
   const subhead = isCanceled
-    ? 'Reactivate to pick up right where you and your clients left off — all your data is safe.'
+    ? 'Reactivate to pick up right where you and your clients left off. All your data is safe.'
     : trialUsed
       ? 'Your free trial has been used. Pick a plan to keep coaching without a break.'
-      : 'Everything you need to run your coaching — unlimited clients, AI reports, and compliance at a glance.'
+      : 'Everything you need to run your coaching: unlimited clients, AI reports, and compliance at a glance.'
 
   const ctaLabel = loading
     ? 'Redirecting…'

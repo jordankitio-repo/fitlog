@@ -6,6 +6,7 @@ import { supabase } from '../supabase'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import { QUESTION_TYPES, DEFAULT_QUESTIONS, MAX_QUESTIONS, parseOptions } from '../utils/checkinQuestions'
+import { controlStyle, Icon } from './ui'
 
 // A drag-reorderable question row. Render-prop so the row markup (with all its
 // handlers) stays in the builder; the ⠿ grip is the drag handle, matching the
@@ -115,23 +116,21 @@ export default function CheckinBuilder({ coachId }) {
     if (results.every(r => !r.error)) flashSaved()
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)',
-    padding: '8px 10px', color: 'var(--color-text)', fontSize: '0.875rem', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
-  }
-  const iconBtn = { background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--color-muted)', padding: '2px 8px', fontSize: '0.85rem' }
-  const gripStyle = { background: 'none', border: 'none', cursor: 'grab', touchAction: 'none', color: 'var(--color-muted)', fontSize: '1rem', letterSpacing: '-2px', padding: '2px 4px', flexShrink: 0 }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
+  const iconBtn = { background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--color-muted)', padding: '2px 8px', fontSize: 'var(--text-base)' }
+  const gripStyle = { background: 'none', border: 'none', cursor: 'grab', touchAction: 'none', color: 'var(--color-muted)', fontSize: 'var(--text-body)', letterSpacing: '-2px', padding: '2px 4px', flexShrink: 0 }
 
-  if (loading) return <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Loading…</p>
+  if (loading) return <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>Loading…</p>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: 640, width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)', margin: 0 }}>
+        <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
           These questions replace the default check-in for every client. Leave it empty to keep the standard
           Adherence / Energy / Obstacles / Notes form.
         </p>
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#34d399', opacity: saved ? 1 : 0, transition: 'opacity 200ms', whiteSpace: 'nowrap' }}>✓ Saved</span>
+        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-success)', opacity: saved ? 1 : 0, transition: 'opacity 200ms', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" /> Saved</span>
       </div>
 
       {questions.length === 0 ? (
@@ -148,8 +147,8 @@ export default function CheckinBuilder({ coachId }) {
                   {({ setNodeRef, style, handleProps }) => (
                     <div ref={setNodeRef} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--color-surface)', marginBottom: '10px', ...style }}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button {...handleProps} style={gripStyle} title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)', fontWeight: 700, width: 18 }}>{i + 1}.</span>
+                        <button {...handleProps} style={gripStyle} title="Drag to reorder" aria-label="Drag to reorder"><Icon name="grip" /></button>
+                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', fontWeight: 700, width: 18 }}>{i + 1}.</span>
                         <input
                           value={q.prompt}
                           placeholder="Question prompt"
@@ -157,7 +156,7 @@ export default function CheckinBuilder({ coachId }) {
                           onBlur={(e) => patch(q.id, { prompt: e.target.value })}
                           style={{ ...inputStyle, flex: 1 }}
                         />
-                        <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} title="Remove question">✕</button>
+                        <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} aria-label="Remove question" title="Remove question"><Icon name="x" /></button>
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', paddingLeft: 30 }}>
                         <select value={q.type} onChange={(e) => changeType(q, e.target.value)} style={{ ...inputStyle, width: 'auto' }}>
@@ -165,7 +164,7 @@ export default function CheckinBuilder({ coachId }) {
                         </select>
 
                         {q.type === 'rating' && (
-                          <label style={{ fontSize: '0.8rem', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             Scale
                             <select value={q.config?.max || 10} onChange={(e) => patch(q.id, { config: { ...q.config, max: Number(e.target.value) } })} style={{ ...inputStyle, width: 'auto' }}>
                               <option value={5}>1–5</option>
@@ -180,7 +179,7 @@ export default function CheckinBuilder({ coachId }) {
                           <input defaultValue={(q.config?.options || []).join(', ')} placeholder="options, comma-separated" onBlur={(e) => patch(q.id, { config: { ...q.config, options: parseOptions(e.target.value) } })} style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
                         )}
 
-                        <label style={{ fontSize: '0.8rem', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                        <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
                           <input type="checkbox" checked={q.required} onChange={() => patch(q.id, { required: !q.required })} />
                           Required
                         </label>

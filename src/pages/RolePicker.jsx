@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
+import { controlStyle, Icon } from '../components/ui'
 
 function RolePicker({ session, onComplete, onCancel }) {
   const userId = session.user.id
@@ -28,15 +29,8 @@ function RolePicker({ session, onComplete, onCancel }) {
     setLoading(false)
   }, [fullName, metadataFullName, onComplete, userEmail, userId])
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '10px 14px',
-    color: 'var(--color-text)',
-    fontSize: '1rem',
-    width: '100%'
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   return (
     <div style={{ maxWidth: '400px', margin: '80px auto', display: 'flex', flexDirection: 'column', gap: '24px', padding: '0 16px' }}>
@@ -47,7 +41,7 @@ function RolePicker({ session, onComplete, onCancel }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Your name</p>
+        <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>Your name</p>
         <input
           type="text"
           placeholder="Full name"
@@ -58,7 +52,7 @@ function RolePicker({ session, onComplete, onCancel }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>I am a...</p>
+        <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>I am a...</p>
         <div style={{ display: 'flex', gap: '8px' }}>
           {['solo', 'coach'].map((r) => (
             <button
@@ -73,7 +67,7 @@ function RolePicker({ session, onComplete, onCancel }) {
                 color: role === r ? 'var(--color-primary)' : 'var(--color-muted)',
                 cursor: 'pointer',
                 fontWeight: role === r ? 600 : 400,
-                fontSize: '0.875rem'
+                fontSize: 'var(--text-base)'
               }}
             >
               {r === 'solo' ? 'Individual' : 'Coach'}
@@ -81,7 +75,7 @@ function RolePicker({ session, onComplete, onCancel }) {
           ))}
         </div>
         {role === 'coach' && (
-          <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>
             You'll be able to invite and manage clients from your dashboard.
           </p>
         )}
@@ -98,11 +92,11 @@ function RolePicker({ session, onComplete, onCancel }) {
           border: 'none',
           color: 'var(--color-muted)',
           cursor: 'pointer',
-          fontSize: '0.875rem',
+          fontSize: 'var(--text-base)',
           textDecoration: 'underline'
         }}
       >
-        ← Back
+        <Icon name="left" /> Back
       </button>
     </div>
   )

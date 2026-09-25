@@ -4,6 +4,7 @@ import Button from '../components/Button'
 import Logo from '../components/Logo'
 import { estimateTargets, ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, ftInToCm, todayStr } from '../utils/biometrics'
+import { controlStyle } from '../components/ui'
 
 // First-run setup for brand-new tracked users (solo + clients who weren't
 // already solo). Collects the stable biometrics the target math needs — stored
@@ -73,7 +74,7 @@ export default function Onboarding({ session, profile, onComplete }) {
       primary_goal: goal || null,
     }
     const { error: pErr } = await supabase.from('profiles').update(profilePatch).eq('id', uid)
-    if (pErr) { console.error('onboarding profile save:', pErr); setError('Something went wrong — try again.'); setSaving(false); return }
+    if (pErr) { console.error('onboarding profile save:', pErr); setError('Something went wrong. Try again.'); setSaving(false); return }
 
     // Auto-apply the suggested macros (+ goal weight) as starting targets. The
     // coach can override these freely later (ClientView upserts the same row).
@@ -113,16 +114,13 @@ export default function Onboarding({ session, profile, onComplete }) {
     const { error: e } = await supabase.from('profiles')
       .update({ onboarded_at: new Date().toISOString(), unit_preference: units })
       .eq('id', session.user.id)
-    if (e) { console.error('onboarding skip:', e); setError('Something went wrong — try again.'); setSaving(false); return }
+    if (e) { console.error('onboarding skip:', e); setError('Something went wrong. Try again.'); setSaving(false); return }
     setSaving(false)
     onComplete()
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '10px 12px', color: 'var(--color-text)',
-    fontSize: 'var(--text-base)', width: '100%', fontFamily: 'inherit',
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
   const labelStyle = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
 
   const pill = (active) => ({
@@ -135,7 +133,7 @@ export default function Onboarding({ session, profile, onComplete }) {
 
   const macro = (label, value, unit, color) => (
     <div style={{ flex: 1, minWidth: 64, textAlign: 'center', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 6px' }}>
-      <div style={{ fontWeight: 700, fontSize: '1.05rem', color }}>{value}{unit}</div>
+      <div style={{ fontWeight: 700, fontSize: 'var(--text-subhead)', color }}>{value}{unit}</div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 2 }}>{label}</div>
     </div>
   )

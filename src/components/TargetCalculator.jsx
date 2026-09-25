@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Button from './Button'
 import { estimateTargets, ACTIVITY_LEVELS, PACES } from '../utils/targetEstimate'
+import { controlStyle, Pill } from './ui'
 
 // A compact onboarding assessment → suggested daily macros. Collects sex/age/
 // height/current+goal weight/activity/pace, computes starting targets (the same
@@ -36,11 +37,8 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
 
   const metric = units === 'metric'
   const wUnit = metric ? 'kg' : 'lb'
-  const inputStyle = {
-    backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)', padding: '9px 12px', color: 'var(--color-text)',
-    fontSize: 'var(--text-base)', width: '100%', fontFamily: 'inherit',
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
   const labelStyle = { fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginBottom: '4px', display: 'block' }
 
   function compute() {
@@ -57,7 +55,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
 
   const macro = (label, value, unit, color) => (
     <div style={{ flex: 1, minWidth: 64, textAlign: 'center', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 6px' }}>
-      <div style={{ fontWeight: 700, fontSize: '1.05rem', color }}>{value}{unit}</div>
+      <div style={{ fontWeight: 700, fontSize: 'var(--text-subhead)', color }}>{value}{unit}</div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 2 }}>{label}</div>
     </div>
   )
@@ -82,13 +80,15 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
         <label style={labelStyle}>Units</label>
         <div style={{ display: 'flex', gap: '6px' }}>
           {['imperial', 'metric'].map((u) => (
-            <button key={u} type="button" onClick={() => setUnits(u)} style={{
-              flex: 1, padding: '7px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 'var(--text-sm)', fontWeight: 600,
-              border: `1px solid ${units === u ? 'var(--color-primary)' : 'var(--color-border)'}`,
-              background: units === u ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: units === u ? 'var(--color-on-accent)' : 'var(--color-muted)',
-            }}>{u === 'imperial' ? 'lb / ft·in' : 'kg / cm'}</button>
+            <Pill
+              key={u}
+              active={units === u}
+              onClick={() => setUnits(u)}
+              aria-pressed={units === u}
+              style={{ flex: 1 }}
+            >
+              {u === 'imperial' ? 'lb / ft·in' : 'kg / cm'}
+            </Pill>
           ))}
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
       </div>
 
       <div>
-        <label style={labelStyle}>Body fat % <span style={{ color: 'var(--color-faint)' }}>— optional, more accurate</span></label>
+        <label style={labelStyle}>Body fat % <span style={{ color: 'var(--color-faint)' }}>optional, more accurate</span></label>
         <input type="number" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="e.g. 20" style={inputStyle} />
       </div>
 
@@ -138,7 +138,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
 
       {error && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)', margin: 0 }}>{error}</p>}
 
-      <Button onClick={compute} variant="outline" size="sm">Calculate</Button>
+      <Button onClick={compute} variant="muted" size="sm">Calculate</Button>
 
       {result && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
@@ -156,9 +156,9 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
                 (result.weeksToGoal ? ` · ~${result.weeksToGoal} wks at this rate.` : '.')}
           </p>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)', margin: 0, lineHeight: 1.5 }}>
-            Based on {result.method === 'katch' ? 'Katch–McArdle (lean mass)' : 'Mifflin–St Jeor'}. A starting point — review and adjust{result.direction === 'lose' ? '; the rate slows as you get lighter' : ''}.
+            Based on {result.method === 'katch' ? 'Katch–McArdle (lean mass)' : 'Mifflin–St Jeor'}. A starting point. Review and adjust{result.direction === 'lose' ? '; the rate slows as you get lighter' : ''}.
           </p>
-          <Button onClick={() => onApply(result)} variant="primary" size="sm">Use these targets</Button>
+          <Button onClick={() => onApply(result)} variant="muted" size="sm">Use these targets</Button>
         </div>
       )}
     </div>

@@ -58,6 +58,7 @@ export async function computeClientStats(clientIds, relationships = []) {
     const checkIn = checkIns.find(c => c.client_id === id && c.week_of === period.weekOf) || null
     const clientTargets = targetsData.find(t => t.user_id === id)
 
+
     const complianceItems = []
 
     if (clientTargets?.calories) {

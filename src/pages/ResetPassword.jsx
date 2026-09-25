@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import PasswordInput from '../components/PasswordInput'
 import { getPasswordValidationError } from '../utils/passwordValidation'
+import { controlStyle } from '../components/ui'
 
 function ResetPassword() {
   const navigate = useNavigate()
@@ -41,15 +42,8 @@ function ResetPassword() {
     setLoading(false)
   }
 
-  const inputStyle = {
-    backgroundColor: 'var(--color-surface-2)',
-    border: '1px solid var(--color-border-strong)',
-    borderRadius: '8px',
-    padding: '10px 14px',
-    color: 'var(--color-text)',
-    fontSize: '1rem',
-    width: '100%'
-  }
+  // One canonical control style for the whole app (src/components/ui/Field.jsx).
+  const inputStyle = controlStyle
 
   return (
     <div style={{
@@ -60,7 +54,7 @@ function ResetPassword() {
       gap: '16px'
     }}>
       <h1>Reset password</h1>
-      <p style={{ color: 'var(--color-muted)', fontSize: '0.875rem' }}>
+      <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>
         Enter your new password below.
       </p>
 
@@ -77,11 +71,11 @@ function ResetPassword() {
         style={inputStyle}
       />
 
-      {error && <p style={{ color: '#f87171' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--color-error)' }}>{error}</p>}
 
       <button onClick={handleReset} disabled={loading} style={{
-        backgroundColor: '#22c55e',
-        color: '#fff',
+        backgroundColor: 'var(--color-primary-fill)',
+        color: 'var(--color-on-primary-fill)',
         border: 'none',
         borderRadius: '8px',
         padding: '10px 20px',

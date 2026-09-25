@@ -25,6 +25,15 @@ export function localEnv() {
   if (!env.API_URL || !env.ANON_KEY || !env.SERVICE_ROLE_KEY) {
     throw new Error('Could not read local Supabase keys from `supabase status -o env`.')
   }
-  cached = { url: env.API_URL, anonKey: env.ANON_KEY, serviceKey: env.SERVICE_ROLE_KEY }
+  // DB_URL is a DIRECT postgres connection, bypassing PostgREST. Needed only by
+  // tests that must hold a transaction open across statements — PostgREST gives
+  // every request its own transaction and ends it before responding, so
+  // lock/visibility behaviour cannot be exercised through the REST API.
+  cached = {
+    url: env.API_URL,
+    anonKey: env.ANON_KEY,
+    serviceKey: env.SERVICE_ROLE_KEY,
+    dbUrl: env.DB_URL,
+  }
   return cached
 }

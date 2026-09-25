@@ -1,11 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
+import { useSessionPolicy } from './hooks/useSessionPolicy'
 import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
 import LoadingScreen from './components/LoadingScreen'
 import { useMediaQuery } from './hooks/useMediaQuery'
-import ClientChat from './components/ClientChat'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CoachPaywall from './components/CoachPaywall'
 import { resolveLockState } from './utils/lockState'
@@ -24,6 +24,10 @@ const BillingSuccess = lazy(() => import('./pages/BillingSuccess'))
 const Terms = lazy(() => import('./pages/Terms'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const ConsumerHealthData = lazy(() => import('./pages/ConsumerHealthData'))
+// Reading a coach report is its own page, not a section that expands inside the
+// dashboard — see pages/Reports.jsx.
+const ReportReader = lazy(() => import('./pages/Reports'))
+const Coach = lazy(() => import('./pages/Coach'))
 
 // Coach paywall is OFF for now — coaches use the app free while we're
 // pre-public. Flip back to `true` to re-enable the paywall + trial gating when
@@ -123,22 +127,28 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   const isWideScreen =
     path === '/' || path === '/log' || path === '/profile' || path.startsWith('/client/')
   // The rail + content pages (a client's full record and the coach/settings
-  // Profile) get extra room so they span the same width instead of one sitting
-  // in a narrower column than the other.
-  const isExtraWide = path.startsWith('/client/') || path === '/profile'
+  // Profile) OWN THEIR LAYOUT. They render a full-height sidebar flush to the
+  // viewport edge, which a centred max-width <main> makes impossible — the rail
+  // ends up marooned mid-page with a band of empty background to its left, and
+  // reads as a floating card rather than navigation. So <main> gets out of the
+  // way entirely and .cv-shell / .cv-main supply their own padding.
+  const ownsLayout = path.startsWith('/client/') || path === '/profile'
 
   // Clients carry the floating chat bubble (FAB, bottom-right) on every page;
   // give the content extra bottom clearance so it never sits on a control
   // (e.g. the "Log Steps" button) when scrolled to the end.
   const hasChatFab = profile?.role === 'client'
-  const mainStyle = isLanding
+  const mainStyle = (isLanding || ownsLayout)
     ? { width: '100%' }
-    : { maxWidth: isExtraWide ? '1560px' : isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: hasChatFab ? '24px 16px 96px' : '24px 16px' }
+    : { maxWidth: isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: hasChatFab ? '24px 16px 96px' : '24px 16px' }
 
   return (
     <>
+      {/* Keyboard users had to tab the whole nav on every route (H13). Visible
+          only on focus, so it costs sighted users nothing. */}
+      {session && <a href="#main" className="skip-link">Skip to main content</a>}
       {session && <NavBar profile={profile} />}
-      <main style={mainStyle}>
+      <main id="main" style={mainStyle}>
         <Suspense fallback={<LoadingScreen />}>
           <Routes>
             <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
@@ -149,6 +159,12 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
             ) : (showLoginAsHome ? <Login /> : <Landing />)} />
             <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
             <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
+            <Route path="/coach" element={session ? <Coach profile={profile} /> : <Navigate to="/login" />} />
+            {/* The archive lived at its own route before the coach surface
+                existed. Kept as a redirect so old links and notifications
+                still land somewhere real. */}
+            <Route path="/reports" element={<Navigate to="/coach?tab=reports" replace />} />
+            <Route path="/reports/:id" element={session ? <ReportReader /> : <Navigate to="/login" />} />
             <Route path="/join" element={<Join />} />
             <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -162,7 +178,12 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
       </main>
       {/* Client chat bubble — mounted at the layout level so it's available on
           every authenticated page, not just the dashboard. */}
-      {session && profile?.role === 'client' && <ClientChat profile={profile} />}
+      {/* The floating chat bubble is gone for clients: the conversation lives
+          on /coach now, beside the reports, under one unread count. A bubble
+          pinned to every page was the second of two coach channels, and the
+          one that made "what did my coach say?" a question with two answers.
+          The coach keeps their own bubble on ClientView, where it is the only
+          channel for that one client. */}
       {/* In-app "new version available" prompt for PWA users. */}
       <PWAUpdatePrompt />
     </>
@@ -177,6 +198,10 @@ function App() {
   const [subLoading, setSubLoading] = useState(false)
   const [soloSubscription, setSoloSubscription] = useState(null)
   const [, setSoloSubLoading] = useState(false)
+
+  // Coach-tier session caps; clients are covered by the project-wide Supabase
+  // time-box and deliberately have no idle timeout.
+  useSessionPolicy(session, profile)
 
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase
