@@ -26,7 +26,6 @@ const Privacy = lazy(() => import('./pages/Privacy'))
 const ConsumerHealthData = lazy(() => import('./pages/ConsumerHealthData'))
 // Reading a coach report is its own page, not a section that expands inside the
 // dashboard — see pages/Reports.jsx.
-const ReportReader = lazy(() => import('./pages/Reports'))
 const Coach = lazy(() => import('./pages/Coach'))
 
 // Coach paywall is OFF for now — coaches use the app free while we're
@@ -132,15 +131,20 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   // ends up marooned mid-page with a band of empty background to its left, and
   // reads as a floating card rather than navigation. So <main> gets out of the
   // way entirely and .cv-shell / .cv-main supply their own padding.
-  const ownsLayout = path.startsWith('/client/') || path === '/profile'
+  // /coach joins them: its archive rail is flush to the window edge, which a
+  // centred max-width <main> makes impossible. /coach/reports renders the same
+  // page with the archive modal up, so it wants the same layout.
+  const ownsLayout = path.startsWith('/client/') || path === '/profile' || path.startsWith('/coach') || path.startsWith('/reports/')
 
-  // Clients carry the floating chat bubble (FAB, bottom-right) on every page;
-  // give the content extra bottom clearance so it never sits on a control
-  // (e.g. the "Log Steps" button) when scrolled to the end.
-  const hasChatFab = profile?.role === 'client'
+  // Clients USED to carry a floating chat bubble (FAB, bottom-right) on every
+  // page, and <main> kept 96px of bottom clearance so content never sat under
+  // it. The bubble went when the conversation moved to /coach; the clearance
+  // stayed, so every client page has since reserved a strip for a control that
+  // is not rendered anywhere (`ClientChat` has no call site). The coach keeps
+  // their own bubble on ClientView, which owns its layout and pads itself.
   const mainStyle = (isLanding || ownsLayout)
     ? { width: '100%' }
-    : { maxWidth: isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: hasChatFab ? '24px 16px 96px' : '24px 16px' }
+    : { maxWidth: isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: '24px 16px' }
 
   return (
     <>
@@ -160,11 +164,16 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
             <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
             <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
             <Route path="/coach" element={session ? <Coach profile={profile} /> : <Navigate to="/login" />} />
+            {/* The archive is a modal over the thread, not a page of its own.
+                The URL still addresses it, so a link opens the thread with it up. */}
+            <Route path="/coach/reports" element={session ? <Coach profile={profile} archiveOpen /> : <Navigate to="/login" />} />
             {/* The archive lived at its own route before the coach surface
                 existed. Kept as a redirect so old links and notifications
                 still land somewhere real. */}
-            <Route path="/reports" element={<Navigate to="/coach?tab=reports" replace />} />
-            <Route path="/reports/:id" element={session ? <ReportReader /> : <Navigate to="/login" />} />
+            <Route path="/reports" element={<Navigate to="/coach/reports" replace />} />
+            {/* The reader is the detail half of the coach surface: same page,
+                same rail, the report in place of the thread. Alone on a phone. */}
+            <Route path="/reports/:id" element={session ? <Coach profile={profile} /> : <Navigate to="/login" />} />
             <Route path="/join" element={<Join />} />
             <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
             <Route path="/reset-password" element={<ResetPassword />} />

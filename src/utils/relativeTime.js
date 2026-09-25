@@ -52,3 +52,31 @@ export function exactTime(iso) {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
+
+// The label on a thread's day separator.
+//
+// The DAY only, with no clock time. Messages.app pairs the two because a phone
+// chat arrives in bursts and the hour tells you whether two messages were one
+// conversation or two. A coaching thread is one or two items a day, so the
+// separator is per-day and the time it would print is just whenever the first
+// of them happened: precision that is not information. It read as noise the
+// moment it was on screen, where every row said "11:32 PM".
+export function dayStamp(iso, now = new Date()) {
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return ''
+
+  const a = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const b = new Date(then.getFullYear(), then.getMonth(), then.getDate())
+  const days = Math.round((a - b) / DAY)
+
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  // Inside the week the weekday is more locating than the date: "Monday" is a
+  // day you remember, "Sep 15" is one you work out.
+  if (days < 7) return then.toLocaleDateString(undefined, { weekday: 'long' })
+
+  const sameYear = then.getFullYear() === now.getFullYear()
+  return then.toLocaleDateString(undefined, {
+    month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}

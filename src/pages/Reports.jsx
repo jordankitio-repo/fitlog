@@ -8,7 +8,6 @@ import ReportProse from '../components/ReportProse'
 import { Icon } from '../components/ui'
 import { relativeTime } from '../utils/relativeTime'
 import { leadOf, byMonth } from '../utils/reportFeed'
-import { cardStyle } from '../utils/styles'
 
 // Reports from the coach: a LIST page and a READER page.
 //
@@ -26,10 +25,20 @@ import { cardStyle } from '../utils/styles'
 
 // One row of the list. Deliberately not a card: a list of choices wants rhythm
 // and a hairline, not twelve boxes.
-function ReportRow({ report: r, sender, onOpen }) {
+//
+// No sender column. Every report in a client's archive is from the one coach
+// the page is already named after, so it was a column repeating one face down
+// the page — the same reason the coach's own sent list never had one. The
+// reader still names and pictures the sender, which is where a client who has
+// changed coaches finds out which one wrote a given report.
+function ReportRow({ report: r, onOpen, active = false }) {
   return (
-    <button type="button" className="rep-row ds-control" onClick={() => onOpen(r.id)}>
-      <Avatar url={sender?.avatar_url} name={sender?.full_name || 'Coach'} size={32} />
+    <button
+      type="button"
+      className={`rep-row rep-row-nosender ds-control${active ? ' rep-row-active' : ''}`}
+      aria-current={active ? 'true' : undefined}
+      onClick={() => onOpen(r.id)}
+    >
       <span className="rep-row-body">
         {/* SUBJECT first, date second — the order every archive uses, because
             a title is what makes a long list scannable and a date is not. Rows
@@ -56,23 +65,17 @@ const PAGE = 20
 // The archive itself, without page chrome, so the Coach destination can hold it
 // beside the message thread rather than linking away to a second place for the
 // same relationship.
-export function ReportArchive({ profile }) {
+//
+// `variant="rail"` is the desktop sidebar on /coach: the same fetch, the same
+// pagination, the same rows, minus the card the rows sit in (a sidebar IS the
+// container) and minus the sender column. One component, two widths — the
+// difference is a prop, not a second file, which is the rule this list already
+// learned once when the client's and the coach's copies diverged.
+export function ReportArchive({ profile, activeId = null }) {
   const [reports, setReports] = useState(null)
-  const [people, setPeople] = useState({})
   const [total, setTotal] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
   const navigate = useNavigate()
-
-  // Sender lookup, resolved per distinct coach rather than joined per row — a
-  // client has one coach, and reports from a previous one must still render
-  // with the right name.
-  async function resolvePeople(rows) {
-    const ids = [...new Set(rows.map(r => r.coach_id).filter(Boolean))]
-    if (!ids.length) return
-    const { data: profs } = await supabase
-      .from('profiles').select('id, full_name, avatar_url').in('id', ids)
-    setPeople(prev => ({ ...prev, ...Object.fromEntries((profs || []).map(p => [p.id, p])) }))
-  }
 
   useEffect(() => {
     async function load() {
@@ -84,8 +87,6 @@ export function ReportArchive({ profile }) {
       if (error) { console.error(error); setReports([]); return }
       setReports(data)
       setTotal(count ?? data.length)
-      await resolvePeople(data)
-
     }
     load()
   }, [])
@@ -98,10 +99,7 @@ export function ReportArchive({ profile }) {
       .eq('archived', false)
       .order('created_at', { ascending: false })
       .range(from, from + PAGE - 1)
-    if (!error && data) {
-      setReports(prev => [...prev, ...data])
-      await resolvePeople(data)
-    }
+    if (!error && data) setReports(prev => [...prev, ...data])
     setLoadingMore(false)
   }
 
@@ -109,9 +107,9 @@ export function ReportArchive({ profile }) {
   const hasMore = reports && reports.length < total
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
+    <div className="rep-list-rail" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
       {reports === null ? (
-        <div style={{ ...cardStyle, padding: 0 }}>
+        <div>
           {[...Array(4)].map((_, i) => <Skeleton key={i} height="76px" />)}
         </div>
       ) : reports.length === 0 ? (
@@ -123,14 +121,14 @@ export function ReportArchive({ profile }) {
         />
       ) : (
         <>
-          <div style={{ ...cardStyle, padding: 'var(--space-4) var(--space-24)' }}>
+          <div>
             {rows.map(row => row.kind === 'label' ? (
               <p key={`m-${row.key}`} className="rep-month">{row.label}</p>
             ) : (
               <ReportRow
                 key={row.report.id}
                 report={row.report}
-                sender={people[row.report.coach_id]}
+                active={row.report.id === activeId}
                 onOpen={(id) => navigate(`/reports/${id}`)}
               />
             ))}
@@ -158,7 +156,14 @@ export function ReportArchive({ profile }) {
   )
 }
 
-export default function ReportReader() {
+// The reader, on a page OR in the coach surface's detail pane.
+//
+// `inPane` is the desktop master-detail case: the rail stays, this replaces the
+// thread beside it, and the way out is the conversation rather than a list the
+// reader can already see. Reading still happens in a reading surface with its
+// own measure (C5) — it is the same component either way, because one
+// difference is a prop and not a second file.
+export default function ReportReader({ inPane = false }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [report, setReport] = useState(null)
@@ -221,11 +226,16 @@ export default function ReportReader() {
     // what makes the emptiness margin instead of void.
     <div className="page-fade-in rep-reader">
       {/* A back link names its destination. "Back" makes the reader guess
-          which of two places they came from — and the destination is the coach
-          surface now, not a standalone archive. */}
-      <Link to="/coach?tab=reports" className="ds-disclosure ds-control" style={{ width: 'auto', textDecoration: 'none' }}>
+          which of two places they came from. Beside the rail that destination
+          is the conversation, because the list is already on screen and a link
+          back to it would point at the thing three inches to the left. */}
+      <Link
+        to={inPane ? '/coach' : '/coach/reports'}
+        className="ds-disclosure ds-control"
+        style={{ width: 'auto', textDecoration: 'none' }}
+      >
         <Icon name="left" size={14} />
-        <span>All reports</span>
+        <span>{inPane ? 'Back to conversation' : 'All reports'}</span>
       </Link>
 
       {!report ? (
