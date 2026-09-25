@@ -133,7 +133,7 @@ export default function Terms() {
           <strong>Coach Cancellation and Client Impact.</strong> If a coach's subscription is canceled or lapses,
           the coach's clients will be transitioned to individual accounts at the end of the coach's current billing
           period. Clients will retain all of their logged data and may continue using the Services as solo users.
-          Clients will be notified via the in-app Dashboard when this transition occurs.
+          Clients will be notified in the app, on their My Progress page, when this transition occurs.
         </p>
         <p style={p}>
           <strong>Solo Premium — Pause and Resume.</strong> If a Solo Premium subscriber joins a coaching plan,

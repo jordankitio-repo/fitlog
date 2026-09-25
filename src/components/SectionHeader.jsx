@@ -2,7 +2,7 @@ import InfoTip from './InfoTip'
 import Badge from './ui/Badge'
 import Icon from './ui/Icon'
 
-function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, info, action, children, animated = true }) {
+function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTone = 'solid', info, action, children, animated = true }) {
   return (
     <>
       <div
@@ -25,7 +25,14 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, info, ac
               SectionHeader" — it had simply never been wired up here, so this
               was a hand-rolled copy of the primitive that described it, at 700
               where the primitive is 500. */}
-          {badge && <Badge tone="solid" color={badgeColor || 'var(--color-primary)'}>{badge}</Badge>}
+          {/* `badgeTone` exists because a solid fill is not always right. Solid
+              is a STATUS the reader must act on (the check-in's red "To do").
+              A plain COUNT is not that, and painting one solid green put the
+              app's action colour on a panel whose own rows grade the identical
+              fact grey — the same "unread" reading as a call to action at panel
+              level and as nothing-to-grade one line below it. B1: green must
+              mean graded-and-good, never just "there are some". */}
+          {badge && <Badge tone={badgeTone} color={badgeColor || 'var(--color-primary)'}>{badge}</Badge>}
           {/* Action sits in the title cluster (not the right) so it never
               collides with the absolutely-positioned drag grip. */}
           {!collapsed && action}
