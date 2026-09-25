@@ -135,6 +135,30 @@ const CLIENTS = [
   },
 ]
 
+// A SOLO account, with no coach attached. Not part of the roster story — it
+// exists because "My Progress" renders a different page for a solo user than for
+// a coached one, and the difference is not cosmetic: Logging consistency (the
+// weekday/weekend split, best week, and the 90-day heatmap) is solo-only, so on
+// a roster-only seed that whole section was unreachable and could never be
+// reviewed on the hosted sandbox. Eight weeks deep with a believable wobble —
+// strong weekdays, patchier weekends — so the split has something to say rather
+// than reading 100% down the line.
+const SOLO = {
+  email: 'jamie@gardnr.demo',
+  name: 'Jamie Okafor',
+  goal: 'Recomp',
+  sex: 'female', height: 171, startWeight: 68.3, perDay: -0.02,
+  targets: { calories: 2100, protein: 150, carbs: 200, fat: 70, cardio_minutes: 30, steps: 8500 },
+  // Weekends are the gap: every Saturday/Sunday offset from a Sunday-anchored
+  // TODAY is dropped roughly every other week, which is what makes the
+  // weekday-vs-weekend cells differ.
+  logDays: run(0, 62, [6, 7, 13, 20, 21, 27, 34, 35, 41, 48, 49, 55, 62]),
+  hit: 0.91, steps: 8800,
+  cardioDays: [0, 3, 5, 9, 12, 16, 19, 23, 26, 30, 33, 37, 40, 44, 47, 51, 54, 58],
+  measurements: { neck: [33.0, 32.8], chest: [92, 91], waist: [74, 70.5], hips: [97, 95.5], arm: [27.8, 28.6], thigh: [55, 54] },
+  checkIn: null,
+}
+
 // The Sunday that starts the current week — check_ins are keyed by week_of.
 const weekOf = (() => {
   const d = new Date(TODAY)
@@ -191,8 +215,9 @@ await admin.from('subscriptions').insert({
 })
 console.log(`coach   Alex Moreau <${COACH_EMAIL}>`)
 
-for (const c of CLIENTS) {
-  const id = await makeUser(c.email, c.name, 'client', {
+for (const c of [...CLIENTS, SOLO]) {
+  const isSolo = c === SOLO
+  const id = await makeUser(c.email, c.name, isSolo ? 'solo' : 'client', {
     sex: c.sex,
     height_cm: c.height,
     birth_date: '1994-03-14',
@@ -201,16 +226,20 @@ for (const c of CLIENTS) {
     onboarded_at: TODAY.toISOString(),
   })
 
-  await admin.from('coach_clients').insert({
-    coach_id: coachId,
-    client_id: id,
-    status: 'active',
-    // Connected well in the past with the lock cleared, so triage is driven by
-    // the logging pattern rather than a new-client grace period.
-    created_at: new Date(TODAY.getTime() - 40 * 864e5).toISOString(),
-    lock_cleared_at: dstr(0),
-    checkin_interval_weeks: 1,
-  })
+  // A solo user has no coach, so no relationship row — which is also what makes
+  // the lock inapplicable to them and the consistency section visible.
+  if (!isSolo) {
+    await admin.from('coach_clients').insert({
+      coach_id: coachId,
+      client_id: id,
+      status: 'active',
+      // Connected well in the past with the lock cleared, so triage is driven by
+      // the logging pattern rather than a new-client grace period.
+      created_at: new Date(TODAY.getTime() - 40 * 864e5).toISOString(),
+      lock_cleared_at: dstr(0),
+      checkin_interval_weeks: 1,
+    })
+  }
 
   await admin.from('targets').insert({ user_id: id, ...c.targets })
 
@@ -285,7 +314,7 @@ for (const c of CLIENTS) {
 
   const last = Math.min(...c.logDays)
   console.log(
-    `client  ${c.name.padEnd(12)} ${c.goal.padEnd(13)} ` +
+    `${(isSolo ? 'solo' : 'client').padEnd(7)} ${c.name.padEnd(13)} ${c.goal.padEnd(13)} ` +
     `${c.logDays.length} days logged · last ${last === 0 ? 'today' : `${last}d ago`}`,
   )
 }

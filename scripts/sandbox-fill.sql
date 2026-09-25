@@ -22,16 +22,23 @@ select
   (select id from profiles where email = 'alex@gardnr.demo')   as coach,
   (select id from profiles where email = 'maya@gardnr.demo')   as maya,   -- GREEN
   (select id from profiles where email = 'marcus@gardnr.demo') as marcus, -- AMBER
-  (select id from profiles where email = 'sam@gardnr.demo')    as sam;    -- RED
+  (select id from profiles where email = 'sam@gardnr.demo')    as sam,    -- RED
+  (select id from profiles where email = 'jamie@gardnr.demo')  as jamie;  -- SOLO (no coach)
 
 -- ── 1. Shift the frozen seed dates onto today ──────────────────────────────────
 -- delta = today - anchor. Same expression everywhere so every table moves together
 -- and the internal story (streaks, gaps, trends) is preserved, just slid forward.
-update nutrition_log     set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids);
-update weight_log        set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids);
-update steps_log         set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids);
-update cardio_log        set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids);
-update body_measurements set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids);
+--
+-- EVERY seeded account has to be in this list. The solo account was added to the
+-- seed and not to this shift, so its history stayed parked on the 2026-07-12
+-- anchor: "Today's stats" read all zeros, the weight trend stopped two months
+-- short, and Logging consistency reported 0/22 weekdays — a page that looked
+-- broken when the only thing wrong was a missing name here.
+update nutrition_log     set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
+update weight_log        set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
+update steps_log         set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
+update cardio_log        set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
+update body_measurements set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
 -- Lock cleared "today" so triage is driven by logging pattern, not a new-client grace lock.
 update coach_clients set lock_cleared_at = current_date where coach_id = (select coach from _ids);
 
@@ -169,6 +176,83 @@ insert into coach_notes (coach_id, client_id, content) values
   ((select coach from _ids), (select maya from _ids),   'Cutting well; recomp shows in the tape more than the scale. Keep reassuring her the weight stall is expected.'),
   ((select coach from _ids), (select marcus from _ids), 'Reverse on plan, weight holding. Cardio/steps drift whenever he travels — build a hotel-week fallback.'),
   ((select coach from _ids), (select sam from _ids),    'Went quiet ~5 days ago, no check-in this week. Was consistent before the gap. Nudge sent, needs a call.');
+
+-- ── 8. Client-side "My Progress" states ───────────────────────────────────────
+-- Everything above fills the COACH's surfaces. This section fills the client's,
+-- because the seed left most of that page unreachable: one unread report in one
+-- week never shows the week tree, the archive, or the read/unread split, and no
+-- seeded row ever triggered the three dismissable notices. Each block below
+-- names the condition in the page that it exists to satisfy.
+
+-- Maya's report history — four weeks, mixed state, one archived. The page groups
+-- reports by week behind a disclosure and keeps archived ones in a second tree;
+-- with a single row neither structure renders.
+insert into reports (coach_id, client_id, content, week_of, created_at, read_at, archived) values
+  ((select coach from _ids), (select maya from _ids),
+   E'# Weekly Report — Maya (wk -1)\n\nWeight moved the way we wanted and the tape backed it up. Protein was the standout: you hit it **every single day**, including the weekend.\n\n- **Calories:** 92% of target, no day below 85%.\n- **Steps:** cleared 9k on six of seven days.\n\n**This week:** same plan. Don''t change anything while it''s working.',
+   (current_date - extract(dow from current_date)::int) - 7, now() - interval '8 days', now() - interval '7 days', false),
+  ((select coach from _ids), (select maya from _ids),
+   E'# Weekly Report — Maya (wk -2)\n\nA harder week and you logged through it, which is the part that matters.\n\n- Two days under target on calories, both midweek.\n- Cardio held at four sessions.\n\n**This week:** let''s get the midweek lunches prepped ahead so the dip doesn''t repeat.',
+   (current_date - extract(dow from current_date)::int) - 14, now() - interval '15 days', now() - interval '14 days', false),
+  ((select coach from _ids), (select maya from _ids),
+   E'# Weekly Report — Maya (wk -3)\n\nFirst full month done. Waist is down 3cm from where we started and your logging streak has not broken once.\n\n**This week:** measurements again on Sunday, then we''ll reassess the deficit.',
+   (current_date - extract(dow from current_date)::int) - 21, now() - interval '22 days', now() - interval '21 days', true);
+
+-- A real backlog. Four reports never exercised the archive: no month
+-- separators, no pagination, and a "See all" that opened a page shorter than
+-- the dashboard section linking to it. Six months of weekly reports is what a
+-- client actually accumulates, and it is the only way to see this surface
+-- behave. Bodies vary by week (E2: seed data must read like real records, not
+-- twenty copies of one paragraph).
+insert into reports (coach_id, client_id, content, week_of, created_at, read_at, archived)
+select
+  (select coach from _ids),
+  (select maya from _ids),
+  case (w % 5)
+    when 0 then E'Solid week. Weight is tracking down at about 0.4kg, which is exactly the rate we want for a cut this long.\n\n- **Nutrition:** protein hit every day, calories averaging 1,840.\n- **Cardio:** four Zone-2 walks.\n\n**This week:** no changes. Keep the Sunday prep going.'
+    when 1 then E'Good consistency, one thing to watch.\n\n- **Weekend:** Saturday came in 400 over, which is the pattern we talked about.\n- **Weekdays:** flawless, genuinely.\n\n**This week:** plan Saturday dinner the way you plan lunches and this stops being a thing.'
+    when 2 then E'Steady. Nothing dramatic and that is the point at this stage.\n\n- **Weight:** flat week, which after three down weeks is normal.\n- **Steps:** averaged 9,400.\n\n**This week:** hold everything. A flat week inside a downward trend is not a stall.'
+    when 3 then E'Strong week, and the tape agrees with the scale for once.\n\n- **Waist:** down another 0.8cm.\n- **Training:** all four sessions logged.\n\n**This week:** same plan. We will reassess the deficit at the end of the month.'
+    else E'A harder one, and you logged through it.\n\n- **Two days under** on calories, both midweek.\n- **Cardio** held at three sessions.\n\n**This week:** get the midweek lunches prepped ahead so the dip does not repeat.'
+  end,
+  (current_date - extract(dow from current_date)::int) - (w * 7),
+  (now() - (w * interval '7 days') - interval '2 days'),
+  (now() - (w * interval '7 days') - interval '1 day'),  -- all read: they are history
+  false
+from generate_series(4, 25) as w;
+
+-- The coach's reply on a submitted check-in. Renders the "Coach's note" block
+-- under the check-in card; nothing in the seed had ever set this column.
+--
+-- guard_checkin_review() blocks a direct write to coach_comment unless the
+-- caller is the active coach OR auth.role() = 'service_role'. psql is neither by
+-- default — auth.role() reads the request JWT, which a direct connection has no
+-- claims for — so this takes the trigger's own documented admin bypass rather
+-- than disabling the trigger. set local, so it expires at commit.
+set local request.jwt.claims = '{"role":"service_role"}';
+
+update check_ins
+   set coach_comment = 'Read this one twice. The weekend note is the honest bit and it''s exactly what I needed. Nothing to change: same plan, and send me a photo of the Sunday prep if you get a chance.',
+       reviewed_at = now() - interval '6 hours'
+ where client_id = (select maya from _ids)
+   and week_of = (current_date - extract(dow from current_date)::int);
+
+reset request.jwt.claims;
+
+-- Sam gets the coach-nudge notice: last_nudged_at inside 48h AND nothing logged
+-- today are BOTH required (Dashboard.fetchNudgeNotice), and Sam is the only
+-- seeded client who has not logged today.
+update coach_clients
+   set last_nudged_at = now() - interval '3 hours'
+ where client_id = (select sam from _ids);
+
+-- Marcus gets the re-measure reminder. measurementStatus() is due once the MOST
+-- RECENT tape session is 28+ days old, and section 3 gave him one dated today —
+-- so the whole series shifts back together rather than just the last row, which
+-- would only have promoted the -22 session to latest and still read "not due".
+update body_measurements
+   set logged_date = logged_date - 34
+ where user_id = (select marcus from _ids);
 
 commit;
 
