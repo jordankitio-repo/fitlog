@@ -150,9 +150,14 @@ UI read as calmer and more deliberate was the *setting*, not the face. If a
 screen here feels heavier than a reference you admire, check the weights before
 reaching for a new font.
 
-Two documented size exceptions, both iconography rather than text, both allowed
-because they scale with a circle instead of sitting on the ramp: the 9px `i`
-glyph in its 14px badge, and the `Avatar` monogram at `size * 0.4`.
+Three documented size exceptions, all iconography rather than text, allowed
+because each scales with its own shape instead of sitting on the ramp: the 9px
+`i` glyph in its 14px badge, the `Avatar` monogram at `size * 0.4`, and the
+streak card's emoji at `2rem`/`2.5rem` (32/40px), which sizes to the card's
+medallion and steps up at the 7-day mark. **The list is the sanction** — an
+off-ramp size carrying only an `eslint-disable` and no entry here is how a
+one-off survives; it was the emoji that was missing, found by measuring the
+rendered page rather than reading the source.
 
 ---
 
@@ -183,6 +188,16 @@ tokens ONLY. Metric tokens go on the number; semantic tokens go in the status
 cell; green is the only action colour. **Never colour an entire card border to
 signal state** — state belongs in the row's status cell, at a consistent
 x-position where it scans in one pass.
+
+*The one sanctioned exception is the celebration pair.* The streak and milestone
+cards carry a full green border (`--color-primary` / `--color-success`), and
+that is allowed because they are not signalling STATE — they are the reward
+itself, they appear at most one at a time, and they never sit in a column
+anything is scanned down. The rule B2 is defending is the roster: colour on a
+card border there competes with the status cell for the same job. Nothing
+competes with these. **Written down because it was not** — an audit flagged both
+as B2 violations and there was no entry to check them against, which is the same
+failure mode as a rule outliving its code, run the other way.
 
 **B3. Semantic colour needs a stated rule, or it is decoration.**
 Never introduce a colour without saying what governs it. For a banner CTA (a
@@ -256,6 +271,56 @@ If the reader cannot tell which end is *now*, the data is not being
 communicated. The roster deliberately has none: seven cells needed an axis
 label, then tooltips, then arithmetic, to say what the status text says in a
 phrase. Use one where the shape of the series is the point, and label its axis.
+
+**C5. A list is for CHOOSING; a page is for READING.**
+Coach reports lived in a section of the dashboard and expanded in place, and no
+amount of typography was going to fix that: a report is long-form prose, and
+every other section on that page is glanceable — stat tiles, charts, progress
+bars. A document inside a data panel can only be a teaser. Expanding one shoved
+the charts below it down the page; collapsed, it satisfied nobody.
+
+So the list is a row you pick (`.rep-row`) and reading happens on its own route
+(`/reports/:id`). This is the master–detail split every archive uses, and the
+parts that make it work:
+
+- **Centre the measure.** `max-width: 68ch` with `margin-inline: auto`. Capped
+  but LEFT-aligned, the column clung to one edge of a wide page and a short
+  report read as an error state. Centred, the same space is margin.
+- **Reading type is not dashboard type.** Leaving the panel was the point;
+  `--text-body`/1.75, a step up from the list that links to it.
+- **A back link names its destination.** "Back" makes a reader who arrived from
+  two possible places guess which.
+- **Offer the next one.** Someone who just finished a report is the likeliest
+  person in the app to want another. Prev/next at the foot also gives the
+  bottom of a short report something to be.
+- **The row carries the envelope, the page carries the letter.** Sender, a
+  relative time ("2 days ago", absolute past a week where "23 days ago" becomes
+  arithmetic), read state, and the LEAD — the first paragraph, markdown
+  stripped, cut at the column edge. Never a pixel-height clamp with a gradient
+  over it: that gradient has to know its backdrop's exact colour, and ours did
+  not — painted `--color-bg` on a `--color-surface` card it drew a visible band
+  across the text instead of fading it.
+
+**A page with one way in must not have that way in be conditional.** The "See
+all reports" link was gated on `> 3` reports, which left `/reports` unreachable
+for every client with three or fewer — while the reader's own "All reports"
+link pointed straight at it. Always render the only route to a destination.
+
+**Don't hand the reader a filing chore.** Client-side archive is gone: the
+control, its state, and a whole second tree, for a surface holding a handful of
+letters. Old ones fall down the list.
+
+**`read_at` belongs to the recipient.** It is the very thing the coach's list
+reports back to them ("Read" / "Unread"), so the reader marks it only when the
+viewer IS the client, and the coach's own sent list expands in place rather than
+opening that route. A state that two roles can both write is a state neither can
+trust.
+
+**One component, both sides.** There were two implementations and they had
+already diverged — the client's rendered the report's markdown while the coach's
+printed its source. Reading a coach's own sent report differs by exactly one
+thing (no sender column, since every report there is from the viewer), and one
+difference is a prop, not a second file.
 
 ---
 
@@ -564,7 +629,27 @@ keep `aria-label`. If it carries information nothing else shows, use the app's
 portaled bubble (`InfoTip` / `.info-tip-bubble`).
 
 **D6. A single destination is not navigation.**
-Nav pills render only when there is more than one place to go. In an account
+Nav items render only when there is more than one place to go.
+
+**And shape says which kind of thing a control is.** `999px` is the app's
+capsule, and it means *a control you press repeatedly* — sort chips, cadence
+toggles, `ui/Pill`. `--radius` (8px) is *a destination you navigate to, or a
+utility you navigate with* — the top bar's nav links, its Feedback and bell
+utilities, the ClientView rail.
+
+This was decided twice in CSS comments and never written down here, so it drifted
+in the one place both shapes met. `.gnav-util` states the rule ("a soft rounded
+rectangle, not a capsule... a 999px pill is the app's shape for a control you
+press repeatedly") and `.cv-rail-item` follows it, but `.gnav-link` — three
+pixels away in the same bar — stayed a capsule. A client's top bar therefore
+rendered nav links as capsules beside utilities as squircles; the coach's bar,
+having no nav links at all under this rule, looked correct and hid the
+mismatch. **A rule that lives only in the comment of the file that obeys it is
+not a rule the next file can follow.**
+
+*Still a capsule, deliberately:* `.gnav-tab-pill`, the mobile tab bar's active
+indicator. It holds no label and is not a surface you press — it is a mark
+sitting behind an icon, the same category as a data mark. In an account
 menu, the one action you cannot undo takes `--color-error` below a rule
 (`.gnav-menu-item.danger` + `.gnav-menu-sep`).
 
@@ -605,6 +690,9 @@ be reproduced without knowing that.
 | Profile | already compliant (8 surfaces, depth 1, 2 paddings) | Panel-migrated |
 | NotificationCenter | severity as a dot, grey reason text, 700 weights, hardcoded shadow, 9 off-scale spacings | **status text graded like the roster's column; ramp weights; `--shadow-dropdown`** |
 | ClientView | 17 nested bordered surfaces · 17 source paddings · 44 raw weights (19 of them 700) · 62 raw px spacings · 0 layout primitives · 7 hand-rolled controls | **2 (both controls) · 8 · 0 · 0 · Field/Select/Textarea/Pill · 4, each a genuinely distinct shape** |
+| Dashboard ("My Progress") | 6518px · 74 surfaces · 60 nested · depth 3 · 17 paddings · 20 raw weights (incl. an 800) · 72 raw px spacings · 6 non-pressable pills · 6 ▶/▼ glyphs | **4690px · 17 · 7 · depth 1 · 4 source paddings · 0 · 0 · 0 · 0** |
+| Dashboard structure | reports nested 3 deep, twice over (active + archived); 3 hand-rolled notice cards; local `checkinPillStyle`/`checkinInputStyle` | **one `Notice`, `Pill`/`Field`/`Textarea`** |
+| Coach reports (both sides) | 2 implementations · markdown printed as source · week folders holding 1 file · no sender · gradient-clamp + hand-rolled modal · `x` used for archive | **one `ReportFeed` · `ReportProse` · label-when-needed · avatar + relative time · line-clamp + inline disclosure · an `archive` glyph** |
 
 **Measure the SOURCE as well as the render on this page.** ClientView's rendered
 numbers barely moved (4716px → 4699, 33 boxes → 32, depth already 1) because the
@@ -614,8 +702,14 @@ The render is the truth about what a reader sees on ONE dataset; the source is
 the truth about what the page can draw. A screen can be measured "clean" purely
 because the fixture is thin.
 
-**Still to do:** Dashboard (6518px · 74 surfaces · 60 nested · depth 3 · 17
-paddings — the worst screen in the app), Log.
+**Two accounts, not one, when a page branches on role.** Dashboard renders a
+DIFFERENT page for a solo user than for a coached one — Logging consistency is
+solo-only — and the roster seed had no solo account, so that whole section was
+unreachable and measured as clean. Measured on both: client 4690px · 17
+surfaces, solo 4158px · 19. The solo number is the honest one; it is the branch
+that renders the most.
+
+**Still to do:** Log (26 raw weights · 104 raw spacings).
 
 ## Color tokens
 
@@ -726,7 +820,16 @@ tokens had 23 uses in the whole app while the roster alone rendered 11 distinct
 gaps. After the sweep the roster renders 8, all of them scale steps.
 
 Radius is exactly three values, each with one job: `--radius` 8px for surfaces
-and controls, `50%` for avatars, `999px` for pills.
+and controls, `50%` for avatars, `999px` for pills. A progress track is a
+**pill**, not a surface: the "Today vs target" bars were `3px` (half of their
+6px height, reinvented per call site) and are `999px` now, which is the same
+shape expressed as the value the system already has.
+
+The one place off-scale radii are allowed is a **data mark**, where the radius
+scales with the mark and not with the UI: `ComplianceHeatmap`'s 4px cells, its
+2px legend swatches, its 6px tooltip. These are chart furniture, the same
+category as SVG `fill=`/`stroke=`, and they are listed here so they read as a
+decision. Nothing else may add a fourth value.
 
 Shadows are tokenized for the same reason colours are — a shadow tuned for a
 near-black ground is far too heavy on a light one. `--shadow-card` for resting
