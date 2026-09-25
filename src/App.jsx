@@ -6,7 +6,6 @@ import Landing from './pages/Landing'
 import NavBar from './components/NavBar'
 import LoadingScreen from './components/LoadingScreen'
 import { useMediaQuery } from './hooks/useMediaQuery'
-import ClientChat from './components/ClientChat'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CoachPaywall from './components/CoachPaywall'
 import { resolveLockState } from './utils/lockState'
@@ -25,6 +24,10 @@ const BillingSuccess = lazy(() => import('./pages/BillingSuccess'))
 const Terms = lazy(() => import('./pages/Terms'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const ConsumerHealthData = lazy(() => import('./pages/ConsumerHealthData'))
+// Reading a coach report is its own page, not a section that expands inside the
+// dashboard — see pages/Reports.jsx.
+const ReportReader = lazy(() => import('./pages/Reports'))
+const Coach = lazy(() => import('./pages/Coach'))
 
 // Coach paywall is OFF for now — coaches use the app free while we're
 // pre-public. Flip back to `true` to re-enable the paywall + trial gating when
@@ -156,6 +159,12 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
             ) : (showLoginAsHome ? <Login /> : <Landing />)} />
             <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
             <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
+            <Route path="/coach" element={session ? <Coach profile={profile} /> : <Navigate to="/login" />} />
+            {/* The archive lived at its own route before the coach surface
+                existed. Kept as a redirect so old links and notifications
+                still land somewhere real. */}
+            <Route path="/reports" element={<Navigate to="/coach?tab=reports" replace />} />
+            <Route path="/reports/:id" element={session ? <ReportReader /> : <Navigate to="/login" />} />
             <Route path="/join" element={<Join />} />
             <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -169,7 +178,12 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
       </main>
       {/* Client chat bubble — mounted at the layout level so it's available on
           every authenticated page, not just the dashboard. */}
-      {session && profile?.role === 'client' && <ClientChat profile={profile} />}
+      {/* The floating chat bubble is gone for clients: the conversation lives
+          on /coach now, beside the reports, under one unread count. A bubble
+          pinned to every page was the second of two coach channels, and the
+          one that made "what did my coach say?" a question with two answers.
+          The coach keeps their own bubble on ClientView, where it is the only
+          channel for that one client. */}
       {/* In-app "new version available" prompt for PWA users. */}
       <PWAUpdatePrompt />
     </>

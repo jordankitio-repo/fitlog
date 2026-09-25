@@ -134,7 +134,13 @@ Write a structured weekly coaching report with these sections:
 6. Client Check-in Response (respond directly to their adherence rating, energy, obstacles, and notes if submitted)
 7. Top 3 Recommendations for next week
 
-Be direct, specific, and encouraging. Use the actual numbers from their data. If the client submitted a check-in, make sure to address it personally. Do not include a date-range title; the app will add it.`
+Be direct, specific, and encouraging. Use the actual numbers from their data. If the client submitted a check-in, make sure to address it personally.
+
+Begin your response with a single line of the form:
+
+SUBJECT: <a short, specific subject line, at most 8 words>
+
+The subject names what actually happened this week, the way a person would write it in an email ("Weekend held, waist down 5.5cm" — not "Weekly Report" or "Your Check-In"). It is what the client sees in a list of every report you have ever sent, so it must be different from last week's. Then a blank line, then the report itself with no title of its own.`
 
     const result = await callAnthropic({
       model: 'claude-haiku-4-5-20251001',
@@ -153,9 +159,17 @@ Be direct, specific, and encouraging. Use the actual numbers from their data. If
       })
     }
 
-    const report = `Weekly Report (${rangeLabel})\n\n${result.text}`
+    // Split the SUBJECT line off the body. The date-range title used to be
+    // PREPENDED into the content here, which put a line the app already renders
+    // (the report's date) inside the prose, and still left every row in the
+    // client's archive titled "Weekly Report". A subject is a field now, so it
+    // can head a row in a list without being read twice inside the document.
+    const raw = result.text.trim()
+    const match = /^SUBJECT:\s*(.+?)\s*(?:\n|$)/i.exec(raw)
+    const subject = match ? match[1].trim().slice(0, 120) : null
+    const report = match ? raw.slice(match[0].length).trim() : raw
 
-    return new Response(JSON.stringify({ report }), {
+    return new Response(JSON.stringify({ report, subject, rangeLabel }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 

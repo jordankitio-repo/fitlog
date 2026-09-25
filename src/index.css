@@ -423,6 +423,204 @@ body {
   padding-left: var(--space-12);
   border-left: 1px solid var(--color-border);
 }
+/* ui/IconButton. It is D3 rank 4 — no chrome until you touch it — and it was
+   the one control in the set that declared NO hover at all, so the blanket
+   `button:not(.ds-control):hover` fallback styled it: a brightness filter on an
+   already-muted glyph, plus the scale(0.97) press the control system replaced.
+   It now carries `ds-control` and the type-only progression D2 states once:
+   --color-faint -> --color-text-dim on hover -> --color-text while held. That
+   is byte-identical to .ds-sortbtn and .ds-fixbtn on purpose — three controls
+   that respond the same way should not be three implementations of it.
+   No surface fill: rank 4 has no chrome to light, and fading one up from
+   transparent would interpolate through translucent black. */
+.ds-iconbtn { color: var(--color-faint); transition: color 140ms ease; }
+.ds-iconbtn:hover { color: var(--color-text-dim); }
+.ds-iconbtn:active { color: var(--color-text); }
+.ds-iconbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 3px; }
+/* The danger variant grades rather than dims, so it keeps its hue and only
+   travels toward full strength. */
+.ds-iconbtn.ds-iconbtn-danger { color: var(--color-error); opacity: 0.8; transition: opacity 140ms ease; }
+.ds-iconbtn.ds-iconbtn-danger:hover,
+.ds-iconbtn.ds-iconbtn-danger:active { opacity: 1; }
+
+/* Coach-report prose lists (ReportProse). The marker is chrome, so it takes a
+   neutral token and never the text colour — B2. Hanging indent so a wrapped
+   bullet lines up under its own text rather than under the marker, which is
+   the difference between a list and a stack of ragged lines. */
+.rp-list { list-style-position: outside; }
+.rp-list li::marker { color: var(--color-faint); }
+.rp-list ul, .rp-list ol { margin: var(--space-6) 0 0; padding-left: 1.15em; }
+
+/* The client's coach surface: the conversation, full page rather than a bubble
+   pinned to a corner. A2 comfortable — this is something people read and type
+   into. */
+.coach-thread { display: flex; flex-direction: column; gap: var(--space-20); }
+.coach-msgs {
+  display: flex; flex-direction: column; gap: var(--space-12);
+  max-height: 56vh; overflow-y: auto; padding-right: var(--space-4);
+}
+.coach-msg {
+  max-width: 78%; align-self: flex-start;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-12) var(--space-16);
+}
+/* The client's own messages take the accent tint — B2 keeps chrome neutral, and
+   this is the one place hue carries data: WHO said it. Not a second colour per
+   sender, just self vs not. */
+.coach-msg-mine {
+  align-self: flex-end;
+  background-color: var(--color-primary-dim);
+  border-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
+}
+.coach-msg-body { margin: 0; font-size: var(--text-base); line-height: 1.6; white-space: pre-wrap; }
+.coach-msg-when { margin: var(--space-6) 0 0; font-size: var(--text-xs); color: var(--color-muted); }
+.coach-compose { display: flex; flex-direction: column; gap: var(--space-12); align-items: flex-start; }
+
+/* The report reader. A page whose whole job is one column of prose.
+   `margin-inline: auto` is the load-bearing line: left-aligned in a full-width
+   page, a 68ch measure clung to one edge and left most of a wide screen empty,
+   so a short report read as an error state. Centred, that same space is margin.
+   Type steps UP here — leaving the dashboard was the point, and --text-base at
+   a dashboard's density is not a reading size. */
+.rep-reader {
+  max-width: 68ch;
+  margin-inline: auto;
+  padding-block: var(--space-8) var(--space-32);
+}
+.rep-reader-title {
+  font-size: var(--text-xl); font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em; margin: var(--space-24) 0 0;
+}
+.rep-reader-title + .rep-reader-head { margin-top: var(--space-12); }
+.rep-reader-head {
+  display: flex; align-items: center; gap: var(--space-12);
+  margin: var(--space-24) 0;
+  padding-bottom: var(--space-20);
+  border-bottom: 1px solid var(--color-border);
+}
+.rep-reader-prose { font-size: var(--text-body); line-height: 1.75; }
+.rep-reader-prose p { margin-top: var(--space-16); }
+
+/* The next issue, at the foot. A reader who just finished one report is the
+   likeliest person in the app to want another; sending them back to a list to
+   get it is the one thing every archive that works avoids. It also gives the
+   bottom of a short report something to be. */
+.rep-reader-nav {
+  display: flex; justify-content: space-between; gap: var(--space-16);
+  margin-top: var(--space-32); padding-top: var(--space-20);
+  border-top: 1px solid var(--color-border);
+}
+.rep-reader-step {
+  display: flex; align-items: center; gap: var(--space-10);
+  background: none; border: none; padding: var(--space-8) 0; cursor: pointer;
+  font: inherit; text-align: left; color: var(--color-faint);
+  transition: color 140ms ease;
+}
+.rep-reader-step-next { text-align: right; margin-left: auto; }
+.rep-reader-step:hover { color: var(--color-text-dim); }
+.rep-reader-step:active { color: var(--color-text); }
+.rep-reader-step:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 3px; }
+.rep-reader-step > span { display: flex; flex-direction: column; gap: var(--space-2); }
+.rep-reader-step-k {
+  font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase;
+  font-weight: var(--weight-medium);
+}
+.rep-reader-step-v { font-size: var(--text-sm); color: var(--color-text); }
+
+/* A coach report in a LIST — a row you choose, not a document you read here.
+   Reading moved to its own page (/reports/:id), because a long-form report
+   inside a dashboard section can only ever be a teaser: expanding one pushed
+   every chart below it down the page, and collapsed it satisfied nobody.
+
+   Not a card. A list of choices wants rhythm and a hairline; twelve boxes is
+   what made this read as a filing cabinet. */
+.rep-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-12);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-16) 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+/* A divider BETWEEN rows, via adjacency — never `:last-child`, which silently
+   matched every row back when each sat in its own wrapper. */
+.rep-row:first-child { border-top: none; }
+/* The whole row is the target, so it lights a surface rather than only its
+   type (D2: reserve fills for things that are buttons first — this one is).
+   Starts from the panel's own colour, never `transparent`, or the fade
+   interpolates through translucent black. */
+.rep-row:hover { background-color: var(--color-surface-2); }
+.rep-row:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; border-radius: var(--radius); }
+
+/* The coach's own sent list: every report is from the viewer, so there is no
+   sender column and the body starts at the panel edge. */
+.rep-row-nosender { grid-template-columns: minmax(0, 1fr) auto; }
+.rep-row[aria-expanded="true"] .ds-chev { transform: rotate(90deg); }
+.rep-row .ds-chev { transition: transform 180ms ease; }
+
+/* Month separator in the archive. The eyebrow role (A5) — a divider that names
+   itself, not a heading competing with the rows under it. The first one drops
+   its top rule because the card edge is already there. */
+.rep-month {
+  font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-faint); font-weight: var(--weight-medium);
+  margin: var(--space-24) 0 var(--space-4);
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--color-border);
+}
+.rep-month:first-child { margin-top: var(--space-12); padding-top: 0; border-top: none; }
+/* A row directly after a month label starts that month, so it must not draw a
+   second rule under the label. */
+.rep-month + .rep-row { border-top: none; }
+
+.rep-row-body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.rep-row-head { display: flex; align-items: baseline; gap: var(--space-8); }
+/* The row title. When a report has a subject this is it; when it does not, the
+   date takes the slot so the row never loses its lead element. */
+.rep-row-title { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text); }
+.rep-row-when { font-size: var(--text-sm); color: var(--color-muted); }
+.rep-row-unread { font-size: var(--text-xs); color: var(--color-muted); }
+/* One line. The lead IS the summary, so it is cut at the column edge rather
+   than at a character count that would land mid-word. */
+.rep-row-lead {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A StatCell strip that WRAPS. The roster's strip never does — its cells are
+   narrow and fixed — so `.ds-statcell + .ds-statcell`'s border-LEFT was safe
+   there. The consistency strip on My Progress sizes its cells `1 1 160px`, and
+   once they stack that same rule paints a vertical hairline down the left of a
+   cell with nothing beside it: a rule separating a thing from the margin.
+   Below the wrap point the divider turns horizontal, which is what a stacked
+   list wants. The breakpoint sits just ABOVE where three 160px cells stop
+   fitting, so there is no in-between state that wraps to two columns and keeps
+   the vertical rule. */
+.ds-statstrip { display: flex; flex-wrap: wrap; row-gap: var(--space-16); }
+@media (max-width: 620px) {
+  .ds-statstrip { display: block; }
+  .ds-statstrip .ds-statcell { padding-right: 0; }
+  .ds-statstrip .ds-statcell + .ds-statcell {
+    padding-left: 0;
+    border-left: none;
+    margin-top: var(--space-16);
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--color-border);
+  }
+}
+
 @media (max-width: 900px) {
   .roster-row { grid-template-columns: 1fr auto !important; row-gap: 10px !important; }
   .roster-row > :nth-child(2) { grid-column: 1 / -1; }
@@ -636,8 +834,17 @@ nav a:hover {
 .gnav-link {
   display: inline-flex;
   align-items: center;
+  /* A soft rounded RECTANGLE, the same 8px as `.gnav-util` beside it in this
+     bar and `.cv-rail-item` in the coach's sidebar. It was a 999px capsule, and
+     that put TWO shapes for the same kind of thing in one top bar: the nav
+     links were capsules while the Feedback button and the bell three pixels to
+     their right were squircles. The rule .gnav-util already states is the one
+     that governs here — 999px is the app's shape for a control you press
+     REPEATEDLY (sort chips, cadence toggles, ui/Pill), and a destination you
+     navigate to is not that. The coach side was already right, which is why
+     the mismatch only showed on a client's bar. */
   padding: 7px 13px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   color: var(--color-muted);
   text-decoration: none;
   font-size: var(--text-sm);
@@ -807,15 +1014,19 @@ button, a, input, select, textarea {
 .today-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  gap: var(--space-16);
 }
 @media (max-width: 600px) {
   .today-stats-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: var(--space-8);
   }
+  /* A3: was `11px 13px`, two numbers that appear nowhere else in the app and on
+     no step of the scale. It only rendered below 600px, which is why every
+     desktop measurement of this page came back clean. Nearest steps, and the
+     ratio the tighter cell wanted is preserved. */
   .today-stats-grid .stat-card {
-    padding: 11px 13px !important;
+    padding: var(--space-10) var(--space-12) !important;
     min-height: 0 !important;
   }
   .today-stats-grid .stat-card-value {

@@ -1173,20 +1173,39 @@ function Log({ session, profile, hasSoloPremium = true }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
         <h1>Daily Log</h1>
-        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
-          <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="left" /></button>
-          <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-            <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
-            <input
-              type="date"
-              value={selectedDate}
-              max={toLocalDateString(new Date())}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              onClick={(e) => { try { e.currentTarget.showPicker() } catch { /* unsupported → native focus opens it */ } }}
-              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
-            />
-          </label>
-          <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="right" /></button>
+        {/* A3: the stepper is one control (step or pick the same value); "Today"
+            is a separate action, so it sits a group-gap out rather than inside
+            the pill. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-24)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
+            <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="left" /></button>
+            <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
+              <input
+                type="date"
+                value={selectedDate}
+                max={toLocalDateString(new Date())}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                onClick={(e) => { try { e.currentTarget.showPicker() } catch { /* unsupported → native focus opens it */ } }}
+                style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+              />
+            </label>
+            <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="right" /></button>
+          </div>
+          {/* There was no way back to today from a past day at all: only
+              stepping forward a day at a time, or opening the native picker and
+              finding today in it. The `›` goes disabled AT today and said
+              nothing about how to return TO it.
+
+              Same control and variant as My Progress's, and it appears on the
+              same condition — only when there is somewhere to go. No muted
+              "Today" label in the at-today state the way that page has one,
+              because the stepper here already spells the date out in words. */}
+          {!isToday && (
+            <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">
+              Today
+            </Button>
+          )}
         </div>
       </div>
 

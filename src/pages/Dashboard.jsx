@@ -15,7 +15,6 @@ import { metricBarData } from '../utils/metricBarChart'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
 import { refreshNotifications } from '../utils/notifyRefresh'
-import ReportBody from '../components/ReportBody'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { checkinPeriod, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
@@ -25,9 +24,6 @@ import { cadenceLabel } from '../utils/cadence'
 import { blankValue, validateAnswers, buildAnswers, formatAnswer } from '../utils/checkinQuestions'
 import ConfirmDialog from '../components/ConfirmDialog'
 
-const checkinInputStyle = { backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 14px', color: 'var(--color-text)', fontSize: 'var(--text-base)', width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }
-const checkinPillStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '999px', padding: '6px 16px', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
-const checkinPillActive = { background: 'var(--color-primary-fill)', borderColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)' }
 import { cardStyle as baseCardStyle } from '../utils/styles'
 import { Line, Bar } from 'react-chartjs-2'
 import {
@@ -42,12 +38,121 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { controlStyle, Icon } from '../components/ui'
+import { controlStyle, Icon, Pill, Textarea, Field, IconButton } from '../components/ui'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, Title, Tooltip, Legend, Filler
 )
+
+// The three dismissable notices on this page — coach offboarded, coach nudged,
+// time to re-measure — were three hand-rolled copies of the same card, each
+// with its own padding, its own icon markup and its own bare <button> for the
+// dismiss. D2: a hand-rolled copy is not wrong on the day it is written, it is
+// wrong on the day the original changes. One component, so there is nothing to
+// keep in step by hand.
+//
+// Shape is the "what IS wanted" recipe: a clean card with a UNIFORM border and
+// a flat tint, never the coloured left edge. `tone` picks the tint and the
+// glyph's stroke — amber for a recoverable state the user fixes by acting, green
+// for routine.
+function Notice({ tone = 'primary', icon, children, action, onDismiss }) {
+  const accent = tone === 'warning' ? 'var(--color-warning)' : 'var(--color-primary)'
+  const tint = tone === 'warning' ? 'var(--color-warning-dim)' : 'var(--color-primary-dim)'
+  return (
+    <div style={{
+      ...baseCardStyle,
+      backgroundColor: tint,
+      padding: 'var(--space-12) var(--space-16)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 'var(--space-12)',
+    }}>
+      <svg
+        width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={accent}
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        aria-hidden="true" style={{ flexShrink: 0 }}
+      >
+        {icon}
+      </svg>
+      <p style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: 1.6 }}>
+        {children}
+      </p>
+      {action}
+      {onDismiss && (
+        <IconButton onClick={onDismiss} aria-label="Dismiss" style={{ flexShrink: 0 }}>
+          <Icon name="x" size={18} />
+        </IconButton>
+      )}
+    </div>
+  )
+}
+
+// The streak and milestone cards are ALWAYS-DARK surfaces — the one sanctioned
+// place on this page for a gradient, and the gradient is a deep green either
+// theme. That makes them the same case as Toast, and they had the same bug it
+// documents: their foregrounds were tokens, so in LIGHT theme they flipped to
+// the darkened light-mode values while the background stayed dark.
+//
+// Measured in light, before this: the streak numeral was --color-primary
+// (#166534) on a #064e3b card — a dark green on a dark green, effectively
+// invisible; the "log today" line was --color-warning (#b45309) on the same
+// ground. The milestone card was worse than low-contrast, it was inverted: its
+// gradient started at --color-surface-2, which is #1a1a1a in dark but #eef0ee in
+// light, so the card ran near-WHITE into near-black with --color-muted (#5f6469)
+// text across it.
+//
+// So these are the dark-mode values, pinned. A token here is the bug.
+/* eslint-disable no-restricted-syntax -- always-dark surfaces, see above */
+const ALWAYS_DARK = {
+  streakHot:   'linear-gradient(135deg, #065f46, #064e3b)',
+  streakCool:  'linear-gradient(135deg, #052e16, #14532d)',
+  milestone:   'linear-gradient(135deg, #1a1a1a 0%, #1f2a1f 100%)',
+  primary:     '#22c55e', // --color-primary,  dark
+  success:     '#34d399', // --color-success,  dark
+  warning:     '#fbbf24', // --color-warning,  dark
+  muted:       '#888',    // --color-muted,    dark
+  label:       '#86efac', // decorative streak palette
+  cheer:       '#6ee7b7', // decorative streak palette
+}
+/* eslint-enable no-restricted-syntax */
+
+// The A5 panel-heading role, for the cards on this page that carry a heading
+// without a SectionHeader (they don't collapse). Same three values SectionHeader
+// and ui/Panel set, so a heading is the same size whichever card it sits in.
+const sectionHeadingStyle = {
+  margin: 0,
+  fontSize: 'var(--text-body)',
+  fontWeight: 'var(--weight-medium)',
+  letterSpacing: '-0.005em',
+}
+
+// B1: one ramp for "how much of this window did you log?", used by every cell
+// in the consistency strip. Stating it once is the point — the best-week cell
+// carried its own thresholds and graded 5-of-7 amber while the cell beside it
+// graded the same fraction green.
+function ratioTone(ratio) {
+  if (ratio >= 0.8) return 'var(--color-success)'
+  if (ratio >= 0.5) return 'var(--color-warning)'
+  return 'var(--color-error)'
+}
+
+// One cell of the consistency strip. Type carries the hierarchy (A5) and the
+// hairline between cells comes from .ds-statcell, so no cell draws a box.
+function ConsistencyStat({ label, hint, n, of, tone, sub }) {
+  return (
+    <span className="ds-statcell" style={{ flex: '1 1 160px', minWidth: 0, gap: 'var(--space-6)' }}>
+      <span style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-faint)', fontWeight: 'var(--weight-medium)' }}>
+        {label} <InfoTip text={hint} />
+      </span>
+      <span className="tnum" style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-semibold)', color: tone, lineHeight: 1.1 }}>
+        {n}
+        <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/{of}</span>
+      </span>
+      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{sub}</span>
+    </span>
+  )
+}
 
 function computeRollingAverage(data, window = 7) {
   return data.map((_, i) => {
@@ -62,7 +167,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
-  const [reports, setReports] = useState([])
   const [weightHistory, setWeightHistory] = useState([])
   const [plainCharts, togglePlain] = usePlainCharts()
   const [calorieHistory, setCalorieHistory] = useState([])
@@ -85,7 +189,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [heatmapData, setHeatmapData] = useState({})
   const [milestone, setMilestone] = useState(null)
   const [loggedToday, setLoggedToday] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
   const [cardOrder, setCardOrder] = useState(profile?.layout?.dashboard || [])
 
   async function saveCardOrder(next) {
@@ -117,12 +220,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     checkin: false,
     stats: false,
     targets: false,
+    consistency: false,
     weightChart: false,
     calorieChart: false,
     cardioChart: false,
     stepsChart: false,
   })
-  const [collapsedWeeks, setCollapsedWeeks] = useState({})
 
   function formatTime(timeStr) {
     if (!timeStr) return null
@@ -166,7 +269,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       await Promise.all([
         fetchTotals(),
         fetchWeight(),
-        fetchReports(),
         fetchWeightHistory(),
         fetchCalorieHistory(),
         fetchTargets(),
@@ -251,45 +353,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     setWeightEntry(data?.[0] ?? null)
   }
 
-  async function fetchReports() {
-    const { data, error } = await supabase
-      .from('reports').select('*').order('created_at', { ascending: false })
-    if (error) console.error(error)
-    else {
-      setReports(data)
-      // Auto-expand weeks with unread reports
-      const grouped = {}
-      data.filter(r => !r.archived).forEach(r => {
-        if (!grouped[r.week_of]) grouped[r.week_of] = []
-        grouped[r.week_of].push(r)
-      })
-      const newCollapsed = {}
-      Object.entries(grouped).forEach(([week, weekReports]) => {
-        const hasUnread = weekReports.some(r => !r.read_at)
-        newCollapsed[week] = !hasUnread // expand if unread, collapse if all read
-      })
-      setCollapsedWeeks(newCollapsed)
-    }
-  }
 
-  async function markAsRead(reportIds) {
-    await supabase
-      .from('reports')
-      .update({ read_at: new Date().toISOString() })
-      .in('id', reportIds)
-      .is('read_at', null)
-    fetchReports()
-  }
 
-  async function archiveReport(reportId) {
-    await supabase.from('reports').update({ archived: true }).eq('id', reportId)
-    fetchReports()
-  }
 
-  async function unarchiveReport(reportId) {
-    await supabase.from('reports').update({ archived: false }).eq('id', reportId)
-    fetchReports()
-  }
 
   async function fetchWeightHistory() {
     const { data, error } = await supabase
@@ -735,9 +801,15 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       y: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } }
     }
   }
+  // Byte-identical to ClientView's sectionCardStyle. A2's comfortable density
+  // (20/24) — these are sections people read, not a repeating roster — and the
+  // one place this page's section padding is decided. It used to be
+  // baseCardStyle's 16px here and 20/24 there, so the two client-facing pages
+  // disagreed on the width of the same margin.
   const cardStyle = {
     ...baseCardStyle,
-    display: 'flex', flexDirection: 'column', gap: '12px'
+    padding: 'var(--space-20) var(--space-24)',
+    display: 'flex', flexDirection: 'column', gap: 'var(--space-12)'
   }
   // Plot the weight trend in the coach-set goal's unit (falling back to the most
   // recent logged unit) so the chart tracks the goal instead of whatever unit
@@ -771,18 +843,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const calorieChartOptions = withYTitle(chartOptions, 'Calories (kcal)')
   const cardioChartOptions = withYTitle(chartOptions, 'Cardio (min)')
   const stepsChartOptions = withYTitle(chartOptions, 'Steps')
-  const activeReports = reports.filter(r => !r.archived)
-  const archivedReports = reports.filter(r => r.archived)
-  const unreadCount = activeReports.filter(r => !r.read_at).length
 
-  const groupByWeek = (list) => {
-    const grouped = {}
-    list.forEach(r => {
-      if (!grouped[r.week_of]) grouped[r.week_of] = []
-      grouped[r.week_of].push(r)
-    })
-    return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]))
-  }
 
   // First-run: a brand-new account with nothing logged yet (no nutrition,
   // weight, cardio or steps history, and nothing today). Drives a getting-
@@ -797,14 +858,14 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     !loggedToday
 
   return (
-    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
       {pageLoading ? (
-        <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
           {/* Streak skeleton */}
           <Skeleton height="100px" />
 
           {/* Date nav skeleton */}
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-12)', alignItems: 'center' }}>
             <Skeleton width="40px" height="38px" />
             <Skeleton width="140px" height="38px" />
             <Skeleton width="40px" height="38px" />
@@ -813,16 +874,16 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           {/* Stats skeleton */}
           <div style={cardStyle}>
             <Skeleton height="22px" width="120px" />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-16)' }}>
               {[...Array(6)].map((_, i) => <Skeleton key={i} height="72px" />)}
             </div>
           </div>
 
           {/* Targets skeleton */}
-          <div style={{ ...cardStyle, gap: '14px' }}>
+          <div style={cardStyle}>
             <Skeleton height="22px" width="140px" />
             {[...Array(4)].map((_, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Skeleton height="14px" width="70px" />
                   <Skeleton height="14px" width="110px" />
@@ -842,22 +903,24 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	      <>
 	      {milestone && (
 	        <div style={{
-	          background: 'linear-gradient(135deg, var(--color-surface-2) 0%, #1f2a1f 100%)',
-	          border: '1px solid var(--color-success)',
+	          background: ALWAYS_DARK.milestone,
+	          border: `1px solid ${ALWAYS_DARK.success}`,
 	          borderRadius: 'var(--radius)',
-	          padding: '16px 20px',
+	          padding: 'var(--space-16) var(--space-20)',
 	          display: 'flex',
 	          alignItems: 'center',
 	          justifyContent: 'space-between',
-	          gap: 16,
+	          gap: 'var(--space-16)',
 	        }}>
-	          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+	          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+	            {/* Decorative emoji, the streak/milestone exception named in the
+	                design doc — not an icon, and not a precedent for one. */}
 	            <span style={{ fontSize: 'var(--text-title)' }}>🔥</span>
 	            <div>
-	              <p style={{ fontWeight: 700, color: 'var(--color-success)', margin: 0, fontSize: 'var(--text-md)' }}>
+	              <p style={{ fontWeight: 'var(--weight-semibold)', color: ALWAYS_DARK.success, margin: 0, fontSize: 'var(--text-md)' }}>
 	                {milestone}-day streak!
 	              </p>
-	              <p style={{ color: 'var(--color-muted)', margin: 0, fontSize: 'var(--text-xs)' }}>
+	              <p style={{ color: ALWAYS_DARK.muted, margin: 0, fontSize: 'var(--text-xs)' }}>
 	                {milestone === 7 && 'One week straight. Keep it going.'}
 	                {milestone === 14 && "Two weeks consistent. You're building a habit."}
 	                {milestone === 30 && '30 days. This is who you are now.'}
@@ -866,119 +929,86 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	              </p>
 	            </div>
 	          </div>
-	          <button
-	            onClick={() => setMilestone(null)}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-	            aria-label="Dismiss"
-	          >
+	          <IconButton onClick={() => setMilestone(null)} aria-label="Dismiss">
 	            <Icon name="x" size={18} />
-	          </button>
+	          </IconButton>
 	        </div>
 	      )}
 
 	      {showOffboardNotice && (
-	        <div style={{
-	          padding: '14px 16px',
-	          border: '1px solid var(--color-border)',
-	          borderRadius: 'var(--radius)',
-	          backgroundColor: 'var(--color-warning-dim)',
-	          display: 'flex',
-	          alignItems: 'flex-start',
-	          gap: '12px'
-	        }}>
-	          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
-	            <circle cx="12" cy="12" r="10" />
-	            <path d="M12 16v-4M12 8h.01" />
-	          </svg>
-	          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6', flex: 1 }}>
-	            {offboardReason === 'coach_deleted'
-	              ? "Your coach's account was closed. Your data is preserved. You're now on a solo plan and can keep tracking on your own."
-	              : "Your coach ended the coaching relationship. Your data is preserved. You're now on a solo plan and can keep tracking on your own."
+	        <Notice
+	          tone="warning"
+	          icon={<><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></>}
+	          onDismiss={async () => {
+	            const { data: { session } } = await supabase.auth.getSession()
+	            if (session) {
+	              const { error } = await supabase
+	                .from('profiles')
+	                .update({ offboarded_at: null, offboard_reason: null })
+	                .eq('id', session.user.id)
+	              if (error) console.warn('Failed to clear offboard notice:', error.message)
 	            }
-	          </p>
-	          <button
-	            onClick={async () => {
-	              const { data: { session } } = await supabase.auth.getSession()
-	              if (session) {
-	                const { error } = await supabase
-	                  .from('profiles')
-	                  .update({ offboarded_at: null, offboard_reason: null })
-	                  .eq('id', session.user.id)
-	                if (error) console.warn('Failed to clear offboard notice:', error.message)
-	              }
-	              setShowOffboardNotice(false)
-	            }}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', flexShrink: 0, minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-	            aria-label="Dismiss"
-	          >
-	            <Icon name="x" size={18} />
-	          </button>
-	        </div>
+	            setShowOffboardNotice(false)
+	          }}
+	        >
+	          {offboardReason === 'coach_deleted'
+	            ? "Your coach's account was closed. Your data is preserved. You're now on a solo plan and can keep tracking on your own."
+	            : "Your coach ended the coaching relationship. Your data is preserved. You're now on a solo plan and can keep tracking on your own."
+	          }
+	        </Notice>
 	      )}
 
 	      {showNudgeNotice && (
-	        <div style={{ ...cardStyle, background: 'var(--color-primary-dim)', flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '14px 18px' }}>
-	          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-	            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-	            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-	          </svg>
-	          <p style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
-	            Your coach checked in on you. Log your nutrition today to keep your progress on track.
-	          </p>
-	          <button
-	            onClick={() => {
-	              localStorage.setItem(`nudge_dismissed_${profile.id}_${nudgeTimestamp}`, 'true')
-	              setShowNudgeNotice(false)
-	            }}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', flexShrink: 0, minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-	            aria-label="Dismiss"
-	          >
-	            <Icon name="x" size={18} />
-	          </button>
-	        </div>
+	        <Notice
+	          icon={<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></>}
+	          onDismiss={() => {
+	            localStorage.setItem(`nudge_dismissed_${profile.id}_${nudgeTimestamp}`, 'true')
+	            setShowNudgeNotice(false)
+	          }}
+	        >
+	          Your coach checked in on you. Log your nutrition today to keep your progress on track.
+	        </Notice>
 	      )}
 
 	      {showMeasReminder && (
-	        <div style={{ ...cardStyle, background: 'var(--color-primary-dim)', flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '14px 18px' }}>
-	          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-	            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-	          </svg>
-	          <p style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: '1.6' }}>
-	            It's been {measurementStatus({ lastMeasuredIso, cadenceDays: 28 }).daysSince} days since your last measurements — a good time for a fresh set.
-	          </p>
-	          <Button onClick={() => navigate('/log')} variant="muted" size="sm">Update</Button>
-	          <button
-	            onClick={() => {
-	              if (lastMeasuredIso) localStorage.setItem(`meas_reminder_dismissed_${profile.id}_${lastMeasuredIso}`, 'true')
-	              setShowMeasReminder(false)
-	            }}
-	            style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-body)', padding: '0', flexShrink: 0 }}
-	            aria-label="Dismiss"
-	          >
-	            <Icon name="x" size={18} />
-	          </button>
-	        </div>
+	        <Notice
+	          icon={<><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>}
+	          action={<Button onClick={() => navigate('/log')} variant="muted" size="sm">Update</Button>}
+	          onDismiss={() => {
+	            if (lastMeasuredIso) localStorage.setItem(`meas_reminder_dismissed_${profile.id}_${lastMeasuredIso}`, 'true')
+	            setShowMeasReminder(false)
+	          }}
+	        >
+	          {/* E-rule 0: the em dash here was a full stop wearing a costume. */}
+	          It's been {measurementStatus({ lastMeasuredIso, cadenceDays: 28 }).daysSince} days since your last measurements. A good time for a fresh set.
+	        </Notice>
 	      )}
 
-	      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-	        <h1>{profile?.role === 'client' ? 'My Progress' : 'Dashboard'}</h1>
+	      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+	        {/* E1: the nav said "Dashboard" and the page said "My Progress", so a
+	            client had to check they were in the right place. One name now, on
+	            both sides and for both roles — "Dashboard" was a placeholder word
+	            for the solo view, the way "Coach Dashboard" was for the roster
+	            before it became "Clients". NavBar carries the matching label. */}
+	        <h1>My Progress</h1>
 
         {streak > 0 && (
           <div style={{
-            background: streak >= 7 ? 'linear-gradient(135deg, #065f46, #064e3b)' : 'linear-gradient(135deg, #052e16, #14532d)',
-            border: '1px solid var(--color-primary)',
-            borderRadius: 'var(--radius)', padding: '16px 20px',
+            background: streak >= 7 ? ALWAYS_DARK.streakHot : ALWAYS_DARK.streakCool,
+            border: `1px solid ${ALWAYS_DARK.primary}`,
+            borderRadius: 'var(--radius)', padding: 'var(--space-16) var(--space-20)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
             <div>
-              {/* eslint-disable-next-line no-restricted-syntax -- decorative streak palette (always-dark gradient card) */}
-              <p style={{ fontSize: 'var(--text-sm)', color: '#86efac', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Logging streak</p>
-              <p style={{ fontWeight: 800, fontSize: 'var(--text-display)', color: 'var(--color-primary)', lineHeight: 1 }}>
-                {streak} <span style={{ fontSize: 'var(--text-body)', fontWeight: 400 }}>{streak === 1 ? 'day' : 'days'}</span>
+              <p style={{ fontSize: 'var(--text-xs)', color: ALWAYS_DARK.label, marginBottom: 'var(--space-4)', fontWeight: 'var(--weight-medium)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Logging streak</p>
+              {/* A5: --weight-bold is display numerals only, and this is the one
+                  on the page that qualifies. It was 800, a step off the four-step
+                  ramp entirely. .tnum so the digit doesn't jitter as it climbs. */}
+              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-display)', color: ALWAYS_DARK.primary, lineHeight: 1 }}>
+                {streak} <span style={{ fontSize: 'var(--text-body)', fontWeight: 'var(--weight-normal)' }}>{streak === 1 ? 'day' : 'days'}</span>
               </p>
-              {/* eslint-disable-next-line no-restricted-syntax -- decorative streak palette (always-dark gradient card) */}
-              {streak >= 7 && loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: '#6ee7b7', marginTop: '4px' }}>Keep it going, you're on a roll!</p>}
-              {!loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-warning)', marginTop: '4px' }}>Log today to keep your streak!</p>}
+              {streak >= 7 && loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: ALWAYS_DARK.cheer, marginTop: 'var(--space-4)' }}>Keep it going, you're on a roll!</p>}
+              {!loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: ALWAYS_DARK.warning, marginTop: 'var(--space-4)' }}>Log today to keep your streak!</p>}
             </div>
             {/* eslint-disable-next-line no-restricted-syntax -- decorative emoji glyph, sized to the icon not the text ramp */}
             <span style={{ fontSize: streak >= 7 ? '2.5rem' : '2rem' }}>
@@ -987,33 +1017,67 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
-          <input type="date" aria-label="Selected date" value={selectedDate} max={toLocalDateString(new Date())} onChange={(e) => setSelectedDate(e.target.value)} style={inputStyle} />
-          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
-          {isToday && <span style={{ backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', letterSpacing: '0.05em' }}>TODAY</span>}
-          {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">Today</Button>}
+        {/* A3, and the reason it is two nested flexes rather than one row:
+            `‹ date ›` is ONE control — stepping and picking set the same value —
+            so it clusters at 8px. The Today slot is a different thing and sits a
+            group-gap out.
+
+            As one evenly-spaced row it fell apart, because controlStyle is
+            `width: 100%` and a date input given a whole page takes it: the
+            field stretched ~1450px for a value that needs ~150, and the arrows
+            and the Today slot ended up pinned to opposite margins. Evenly
+            spaced reads flat (A3) — here it also stopped the four parts reading
+            as one date control at all. `width: auto` lets the field size to its
+            own content, which is what a date field wants. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-24)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+            <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
+            <input
+              type="date"
+              aria-label="Selected date"
+              value={selectedDate}
+              max={toLocalDateString(new Date())}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{ ...inputStyle, width: 'auto' }}
+            />
+            <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
+          </div>
+          {/* Appears ONLY once the date has moved, which is the only time it has
+              anything to do. It began as a 999px "TODAY" pill you cannot press —
+              decoration, a pixel away from two real controls (C1) — and the
+              muted text that replaced it was no better: a word that just sat
+              there restating the date beside it, in the slot a real button
+              takes the moment you step off today. Nothing at today; a Button
+              when there is somewhere to go. Same rule as the Log header. */}
+          {!isToday && (
+            <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">
+              Today
+            </Button>
+          )}
 	        </div>
 	      </div>
 
       {isEmptyAccount && (
-        <div style={{ ...cardStyle, background: 'var(--color-primary-dim)', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ ...cardStyle, backgroundColor: 'var(--color-primary-dim)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)' }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 21V9" />
               <path d="M12 13C12 8.5 8.5 5.5 3.5 5.5 3.5 10 7 13 12 13z" />
               <path d="M12 11c0-3.5 3.2-6.5 8-6.5 0 4-3.2 6.5-8 6.5z" />
             </svg>
-            <h2 style={{ margin: 0 }}>
+            {/* A5: a section heading on this page is --text-body / medium, which
+                is what SectionHeader renders for every sibling card. The bare
+                global h2 made these two the only --text-lg headings on screen. */}
+            <h2 style={sectionHeadingStyle}>
               {profile?.role === 'client' ? "Let's get your first day in" : 'Welcome to Gardnr'}
             </h2>
           </div>
           <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-base)', lineHeight: 1.6, maxWidth: '54ch' }}>
             {profile?.role === 'client'
-              ? 'Your coach is all set up. Log your first meal to start your streak and share your progress — your targets are already set for you.'
+              ? 'Your coach is all set up. Log your first meal to start your streak and share your progress. Your targets are already set for you.'
               : 'Nothing logged yet. Log your first meal to start your charts and streak, then set your daily targets so we can track how you’re trending.'}
           </p>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-10)', flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal <Icon name="right" /></Button>
             {profile?.role !== 'client' && (
               <Button variant="muted" onClick={() => navigate('/profile?focus=targets')}>Set your targets</Button>
@@ -1023,17 +1087,13 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       )}
 
       {profile?.role === 'client' && (lockInfo.locked || lockInfo.reason === 'coach-unlocked') && (
-        <div style={{
-          ...cardStyle,
-          background: 'var(--color-warning-dim)',
-          gap: '14px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ ...cardStyle, backgroundColor: 'var(--color-warning-dim)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)' }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <rect x="3" y="11" width="18" height="11" rx="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            <h2 style={{ margin: 0 }}>Progress view paused</h2>
+            <h2 style={sectionHeadingStyle}>Progress view paused</h2>
           </div>
           <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-base)', lineHeight: 1.6, maxWidth: '54ch' }}>
             {lockInfo.reason === 'coach-unlocked'
@@ -1041,129 +1101,15 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               : `No nutrition logged for ${lockInfo.days} ${lockInfo.days === 1 ? 'day' : 'days'}. Log today to bring your progress view back, or ask your coach to unlock it.`}
           </p>
           <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>
-            Your logging form is still fully available — keep adding entries any time.
+            Your logging form is still fully available. Keep adding entries any time.
           </p>
         </div>
       )}
 
 
-      {/* Coach reports */}
-      {reports.length > 0 && (
-        <div id="section-reports" style={cardStyle}>
-          <SectionHeader
-            title="Reports from your coach"
-            collapsed={sectionsCollapsed.reports}
-            onToggle={() => toggleSection('reports')}
-            badge={unreadCount > 0 ? `${unreadCount} new` : null}
-          >
-          {groupByWeek(activeReports).map(([week, weekReports]) => {
-            const isWeekCollapsed = collapsedWeeks[week]
-            const weekUnread = weekReports.filter(r => !r.read_at).length
-            return (
-              <div key={week} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-                <div
-                  onClick={() => {
-                    if (collapsedWeeks[week]) {
-                      const unreadIds = weekReports.filter(r => !r.read_at).map(r => r.id)
-                      if (unreadIds.length > 0) markAsRead(unreadIds)
-                    }
-                    setCollapsedWeeks(prev => ({ ...prev, [week]: !prev[week] }))
-                  }}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', backgroundColor: 'var(--color-bg)' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontWeight: 600, fontSize: 'var(--text-base)' }}>Week of {week}</span>
-                    <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
-                      {weekReports.length} {weekReports.length === 1 ? 'message' : 'messages'}
-                    </span>
-                    {weekUnread > 0 && (
-                      <span style={{ backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
-                        {weekUnread} unread
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{isWeekCollapsed ? '▶' : '▼'}</span>
-                </div>
-                {!isWeekCollapsed && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
-                    {weekReports.map((r) => (
-                      <div key={r.id} style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-                            Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            {!r.read_at && <span style={{ backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 6px', borderRadius: '999px' }}>NEW</span>}
-                            {r.read_at && (
-                              <button onClick={() => archiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>
-                                Archive
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <ReportBody
-                          content={r.content}
-                          heading={`Sent ${new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-
-          {/* Archived section */}
-          {archivedReports.length > 0 && (
-            <div>
-              <button onClick={() => setShowArchived(!showArchived)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-sm)', padding: '4px 0' }}>
-                {showArchived ? '▼' : '▶'} Archived ({archivedReports.length})
-              </button>
-              {showArchived && groupByWeek(archivedReports).map(([week, weekReports]) => {
-                const isArchivedWeekCollapsed = collapsedWeeks[`archived_${week}`] !== false
-                return (
-                  <div key={week} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden', marginTop: '8px', opacity: 0.7 }}>
-                    <div
-                      onClick={() => setCollapsedWeeks(prev => ({ ...prev, [`archived_${week}`]: !isArchivedWeekCollapsed }))}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', backgroundColor: 'var(--color-bg)' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>Week of {week}</span>
-                        <span style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-muted)', fontSize: 'var(--text-xs)', fontWeight: 700, padding: '2px 7px', borderRadius: '999px' }}>
-                          {weekReports.length} {weekReports.length === 1 ? 'message' : 'messages'}
-                        </span>
-                      </div>
-                      <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{isArchivedWeekCollapsed ? '▶' : '▼'}</span>
-                    </div>
-                    {!isArchivedWeekCollapsed && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px' }}>
-                        {weekReports.map((r) => (
-                          <div key={r.id} style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-                                Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                              <button onClick={() => unarchiveReport(r.id)} style={{ backgroundColor: 'transparent', color: 'var(--color-muted)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '2px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>
-                                Unarchive
-                              </button>
-                            </div>
-                            <ReportBody
-                              content={r.content}
-                              color="var(--color-muted)"
-                              heading={`Sent ${new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          </SectionHeader>
-        </div>
-      )}
+      {/* Coach reports used to live here. They are correspondence, not
+          progress data, and they now sit on /coach with the conversation —
+          one surface for one relationship. This page is progress again. */}
 
       {/* Weekly check-in */}
       {profile?.role === 'client' && (
@@ -1175,7 +1121,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             badge={!existingCheckIn ? 'To do' : null}
             badgeColor="var(--color-error)"
           >
-              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: '8px', marginBottom: '8px' }}>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 'var(--space-8) 0' }}>
                 {existingCheckIn
                   ? (checkinInterval > 1 ? <><Icon name="check" /> Submitted this period</> : <><Icon name="check" /> Submitted this week</>)
                   : 'Let your coach know how your week went.'}
@@ -1188,13 +1134,17 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                 {existingCheckIn ? 'Edit' : 'Fill out'}
               </Button>
               {existingCheckIn?.coach_comment && (
-                <div style={{ marginTop: '12px', padding: '12px 14px', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
-                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-success)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Coach's note</p>
-                  <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{existingCheckIn.coach_comment}</p>
+                // A1/A3: this was a bordered, filled box inside the section card
+                // — a second surface drawn to say "these two lines belong
+                // together", which space already says. The eyebrow names it and
+                // 24px of air separates it from the button above.
+                <div style={{ marginTop: 'var(--space-24)' }}>
+                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-success)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-6)' }}>Coach's note</p>
+                  <p style={{ fontSize: 'var(--text-base)', lineHeight: 1.6 }}>{existingCheckIn.coach_comment}</p>
                 </div>
               )}
               {showCheckIn && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)', paddingTop: 'var(--space-16)', borderTop: '1px solid var(--color-border)', marginTop: 'var(--space-16)' }}>
                   {questions.length > 0 ? (
                     questions.map(q => {
                       const val = answers[q.id]
@@ -1202,33 +1152,38 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                       const ratingMax = q.config?.max || 10
                       return (
                         <div key={q.id}>
-                          <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>
+                          <p style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--space-8)' }}>
                             {q.prompt}{q.required && <span style={{ color: 'var(--color-error)' }}> *</span>}
-                            {q.type === 'rating' && <strong> {val ?? Math.ceil(ratingMax / 2)}/{ratingMax}</strong>}
+                            {q.type === 'rating' && <strong className="tnum"> {val ?? Math.ceil(ratingMax / 2)}/{ratingMax}</strong>}
                           </p>
                           {q.type === 'rating' && (
                             <input type="range" min="1" max={ratingMax} value={val ?? Math.ceil(ratingMax / 2)} onChange={(e) => setAns(parseInt(e.target.value))} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
                           )}
+                          {/* D2: these were a local checkinPillStyle/-Active pair,
+                              i.e. a second implementation of ui/Pill sitting two
+                              files away from it — the exact copy that drifted on
+                              the lenses and the banner CTA. Pill IS a Button, so
+                              these now inherit its hover, press and height. */}
                           {q.type === 'boolean' && (
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
                               {[['Yes', true], ['No', false]].map(([label, bv]) => (
-                                <button key={label} type="button" onClick={() => setAns(bv)} style={{ ...checkinPillStyle, ...(val === bv ? checkinPillActive : {}) }}>{label}</button>
+                                <Pill key={label} type="button" active={val === bv} onClick={() => setAns(bv)}>{label}</Pill>
                               ))}
                             </div>
                           )}
                           {q.type === 'number' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input type="number" value={val ?? ''} onChange={(e) => setAns(e.target.value)} style={{ ...checkinInputStyle, maxWidth: 160 }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+                              <Field type="number" value={val ?? ''} onChange={(e) => setAns(e.target.value)} style={{ maxWidth: '160px' }} />
                               {q.config?.unit && <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>{q.config.unit}</span>}
                             </div>
                           )}
                           {q.type === 'text' && (
-                            <textarea value={val ?? ''} onChange={(e) => setAns(e.target.value)} rows={3} placeholder="Your answer…" style={checkinInputStyle} />
+                            <Textarea value={val ?? ''} onChange={(e) => setAns(e.target.value)} rows={3} placeholder="Your answer…" />
                           )}
                           {q.type === 'select' && (
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
                               {(q.config?.options || []).map(opt => (
-                                <button key={opt} type="button" onClick={() => setAns(opt)} style={{ ...checkinPillStyle, ...(val === opt ? checkinPillActive : {}) }}>{opt}</button>
+                                <Pill key={opt} type="button" active={val === opt} onClick={() => setAns(opt)}>{opt}</Pill>
                               ))}
                             </div>
                           )}
@@ -1238,27 +1193,27 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   ) : (
                     <>
                       <div>
-                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Adherence: how well did you follow the plan? <strong>{checkIn.adherence_rating}/10</strong></p>
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--space-8)' }}>Adherence: how well did you follow the plan? <strong className="tnum">{checkIn.adherence_rating}/10</strong></p>
                         <input type="range" min="1" max="10" value={checkIn.adherence_rating} onChange={(e) => setCheckIn({ ...checkIn, adherence_rating: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
                       </div>
                       <div>
-                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Energy levels this week <strong>{checkIn.energy_level}/10</strong></p>
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--space-8)' }}>Energy levels this week <strong className="tnum">{checkIn.energy_level}/10</strong></p>
                         <input type="range" min="1" max="10" value={checkIn.energy_level} onChange={(e) => setCheckIn({ ...checkIn, energy_level: parseInt(e.target.value) })} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
                       </div>
                       <div>
-                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Any obstacles or challenges?</p>
-                        <textarea value={checkIn.obstacles} onChange={(e) => setCheckIn({ ...checkIn, obstacles: e.target.value })} placeholder="Stress, travel, injury, time constraints..." rows={3} style={checkinInputStyle} />
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--space-8)' }}>Any obstacles or challenges?</p>
+                        <Textarea value={checkIn.obstacles} onChange={(e) => setCheckIn({ ...checkIn, obstacles: e.target.value })} placeholder="Stress, travel, injury, time constraints..." rows={3} />
                       </div>
                       <div>
-                        <p style={{ fontSize: 'var(--text-base)', marginBottom: '8px' }}>Notes for your coach</p>
-                        <textarea value={checkIn.notes} onChange={(e) => setCheckIn({ ...checkIn, notes: e.target.value })} placeholder="Anything else you want your coach to know..." rows={3} style={checkinInputStyle} />
+                        <p style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--space-8)' }}>Notes for your coach</p>
+                        <Textarea value={checkIn.notes} onChange={(e) => setCheckIn({ ...checkIn, notes: e.target.value })} placeholder="Anything else you want your coach to know..." rows={3} />
                       </div>
                     </>
                   )}
                   <Button onClick={saveCheckIn} variant="primary">Submit check-in</Button>
                 </div>
               )}
-              {checkInSaved && <p style={{ color: 'var(--color-success)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" /> Check-in submitted successfully.</p>}
+              {checkInSaved && <p style={{ color: 'var(--color-success)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}><Icon name="check" /> Check-in submitted successfully.</p>}
           </SectionHeader>
         </div>
       )}
@@ -1294,15 +1249,30 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                 { label: 'Cardio', actual: cardioToday.minutes, target: targets.cardio_minutes, unit: ' min', color: 'var(--color-cardio)' },
                 { label: 'Steps', actual: stepsToday?.steps || 0, target: targets.steps, unit: '', color: 'var(--color-steps)' },
               ].filter(m => m.target).map(m => {
-                const pct = Math.min(Math.round((m.actual / m.target) * 100), 100)
+                // The percentage and the BAR are two different numbers, and
+                // collapsing them is how this row came to misreport. One
+                // Math.min capped both, so 35 minutes against a 30-minute
+                // target printed "35 / 30 min (100%)" — the figure beside the
+                // true numbers contradicted them. The bar is a track that
+                // cannot render past its end; the percentage is a fact.
+                const pct = Math.round((m.actual / m.target) * 100)
+                const fill = Math.min(pct, 100)
                 return (
-                  <div key={m.label} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div key={m.label} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
                       <span>{m.label}</span>
-                      <span style={{ color: 'var(--color-muted)' }}>{m.actual} / {m.target}{m.unit} ({pct}%)</span>
+                      <span className="tnum" style={{ color: 'var(--color-muted)' }}>{m.actual} / {m.target}{m.unit} ({pct}%)</span>
                     </div>
-                    <div style={{ height: '6px', backgroundColor: 'var(--color-border)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, backgroundColor: m.color, borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                    {/* No grade on the number, deliberately, and B3 is the
+                        reason: over-target means opposite things per metric —
+                        over on steps is the win, over on calories is the miss —
+                        so one tone cannot govern the column. `targets` carries
+                        no per-metric direction to derive it from. Colouring it
+                        anyway would be decoration; the honest number is the fix.
+                        A2 of the compliance scale is where that grade belongs
+                        once direction exists. */}
+                    <div style={{ height: '6px', backgroundColor: 'var(--color-border)', borderRadius: '999px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${fill}%`, backgroundColor: m.color, borderRadius: '999px', transition: 'width 0.3s ease' }} />
                     </div>
                   </div>
                 )
@@ -1315,10 +1285,21 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                 const current = Math.round(convertWeight(weightEntry.weight, normUnit(weightEntry.unit), goalUnit) * 10) / 10
                 const diff = Math.round((current - goal) * 10) / 10
                 return (
-                  <div style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', paddingTop: '4px' }}>
+                  <div className="tnum" style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', paddingTop: 'var(--space-4)' }}>
                     Weight goal: {targets.weight_goal} {goalUnit} · Current: {current} {goalUnit} ·{' '}
-                    <span style={{ color: Math.abs(diff) < 1 ? 'var(--color-success)' : 'var(--color-primary)' }}>
-                      {diff > 0 ? `${diff.toFixed(1)} to go` : diff < 0 ? `${Math.abs(diff).toFixed(1)} below goal` : 'Goal reached! 🎉'}
+                    {/* B3: two GREENS were carrying two different meanings here
+                        — --color-success within 1 of goal, --color-primary
+                        otherwise — with no rule stated and no visible
+                        difference between them, which makes the colour
+                        decoration. The rule is: within 1 unit IS the goal
+                        (tape and scale noise exceed that), so it is graded
+                        green; anything further is still travelling, which is
+                        not a failure and so takes no grade at all (B1 — grey
+                        is the absence of one). One tone, one meaning. */}
+                    <span style={Math.abs(diff) < 1
+                      ? { color: 'var(--color-success)', fontWeight: 'var(--weight-medium)' }
+                      : { color: 'var(--color-text-dim)' }}>
+                      {diff > 0 ? `${diff.toFixed(1)} to go` : diff < 0 ? `${Math.abs(diff).toFixed(1)} below goal` : 'Goal reached'}
                     </span>
                   </div>
                 )
@@ -1364,7 +1345,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                   options={weightChartOptions}
                 />
                 {!hasSoloPremium && profile?.role !== 'client' && (
-                  <div style={{ marginTop: 16 }}>
+                  <div style={{ marginTop: 'var(--space-16)' }}>
                     <SoloUpgrade feature="The 7-day weight average" />
                   </div>
                 )}
@@ -1378,77 +1359,70 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           best week, weekday/weekend split, and a 90-day heatmap. Reports the
           user's own consistency, never prescribes or adjusts a plan. */}
       {profile?.role !== 'client' && (
-        <div key="consistency" style={cardStyle}>
-          <h3 style={{ fontSize: 'var(--text-body)', fontWeight: 600, margin: '0 0 4px' }}>Logging consistency</h3>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 14px' }}>
+        <div key="consistency" id="section-consistency" style={cardStyle}>
+          {/* This was the one section on the page with a bare <h3> and no
+              SectionHeader, so it was the only card that could not be collapsed
+              and the only heading a step off the ramp. */}
+          <SectionHeader
+            title="Logging consistency"
+            collapsed={sectionsCollapsed.consistency}
+            onToggle={() => toggleSection('consistency')}
+            animated={false}
+          >
+          {/* Stays a visible subtitle rather than moving into SectionHeader's
+              InfoTip: D5 reserves the bubble for what nothing else shows, and
+              this names the window every number below it is measured over. */}
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 var(--space-16)' }}>
             How steadily you've logged over the last 90 days.
           </p>
           {hasSoloPremium ? (
             <>
-              {/* Weekday vs weekend split (last 30 days) */}
-              {consistency && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekdays (Mon–Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
-                    <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
-                      {consistency.weekdayLogged}
-                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekdayTotal}</span>
-                    </p>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
-                      {consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}%
-                    </p>
-                  </div>
-                  <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: '14px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Weekends (Sat–Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
-                    <p style={{ fontWeight: 700, fontSize: 'var(--text-title)', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
-                      {consistency.weekendLogged}
-                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/{consistency.weekendTotal}</span>
-                    </p>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>
-                      {consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}%
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Best week (last 90 days) */}
-              {bestWeek && bestWeek.count > 0 && (
-                <div style={{
-                  backgroundColor: 'var(--color-bg)',
-                  borderRadius: 'var(--radius)',
-                  padding: '14px 18px',
-                  marginTop: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}>
-                  <div>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '4px' }}>Best week (last 90 days) <InfoTip text={CONSISTENCY_TIPS.bestWeek} /></p>
-                    <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0 }}>
-                      {bestWeek.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      {' – '}
-                      {bestWeek.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <p style={{
-                      fontWeight: 700,
-                      fontSize: 'var(--text-title)',
-                      color: bestWeek.count === 7 ? 'var(--color-success)' : bestWeek.count >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
-                      margin: 0,
-                      lineHeight: 1,
-                    }}>
-                      {bestWeek.count}
-                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 400 }}>/7</span>
-                    </p>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>days logged</p>
-                  </div>
-                </div>
-              )}
+              {/* C1: three facts about one subject is a StatCell strip, not three
+                  filled boxes. The boxes were --color-bg panels inside a
+                  --color-surface card — A1 depth 2, and a surface drawn DARKER
+                  than the card it sits in, which inverts D0's ramp. The grade
+                  still lives on the numeral (B1), which is where it was; only
+                  the container went. */}
+              <div className="ds-statstrip">
+                {consistency && (
+                  <>
+                    <ConsistencyStat
+                      label="Weekdays"
+                      hint={CONSISTENCY_TIPS.weekdays}
+                      n={consistency.weekdayLogged}
+                      of={consistency.weekdayTotal}
+                      tone={ratioTone(consistency.weekdayLogged / (consistency.weekdayTotal || 1))}
+                      sub={`${consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}% of Mon–Fri`}
+                    />
+                    <ConsistencyStat
+                      label="Weekends"
+                      hint={CONSISTENCY_TIPS.weekends}
+                      n={consistency.weekendLogged}
+                      of={consistency.weekendTotal}
+                      tone={ratioTone(consistency.weekendLogged / (consistency.weekendTotal || 1))}
+                      sub={`${consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}% of Sat–Sun`}
+                    />
+                  </>
+                )}
+                {bestWeek && bestWeek.count > 0 && (
+                  <ConsistencyStat
+                    label="Best week"
+                    hint={CONSISTENCY_TIPS.bestWeek}
+                    n={bestWeek.count}
+                    of={7}
+                    // B1: a best week is graded against the seven days it had,
+                    // so it takes the same ramp as the two cells beside it
+                    // rather than a second set of thresholds. It used to grade
+                    // 5-of-7 amber here and 5-of-7 green one cell to the left.
+                    tone={ratioTone(bestWeek.count / 7)}
+                    sub={`${bestWeek.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${bestWeek.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  />
+                )}
+              </div>
 
               {/* 90-day heatmap (left) + summary totals (fills the space at right) */}
-              <div style={{ marginTop: '16px', display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'stretch' }}>
-                <div style={{ flex: '1 1 300px', minWidth: 0, maxWidth: 440 }}>
+              <div style={{ marginTop: 'var(--space-16)', display: 'flex', gap: 'var(--space-20)', flexWrap: 'wrap', alignItems: 'stretch' }}>
+                <div style={{ flex: '1 1 300px', minWidth: 0, maxWidth: '440px' }}>
                   <ComplianceHeatmap logsByDate={heatmapData} calorieTarget={targets?.calories} />
                 </div>
                 <div style={{ flex: '1 1 240px', minWidth: 0 }}>
@@ -1457,7 +1431,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               </div>
 
               {!bestWeek?.count && Object.keys(heatmapData).length === 0 && (
-                <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: '12px 0 0' }}>
+                <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 'var(--space-12) 0 0' }}>
                   Log a few more days and your consistency trends will show up here.
                 </p>
               )}
@@ -1465,13 +1439,14 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           ) : (
             <SoloUpgrade feature="Logging consistency" />
           )}
+          </SectionHeader>
         </div>
       )}
 
       {/* Calories chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && !hideCalories && calorieHistory.length > 0 && (
         <div key="calorieChart" style={cardStyle}>
-          <SectionHeader title="Calories — last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
+          <SectionHeader title="Calories: last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
             {!sectionsCollapsed.calorieChart && (
               <Bar data={metricBarData({ history: calorieHistory, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={calorieChartOptions} />
             )}
@@ -1482,7 +1457,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Cardio chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && cardioHistory.length > 0 && (
         <div key="cardioChart" style={cardStyle}>
-          <SectionHeader title="Cardio — last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio: last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
             {!sectionsCollapsed.cardioChart && (
               <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
             )}
@@ -1493,7 +1468,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Steps chart */}
       {!(profile?.role === 'client' && lockInfo.locked) && stepsHistory.length > 0 && (
         <div key="stepsChart" style={cardStyle}>
-          <SectionHeader title="Steps — last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
+          <SectionHeader title="Steps: last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
             {!sectionsCollapsed.stepsChart && (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
             )}
@@ -1505,8 +1480,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
       {profile?.role === 'client' && (
         <div style={cardStyle}>
-          <h2>Coaching</h2>
-          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', lineHeight: '1.6', margin: 0 }}>
+          <h2 style={sectionHeadingStyle}>Coaching</h2>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>
             Leave your current coaching plan and return to an individual account. Your data is preserved.
           </p>
           {!showSelfOffboardConfirm ? (
@@ -1514,12 +1489,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               Leave coaching plan
             </Button>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-10)' }}>
               <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
                 Are you sure? You'll return to a solo account.
               </p>
               {selfOffboardError && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)', margin: 0 }}>{selfOffboardError}</p>}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
                 <Button onClick={selfOffboard} variant="danger-solid" size="sm" loading={selfOffboarding}>
                   Confirm
                 </Button>

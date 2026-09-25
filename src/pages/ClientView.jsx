@@ -8,6 +8,9 @@ import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
+import ReportProse from '../components/ReportProse'
+import { relativeTime } from '../utils/relativeTime'
+import { leadOf } from '../utils/reportFeed'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
@@ -170,6 +173,7 @@ function ClientView({ profile }) {
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
   const [report, setReport] = useState('')
+  const [reportSubject, setReportSubject] = useState('')
   const [reportWeekRange, setReportWeekRange] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [weightHistory, setWeightHistory] = useState([])
@@ -246,7 +250,10 @@ function ClientView({ profile }) {
     if (error) console.error(error)
   }
   const [sentReports, setSentReports] = useState([])
-  const [collapsedSentWeeks, setCollapsedSentWeeks] = useState({})
+  // Per-report expansion replaces the per-week collapse map the folder tree
+  // needed. Sent reports default closed: the coach wrote them, so the useful
+  // scan is "which landed", not re-reading their own prose.
+  const [openSentReports, setOpenSentReports] = useState({})
   const [messages, setMessages] = useState([])
   const [callBriefing, setCallBriefing] = useState('')
   const [briefingLoading, setBriefingLoading] = useState(false)
@@ -338,14 +345,6 @@ function ClientView({ profile }) {
     setToast({ message, type })
   }
 
-  function groupByWeek(list) {
-    const grouped = {}
-    list.forEach(r => {
-      if (!grouped[r.week_of]) grouped[r.week_of] = []
-      grouped[r.week_of].push(r)
-    })
-    return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]))
-  }
 
   useEffect(() => {
     const subscription = supabase
@@ -1028,6 +1027,7 @@ async function addNoteEntry() {
 
     const data = await response.json()
     setReport(data.report || data.error || 'Failed to generate report.')
+    setReportSubject(data.subject || '')
     setReportWeekRange({
       startDate: weekRange.startDate,
       endDate: weekRange.endDate,
@@ -1054,6 +1054,7 @@ async function addNoteEntry() {
         coach_id: session.user.id,
         client_id: clientId,
         content: report,
+        subject: reportSubject.trim() || null,
         week_of: weekRange.startDate
       }])
 
@@ -1684,7 +1685,17 @@ async function sendMessage(text) {
 
             {report && (
               <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-20)', display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
-                <p style={{ fontWeight: 'var(--weight-semibold)' }}>Weekly Report</p>
+                {/* The subject the client will see in their archive. Editable,
+                    because the model drafts it and the coach is the one who
+                    signs it — and because a list of 25 reports is only as
+                    scannable as its worst title. */}
+                <Field
+                  label="Subject"
+                  value={reportSubject}
+                  onChange={(e) => setReportSubject(e.target.value)}
+                  maxLength={120}
+                  placeholder="What happened this week, in a few words"
+                />
                 <Textarea
                   value={report}
                   onChange={(e) => setReport(e.target.value)}
@@ -1694,7 +1705,7 @@ async function sendMessage(text) {
                 />
                 <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
                   <Button onClick={sendReport} variant="primary" size="sm">Send to client</Button>
-                  <Button onClick={() => setReport('')} variant="ghost" size="sm">Discard</Button>
+                  <Button onClick={() => { setReport(''); setReportSubject('') }} variant="ghost" size="sm">Discard</Button>
                 </div>
               </div>
             )}
@@ -1864,64 +1875,50 @@ async function sendMessage(text) {
       {sentReports.length > 0 && (
         <div key="sentReports" id="section-sentReports" style={sectionCardStyle}>
           <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')}>
-            {/* A1: this was the deepest nesting in the app — a bordered week box
-                inside the section card, holding a bordered card per report, three
-                surfaces deep. Weeks are now separated by space and a disclosure
-                label; reports are Rows with a hairline between them. Every count
-                and state that was a 999px pill is plain text (C1): four pills in
-                one header was a table wearing costumes. */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
-              {groupByWeek(sentReports).map(([week, weekReports]) => {
-                const isCollapsed = collapsedSentWeeks[week] !== false
-                const unreadCount = weekReports.filter(r => !r.read_at).length
+            {/* The same ROW the client chooses from (.rep-row in index.css),
+                so the two sides of one relationship present these the same way.
+                It expands in place here rather than navigating: the coach is
+                inside a client record with a rail beside them, and their
+                question is "which landed / what did I say", not a sit-down
+                read. No sender column — every report here is from the viewer.
+
+                Crucially it does NOT open the client's reader route, because
+                that marks the report read, and `read_at` is the client's state:
+                it is the very thing this list reports back to the coach. */}
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              {sentReports.map(r => {
+                const open = Boolean(openSentReports[r.id])
                 return (
-                  <div key={week}>
+                  <div key={r.id}>
                     <button
                       type="button"
-                      className="ds-disclosure ds-control"
-                      aria-expanded={!isCollapsed}
-                      onClick={() => setCollapsedSentWeeks(prev => ({ ...prev, [week]: !isCollapsed }))}
+                      className="rep-row rep-row-nosender ds-control"
+                      aria-expanded={open}
+                      onClick={() => setOpenSentReports(prev => ({ ...prev, [r.id]: !open }))}
                     >
-                      <span className="ds-chev"><Icon name="right" /></span>
-                      {/* The key is an ISO date because it sorts; the LABEL is
-                          for a person. "Week of 2026-09-06" is a database row
-                          shown to a coach. */}
-                      <span>Week of {parseLocalDateString(week).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                      <span style={{ color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>
-                        {weekReports.length} {weekReports.length === 1 ? 'report' : 'reports'}
-                        {unreadCount > 0 && `, ${unreadCount} unread`}
+                      <span className="rep-row-body">
+                        <span className="rep-row-head">
+                          <span className="rep-row-when">{relativeTime(r.created_at)}</span>
+                          {/* C1 status text. Read is graded green — the report
+                              landed, which is the outcome the coach is checking
+                              for. Unread is ungraded (B1: nothing to grade yet). */}
+                          <span style={{
+                            fontSize: 'var(--text-xs)',
+                            color: r.read_at ? 'var(--color-success)' : 'var(--color-muted)',
+                          }}>
+                            {r.read_at ? 'Read' : 'Unread'}
+                          </span>
+                          {r.archived && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)' }}>Archived</span>}
+                        </span>
+                        {!open && <span className="rep-row-lead">{leadOf(r.content)}</span>}
+                      </span>
+                      <span className="ds-chev" style={{ color: 'var(--color-faint)', display: 'inline-flex' }}>
+                        <Icon name="right" size={16} />
                       </span>
                     </button>
-                    {!isCollapsed && (
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {weekReports.map(r => (
-                          <div key={r.id} className="ds-row" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)', padding: 'var(--space-12) 0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-12)' }}>
-                              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-                                Sent {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                              {/* C1 status text. The pills these replace painted
-                                  --color-success on a hardcoded #064e3b: a dark-mode
-                                  green on a dark-mode ground, which in light theme
-                                  put a mid-green on near-black. Read is graded green,
-                                  Unread is ungraded (B1: grey means nothing to grade
-                                  — an unread report is not a client slipping). */}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)', flexShrink: 0 }}>
-                                {r.archived && (
-                                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)' }}>Archived</span>
-                                )}
-                                <span style={{
-                                  fontSize: 'var(--text-xs)',
-                                  fontWeight: 'var(--weight-normal)',
-                                  color: r.read_at ? 'var(--color-success)' : 'var(--color-muted)',
-                                }}>
-                                  {r.read_at ? 'Read' : 'Unread'}
-                                </span>
-                              </div>
-                            </div>
-                            <p style={{ color: 'var(--color-text)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontSize: 'var(--text-base)' }}>{r.content}</p>
-                          </div>
-                        ))}
+                    {open && (
+                      <div style={{ padding: '0 0 var(--space-16)', maxWidth: '68ch' }}>
+                        <ReportProse content={r.content} />
                       </div>
                     )}
                   </div>
