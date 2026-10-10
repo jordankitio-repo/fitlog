@@ -163,7 +163,7 @@ export function ReportArchive({ profile, activeId = null }) {
 // reader can already see. Reading still happens in a reading surface with its
 // own measure (C5) — it is the same component either way, because one
 // difference is a prop and not a second file.
-export default function ReportReader({ inPane = false }) {
+export default function ReportReader({ inPane = false, inModal = false }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [report, setReport] = useState(null)
@@ -224,19 +224,24 @@ export default function ReportReader({ inPane = false }) {
     // column clung to one edge and left most of a wide screen empty — a short
     // report then read as an error state rather than a focused one. Centring is
     // what makes the emptiness margin instead of void.
-    <div className="page-fade-in rep-reader">
+    <div className={`page-fade-in rep-reader${inModal ? ' rep-reader-sheet' : ''}`}>
       {/* A back link names its destination. "Back" makes the reader guess
           which of two places they came from. Beside the rail that destination
           is the conversation, because the list is already on screen and a link
           back to it would point at the thing three inches to the left. */}
-      <Link
-        to={inPane ? '/coach' : '/coach/reports'}
-        className="ds-disclosure ds-control"
-        style={{ width: 'auto', textDecoration: 'none' }}
-      >
-        <Icon name="left" size={14} />
-        <span>{inPane ? 'Back to conversation' : 'All reports'}</span>
-      </Link>
+      {/* No back link inside the sheet: the dialog's own ✕ and its backdrop are
+          the way out, and a second one under them would be two exits for one
+          door. On a page it is the only way back, so it stays. */}
+      {!inModal && (
+        <Link
+          to={inPane ? '/coach' : '/coach/reports'}
+          className="ds-disclosure ds-control"
+          style={{ width: 'auto', textDecoration: 'none' }}
+        >
+          <Icon name="left" size={14} />
+          <span>{inPane ? 'Back to conversation' : 'All reports'}</span>
+        </Link>
+      )}
 
       {!report ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)', marginTop: 'var(--space-24)' }}>
@@ -267,10 +272,14 @@ export default function ReportReader({ inPane = false }) {
             <ReportProse content={report.content} dropLeadingH1 className="rep-reader-prose" />
           </article>
 
+          {/* In the sheet these REPLACE the history entry: paging is movement
+              inside one dismissible surface, so closing should dismiss rather
+              than rewind through every report you flicked past. On a page the
+              back button is the only way out, so each step stays. */}
           {(newer || older) && (
             <nav className="rep-reader-nav">
               {older ? (
-                <button type="button" className="rep-reader-step ds-control" onClick={() => navigate(`/reports/${older.id}`)}>
+                <button type="button" className="rep-reader-step ds-control" onClick={() => navigate(`/reports/${older.id}`, { replace: inModal })}>
                   <Icon name="left" size={14} />
                   <span>
                     <span className="rep-reader-step-k">Previous</span>
@@ -279,7 +288,7 @@ export default function ReportReader({ inPane = false }) {
                 </button>
               ) : <span />}
               {newer && (
-                <button type="button" className="rep-reader-step rep-reader-step-next ds-control" onClick={() => navigate(`/reports/${newer.id}`)}>
+                <button type="button" className="rep-reader-step rep-reader-step-next ds-control" onClick={() => navigate(`/reports/${newer.id}`, { replace: inModal })}>
                   <span>
                     <span className="rep-reader-step-k">Next</span>
                     <span className="rep-reader-step-v">{relativeTime(newer.created_at)}</span>
