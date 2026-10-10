@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
-import { useNavigate } from 'react-router-dom'
+import { useMediaQuery } from '../hooks/useMediaQuery'
+import { Link, useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
@@ -47,7 +48,7 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
     </span>
   )
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-16)' }}>
+    <div className="rost-banner" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-16)' }}>
       {seg(attentionColors.red, roster.atRisk, 'at risk')}
       {seg(attentionColors.yellow, roster.review, 'needs review')}
       {seg(attentionColors.green, roster.onTrack, 'on track')}
@@ -56,7 +57,7 @@ function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
           denominator is context: same size, muted colour. Colour separates it
           from the numerator, not size (A5: size and colour before weight). */}
       {seg('var(--color-text)', <>{checkedIn}<span style={{ color: 'var(--color-muted)' }}>/{total}</span></>, 'checked in')}
-      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-10)', flexWrap: 'wrap' }}>
+      <span className="rost-banner-cta" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-10)', flexWrap: 'wrap' }}>
         {/* Just a Button. It is a COMMIT action — it opens work that ends in a
             message to a real person — so it takes the filled brand green, the
             same green as the active View pill below it. Nudge stays `action`
@@ -116,6 +117,11 @@ function CoachDashboard({ profile }) {
   const [sortDir, setSortDir] = useState('worst')
   const [linkCopied, setLinkCopied] = useState(false)
   const navigate = useNavigate()
+  // The roster is a TABLE on a desktop and a LIST on a phone. Collapsing the
+  // grid was not enough: it left three column headers labelling columns that
+  // no longer existed, an email truncated mid-domain, and a bare dash holding
+  // a line. Below this width the row is rebuilt, not re-flowed.
+  const compact = useMediaQuery('(max-width: 900px)')
 
   useEffect(() => {
     fetchClients()
@@ -392,12 +398,17 @@ function CoachDashboard({ profile }) {
           />
         ) : (
           <>
-            <div style={{ display: 'flex', gap: 'var(--space-8)', marginBottom: 'var(--space-12)', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="rost-lensbar" style={{ display: 'flex', gap: 'var(--space-8)', marginBottom: 'var(--space-12)', flexWrap: 'wrap', alignItems: 'center' }}>
               {clients.length > 1 && (
                 <>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', alignSelf: 'center', marginRight: 'var(--space-4)' }}>
+                <p className="rost-lenslabel" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', alignSelf: 'center', marginRight: 'var(--space-4)' }}>
                   View:
                 </p>
+                {/* `display: contents` on a desktop, so this wrapper is not in
+                    the layout at all; a real scroll strip on a phone, where
+                    four chips cannot fit a 390px line and wrapping them left
+                    one chip stranded on a row of its own. */}
+                <span className="rost-chips">
                 {[
                   { key: 'attention', label: 'Attention' },
                   { key: 'compliance', label: 'Compliance' },
@@ -413,8 +424,22 @@ function CoachDashboard({ profile }) {
                     {label}
                   </Pill>
                 ))}
+                </span>
                 </>
               )}
+                {compact && clients.length > 1 && (
+                  /* The direction control lived in the column header, which a
+                     phone no longer renders. Sorting is the chips' job here. */
+                  <button
+                    type="button"
+                    className="ds-colhead ds-sortbtn ds-control"
+                    onClick={() => setSortDir(d => (d === 'worst' ? 'best' : 'worst'))}
+                    aria-label={`Sorted ${sortDir} first. Tap to reverse.`}
+                  >
+                    {sortDir === 'worst' ? 'Worst first' : 'Best first'}
+                    <Icon name={sortDir === 'worst' ? 'down' : 'up'} size={13} strokeWidth={2.5} />
+                  </button>
+                )}
                 <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
                   <InfoTip text={`How to read a row
 
@@ -447,6 +472,7 @@ A dash means none submitted this period.`} />
                   axis are unreadable: "two green then grey" could mean a client
                   who just started or one who stopped four days ago, and a coach
                   cannot tell which end is today. */}
+              {!compact && (
               <Row className="roster-row roster-head" cols="minmax(0, 1fr) 200px 104px 152px">
                 <span className="ds-colhead">Client</span>
                 <button
@@ -461,11 +487,66 @@ A dash means none submitted this period.`} />
                 <span className="ds-colhead">Check-in</span>
                 <span />
               </Row>
+              )}
               {sortedClients.map((c) => {
                 const s = clientStats[c.client_id]
                 const status = rosterStatus(sortBy, s)
                 const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn, checkinDue: s?.checkinDue })
                 return (
+                  compact ? (
+                  <Row key={c.id} className="roster-row rost-m" cols="minmax(0, 1fr) auto">
+                    {/* One link, not four cells. The whole row is the target —
+                        a list row on a phone is a thing you tap, and the
+                        chevron says so (D3). It carries the status `fix`
+                        destination when there is one, so "No targets set"
+                        still lands on targets without nesting a button inside
+                        a link, which is invalid and unreachable by keyboard. */}
+                    <Link
+                      to={`/client/${c.client_id}${status.fix ? `?focus=${status.fix}` : ''}`}
+                      className="rost-m-main ds-control"
+                    >
+                      <Avatar url={c.client?.avatar_url} name={c.client?.full_name || ''} size={34} />
+                      <span className="rost-m-body">
+                        <span className="rost-m-name">{c.client?.full_name || 'Unnamed'}</span>
+                        <span
+                          className="rost-m-state"
+                          style={{
+                            fontWeight: status.tone === 'green' || status.tone === 'setup' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
+                            color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
+                          }}
+                        >
+                          {status.text}
+                        </span>
+                        {/* The email is gone and the dash with it. A phone row
+                            gets the facts that change: who, what needs doing,
+                            and their own ratings when they submitted any. */}
+                        {s?.checkIn && (
+                          <span className="rost-m-meta tnum">
+                            Adh {s.checkIn.adherence_rating}/10 · Nrg {s.checkIn.energy_level}/10
+                          </span>
+                        )}
+                        {s?.lockInfo?.locked && <span className="rost-m-locked">Locked</span>}
+                      </span>
+                    </Link>
+                    {/* The chevron is the ROW's, not the link's, so it keeps one
+                        x-position down the whole list. Inside the link it slid
+                        to the middle on any row that also had a Nudge, and a
+                        mark that moves per row is the opposite of scannable. */}
+                    <span className="rost-m-tail">
+                      {nudge && (
+                        <Button
+                          onClick={() => nudgeClient(c, nudge)}
+                          variant="action"
+                          size="sm"
+                          loading={Boolean(nudgeLoadingIds[c.client_id])}
+                        >
+                          Nudge
+                        </Button>
+                      )}
+                      <Icon name="right" size={16} className="rost-m-chev" />
+                    </span>
+                  </Row>
+                  ) : (
                   <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 200px 104px 152px">
                     {/* who */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)', minWidth: 0 }}>
@@ -548,6 +629,7 @@ A dash means none submitted this period.`} />
                       </Button>
                     </div>
                   </Row>
+                  )
                 )
               })}
             </Panel>

@@ -658,6 +658,12 @@ body {
   margin-inline: auto;
   padding-block: var(--space-8) var(--space-32);
 }
+/* Inside the sheet the dialog supplies the padding and the scroll, and the
+   measure is whatever the dialog is wide — so the page's own block padding
+   would just push the first line away from the header above it. */
+.rep-reader-sheet { padding-block: 0; }
+.rep-reader-sheet .rep-reader-title { margin-top: 0; }
+.rep-reader-sheet .rep-reader-head { margin-top: var(--space-12); }
 .rep-reader-title {
   font-size: var(--text-xl); font-weight: var(--weight-semibold);
   letter-spacing: -0.01em; margin: var(--space-24) 0 0;
@@ -790,12 +796,101 @@ body {
   }
 }
 
+/* The lens chips' wrapper is NOT in the desktop layout: `contents` makes its
+   children direct flex items of the bar again, so they keep the bar's own
+   8px gap rather than inheriting inline whitespace. It becomes a real scroll
+   strip only at the phone breakpoint. */
+.rost-chips { display: contents; }
+
 @media (max-width: 900px) {
-  .roster-row { grid-template-columns: 1fr auto !important; row-gap: 10px !important; }
-  .roster-row > :nth-child(2) { grid-column: 1 / -1; }
-  .roster-row > :nth-child(3) { grid-column: 1; }
-  .roster-row > :nth-child(4) { grid-column: 2; justify-self: end; }
-  .roster-row > :nth-child(5) { grid-column: 1 / -1; justify-content: flex-start !important; }
+  /* Scoped away from `.rost-m`: those rows are rebuilt for this width rather
+     than re-flowed, and a reflow rule aimed at four cells would push their
+     Nudge button onto a line of its own. */
+  .roster-row:not(.rost-m) { grid-template-columns: 1fr auto !important; row-gap: 10px !important; }
+  .roster-row:not(.rost-m) > :nth-child(2) { grid-column: 1 / -1; }
+  .roster-row:not(.rost-m) > :nth-child(3) { grid-column: 1; }
+  .roster-row:not(.rost-m) > :nth-child(4) { grid-column: 2; justify-self: end; }
+  .roster-row:not(.rost-m) > :nth-child(5) { grid-column: 1 / -1; justify-content: flex-start !important; }
+
+  /* The phone roster row: one tappable link plus, sometimes, one button.
+     A2 compact density, and the vertical rhythm is A3's — 2px inside the
+     name/state/meta group, the row's own padding between groups. */
+  .rost-m { align-items: center; column-gap: var(--space-12); }
+  .rost-m-main {
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    align-items: center; gap: var(--space-12);
+    min-width: 0; text-decoration: none; color: inherit;
+    margin: calc(var(--space-4) * -1) calc(var(--space-8) * -1);
+    padding: var(--space-4) var(--space-8);
+    border-radius: var(--radius);
+    background-color: var(--color-surface);
+    transition: background-color 140ms ease;
+  }
+  /* Starts from the panel's own colour, never `transparent` — fading that to
+     an opaque grey interpolates through translucent black. */
+  .rost-m-main:active { background-color: var(--color-surface-2); }
+  .rost-m-main:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  .rost-m-body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+  .rost-m-name {
+    font-size: var(--text-base); font-weight: var(--weight-medium);
+    letter-spacing: -0.01em; color: var(--color-text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rost-m-state { font-size: var(--text-sm); }
+  .rost-m-meta { font-size: var(--text-xs); color: var(--color-muted); }
+  .rost-m-locked { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-error); }
+  .rost-m-tail { display: flex; align-items: center; gap: var(--space-10); flex-shrink: 0; }
+  .rost-m-chev { color: var(--color-faint); flex-shrink: 0; }
+
+  /* The header above the list. On a desktop it is one bar; on a phone it was
+     one bar WRAPPED, which is a different thing: the ratio ended up beside the
+     CTA, a lone chip sat on a row by itself, and the sort control read as a
+     fifth chip. Three stacked rows instead, each with one job. */
+  .rost-banner { gap: var(--space-12) var(--space-16); }
+  /* The one commit on the view gets its own full-width row rather than
+     competing with the counts for the end of their line. */
+  .rost-banner-cta { margin-left: 0 !important; flex: 1 0 100%; }
+  .rost-banner-cta > button { width: 100%; justify-content: center; }
+
+  /* "View:" goes: four chips in a row are self-evidently a chooser, and the
+     label was costing a quarter of the line it had to share. */
+  .rost-lenslabel { display: none; }
+  .rost-chips {
+    display: flex; gap: var(--space-8); flex: 1 0 100%;
+    overflow-x: auto; scrollbar-width: none; padding-bottom: var(--space-2);
+  }
+  .rost-chips::-webkit-scrollbar { display: none; }
+  .rost-chips > * { flex: 0 0 auto; }
+  /* Sort and the legend share the row under the strip, pushed to its ends. */
+  .rost-lensbar > .ds-sortbtn { flex: 0 0 auto; }
+}
+
+/* Logging consistency, on a phone.
+   The three cells keep their row — they are three small facts, and stacking
+   them turns a glance into a scroll — but the labels are short enough at this
+   width to hold one line, so the InfoTip stays where it was put instead of
+   landing in the middle of a wrapped label. */
+@media (max-width: 600px) {
+  .cv-consist-3 { gap: var(--space-8); }
+  /* `min-width: 0` or the grid children refuse to shrink below their content:
+     a nowrap label sets the min-content width, 1fr stops being a third, and
+     the last cell hangs off the edge of the card. */
+  .cv-consist-3 > div { padding: var(--space-10) var(--space-6) !important; min-width: 0; }
+  .cv-consist-3 p:first-child,
+  .cv-bestweek p:first-child {
+    white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-4);
+  }
+  /* The value used to sit hard right, directly under the chat launcher, which
+     is fixed to that corner — the count was covered by the button. Stacked and
+     left-aligned, nothing lives where the FAB lands. */
+  .cv-bestweek { flex-direction: column; align-items: flex-start !important; gap: var(--space-8); }
+  .cv-bestweek > div:last-child { text-align: left !important; }
+
+  /* Energy balance header: eyebrow on its own line, then the meta row. Baseline
+     alignment across a wrapped flex row put "coach-only" and the chips on
+     different baselines of different lines; stacked, each line has one job. */
+  .ebr-head { flex-direction: column; align-items: flex-start !important; gap: var(--space-8) !important; }
+  .ebr-meta { width: 100%; row-gap: var(--space-8); }
 }
 
 /* Skip link — off-screen until focused, then pinned top-left over the nav. */
@@ -1329,6 +1424,17 @@ button, a, input, select, textarea {
 }
 .info-tip:hover .info-tip-mark,
 .info-tip:focus .info-tip-mark { border-color: var(--color-muted); color: var(--color-text); }
+/* When the LABEL is the trigger it carries no left margin of its own — the
+   margin exists to set the mark off from the word before it. */
+.info-tip-labelled { margin-left: 0; gap: 5px; }
+/* No underline on the phone label. The mark is gone and the label carries no
+   standing affordance — the tip is there for whoever presses the word, and the
+   panel stays clean for everyone who does not. Pressing still answers: the
+   label goes to full-strength text while the bubble is up, which is the
+   type-only response D2 describes, just without a resting mark. */
+@media (max-width: 600px) {
+  .info-tip-labelled:focus { color: var(--color-text); }
+}
 /* Portaled to <body>, positioned via inline top/left from the icon's rect. */
 .info-tip-bubble {
   position: fixed;

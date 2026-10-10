@@ -183,6 +183,11 @@ function ClientView({ profile }) {
   // / 1 phone). The actual count is balanced against the number of sites below,
   // so the trend charts always tile into even rows with no trailing gap.
   const measViewWide = useMediaQuery('(min-width: 1000px)')
+  // Phone width. The consistency labels carry a parenthetical that is useful on
+  // a desktop and fatal on a 110px cell: "Weekdays (Mon-Fri)" wrapped onto two
+  // lines and dumped its InfoTip in the middle of the wrap, which is what made
+  // those bubbles look scattered. The tip was never the problem; the label was.
+  const compact = useMediaQuery('(max-width: 600px)')
   const measViewMid = useMediaQuery('(min-width: 640px)')
   const measColsMax = measViewWide ? 3 : measViewMid ? 2 : 1
   const [calorieHistory, setCalorieHistory] = useState([])
@@ -1752,22 +1757,22 @@ async function sendMessage(text) {
 
       <div key="consistency" id="section-consistency" style={sectionCardStyle}>
         <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-12)' }}>
+          <div className="cv-consist-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-12)' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Current streak <InfoTip text={CONSISTENCY_TIPS.streak} /></p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.streak}>{compact ? 'Streak' : 'Current streak'}</InfoTip></p>
               <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.streak > 0 ? 'var(--color-success)' : 'var(--color-muted)' }}>
                 {consistency.streak}
                 <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}> days</span>
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Last 7 days <InfoTip text={CONSISTENCY_TIPS.last7} /></p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.last7}>{compact ? '7 days' : 'Last 7 days'}</InfoTip></p>
               <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)' }}>
                 {consistency.days7}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/7</span>
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Last 30 days <InfoTip text={CONSISTENCY_TIPS.last30} /></p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.last30}>{compact ? '30 days' : 'Last 30 days'}</InfoTip></p>
               <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)' }}>
                 {consistency.days30}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/30</span>
               </p>
@@ -1775,7 +1780,7 @@ async function sendMessage(text) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)', marginTop: 'var(--space-12)' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Weekdays (Mon-Fri) <InfoTip text={CONSISTENCY_TIPS.weekdays} /></p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.weekdays}>{compact ? 'Weekdays' : 'Weekdays (Mon-Fri)'}</InfoTip></p>
               <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                 {consistency.weekdayLogged}
                 <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/{consistency.weekdayTotal}</span>
@@ -1785,7 +1790,7 @@ async function sendMessage(text) {
               </p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Weekends (Sat-Sun) <InfoTip text={CONSISTENCY_TIPS.weekends} /></p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.weekends}>{compact ? 'Weekends' : 'Weekends (Sat-Sun)'}</InfoTip></p>
               <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
                 {consistency.weekendLogged}
                 <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/{consistency.weekendTotal}</span>
@@ -1804,10 +1809,10 @@ async function sendMessage(text) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-            }}>
+            }} className="cv-bestweek">
               <div>
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>
-                  Best week (last 90 days) <InfoTip text={CONSISTENCY_TIPS.bestWeek} />
+                  <InfoTip text={CONSISTENCY_TIPS.bestWeek}>{compact ? 'Best week' : 'Best week (last 90 days)'}</InfoTip>
                 </p>
                 <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0 }}>
                   {consistency.bestWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
