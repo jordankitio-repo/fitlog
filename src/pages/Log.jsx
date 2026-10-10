@@ -1282,22 +1282,22 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {/* Day complete — one-tap "I'm done logging today" (coach trust signal).
             Hidden on an empty day: there's nothing to mark complete yet. */}
         {entries.length > 0 && (
-        <button
-          onClick={toggleDayComplete}
-          disabled={dayCompleteSaving}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-            width: '100%', padding: '8px', marginTop: '4px',
-            borderRadius: 'var(--radius)',
-            border: `1px solid ${dayComplete ? 'var(--color-primary)' : 'var(--color-border)'}`,
-            background: dayComplete ? 'var(--color-primary)' : 'transparent',
-            color: dayComplete ? 'var(--color-on-accent)' : 'var(--color-muted)',
-            fontSize: 'var(--text-xs)', fontWeight: 600, fontFamily: 'inherit',
-            cursor: dayCompleteSaving ? 'default' : 'pointer', opacity: dayCompleteSaving ? 0.6 : 1,
-          }}
-        >
-          {dayComplete ? <><Icon name="check" /> Day marked complete. Tap to undo</> : 'Mark day complete'}
-        </button>
+          /* A Button, not a hand-rolled one. It was `background: transparent`
+             with a 1px border — D1's "dead" look exactly, and the one control
+             on this panel with no hover, no pressed state and no raised
+             surface. `muted` at rest because the panel's one filled green is
+             already "+ Add Food"; the accent fill is kept for the COMPLETE
+             state, where it reports what you did rather than inviting a press. */
+          <Button
+            onClick={toggleDayComplete}
+            variant={dayComplete ? 'primary' : 'muted'}
+            size="sm"
+            fullWidth
+            loading={dayCompleteSaving}
+            style={{ marginTop: 'var(--space-4)' }}
+          >
+            {dayComplete ? <><Icon name="check" /> Day marked complete. Tap to undo</> : 'Mark day complete'}
+          </Button>
         )}
 
         {/* Food entries, grouped by meal (with multi-select) */}

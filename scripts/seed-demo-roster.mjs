@@ -37,16 +37,27 @@ async function makeUser(email, full_name, role) {
 
 // log = which of the last N days have a nutrition entry; onTarget hits >=90% of
 // targets; weak = logs but well under. Designed to span red / yellow / green.
+// `adh`/`nrg` are the check-in's self-reported adherence and energy, and they
+// vary per client on purpose. They used to be hardcoded 4 and 4 for everyone,
+// which made the roster's two stat columns a wall of identical numbers — and a
+// column of identical values cannot show that it is misaligned, which is the
+// failure A4 exists to catch. A fixture that cannot distinguish a good score
+// from a bad one is not exercising the screen it was built for.
+//
+// `reviewed` puts a check-in in the ALREADY-REVIEWED state. Without it no
+// client ever reached "on track": the strong loggers all carried an unreviewed
+// check-in, which outranks a green grade in the triage roll-up, so the roster
+// reported `0 on track` and the healthy row was unreachable in the demo.
 const SPECS = [
-  { first: 'Ava',  name: 'Ava Lindqvist',       log: [0, 1, 2, 3, 4, 5, 6], onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Ben',  name: 'Ben Osei',       log: [0, 1, 2, 3, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Cara', name: 'Cara Whitfield',      log: [0, 1, 2, 4, 5, 6],     onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Dan',  name: 'Dan Moreau',    log: [0, 1, 2, 3, 4, 5, 6], onTarget: false, targets: true,  checkIn: true },
-  { first: 'Eve',  name: 'Eve Nakamura',    log: [0, 1, 2, 3, 4],        onTarget: true,  targets: true,  checkIn: false },
-  { first: 'Finn', name: 'Finn Halloran', log: [0, 1, 2, 3],          onTarget: true,  targets: false, checkIn: true },
-  { first: 'Gia',  name: 'Gia Ferrante',   log: [3, 4, 5],              onTarget: true,  targets: true,  checkIn: true },
-  { first: 'Hugo', name: 'Hugo Bennett',  log: [5, 6],                 onTarget: true,  targets: true,  checkIn: false },
-  { first: 'Iris', name: 'Iris Calder',  log: [],                     onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Ava',  name: 'Ava Lindqvist',  log: [0, 1, 2, 3, 4, 5, 6], onTarget: true,  targets: true,  checkIn: true,  adh: 9, nrg: 8, reviewed: true },
+  { first: 'Ben',  name: 'Ben Osei',       log: [0, 1, 2, 3, 5, 6],    onTarget: true,  targets: true,  checkIn: true,  adh: 7, nrg: 7 },
+  { first: 'Cara', name: 'Cara Whitfield', log: [0, 1, 2, 4, 5, 6],    onTarget: true,  targets: true,  checkIn: true,  adh: 8, nrg: 6 },
+  { first: 'Dan',  name: 'Dan Moreau',     log: [0, 1, 2, 3, 4, 5, 6], onTarget: false, targets: true,  checkIn: true,  adh: 3, nrg: 4 },
+  { first: 'Eve',  name: 'Eve Nakamura',   log: [0, 1, 2, 3, 4],       onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Finn', name: 'Finn Halloran',  log: [0, 1, 2, 3],          onTarget: true,  targets: false, checkIn: true,  adh: 6, nrg: 7 },
+  { first: 'Gia',  name: 'Gia Ferrante',   log: [3, 4, 5],             onTarget: true,  targets: true,  checkIn: true,  adh: 5, nrg: 3 },
+  { first: 'Hugo', name: 'Hugo Bennett',   log: [5, 6],                onTarget: true,  targets: true,  checkIn: false },
+  { first: 'Iris', name: 'Iris Calder',    log: [],                    onTarget: true,  targets: true,  checkIn: false },
 ]
 
 const coachId = await makeUser(COACH_EMAIL, 'Demo Coach', 'coach')
@@ -75,7 +86,13 @@ for (const s of SPECS) {
     })
   }
   if (s.checkIn) {
-    await admin.from('check_ins').insert({ client_id: clientId, week_of: weekSunday(), adherence_rating: 4, energy_level: 4 })
+    await admin.from('check_ins').insert({
+      client_id: clientId, week_of: weekSunday(),
+      adherence_rating: s.adh, energy_level: s.nrg,
+      ...(s.reviewed
+        ? { reviewed_at: new Date().toISOString(), coach_comment: 'Strong week. Hold the same plan.' }
+        : {}),
+    })
   }
   console.log('seeded', s.name)
 }

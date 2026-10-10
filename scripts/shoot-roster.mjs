@@ -3,9 +3,11 @@
 //   node scripts/shoot-roster.mjs [baseUrl]
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
+import { requireLocal, settle } from './shootkit.mjs'
 
 const BASE = process.argv[2] || 'http://localhost:5173'
 const OUT = '/tmp/shots'
+requireLocal(BASE)
 mkdirSync(OUT, { recursive: true })
 
 const browser = await chromium.launch()
@@ -18,6 +20,7 @@ await page.getByPlaceholder('Password').fill('Demo!Passw0rd123')
 await page.getByRole('button', { name: /sign in|log in|continue/i }).first().click()
 await page.waitForSelector('text=Invite a client', { timeout: 25000 })
 await page.waitForTimeout(1200)
+await settle(page)
 await page.screenshot({ path: `${OUT}/coach-roster.png`, fullPage: true })
 console.log('shot ->', `${OUT}/coach-roster.png`)
 await browser.close()

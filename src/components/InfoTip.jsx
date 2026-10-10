@@ -1,11 +1,28 @@
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 
 // Small inline "i" affordance that reveals a plain-language explanation on
 // hover (desktop) or tap/focus (touch). The bubble is portaled to <body> and
 // positioned from the icon's rect, so it escapes any ancestor `overflow:hidden`
 // (e.g. the collapsible SectionHeader, which was clipping the top-row tips).
-export default function InfoTip({ text }) {
+//
+// Pass the label as children and the LABEL becomes the trigger:
+//
+//   <InfoTip text="How far back to read">Window</InfoTip>
+//
+// On a phone the mark is then dropped entirely. Six of these in one panel is
+// six extra glyphs competing with the numbers they annotate, and on a 110px
+// cell the mark was the thing that pushed a label onto two lines. The label
+// carries no underline either: the tip is there for whoever presses the word.
+// On a desktop the mark stays, because hover has no affordance of its own and
+// the pointer needs a target.
+//
+// The width lives here rather than at each call site: one rule, not one per
+// label, so a new tip cannot forget it.
+export default function InfoTip({ text, children }) {
+  const compact = useMediaQuery('(max-width: 600px)')
+  const labelled = Boolean(children)
   const markRef = useRef(null)
   const [pos, setPos] = useState(null) // { top, left } in viewport coords, or null = hidden
 
@@ -25,7 +42,7 @@ export default function InfoTip({ text }) {
   return (
     <span
       ref={markRef}
-      className="info-tip"
+      className={`info-tip${labelled ? ' info-tip-labelled' : ''}`}
       tabIndex={0}
       role="note"
       aria-label={text}
@@ -34,7 +51,8 @@ export default function InfoTip({ text }) {
       onFocus={show}
       onBlur={hide}
     >
-      <span className="info-tip-mark" aria-hidden="true">i</span>
+      {children}
+      {(!labelled || !compact) && <span className="info-tip-mark" aria-hidden="true">i</span>}
       {pos && createPortal(
         <span
           className="info-tip-bubble"

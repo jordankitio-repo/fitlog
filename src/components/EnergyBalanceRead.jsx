@@ -68,15 +68,19 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
 
   return (
     <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+      {/* The separator that used to lead "· window" is gone. It only worked
+          while this sat on one line; wrapped on a phone, the next line opened
+          with a dot joining nothing to nothing. A gap separates these, and a
+          gap survives a line break. */}
+      <div className="ebr-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
         <p style={{ fontSize: 'var(--text-xs)', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
           Energy balance read
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="ebr-meta" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>coach-only</span>
           {onWindowChange
             ? <WindowSelector windowDays={windowDays} onWindowChange={onWindowChange} />
-            : <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>· last {r.windowDays} days</span>}
+            : <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>last {r.windowDays} days</span>}
         </div>
       </div>
 
@@ -121,7 +125,7 @@ function WindowSelector({ windowDays, onWindowChange }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>
-        · window<InfoTip text="How far back to read. Shorter = more recent but noisier (the band widens); longer = steadier but reflects older behavior. 21 days is the default — long enough that daily water swings don't dominate the weight trend, short enough to track the current phase." />
+<InfoTip text="How far back to read. Shorter = more recent but noisier (the band widens); longer = steadier but reflects older behavior. 21 days is the default — long enough that daily water swings don't dominate the weight trend, short enough to track the current phase.">Window</InfoTip>
       </span>
       <span role="group" aria-label="Energy balance window" style={{ display: 'inline-flex', gap: 4 }}>
         {/* These are filter chips, so they are the app's filter chip — ui/Pill,

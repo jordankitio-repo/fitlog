@@ -3,9 +3,11 @@
 //   node scripts/shoot-clientview.mjs [baseUrl]
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
+import { requireLocal, settle } from './shootkit.mjs'
 
 const BASE = process.argv[2] || 'http://localhost:5173'
 const OUT = '/tmp/shots'
+requireLocal(BASE)
 mkdirSync(OUT, { recursive: true })
 
 const browser = await chromium.launch()
@@ -24,6 +26,7 @@ for (const [name, vw] of [['cv-desktop', { width: 1480, height: 1400 }], ['cv-mo
   const link = page.getByRole('button', { name: /^open$/i }).first()
   await link.click()
   await page.waitForTimeout(2500)
+  await settle(page)
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true })
   console.log('shot', name)
   await ctx.close()

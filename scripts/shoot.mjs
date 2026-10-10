@@ -11,23 +11,14 @@
 // that does not exist — so the tool is local-only and says so by refusing.
 import { chromium } from 'playwright'
 import { execSync } from 'node:child_process'
+import { requireLocal, shooter } from './shootkit.mjs'
 
 const BASE = process.argv[2] || 'http://localhost:5181'
 const OUT = '/tmp/shots'
 import { mkdirSync } from 'node:fs'
 mkdirSync(OUT, { recursive: true })
 
-if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(BASE)) {
-  console.error(`Refusing to run against ${BASE}.
-
-This harness signs up a real account and cleans it up with the local stack's
-service-role key. Against a live project it has neither that key nor any way
-to pass delete-account's step-up check, so it would leave an orphaned user
-behind — which is exactly what happened the one time it was pointed at prod.
-
-To screenshot a deployed build, sign in as a real account instead.`)
-  process.exit(1)
-}
+requireLocal(BASE)
 
 // Admin credentials come from the running stack, not from .env.
 //
@@ -69,30 +60,7 @@ const browser = await chromium.launch()
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
 const page = await ctx.newPage()
 
-// Wait out the cold-start splash before every shot.
-//
-// index.html holds it for a MIN of 900ms, then fades it over 1600ms before
-// removing it — so for ~2.5s after load it covers the page completely. The
-// waits below are all `waitForSelector` on page content, which resolves the
-// instant the element is attached and visible UNDERNEATH the splash. Every
-// desktop shot this harness produced was therefore a photograph of the
-// loading screen, which is a silent failure: the files are there, they are
-// the right size, and they contain no product.
-//
-// Lives inside shot() rather than at each call site so a shot added later
-// cannot forget it.
-async function settle() {
-  await page.waitForFunction(() => {
-    const s = document.getElementById('splash')
-    return !s || s.hidden || getComputedStyle(s).opacity === '0'
-  }, null, { timeout: 15000 }).catch(() => console.log('  (splash never cleared)'))
-}
-
-async function shot(name) {
-  await settle()
-  await page.screenshot({ path: `${OUT}/${name}.png` })
-  console.log('shot', name)
-}
+const shot = shooter(page, OUT)
 
 // --- logged-out home on mobile: the sign-in form is the landing page ---
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })

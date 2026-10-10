@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Button from '../components/Button'
@@ -92,6 +92,7 @@ export default function Coach({ profile, archiveOpen = false }) {
   // which is the whole reason the rail exists: clicking a row used to throw
   // the layout away and leave the report alone on a page.
   const { id: reportId } = useParams()
+  const location = useLocation()
   const wide = useMediaQuery('(min-width: 1024px)')
   const [coach, setCoach] = useState(null)
   const [items, setItems] = useState([])
@@ -223,8 +224,8 @@ export default function Coach({ profile, archiveOpen = false }) {
         </aside>
       )}
       <div className="coach-main">
-        {reportId ? (
-          <ReportReader inPane={railed} />
+        {reportId && railed ? (
+          <ReportReader inPane />
         ) : (
         <div className="page-fade-in coach-page">
           <div className="coach-head">
@@ -323,6 +324,26 @@ export default function Coach({ profile, archiveOpen = false }) {
           is an ambient index; this is the answer to a request. */}
       <Modal open={archiveOpen} title="Reports" onClose={() => navigate('/coach')} maxWidth={560}>
         <ReportArchive profile={profile} />
+      </Modal>
+
+      {/* The report itself, as a sheet, wherever there is no rail to show it
+          in. A report opened from a phone used to replace the whole screen
+          with a page of its own; now it arrives over the conversation it
+          belongs to, the same way the archive does, and closing it puts you
+          back where you were rather than at a route.
+
+          Closing walks HISTORY rather than routing to a fixed place, because
+          there are two ways in — a card in the thread and a row in the archive
+          — and only history knows which. `location.key === 'default'` means
+          this view IS the first entry (a deep link from a notification), where
+          there is nothing to go back to, so that falls through to the thread. */}
+      <Modal
+        open={Boolean(reportId) && !railed}
+        title="Report"
+        onClose={() => (location.key === 'default' ? navigate('/coach') : navigate(-1))}
+        maxWidth={560}
+      >
+        <ReportReader inModal />
       </Modal>
     </div>
   )
