@@ -24,12 +24,29 @@ function SortableQuestion({ id, children }) {
 // Coach-facing builder for the check-in questionnaire (per coach, applies to
 // all their clients). Lives on the coach Profile. Each change persists; the
 // list is the coach's active (non-archived) questions, ordered by position.
+// What a question says when it is closed. The builder used to render every
+// question in its edit state at once — prompt input, type select, config
+// field, required checkbox, delete — so six questions meant roughly twenty-four
+// live controls stacked down the panel, and reading "what do I ask my clients"
+// meant reading a form rather than a list.
+function summarize(q) {
+  const parts = []
+  if (q.type === 'rating') parts.push(`Rating 1-${q.config?.max || 10}`)
+  else if (q.type === 'number') parts.push(q.config?.unit ? `Number (${q.config.unit})` : 'Number')
+  else if (q.type === 'select') parts.push(`${(q.config?.options || []).length} choices`)
+  else parts.push('Text')
+  if (q.required) parts.push('Required')
+  return parts.join(' · ')
+}
+
 export default function CheckinBuilder({ coachId }) {
   const [questions, setQuestions] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [confirmId, setConfirmId] = useState(null) // question pending delete confirmation
+  const [confirmId, setConfirmId] = useState(null)
+  // One question open at a time; closed is the resting state.
+  const [openId, setOpenId] = useState(null) // question pending delete confirmation
   const savedTimer = useRef(null)
 
   const sensors = useSensors(
@@ -68,7 +85,8 @@ export default function CheckinBuilder({ coachId }) {
     const { data, error } = await supabase.from('checkin_questions')
       .insert({ coach_id: coachId, prompt: row.prompt, type: row.type, config: row.config, required: row.required, position: questions.length })
       .select().single()
-    if (!error && data) { setQuestions(qs => [...qs, data]); flashSaved() }
+    // A question you just created is the one you want to type into.
+    if (!error && data) { setQuestions(qs => [...qs, data]); setOpenId(data.id); flashSaved() }
     setBusy(false)
   }
 
@@ -147,17 +165,40 @@ export default function CheckinBuilder({ coachId }) {
                   {({ setNodeRef, style, handleProps }) => (
                     <div ref={setNodeRef} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--color-surface)', marginBottom: '10px', ...style }}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button {...handleProps} style={gripStyle} title="Drag to reorder" aria-label="Drag to reorder"><Icon name="grip" /></button>
+                        <button {...handleProps} style={gripStyle} aria-label="Drag to reorder"><Icon name="grip" size={15} /></button>
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', fontWeight: 700, width: 18 }}>{i + 1}.</span>
-                        <input
-                          value={q.prompt}
-                          placeholder="Question prompt"
-                          onChange={(e) => patchLocal(q.id, { prompt: e.target.value })}
-                          onBlur={(e) => patch(q.id, { prompt: e.target.value })}
-                          style={{ ...inputStyle, flex: 1 }}
-                        />
-                        <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} aria-label="Remove question" title="Remove question"><Icon name="x" /></button>
+                        {openId === q.id ? (
+                          <input
+                            value={q.prompt}
+                            placeholder="Question prompt"
+                            autoFocus
+                            onChange={(e) => patchLocal(q.id, { prompt: e.target.value })}
+                            onBlur={(e) => patch(q.id, { prompt: e.target.value })}
+                            style={{ ...inputStyle, flex: 1 }}
+                          />
+                        ) : (
+                          /* Closed: the question reads as what it is — the words
+                             the client will see, and one line saying how it is
+                             answered. The whole row opens it, so there is no
+                             separate Edit control to find. */
+                          <button
+                            type="button"
+                            onClick={() => setOpenId(q.id)}
+                            style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', font: 'inherit', display: 'flex', flexDirection: 'column', gap: '2px' }}
+                          >
+                            <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {q.prompt || 'Untitled question'}
+                            </span>
+                            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{summarize(q)}</span>
+                          </button>
+                        )}
+                        {openId === q.id ? (
+                          <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} aria-label="Remove question"><Icon name="x" /></button>
+                        ) : (
+                          <Icon name="right" size={14} style={{ color: 'var(--color-faint)', flexShrink: 0 }} />
+                        )}
                       </div>
+                      {openId === q.id && (
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', paddingLeft: 30 }}>
                         <select value={q.type} onChange={(e) => changeType(q, e.target.value)} style={{ ...inputStyle, width: 'auto' }}>
                           {QUESTION_TYPES.map(t => <option key={t.type} value={t.type}>{t.label}</option>)}
@@ -183,7 +224,9 @@ export default function CheckinBuilder({ coachId }) {
                           <input type="checkbox" checked={q.required} onChange={() => patch(q.id, { required: !q.required })} />
                           Required
                         </label>
+                        <Button onClick={() => setOpenId(null)} variant="ghost" size="sm">Done</Button>
                       </div>
+                      )}
                     </div>
                   )}
                 </SortableQuestion>

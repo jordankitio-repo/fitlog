@@ -103,7 +103,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
 
         <div style={{ display: 'flex', gap: DAY_LABEL_GAP }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, width: DAY_LABEL_WIDTH, flexShrink: 0 }}>
-            {DAYS.map((day, index) => (
+            {DAYS.map((day) => (
               <div
                 key={day}
                 style={{
@@ -116,7 +116,15 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
                   paddingRight: 4,
                 }}
               >
-                {index % 2 === 0 ? day.slice(0, 1) : ''}
+                {/* Single letters, except Thursday.
+                    Alternate rows with one initial printed S, T, T, S — two
+                    rows saying S, two saying T, three saying nothing. Every row
+                    is labelled now, and Thursday takes the second letter
+                    because it is the one collision a single initial cannot
+                    survive: Sunday and Saturday are told apart by position
+                    (first row and last), but a T above a T is unreadable in
+                    either direction. */}
+                {day === 'Thu' ? 'Th' : day.slice(0, 1)}
               </div>
             ))}
           </div>
