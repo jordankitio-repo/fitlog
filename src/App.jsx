@@ -176,6 +176,10 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
             <Route path="/reports/:id" element={session ? <Coach profile={profile} /> : <Navigate to="/login" />} />
             <Route path="/join" element={<Join />} />
             <Route path="/client/:clientId" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
+            {/* The same record, addressed at one section. A phone renders that
+                section alone; a desktop has the rail on screen already, so it
+                renders everything and simply scrolls there. */}
+            <Route path="/client/:clientId/:section" element={session ? <ClientView profile={profile} /> : <Navigate to="/login" />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/billing/success" element={<BillingSuccess />} />
             <Route path="/terms" element={<Terms />} />
