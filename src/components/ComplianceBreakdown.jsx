@@ -1,4 +1,5 @@
 import { complianceBreakdown } from '../utils/complianceBreakdown'
+import { Link } from 'react-router-dom'
 
 // Coach-facing "why is this one slipping" panel, drawn as diverging bars around
 // a center "target" line: a segment's bar grows LEFT when it runs under target,
@@ -72,7 +73,12 @@ function Row({ label, seg, target }) {
   )
 }
 
-export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
+// `targetHref` makes the axis's "target" the way to the number rather than
+// printing it in the caption. The caption used to read "vs 2,600 cal target ·
+// last 90 days", which spent a line restating a figure the Targets panel owns
+// — and gave the reader no way to act on it. Optional: without it the label
+// stays plain text, so a caller with nowhere to point still renders.
+export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetHref }) {
   const b = complianceBreakdown(logsByDate, calorieTarget)
   if (!b.hasTarget) return null
 
@@ -118,7 +124,15 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget }) {
         <p style={{ fontSize: 'var(--text-xs)', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
           Weekday vs weekend
         </p>
-        <p style={{ fontSize: 'var(--text-xs)', color: MUTED, margin: 0 }}>vs {targetLabel} cal target · last 90 days</p>
+        {/* The figure is gone, the sentence is not. "vs 2,600 cal target" spent
+            the line restating a number the Targets panel owns; "target" now
+            goes there instead, so the caption says what it is measured against
+            and hands you the way to change it. */}
+        <p style={{ fontSize: 'var(--text-xs)', color: MUTED, margin: 0 }}>
+          vs {targetHref
+            ? <Link to={targetHref} className="cb-targetlink ds-control" aria-label={`Calorie target, ${targetLabel} — open targets`}>Target</Link>
+            : 'Target'} · last 90 days
+        </p>
       </div>
 
       {b.insufficient ? (

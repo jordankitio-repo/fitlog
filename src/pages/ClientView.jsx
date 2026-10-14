@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
@@ -9,7 +9,7 @@ import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ReportProse from '../components/ReportProse'
-import { relativeTime } from '../utils/relativeTime'
+import { relativeTime, numericDate } from '../utils/relativeTime'
 import { leadOf } from '../utils/reportFeed'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
@@ -23,8 +23,10 @@ import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
 import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from '../utils/weightTarget'
 import { measurementCadenceDays, measurementStatus } from '../utils/measurementCadence'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useOverflowFade } from '../hooks/useOverflowFade'
 import Reorderable from '../components/Reorderable'
 import SectionRail from '../components/SectionRail'
+import { SECTION_ICONS } from '../utils/sectionIcons'
 import TargetCalculator from '../components/TargetCalculator'
 import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
@@ -35,7 +37,7 @@ import { computeClientStats } from '../utils/clientStats'
 import { attentionLevel } from '../utils/attentionLevel'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
-import { CADENCE_OPTIONS, cadenceLabel } from '../utils/cadence'
+import { CADENCE_OPTIONS } from '../utils/cadence'
 import { formatAnswer } from '../utils/checkinQuestions'
 import {
   addDays,
@@ -98,6 +100,9 @@ const SECTION_LABELS = {
   nutritionLog: 'Nutrition', checkIn: 'Check-in', privateNotes: 'Notes', correlatedChart: 'Progress',
   weightChart: 'Weight', calorieChart: 'Calories', cardioChart: 'Cardio', stepsChart: 'Steps',
   measurements: 'Measurements',
+  // Not a REORDERABLE key — it is pinned at the foot of the rail — but it
+  // still needs a label, because the phone's destination list reads from here.
+  coaching: 'Coaching',
 }
 // Open/closed state per section, remembered across reloads (see the effect in
 // the component). `groundwork` is the AI panel, which is not a REORDERABLE key
@@ -140,6 +145,37 @@ function loadCollapsed() {
   }
 }
 
+// What the SUMMARY shows when there is no rail. A coach opens a client record
+// to answer "how is this person, and what do I do" — that is triage, so the
+// summary carries the standing facts and the work that is waiting, and
+// everything else becomes a destination.
+//
+// Destinations are derived (registry minus this set), never listed a second
+// time: a hand-kept second list is how a section becomes unreachable on a
+// phone with nothing erroring.
+// C1/B1: the grade is carried by the text's colour, never a pill. Same tones
+// the roster's status column uses, so one client reads the same on both.
+const TONE_COLORS = {
+  error: 'var(--color-error)',
+  warning: 'var(--color-warning)',
+  success: 'var(--color-success)',
+}
+
+const SUMMARY_KEYS = ['groundwork', 'stats', 'consistency', 'checkIn']
+
+// Six of the phone's eleven destinations were the same kind of thing: a chart
+// over time, each with its own header, its own card and its own fixed window.
+// That is what made the list read as a filing cabinet — nothing was weighted,
+// because everything was the same. They are one destination with a switcher
+// now; the only thing that differed between them was the series, and a series
+// is a control, not a section.
+const TREND_KEYS = ['weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'correlatedChart', 'measurements']
+const TREND_LABELS = {
+  weightChart: 'Weight', calorieChart: 'Calories', cardioChart: 'Cardio',
+  stepsChart: 'Steps', correlatedChart: 'Progress', measurements: 'Measurements',
+}
+const DEFAULT_TREND = 'weightChart'
+
 const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'measurements']
 
 // Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
@@ -163,7 +199,10 @@ function checkInPayload(c) {
 }
 
 function ClientView({ profile }) {
-  const { clientId } = useParams()
+  // `section` is the mobile detail route: /client/:id/:section. Absent = the
+  // summary. On a desktop it is only a scroll target — the rail is on screen,
+  // so every section stays rendered and the param just says where to land.
+  const { clientId, section } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
@@ -183,6 +222,17 @@ function ClientView({ profile }) {
   // / 1 phone). The actual count is balanced against the number of sites below,
   // so the trend charts always tile into even rows with no trailing gap.
   const measViewWide = useMediaQuery('(min-width: 1000px)')
+  // Matches the rail's own breakpoint. Above it the record is one scrollable
+  // page with a rail to jump around; below it the rail is display:none, which
+  // left fourteen stacked sections and no map. That is the split this page
+  // branches on — not "mobile" in the abstract, but "is there a rail".
+  const hasRail = useMediaQuery('(min-width: 1024px)')
+  const [cadenceRef, cadenceStrip] = useOverflowFade()
+
+  // Which series the Trends destination is showing. In the URL rather than in
+  // state so the back button steps through metrics and a link can name one.
+  const trendParam = searchParams.get('m')
+  const activeTrend = TREND_KEYS.includes(trendParam) ? trendParam : DEFAULT_TREND
   // Phone width. The consistency labels carry a parenthetical that is useful on
   // a desktop and fatal on a 110px cell: "Weekdays (Mon-Fri)" wrapped onto two
   // lines and dumped its InfoTip in the middle of the wrap, which is what made
@@ -215,6 +265,7 @@ function ClientView({ profile }) {
   const [checkinInterval, setCheckinInterval] = useState(1)
   const [savingCadence, setSavingCadence] = useState(false)
   const [coachNotes, setCoachNotes] = useState('')
+  const [notesUpdatedAt, setNotesUpdatedAt] = useState(null)
   const [newNoteEntry, setNewNoteEntry] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
@@ -314,16 +365,35 @@ function ClientView({ profile }) {
     })
   }
 
-  // Deep-link from a notification (?focus=checkIn etc.): expand + scroll to it.
-  // 'chat' is handled by ChatBubble; other values name a section here.
+  // Deep-link from a notification (?focus=checkIn etc.). 'chat' is handled by
+  // ChatBubble; other values name a section here — and what "go there" means
+  // now depends on whether there is a rail. With one, scroll. Without one, the
+  // section IS a route, so hand it to the router and let the back button mean
+  // something.
   useEffect(() => {
     const focus = searchParams.get('focus')
     if (!focus || focus === 'chat') return
-    goToSection(focus)
     const sp = new URLSearchParams(searchParams)
     sp.delete('focus')
-    setSearchParams(sp, { replace: true })
-  }, [searchParams, setSearchParams])
+    if (hasRail) {
+      goToSection(focus)
+      setSearchParams(sp, { replace: true })
+    } else {
+      navigate(`/client/${clientId}/${focus}${sp.toString() ? `?${sp}` : ''}`, { replace: true })
+    }
+  }, [searchParams, setSearchParams, hasRail, clientId, navigate])
+
+  // A desktop landing on /client/:id/:section renders the whole page, so the
+  // param is a scroll target rather than a filter. Same vocabulary as the
+  // phone, different behaviour — which is the point of using one param for
+  // both instead of inventing a second concept.
+  useEffect(() => {
+    if (!section || !hasRail) return
+    // `trends` is a phone-only grouping, not an anchor. On a desktop every
+    // chart is already on the page, so the link resolves to the first of them
+    // rather than retrying a scroll at an id that will never exist.
+    goToSection(section === 'trends' ? activeTrend : section)
+  }, [section, hasRail, activeTrend])
 
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
@@ -730,12 +800,15 @@ async function fetchStepsHistory() {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
   const { data, error } = await supabase
     .from('coach_notes')
-    .select('content')
+    .select('content, updated_at')
     .eq('coach_id', currentSession.user.id)
     .eq('client_id', clientId)
     .maybeSingle()
   if (error) console.error(error)
-  else if (data) setCoachNotes(data.content || '')
+  else if (data) {
+    setCoachNotes(data.content || '')
+    setNotesUpdatedAt(data.updated_at || null)
+  }
 }
 
 async function fetchConsistency() {
@@ -896,7 +969,12 @@ async function saveCoachNotes() {
       updated_at: new Date().toISOString()
     }, { onConflict: 'coach_id,client_id' })
   if (error) console.error(error)
-  else { setNotesSaved(true); setTimeout(() => setNotesSaved(false), 2000) }
+  else {
+    setNotesSaved(true)
+    // Keep the row's "last updated" honest without a refetch.
+    setNotesUpdatedAt(new Date().toISOString())
+    setTimeout(() => setNotesSaved(false), 2000)
+  }
 }
 
 async function addNoteEntry() {
@@ -1398,6 +1476,61 @@ async function sendMessage(text) {
   // they take ui/Panel's `comfortable` body padding verbatim — cardStyle's
   // --space-md (16px) was a third density, and it made every panel on this page
   // sit tighter than every Panel on the roster.
+  // Which sections render, and the style that carries it.
+  //
+  // Gating by STYLE rather than by unmounting: this file is 2,600 lines of
+  // inline sections, and hiding is one token per section instead of fourteen
+  // brace-matched wrappers. Nothing moves, the scroll-spy keeps its anchors,
+  // and a desktop renders exactly what it rendered before. (Unmounting the
+  // hidden charts is worth doing later — but it is a perf change, not this
+  // one, and today's page already mounts all of them anyway.)
+  const isVisible = (key) => {
+    if (hasRail) return true                      // desktop: the rail needs them all
+    if (section === 'trends') return key === activeTrend
+    if (section) return key === section            // phone, detail route: just this one
+    return SUMMARY_KEYS.includes(key)              // phone, summary
+  }
+  // The one fact worth showing beside a destination's name. Grey and quiet —
+  // it is context for the label, not a second heading. Returns null when there
+  // is nothing true to say, so a row never shows a hopeful zero.
+  // Returns { text, tone } — tone grades it the way the roster's status column
+  // does, so "9d since a log" is red here for the same reason it is red there.
+  // The attention facts come from railMeta, the SAME source the desktop rail
+  // reads: a phone that computed its own would be a second opinion about one
+  // client.
+  const destMeta = (key) => {
+    const w = weightHistory[weightHistory.length - 1]
+    const rail = railMeta[key]
+    if (rail?.meta) return { text: String(rail.meta), tone: rail.metaTone || null }
+    switch (key) {
+      case 'trends': return { text: w ? `${w.weight} ${w.unit || ''}`.trim() : 'No weight yet' }
+      case 'nutritionLog': return { text: `${consistency.days7}/7 this week` }
+      case 'targets': return { text: clientTargets.calories ? `${Number(clientTargets.calories).toLocaleString()} cal` : 'Not set' }
+      // Not "Written" — a note that exists is always written, so the word
+      // answered nothing. The DATE is the useful fact: it says which week's
+      // thinking the note holds, which a recency ("2 months ago") makes the
+      // reader work out.
+      case 'privateNotes':
+        if (!coachNotes?.trim()) return { text: 'None' }
+        return notesUpdatedAt ? { text: numericDate(notesUpdatedAt) } : null
+      case 'sentReports': return { text: sentReports.length ? `${sentReports.length}` : 'None' }
+      case 'checkIn': return clientCheckIn ? null : { text: 'None this period' }
+      default: return null
+    }
+  }
+
+  // A saved collapse is a desktop convenience — it is how a coach tidies a long
+  // page. On a phone the section IS the page, so honouring it would open a
+  // screen with nothing on it but its own header.
+  const isCollapsed = (key) => (hasRail ? sectionsCollapsed[key] : false)
+  // ...and with it the toggle. Below the rail a section IS the page, so there
+  // is nothing to collapse it into — the chevron was still drawn and still
+  // took taps, writing a state `isCollapsed` had already stopped reading.
+  const sectionToggle = (key) => (hasRail ? () => toggleSection(key) : undefined)
+
+  const sectionStyle = (key, extra) =>
+    (isVisible(key) ? { ...sectionCardStyle, ...extra } : { display: 'none' })
+
   const sectionCardStyle = {
     ...cardStyle,
     padding: 'var(--space-20) var(--space-24)',
@@ -1418,6 +1551,21 @@ async function sendMessage(text) {
     if (k === 'sentReports') return sentReports.length > 0
     return true
   })
+
+  // The live saved order, and the subset of it this list shows. `trends` sits
+  // where its first member sits, so moving the group moves the charts.
+  const fullOrder = mergeOrder(cardOrder, presentReorderable)
+  const destOrder = (() => {
+    const out = []
+    for (const k of fullOrder) {
+      if (SUMMARY_KEYS.includes(k)) continue
+      if (TREND_KEYS.includes(k)) { if (!out.includes('trends')) out.push('trends'); continue }
+      out.push(k)
+    }
+    if (!out.includes('trends')) out.unshift('trends')
+    return out
+  })()
+
   // Rail clicks: the "Messages" item opens the chat bubble (which listens for
   // ?focus=chat); everything else scrolls to its section.
   function handleRailJump(key) {
@@ -1565,90 +1713,148 @@ async function sendMessage(text) {
       <SectionRail groups={railGroups} footer={railFooter} activeKey={activeSection} onJump={handleRailJump}
         onBack={() => navigate('/')} backLabel="All clients" />
       <div className="cv-main">
-      <div className="cv-titlerow">
-        <div style={{ flex: 1, minWidth: '180px', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-16)', flexWrap: 'wrap' }}>
-        <Avatar url={clientProfile?.avatar_url} name={clientProfile?.full_name || ''} size={52} style={{ marginTop: 'var(--space-4)' }} />
-        <div style={{ flex: 1, minWidth: '180px' }}>
-          <h1>{clientProfile?.full_name || 'Client'}</h1>
-          <p style={{ fontSize: 'var(--text-base)', marginTop: 'var(--space-2)' }}>{clientProfile?.email}</p>
-          {/* At-a-glance triage status, from the same engine as the roster so
-              the two screens never disagree about a client. Lock is filtered
-              out here because it gets its own line, with its Unlock action,
-              directly below. */}
-          {statusStats && (() => {
-            const status = attentionLevel({ ...statusStats, lockInfo })
-            const reasons = status.reasons.filter(r => r !== 'Locked')
-            if (status.level !== 'green' && reasons.length === 0) return null
-            const tone = status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)'
-            return (
-              <div style={{ marginTop: 'var(--space-10)' }}>
-                {/* C1: status is plain coloured text — no container, no border,
-                    no dot. This was the last tinted-pill-with-a-dot in the app;
-                    the label already carries the meaning, so the dot only ever
-                    repeated it. Green keeps --color-success rather than going
-                    muted: green and grey must never collide (B1), or a healthy
-                    client reads identically to an unconfigured one. */}
-                <span style={{
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: status.level === 'green' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
-                  color: tone,
-                }}>
-                  {status.level === 'green' ? 'On track' : reasons.join(' · ')}
-                </span>
-              </div>
-            )
-          })()}
-          {lockInfo.locked && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap', marginTop: 'var(--space-10)' }}>
-              {/* C1: status is plain coloured text. This was a tinted 999px pill
-                  with a red border sitting four lines under the status line that
-                  had already been converted — the two read as different systems
-                  on the same header. Unlock stays a control; the label does not. */}
-              <span style={{
-                fontSize: 'var(--text-sm)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--color-error)',
-              }}>
-                Locked
-              </span>
-              <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>
-                No nutrition logged for {lockInfo.days} days
-              </span>
-              <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
-            </div>
-          )}
-        </div>
-        {(() => {
-          const nudge = nudgeReason({ daysSinceLog, hasCheckIn: !!clientCheckIn, checkinDue: checkinPeriod(checkinInterval).dueWindow })
-          if (!nudge) return null
-          const label = nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log'
+      {/* The header, composed once and laid out twice.
+          On a phone it was four stacked fragments with no grouping: a name over
+          an email over a red status over a second red word over a muted
+          sentence over a button, with Nudge floating off on its own. The parts
+          are the same; what changes is that the two ACTIONS end up together in
+          one row instead of marooned in separate containers, and the lock
+          reads as one sentence rather than a label and an explanation that
+          look like two different things. */}
+      {(() => {
+        const status = statusStats ? attentionLevel({ ...statusStats, lockInfo }) : null
+        const reasons = status ? status.reasons.filter(r => r !== 'Locked') : []
+        const showStatus = status && !(status.level !== 'green' && reasons.length === 0)
+        const tone = status && (status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)')
+        const nudge = nudgeReason({ daysSinceLog, hasCheckIn: !!clientCheckIn, checkinDue: checkinPeriod(checkinInterval).dueWindow })
+        const nudgeLabel = nudge && (nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log')
+
+        /* C1: status is plain coloured text — no container, no border, no dot.
+           Green keeps --color-success rather than going muted: green and grey
+           must never collide (B1), or a healthy client reads identically to an
+           unconfigured one. */
+        const statusText = showStatus && (
+          <span className="cv-head-status" style={{
+            fontWeight: status.level === 'green' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
+            color: tone,
+          }}>
+            {status.level === 'green' ? 'On track' : reasons.join(' · ')}
+          </span>
+        )
+
+        /* One sentence, not a label beside an explanation. The two were
+           separate spans with a gap, so they wrapped apart on a narrow screen
+           and read as unrelated facts. */
+        const lockText = lockInfo.locked && (
+          <p className="cv-head-lock">
+            <b>Locked</b> No nutrition logged for {lockInfo.days} days
+          </p>
+        )
+
+        const nudgeButton = nudge && (
+          /* D2/D3: this is the roster's Nudge, so it is the roster's control —
+             <Button variant="action">, not a second implementation of it.
+             Rank 2 (acts on a client), never rank 1. */
+          <Button
+            onClick={() => nudgeClient(nudge)}
+            variant="action"
+            size="sm"
+            loading={nudging}
+            disabled={nudging}
+            ariaLabel={nudge.key === 'checkin' ? 'Email this client a reminder to do their check-in' : 'Email this client a prompt to get back to logging'}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+            {nudging ? 'Nudging…' : nudgeLabel}
+          </Button>
+        )
+        const unlockButton = lockInfo.locked && (
+          <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
+        )
+
+        if (!hasRail) {
           return (
-            /* D2/D3: this is the roster's Nudge, so it is the roster's control
-               — <Button variant="action">, not a second implementation of it.
-               The hand-rolled pill it replaces had already drifted: its hover
-               brightened the BORDER, which was removed from every other control
-               in the app. Rank 2 (acts on a client), never rank 1. */
-            <Button
-              onClick={() => nudgeClient(nudge)}
-              variant="action"
-              size="sm"
-              loading={nudging}
-              disabled={nudging}
-              ariaLabel={nudge.key === 'checkin' ? 'Email this client a reminder to do their check-in' : 'Email this client a prompt to get back to logging'}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-              {nudging ? 'Nudging…' : label}
-            </Button>
+            <div className="cv-head-m">
+              <div className="cv-head-m-id">
+                <Avatar url={clientProfile?.avatar_url} name={clientProfile?.full_name || ''} size={44} />
+                <div className="cv-head-m-name">
+                  <h1>{clientProfile?.full_name || 'Client'}</h1>
+                  {statusText}
+                </div>
+              </div>
+              {lockText}
+              {(nudgeButton || unlockButton) && (
+                <div className="cv-head-m-actions">{nudgeButton}{unlockButton}</div>
+              )}
+            </div>
           )
-        })()}
-        </div>
-      </div>
+        }
+
+        return (
+          <div className="cv-titlerow">
+            <div style={{ flex: 1, minWidth: '180px', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-16)', flexWrap: 'wrap' }}>
+              <Avatar url={clientProfile?.avatar_url} name={clientProfile?.full_name || ''} size={52} style={{ marginTop: 'var(--space-4)' }} />
+              <div style={{ flex: 1, minWidth: '180px' }}>
+                <h1>{clientProfile?.full_name || 'Client'}</h1>
+                <p style={{ fontSize: 'var(--text-base)', marginTop: 'var(--space-2)' }}>{clientProfile?.email}</p>
+                {statusText && <div style={{ marginTop: 'var(--space-10)' }}>{statusText}</div>}
+                {lockInfo.locked && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap', marginTop: 'var(--space-10)' }}>
+                    {lockText}
+                    {unlockButton}
+                  </div>
+                )}
+              </div>
+              {nudgeButton}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* AI Tools. Uses SectionHeader like the other thirteen sections — it was
           the one section with a hand-rolled header, so it alone had a bare <h2>
           at the wrong size and no collapse animation. */}
-      <div style={sectionCardStyle}>
-        <SectionHeader title="Groundwork" collapsed={aiToolsCollapsed} onToggle={() => setAiToolsCollapsed(!aiToolsCollapsed)}>
+      {!hasRail && section && (
+        /* C5: a back link names its destination. The destination here is this
+           client's summary, so it says whose. */
+        <Link
+          to={`/client/${clientId}`}
+          className="ds-disclosure ds-control"
+          style={{ width: 'auto', textDecoration: 'none' }}
+        >
+          <Icon name="left" size={14} />
+          <span>{clientProfile?.full_name?.split(' ')[0] || 'Back'}</span>
+        </Link>
+      )}
+
+      {!hasRail && section === 'trends' && (
+        /* The switcher. ui/Pill, the same filter chip as the roster's lenses
+           and the energy-balance window — a chip that picks what you are
+           looking at is the app's chip, not a new control. Scrolls rather than
+           wraps, like the roster's, so six of them hold one line. */
+        <div className="rost-chips cv-trend-chips" role="group" aria-label="Metric">
+          {TREND_KEYS.map(k => (
+            <Pill
+              key={k}
+              active={k === activeTrend}
+              aria-pressed={k === activeTrend}
+              onClick={() => {
+                const sp = new URLSearchParams(searchParams)
+                if (k === DEFAULT_TREND) sp.delete('m'); else sp.set('m', k)
+                setSearchParams(sp, { replace: true })
+              }}
+            >
+              {TREND_LABELS[k]}
+            </Pill>
+          ))}
+        </div>
+      )}
+
+      <div id="section-groundwork" style={sectionStyle('groundwork')}>
+        <SectionHeader
+          title="Groundwork"
+          collapsed={hasRail && aiToolsCollapsed}
+          onToggle={hasRail ? () => setAiToolsCollapsed(!aiToolsCollapsed) : undefined}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-12)' }}>
               <button className="gw-tile ds-control" onClick={generateCallPrep} disabled={briefingLoading}
@@ -1718,7 +1924,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+      <div style={{ display: isVisible('stats') ? 'flex' : 'none', alignItems: 'center', gap: 'var(--space-12)' }}>
         <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
 
         <Field
@@ -1735,28 +1941,47 @@ async function sendMessage(text) {
         {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">Today</Button>}
       </div>
 
-      <div id="section-stats" style={sectionCardStyle}>
-        <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-16)' }}>
-            <StatCard label="Calories" value={totals.calories} color="var(--color-calories)" />
-            <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
-            <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
-            <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
+      <div id="section-stats" style={sectionStyle('stats')}>
+        <SectionHeader title="Today's stats" collapsed={isCollapsed('stats')} onToggle={sectionToggle('stats')}>
+          {/* Two groups, because these are two kinds of fact — and seven cells
+              in a two-column grid could only ever leave one of them stranded
+              beside an empty cell.
+
+              Calories, protein, carbs and fat are THE DAY'S INTAKE: four parts
+              of one number, and a 2x2 is the shape that says so. Cardio, steps
+              and weight are three unrelated single readings; they are a strip,
+              which is what this system uses for several facts about one
+              subject. Neither group has a hole in it. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-16)' }}>
+              <StatCard label="Calories" value={totals.calories} color="var(--color-calories)" />
+              <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
+              <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
+              <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
+            </div>
             {/* Cardio and Steps were never on this panel, though the coach sets a
                 target for both and the page carries a chart for each — so the
                 client's own Dashboard showed seven metrics for a day while the
                 coach's view of the same day showed five. */}
-            <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} color="var(--color-cardio)" />
-            <StatCard label="Steps" value={daySteps ? daySteps.toLocaleString() : '—'} color="var(--color-steps)" />
-            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-16)' }}>
+              <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} color="var(--color-cardio)" />
+              <StatCard label="Steps" value={daySteps ? daySteps.toLocaleString() : '—'} color="var(--color-steps)" />
+              <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
+            </div>
           </div>
         </SectionHeader>
       </div>
 
-      <Reorderable order={cardOrder} onReorder={saveCardOrder} enabled={canReorder}>
+      {/* Drag is a desktop affordance, and switching it off below the rail does
+          two things at once. A long-press drag fights the page scroll on a
+          phone — and SortableCard renders its grip OUTSIDE the section div, so
+          with the sections hidden by style the grips survived them: a column of
+          stray ⠿ handles floating between the summary's panels, each one the
+          ghost of a section that is not there. */}
+      <Reorderable order={cardOrder} onReorder={saveCardOrder} enabled={canReorder && hasRail}>
 
-      <div key="consistency" id="section-consistency" style={sectionCardStyle}>
-        <SectionHeader title="Logging consistency" collapsed={sectionsCollapsed.consistency} onToggle={() => toggleSection('consistency')}>
+      <div key="consistency" id="section-consistency" style={sectionStyle('consistency')}>
+        <SectionHeader title="Logging consistency" collapsed={isCollapsed('consistency')} onToggle={sectionToggle('consistency')}>
           <div className="cv-consist-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-12)' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.streak}>{compact ? 'Streak' : 'Current streak'}</InfoTip></p>
@@ -1872,14 +2097,18 @@ async function sendMessage(text) {
             <ComplianceBreakdown
               logsByDate={heatmapData}
               calorieTarget={clientTargets.calories}
+              // On a phone targets is a route; on a desktop it is a scroll
+              // target on the same page, so the link resolves to the same
+              // param either way (see the /client/:id/:section route).
+              targetHref={`/client/${clientId}/targets`}
             />
           </div>
         </SectionHeader>
       </div>
 
       {sentReports.length > 0 && (
-        <div key="sentReports" id="section-sentReports" style={sectionCardStyle}>
-          <SectionHeader title="Sent reports" collapsed={sectionsCollapsed.sentReports} onToggle={() => toggleSection('sentReports')}>
+        <div key="sentReports" id="section-sentReports" style={sectionStyle('sentReports')}>
+          <SectionHeader title="Sent reports" collapsed={isCollapsed('sentReports')} onToggle={sectionToggle('sentReports')}>
             {/* The same ROW the client chooses from (.rep-row in index.css),
                 so the two sides of one relationship present these the same way.
                 It expands in place here rather than navigating: the coach is
@@ -1934,8 +2163,8 @@ async function sendMessage(text) {
         </div>
       )}
 
-      <div key="targets" id="section-targets" style={{ ...sectionCardStyle, gap: 'var(--space-16)' }}>
-        <SectionHeader title="Client targets" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
+      <div key="targets" id="section-targets" style={sectionStyle('targets', { gap: 'var(--space-16)' })}>
+        <SectionHeader title="Client targets" collapsed={isCollapsed('targets')} onToggle={sectionToggle('targets')}>
           <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: 'var(--space-8)' }}>
             Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
           </p>
@@ -2056,8 +2285,8 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div key="nutritionLog" id="section-nutritionLog" style={sectionCardStyle}>
-        <SectionHeader title="Nutrition log" collapsed={sectionsCollapsed.nutritionLog} onToggle={() => toggleSection('nutritionLog')}>
+      <div key="nutritionLog" id="section-nutritionLog" style={sectionStyle('nutritionLog')}>
+        <SectionHeader title="Nutrition log" collapsed={isCollapsed('nutritionLog')} onToggle={sectionToggle('nutritionLog')}>
           {/* C1: status is plain coloured text. This was a bordered, tinted
               container whose fill and border were raw rgba of the dark-theme
               green, so on the light theme it drew a dark-mode tint on a white
@@ -2134,12 +2363,32 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div key="checkIn" id="section-checkIn" style={sectionCardStyle}>
-        <SectionHeader title={checkinInterval > 1 ? "This period's check-in" : "This week's check-in"} collapsed={sectionsCollapsed.checkIn} onToggle={() => toggleSection('checkIn')}>
+      <div key="checkIn" id="section-checkIn" style={sectionStyle('checkIn')}>
+        {/* The same badge the rail carries for this section — "Due" when none
+            has been submitted this period, "New" when one is waiting to be
+            reviewed. It was desktop-only, so a coach on a phone had to open
+            the section to learn whether there was anything in it.
+
+            "Due" is a STATUS the coach must act on, so it takes the solid fill
+            Badge's own docs name for SectionHeader. "New" is an item waiting
+            rather than a demand, so it stays tinted. */}
+        <SectionHeader
+          title={checkinInterval > 1 ? "This period's check-in" : "This week's check-in"}
+          collapsed={isCollapsed('checkIn')}
+          onToggle={sectionToggle('checkIn')}
+          badge={railMeta.checkIn?.meta}
+          badgeTone={railMeta.checkIn?.metaTone === 'success' ? 'soft' : 'solid'}
+          badgeColor={railMeta.checkIn?.metaTone === 'success' ? 'var(--color-success)' : 'var(--color-warning)'}
+        >
+          {/* A flex column purely so the two halves can swap order on a phone:
+              the cadence chips and the questionnaire link are CONFIGURATION, and
+              they were sitting above the thing they configure. On a narrow screen
+              four wrapped chips took more of the box than the check-in did. */}
+          <div className="cv-checkin">
           {/* Check-in config: this client's cadence + a pointer to the shared
               questionnaire (which is per-coach, so it lives on Profile). */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
+          <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
+            <div ref={cadenceRef} className={`cv-checkin-chips ${cadenceStrip}`} style={{ alignItems: 'center', gap: 'var(--space-8)' }}>
               {/* D2: these are Pills. The hand-rolled copy they replace set its
                   own padding and so stood 4px short of every other chip in the
                   app, the exact bug the Pill minHeight floor exists to prevent. */}
@@ -2171,7 +2420,7 @@ async function sendMessage(text) {
           </div>
           {!clientCheckIn ? (
             <div style={{ paddingTop: 'var(--space-8)' }}>
-              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'} ({cadenceLabel(checkinInterval).toLowerCase()}).</p>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'}.</p>
             </div>
           ) : (
             <>
@@ -2236,11 +2485,12 @@ async function sendMessage(text) {
               </div>
             </>
           )}
+          </div>
         </SectionHeader>
       </div>
 
-      <div key="privateNotes" id="section-privateNotes" style={sectionCardStyle}>
-        <SectionHeader title="Private notes" collapsed={sectionsCollapsed.privateNotes} onToggle={() => toggleSection('privateNotes')}>
+      <div key="privateNotes" id="section-privateNotes" style={sectionStyle('privateNotes')}>
+        <SectionHeader title="Private notes" collapsed={isCollapsed('privateNotes')} onToggle={sectionToggle('privateNotes')}>
             <Textarea
               value={coachNotes}
               onChange={(e) => setCoachNotes(e.target.value)}
@@ -2291,9 +2541,9 @@ async function sendMessage(text) {
       </div>
 
       {!hiddenCharts.includes('correlatedChart') && (
-        <div key="correlatedChart" id="section-correlatedChart" style={sectionCardStyle}>
-          <SectionHeader title="Progress overview" collapsed={sectionsCollapsed.correlatedChart} onToggle={() => toggleSection('correlatedChart')} animated={false}>
-            {!sectionsCollapsed.correlatedChart && (
+        <div key="correlatedChart" id="section-correlatedChart" style={sectionStyle('correlatedChart')}>
+          <SectionHeader title="Progress overview" collapsed={isCollapsed('correlatedChart')} onToggle={sectionToggle('correlatedChart')} animated={false}>
+            {!isCollapsed('correlatedChart') && (
               (weightHistory.length > 0 || calorieHistory.length > 0) ? (
                 <div style={{ paddingTop: 'var(--space-8)' }}>
                   {/* Two stacked plots sharing one x range — see
@@ -2333,9 +2583,9 @@ async function sendMessage(text) {
       )}
 
       {!hiddenCharts.includes('weightChart') && (
-        <div key="weightChart" id="section-weightChart" style={sectionCardStyle}>
-          <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
-            {!sectionsCollapsed.weightChart && (weightHistory.length > 1 ? (() => {
+        <div key="weightChart" id="section-weightChart" style={sectionStyle('weightChart')}>
+          <SectionHeader title="Weight trend" collapsed={isCollapsed('weightChart')} onToggle={sectionToggle('weightChart')} animated={false}>
+            {!isCollapsed('weightChart') && (weightHistory.length > 1 ? (() => {
               // The chart follows the weight-GOAL unit when a goal is set (so the
               // coach's unit choice drives the axis live), else the unit the
               // weigh-ins were logged in. Every weigh-in is converted into that
@@ -2455,9 +2705,9 @@ async function sendMessage(text) {
       )}
 
       {!hiddenCharts.includes('calorieChart') && (
-        <div key="calorieChart" id="section-calorieChart" style={sectionCardStyle}>
-          <SectionHeader title="Calories: last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
-            {!sectionsCollapsed.calorieChart && (calorieHistory.length > 0 ? (
+        <div key="calorieChart" id="section-calorieChart" style={sectionStyle('calorieChart')}>
+          <SectionHeader title="Calories: last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={isCollapsed('calorieChart')} onToggle={sectionToggle('calorieChart')} animated={false}>
+            {!isCollapsed('calorieChart') && (calorieHistory.length > 0 ? (
               <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={calorieChartOptions} />
             ) : chartEmpty('No nutrition logged yet', 'Your client logs this.'))}
           </SectionHeader>
@@ -2465,9 +2715,9 @@ async function sendMessage(text) {
       )}
 
       {!hiddenCharts.includes('cardioChart') && (
-        <div key="cardioChart" id="section-cardioChart" style={sectionCardStyle}>
-          <SectionHeader title="Cardio: last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
-            {!sectionsCollapsed.cardioChart && (cardioHistory.length > 0 ? (
+        <div key="cardioChart" id="section-cardioChart" style={sectionStyle('cardioChart')}>
+          <SectionHeader title="Cardio: last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={isCollapsed('cardioChart')} onToggle={sectionToggle('cardioChart')} animated={false}>
+            {!isCollapsed('cardioChart') && (cardioHistory.length > 0 ? (
               <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
             ) : chartEmpty('No cardio logged yet', 'Your client logs this.'))}
           </SectionHeader>
@@ -2475,9 +2725,9 @@ async function sendMessage(text) {
       )}
 
       {!hiddenCharts.includes('stepsChart') && (
-        <div key="stepsChart" id="section-stepsChart" style={sectionCardStyle}>
-          <SectionHeader title="Steps: last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
-            {!sectionsCollapsed.stepsChart && (stepsHistory.length > 0 ? (
+        <div key="stepsChart" id="section-stepsChart" style={sectionStyle('stepsChart')}>
+          <SectionHeader title="Steps: last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={isCollapsed('stepsChart')} onToggle={sectionToggle('stepsChart')} animated={false}>
+            {!isCollapsed('stepsChart') && (stepsHistory.length > 0 ? (
               <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
             ) : chartEmpty('No steps logged yet', 'Your client logs this.'))}
           </SectionHeader>
@@ -2485,11 +2735,11 @@ async function sendMessage(text) {
       )}
 
       {!hiddenCharts.includes('measurements') && (
-        <div key="measurements" id="section-measurements" style={sectionCardStyle}>
+        <div key="measurements" id="section-measurements" style={sectionStyle('measurements')}>
           <SectionHeader
             title="Body measurements"
-            collapsed={sectionsCollapsed.measurements}
-            onToggle={() => toggleSection('measurements')}
+            collapsed={isCollapsed('measurements')}
+            onToggle={sectionToggle('measurements')}
             info="Recommended re-measure cadence: about every 2 weeks while cutting, every 4 weeks otherwise (industry standard; circumference moves slowly and tape error is ~1–1.5 cm). Flags when the client's tape data is overdue."
             action={measStatus?.due ? (
               /* C1: status is plain coloured text. This was the last tinted
@@ -2500,7 +2750,7 @@ async function sendMessage(text) {
               </span>
             ) : null}
           >
-            {!sectionsCollapsed.measurements && (measHistory.length === 0
+            {!isCollapsed('measurements') && (measHistory.length === 0
               ? chartEmpty("No measurements yet", "Your client adds these.")
               : (() => {
               const latest = measHistory[measHistory.length - 1]
@@ -2570,7 +2820,77 @@ async function sendMessage(text) {
 
       </Reorderable>
 
-      <div id="section-coaching" style={{ ...sectionCardStyle }}>
+      {!hasRail && !section && (
+        /* Everything the summary does not carry, in the coach's own saved
+           order so the phone and the desktop rail never disagree about what
+           comes first. Derived from the registry minus SUMMARY_KEYS, so a new
+           section cannot be stranded here by being forgotten. */
+        <>
+          {/* Each row carries a FACT, not just a name. A row that says only
+              "Reports" teaches nothing until it is tapped — the summary is
+              supposed to answer, with detail one tap away for when it does
+              not. The values are already on the page; this only shows them. */}
+          {/* Shown in the coach's saved desktop order, but NOT reorderable here.
+              Dragging earns its keep on the desktop record — fourteen sections
+              down a page thousands of pixels long, where moving one saves real
+              scrolling. This list is five rows on one screen: nothing is far
+              away, so there is nothing to fix by moving it, and the mode,
+              handles and touch-sensor work it needed were all cost against no
+              benefit. If order ever matters here the answer is the roster's —
+              rank by what needs attention — not a thing to configure. */}
+          <nav className="cv-dest" aria-label="Sections">
+
+              {destOrder.map(k => (
+                <Link key={k} to={`/client/${clientId}/${k}`} className="cv-dest-row ds-control">
+                  {/* The rail's own glyph for the same key, so a section reads
+                      the same whichever map you are using. `trends` has no
+                      section of its own, so it borrows the `charts` mark the
+                      rail already uses for that group. */}
+                  <svg
+                    className="cv-dest-icon" width="17" height="17" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="1.75"
+                    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                  >
+                    {SECTION_ICONS[k === 'trends' ? 'charts' : k] || null}
+                  </svg>
+                  <span className="cv-dest-label">{k === 'trends' ? 'Trends' : (SECTION_LABELS[k] || k)}</span>
+                  {(() => {
+                    const m = destMeta(k)
+                    if (!m) return null
+                    return (
+                      <span
+                        className="cv-dest-meta"
+                        style={m.tone ? { color: TONE_COLORS[m.tone], fontWeight: 'var(--weight-semibold)' } : undefined}
+                      >
+                        {m.text}
+                      </span>
+                    )
+                  })()}
+                  <Icon name="right" size={16} />
+                </Link>
+              ))}
+          </nav>
+          {/* Coaching is pinned below a rule, which is the call the desktop
+              rail already made: it is about the RELATIONSHIP rather than the
+              client's data, and it ends in offboarding. Between Measurements
+              and nothing it read as one more data screen. */}
+          <nav className="cv-dest cv-dest-pinned" aria-label="Relationship">
+            <Link to={`/client/${clientId}/coaching`} className="cv-dest-row ds-control">
+              <svg
+                className="cv-dest-icon" width="17" height="17" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" strokeWidth="1.75"
+                strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+              >
+                {SECTION_ICONS.coaching}
+              </svg>
+              <span className="cv-dest-label">Coaching</span>
+              <Icon name="right" size={16} />
+            </Link>
+          </nav>
+        </>
+      )}
+
+      <div id="section-coaching" style={sectionStyle('coaching')}>
         {/* A5: a panel heading is --text-body / medium. This was the last bare
             global h2 on the page, so it rendered a step larger than the thirteen
             SectionHeader titles above it. It is not collapsible (one short

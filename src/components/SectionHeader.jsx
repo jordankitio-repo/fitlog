@@ -5,9 +5,16 @@ import Icon from './ui/Icon'
 function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTone = 'solid', info, action, children, animated = true }) {
   return (
     <>
+      {/* No `onToggle` means this section does not collapse — so the header is
+          not a button and the chevron is not drawn. A mark that points at an
+          interaction the page does not offer is worse than no mark: it invites
+          a tap and answers with nothing. */}
       <div
         onClick={onToggle}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+        style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          cursor: onToggle ? 'pointer' : 'default', userSelect: 'none',
+        }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
           {/* A5: a panel heading is --text-body / medium, which is what ui/Panel
@@ -41,15 +48,17 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTon
             shapes from whatever the OS picks, next to an icon set that is all
             feather line art. One mark (D4), rotated — the chevron pointing down
             is the same chevron pointing right. */}
-        <Icon
-          name="right"
-          size="14px"
-          style={{
-            color: 'var(--color-muted)',
-            transform: collapsed ? 'none' : 'rotate(90deg)',
-            transition: 'transform 180ms ease',
-          }}
-        />
+        {onToggle && (
+          <Icon
+            name="right"
+            size="14px"
+            style={{
+              color: 'var(--color-muted)',
+              transform: collapsed ? 'none' : 'rotate(90deg)',
+              transition: 'transform 180ms ease',
+            }}
+          />
+        )}
       </div>
       {animated ? (
         <div style={{
@@ -58,7 +67,13 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTon
           transition: 'grid-template-rows 0.25s ease',
           overflow: 'hidden',
         }}>
-          <div style={{ minHeight: 0 }}>{children}</div>
+          {/* `minWidth: 0` matters as much as minHeight here. A grid item
+              defaults to min-width:auto, so this wrapper refused to be
+              narrower than its widest child — a 368px strip of chips stayed
+              368px inside a 238px section, and every ancestor below it
+              reported that it fit. Nothing downstream can shrink until this
+              one is allowed to. */}
+          <div style={{ minHeight: 0, minWidth: 0 }}>{children}</div>
         </div>
       ) : (
         !collapsed && <div style={{ paddingTop: 'var(--space-8)' }}>{children}</div>

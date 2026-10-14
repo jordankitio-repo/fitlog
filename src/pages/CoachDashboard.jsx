@@ -525,13 +525,22 @@ A dash means none submitted this period.`} />
                             Adh {s.checkIn.adherence_rating}/10 · Nrg {s.checkIn.energy_level}/10
                           </span>
                         )}
-                        {s?.lockInfo?.locked && <span className="rost-m-locked">Locked</span>}
+                        {/* Only when the status is not already saying it. The
+                            triage line surfaces "Locked" as its own reason, so
+                            a locked client read Locked twice, once in red and
+                            once under it in red. */}
+                        {s?.lockInfo?.locked && status.text !== 'Locked' && (
+                          <span className="rost-m-locked">Locked</span>
+                        )}
                       </span>
                     </Link>
-                    {/* The chevron is the ROW's, not the link's, so it keeps one
-                        x-position down the whole list. Inside the link it slid
-                        to the middle on any row that also had a Nudge, and a
-                        mark that moves per row is the opposite of scannable. */}
+                    {/* No chevron. It cannot live inside the link without
+                        sliding to the middle of any row that also has a Nudge,
+                        and outside the link it is a direction cue you cannot
+                        press — it looked like the target and was not one. The
+                        row is a list row: it presses, it highlights, and the
+                        cue it needs is behaviour rather than a mark that lies
+                        about where to aim. */}
                     <span className="rost-m-tail">
                       {nudge && (
                         <Button
@@ -543,7 +552,6 @@ A dash means none submitted this period.`} />
                           Nudge
                         </Button>
                       )}
-                      <Icon name="right" size={16} className="rost-m-chev" />
                     </span>
                   </Row>
                   ) : (

@@ -35,6 +35,16 @@ export function relativeTime(iso, now = new Date()) {
   if (days === 1) return 'yesterday'
   if (days < 7) return `${days} days ago`
 
+  return shortDate(iso, now)
+}
+
+// "Sep 16", and "Sep 16, 2025" once the year stops being obvious. The absolute
+// half of relativeTime, exported because some rows want the date outright
+// rather than a recency — a note's row says WHEN it was written, because the
+// question there is which week's thinking it holds, not how long ago.
+export function shortDate(iso, now = new Date()) {
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return ''
   const sameYear = then.getFullYear() === now.getFullYear()
   return then.toLocaleDateString(undefined, {
     month: 'short',
@@ -79,4 +89,16 @@ export function dayStamp(iso, now = new Date()) {
   return then.toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }),
   })
+}
+
+// "14.10.26" — day.month.year, zero-padded, built from LOCAL parts.
+//
+// Never toISOString(): that converts to UTC, so west of Greenwich an evening
+// timestamp rolls the day forward and the date shown is tomorrow's. The same
+// trap the seed scripts carry a comment about.
+export function numericDate(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p2 = (n) => String(n).padStart(2, '0')
+  return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${p2(d.getFullYear() % 100)}`
 }

@@ -674,6 +674,96 @@ and silently desynced every seeded check-in.
 
 ---
 
+### F. The phone is not the desktop with less room
+
+Everything above was written against a desktop. Applying it to a phone by
+letting the same markup reflow produced screens that were *technically*
+compliant and unusable, so these are the rules that pass only came out of.
+
+**F1. A collapsed table is not a list.** The roster's grid reflowed below 900px
+and left three column headers labelling columns that no longer existed, an
+email truncated mid-domain, a bare `—` holding a line, and row heights that
+jumped. The row is now REBUILT at that width — avatar, name, status, the
+client's own ratings, one tap — not re-flowed. The same applies to any table
+that collapses: if the header stops meaning anything, the header should not be
+there.
+
+**F2. A grid with a hole is a GROUPING error, not a layout one.** Seven stat
+cells in two columns stranded one beside an empty cell; five compliance figures
+did the same. Both were fixed by noticing the cells were not one kind of thing:
+calories/protein/carbs/fat are four parts of one number (a 2x2), while
+cardio/steps/weight are three single readings (a strip). On-target/over/under
+are three counts that SUM to days logged; avg-of-target is a percentage that
+does not belong beside them. Restyling a hole makes it a differently-shaped
+hole — two attempts at that were rejected before the grouping was examined.
+
+**F3. Every row in a column of values carries a value.** `Notes · Written` said
+nothing (a note that exists is always written) and blanking it left a ragged
+column. A row says the fact — `Notes · 14.10.26`, `Targets · 2,400 cal` — or it
+says the absence: `Not set`, `None`, `No weight yet`.
+
+**F4. `touch-action: none` belongs on the HANDLE, never the row.** dnd-kit
+cannot follow a finger without it, and `manipulation` leaves panning with the
+browser — so a drag starts on the press and then never moves, which reads as
+"it holds but it won't slide". Confining `none` to a 28px grip keeps the page
+scrollable. This is the whole reason handles exist on touch; a row cannot be
+both a scroller and a dragger.
+
+**F5. A long press on a link is already a native gesture.** iOS opens its
+preview callout, both platforms start selecting text, and the browser offers
+the href as a drag payload — all before any JS sensor sees the touch. None of
+it is emulated, so it passes every synthetic test and fails on the first real
+phone.
+
+**F6. Don't add an affordance to a surface that does not need it.** Reordering
+earns its keep on the desktop record (fourteen sections down a page thousands
+of pixels long). The phone's list is five rows on one screen: nothing is far
+away, so there is nothing to fix by moving it. The mode, the handles and the
+touch-sensor work were all cost against no benefit, and were removed. If order
+matters there later, rank by what needs attention — do not ask the reader to
+configure it.
+
+**F7. Gating behaviour by width strands the controls that behaviour owned.**
+This bit three times in one pass: section chevrons that still took taps after
+collapse was disabled below the rail, drag grips left floating beside sections
+hidden by style, and a chevron moved out of a link for alignment that became a
+direction cue nobody could press. **When a behaviour stops applying at a width,
+its affordance must stop rendering at that width** — `SectionHeader` draws no
+chevron without an `onToggle`, for exactly this reason.
+
+**F8. An edge fade is a MASK, not a painted gradient.** A scrolling strip of
+chips needs to say it scrolls, and a painted gradient has to know the exact
+colour behind it — the same trap that drew a visible band across the report
+list. `mask-image` removes the element's own pixels and needs to know nothing,
+so one strip works on the page, in a panel and in a dialog. It is applied only
+while there is something past the edge (`useOverflowFade`), because a permanent
+fade dims the last chip of a strip that fits.
+
+**F9. Give a scroller end padding.** A pill clipped flush at the container edge
+shows a straight dark cut where its rounded corner should be, and reads as a
+vertical rule nobody drew.
+
+**F10. `min-width: 0` has to run the WHOLE chain.** A flex or grid item
+defaults to `min-width: auto` and refuses to be narrower than its content, so
+one wide descendant pins every ancestor and they all report that they fit.
+`SectionHeader` wrapped its children in a grid item with `minHeight: 0` and no
+`minWidth`, which meant nothing inside any collapsible section could shrink —
+invisible until a 368px strip sat inside a 238px panel and would not scroll.
+
+**F11. One label, every row.** The compliance heatmap labelled alternate rows
+with a single initial — `S, T, T, S` — which is the contribution-graph
+convention and wrong here, because these rows ARE the point: two rows said S,
+two said T, three said nothing. Every row is labelled, and Thursday takes a
+second letter because a T above a T is unreadable in either direction.
+
+**F12. An InfoTip's label can be the trigger.** Six `i` marks in one panel
+compete with the numbers they annotate, and on a 110px cell the mark plus its
+margin is what pushed a label onto two lines. Below 600px the mark is dropped
+and the label itself opens the tip. The width rule lives in the component, not
+at thirteen call sites.
+
+---
+
 ### Applied so far
 
 Surface counts below mean **bordered non-control elements** — form controls carry
@@ -691,6 +781,7 @@ be reproduced without knowing that.
 | NotificationCenter | severity as a dot, grey reason text, 700 weights, hardcoded shadow, 9 off-scale spacings | **status text graded like the roster's column; ramp weights; `--shadow-dropdown`** |
 | ClientView | 17 nested bordered surfaces · 17 source paddings · 44 raw weights (19 of them 700) · 62 raw px spacings · 0 layout primitives · 7 hand-rolled controls | **2 (both controls) · 8 · 0 · 0 · Field/Select/Textarea/Pill · 4, each a genuinely distinct shape** |
 | Dashboard ("My Progress") | 6518px · 74 surfaces · 60 nested · depth 3 · 17 paddings · 20 raw weights (incl. an 800) · 72 raw px spacings · 6 non-pressable pills · 6 ▶/▼ glyphs | **4690px · 17 · 7 · depth 1 · 4 source paddings · 0 · 0 · 0 · 0** |
+| ClientView (phone) | 14 stacked sections · 7,116px · no map · 6 of 11 destinations the same kind of thing | **summary + named destinations · 3,318px · Trends folds 6 into 1** |
 | Dashboard structure | reports nested 3 deep, twice over (active + archived); 3 hand-rolled notice cards; local `checkinPillStyle`/`checkinInputStyle` | **one `Notice`, `Pill`/`Field`/`Textarea`** |
 | Coach reports (both sides) | 2 implementations · markdown printed as source · week folders holding 1 file · no sender · gradient-clamp + hand-rolled modal · `x` used for archive | **one `ReportFeed` · `ReportProse` · label-when-needed · avatar + relative time · line-clamp + inline disclosure · an `archive` glyph** |
 
