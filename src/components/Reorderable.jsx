@@ -11,7 +11,7 @@ import { mergeOrder } from '../utils/cardOrder'
 //
 // Touch: drag starts from the grip handle (SortableCard) with a short press
 // delay, so it never fights page scroll.
-export default function Reorderable({ order, onReorder, enabled, children }) {
+export default function Reorderable({ order, onReorder, enabled, children, gripStyle }) {
   const items = []
   React.Children.forEach(children, (c) => {
     if (React.isValidElement(c) && c.key != null) items.push(c)
@@ -40,7 +40,7 @@ export default function Reorderable({ order, onReorder, enabled, children }) {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={keys} strategy={verticalListSortingStrategy}>
-        {keys.map((k) => (byKey[k] ? <SortableCard key={k} id={k} enabled>{byKey[k]}</SortableCard> : null))}
+        {keys.map((k) => (byKey[k] ? <SortableCard key={k} id={k} enabled gripStyle={gripStyle}>{byKey[k]}</SortableCard> : null))}
       </SortableContext>
     </DndContext>
   )
