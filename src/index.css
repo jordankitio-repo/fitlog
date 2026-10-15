@@ -2077,8 +2077,12 @@ button, a, input, select, textarea {
    first — this one is), starting from the panel's own colour so the fade never
    interpolates through translucent black. Byte-identical in behaviour to
    .rep-row, which is the same thing one panel over. */
-.trend-rows { display: flex; flex-direction: column; }
-.trend-row + .trend-row { border-top: 1px solid var(--color-border); }
+/* No rules between the rows. A3: spacing carries grouping and a border is the
+   fallback — four rows of the SAME kind of thing, each already set off by its
+   own coloured mark, do not need a hairline to be told apart. The rules were
+   drawing a table where there is a list. The space they held is kept as a gap
+   so the rows do not close up now that nothing separates them. */
+.trend-rows { display: flex; flex-direction: column; gap: var(--space-2); }
 
 .trend-rowbtn {
   display: grid;

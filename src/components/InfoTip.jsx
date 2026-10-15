@@ -37,7 +37,18 @@ export default function InfoTip({ text, children }) {
     const left = Math.max(HALF + M, Math.min(center, window.innerWidth - HALF - M))
     setPos({ top: r.top - 8, left })
   }
-  function hide() { setPos(null) }
+  // Leaving with the pointer must not close a tip the reader OPENED.
+  //
+  // Hover and focus both called this, so a tip you clicked vanished the moment
+  // the pointer drifted off the word — which reads as the click not having
+  // worked. Hover is a peek and closes when you look away; a click is a
+  // request and stays until you click elsewhere, which fires onBlur. Both
+  // paths still end here, so nothing leaks: once blurred, activeElement has
+  // moved on and a later mouseleave closes normally.
+  function hide({ force = false } = {}) {
+    if (!force && markRef.current && document.activeElement === markRef.current) return
+    setPos(null)
+  }
 
   return (
     <span
@@ -47,9 +58,9 @@ export default function InfoTip({ text, children }) {
       role="note"
       aria-label={text}
       onMouseEnter={show}
-      onMouseLeave={hide}
+      onMouseLeave={() => hide()}
       onFocus={show}
-      onBlur={hide}
+      onBlur={() => hide({ force: true })}
     >
       {children}
       {(!labelled || !compact) && <span className="info-tip-mark" aria-hidden="true">i</span>}

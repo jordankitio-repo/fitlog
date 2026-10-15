@@ -80,7 +80,26 @@ async function pass(label, viewport, theme, isMobile) {
       console.log('     !! no .trend-rowbtn found')
     }
 
-    // 2. Stepping off today must rename the Today panel. It used to say
+    // 2. The Trends title carries the window + method as an InfoTip. Pressing
+    //    the word opens it, it SURVIVES the pointer leaving (a click is a
+    //    request, not a peek), and clicking to the side dismisses it.
+    const tip = page.locator('.info-tip-labelled').first()
+    if (await tip.count()) {
+      await tip.click()
+      await page.waitForTimeout(400)
+      await page.mouse.move(2, 2) // pointer away — the tip must stay up
+      await page.waitForTimeout(400)
+      const upAfterLeave = await page.locator('.info-tip-bubble').count()
+      await page.screenshot({ path: `${OUT}/${label}-tip.png` })
+      await page.mouse.click(600, 200) // click to the side
+      await page.waitForTimeout(400)
+      const upAfterClickAway = await page.locator('.info-tip-bubble').count()
+      console.log(`     trends tip: ${upAfterLeave} open after pointer leaves (expect 1), ${upAfterClickAway} after clicking away (expect 0)`)
+    } else {
+      console.log('     !! no .info-tip-labelled on the Trends title')
+    }
+
+    // 3. Stepping off today must rename the Today panel. It used to say
     //    "Today's stats" over a past day's numbers.
     const prev = page.getByRole('button', { name: 'Previous day' })
     if (await prev.count()) {

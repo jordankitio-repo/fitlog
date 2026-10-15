@@ -35,7 +35,10 @@ function TrendRow({ metric, open, onToggle }) {
   const glyph = DIRECTION_GLYPH[dir]
 
   return (
-    <div className="ds-row trend-row">
+    // NOT `ds-row`: that class exists to draw the hairline between records in
+    // a Panel, and these rows carry no rule. Borrowing it for the layout alone
+    // is how the dividers survived being deleted from .trend-row.
+    <div className="trend-row">
       <button
         type="button"
         className="ds-control trend-rowbtn"
@@ -82,30 +85,29 @@ function TrendRow({ metric, open, onToggle }) {
   )
 }
 
-export default function TrendsPanel({ metrics = [], windowDays = 14 }) {
+// The window used to be a standing paragraph above the rows. It moved into an
+// InfoTip on the panel's own title (F12: the label is the trigger), because
+// every row already names the window in its own sub-line — "vs previous 14
+// days", "14-day average" — so the sentence was restating at panel level what
+// four rows each carried. What it holds that nothing else shows is the METHOD:
+// that the average is taken over the days you logged rather than over the
+// calendar. That is D5's test for the bubble, and it is the only part of that
+// sentence which earned a permanent line.
+export default function TrendsPanel({ metrics = [] }) {
   const [openKey, setOpenKey] = useState(null)
 
   if (metrics.length === 0) return null
 
   return (
-    <>
-      {/* C4: a tracker needs its axis named. The rows hold no mark of their own
-          — they are text — but the number in them is an average over a window,
-          and a reader cannot interpret "2,340" without knowing over what. Said
-          once, at panel level, rather than on every row. */}
-      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
-        Your last {windowDays} days against the {windowDays} before. Averaged over the days you logged.
-      </p>
-      <div className="trend-rows">
-        {metrics.map((m) => (
-          <TrendRow
-            key={m.key}
-            metric={m}
-            open={openKey === m.key}
-            onToggle={() => setOpenKey(openKey === m.key ? null : m.key)}
-          />
-        ))}
-      </div>
-    </>
+    <div className="trend-rows">
+      {metrics.map((m) => (
+        <TrendRow
+          key={m.key}
+          metric={m}
+          open={openKey === m.key}
+          onToggle={() => setOpenKey(openKey === m.key ? null : m.key)}
+        />
+      ))}
+    </div>
   )
 }

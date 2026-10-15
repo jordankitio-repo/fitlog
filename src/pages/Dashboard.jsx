@@ -1488,8 +1488,18 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           the chart is the row's disclosure rather than a standing panel. */}
       {!(profile?.role === 'client' && lockInfo.locked) && trendMetrics.length > 0 && (
         <div key="trends" style={cardStyle}>
-          <SectionHeader title="Trends">
-            <TrendsPanel metrics={trendMetrics} windowDays={TREND_DAYS} />
+          {/* The window and the method hang off the title itself rather than
+              sitting above the rows as a standing paragraph. F12: the label is
+              the trigger, so the word carries no mark on a phone and no
+              underline anywhere — the tip is there for whoever presses it. */}
+          <SectionHeader
+            title={(
+              <InfoTip text={`Your last ${TREND_DAYS} days against the ${TREND_DAYS} before. Averaged over the days you logged, not over the calendar, so a gap in logging does not read as a drop.`}>
+                Trends
+              </InfoTip>
+            )}
+          >
+            <TrendsPanel metrics={trendMetrics} />
           </SectionHeader>
         </div>
       )}
