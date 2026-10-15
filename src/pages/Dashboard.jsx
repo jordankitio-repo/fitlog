@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
-import StatCard from '../components/StatCard'
+import TodayPanel from '../components/TodayPanel'
+import TrendsPanel from '../components/TrendsPanel'
 import Button from '../components/Button'
 import Skeleton from '../components/Skeleton'
 import SectionHeader from '../components/SectionHeader'
@@ -12,6 +13,7 @@ import InfoTip from '../components/InfoTip'
 import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
+import { windowTrend, hasTrend } from '../utils/progressTrends'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
 import { refreshNotifications } from '../utils/notifyRefresh'
@@ -202,17 +204,17 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [selfOffboarding, setSelfOffboarding] = useState(false)
   const [selfOffboardError, setSelfOffboardError] = useState('')
 
-  // Section collapse state
+  // Section collapse state.
+  //
+  // Two sections, where there were nine. Today and Trends do not collapse:
+  // Today is the page's answer and Trends is four panels already folded into
+  // one, so a chevron on either offers to hide the thing the reader came for.
+  // The seven keys that went (stats, targets, weightChart, calorieChart,
+  // cardioChart, stepsChart) named panels that no longer exist.
   const [sectionsCollapsed, setSectionsCollapsed] = useState({
     reports: false,
     checkin: false,
-    stats: false,
-    targets: false,
     consistency: false,
-    weightChart: false,
-    calorieChart: false,
-    cardioChart: false,
-    stepsChart: false,
   })
 
   function formatTime(timeStr) {
@@ -345,12 +347,27 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
 
 
+  // The 30 MOST RECENT weigh-ins, not the 30 oldest.
+  //
+  // This was `ascending: true` with `limit(30)`, which asks the database for
+  // the earliest 30 rows a user has ever logged — so the longer someone used
+  // the app the further out of date their weight chart got. A client with 90
+  // days of weigh-ins was shown July through September in October, and the
+  // panel's own title said "Weight trend". It survived because the chart was
+  // still full of plausible, correctly-drawn, steadily-falling data; nothing
+  // about it looked broken unless you read the axis. Descending with a limit
+  // takes the newest, then the rows are flipped back for display.
   async function fetchWeightHistory() {
     const { data, error } = await supabase
       .from('weight_log').select('logged_date, weight, unit')
-      .order('logged_date', { ascending: true }).limit(30)
+      .order('logged_date', { ascending: false }).limit(30)
     if (error) console.error(error)
-    else setWeightHistory(data.map(d => ({ date: d.logged_date.slice(5), weight: parseFloat(d.weight), unit: d.unit })))
+    // `date` is the MM-DD the charts plot; `iso` is the real date. Trends window
+    // by calendar and cannot use the label — MM-DD has no year, so it can
+    // neither be compared across one nor sorted through December into January.
+    else setWeightHistory(data
+      .map(d => ({ iso: d.logged_date, date: d.logged_date.slice(5), weight: parseFloat(d.weight), unit: d.unit }))
+      .reverse())
   }
 
   async function fetchCalorieHistory() {
@@ -365,9 +382,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     else {
       const grouped = {}
       data.forEach(e => { grouped[e.logged_date] = (grouped[e.logged_date] || 0) + e.calories })
+      // Sorted on the ISO date, not the MM-DD label. A 30-day window that spans
+      // a new year sorted "01-04" before "12-20" and drew the chart inside out;
+      // it only ever misbehaved in the first weeks of January.
       setCalorieHistory(Object.entries(grouped).map(([date, calories]) => ({
-        date: date.slice(5), calories
-      })).sort((a, b) => a.date.localeCompare(b.date)))
+        iso: date, date: date.slice(5), calories
+      })).sort((a, b) => a.iso.localeCompare(b.iso)))
     }
   }
 
@@ -470,8 +490,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       const grouped = {}
       data.forEach(e => { grouped[e.logged_date] = (grouped[e.logged_date] || 0) + e.duration })
       setCardioHistory(Object.entries(grouped).map(([date, minutes]) => ({
-        date: date.slice(5), minutes
-      })).sort((a, b) => a.date.localeCompare(b.date)))
+        iso: date, date: date.slice(5), minutes
+      })).sort((a, b) => a.iso.localeCompare(b.iso)))
     }
   }
 
@@ -485,8 +505,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       .lte('logged_date', end.toISOString().split('T')[0])
     if (error) console.error(error)
     else setStepsHistory(data.map(d => ({
-      date: d.logged_date.slice(5), steps: d.steps
-    })).sort((a, b) => a.date.localeCompare(b.date)))
+      iso: d.logged_date, date: d.logged_date.slice(5), steps: d.steps
+    })).sort((a, b) => a.iso.localeCompare(b.iso)))
   }
 
   // Days logged, longest run and current run, in one round trip.
@@ -836,6 +856,221 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const cardioChartOptions = withYTitle(chartOptions, 'Cardio (min)')
   const stepsChartOptions = withYTitle(chartOptions, 'Steps')
 
+
+  // ── The Today panel ────────────────────────────────────────────────────
+  //
+  // One cell per metric, carrying its target. This replaces "Today's stats"
+  // and "Today vs target", which were the same six facts rendered twice —
+  // once bare and once with the denominator that makes them mean something.
+  //
+  // F2's grouping: calories/protein/carbs/fat are four parts of one number (a
+  // block), cardio/steps/weight are three independent readings (a strip).
+  const num = (n) => Number(n || 0).toLocaleString()
+  const pctOf = (actual, target) => (target ? Math.round((actual / target) * 100) : null)
+
+  // The sub-line always says something (F3): the target, or why there isn't one.
+  const targetSub = (target, unit, pct) =>
+    target ? `of ${num(target)}${unit} · ${pct}%` : 'No target set'
+
+  const macroCells = [
+    ...(hideCalories ? [] : [{ key: 'calories', label: 'Calories', color: 'var(--color-calories)', value: num(totals.calories), target: targets?.calories, unit: ' cal' }]),
+    { key: 'protein', label: 'Protein', color: 'var(--color-protein)', value: `${num(totals.protein)}g`, target: targets?.protein, unit: 'g' },
+    { key: 'carbs', label: 'Carbs', color: 'var(--color-carbs)', value: `${num(totals.carbs)}g`, target: targets?.carbs, unit: 'g' },
+    { key: 'fat', label: 'Fat', color: 'var(--color-fat)', value: `${num(totals.fat)}g`, target: targets?.fat, unit: 'g' },
+  ].map((m) => {
+    const actual = m.key === 'calories' ? totals.calories : totals[m.key]
+    const pct = pctOf(actual, m.target)
+    return { ...m, sub: targetSub(m.target, m.unit, pct), pct }
+  })
+
+  const cardioMinutes = cardioToday?.minutes || 0
+  const stepsCount = stepsToday?.steps || 0
+  const cardioPct = pctOf(cardioMinutes, targets?.cardio_minutes)
+  const stepsPct = pctOf(stepsCount, targets?.steps)
+
+  // Weight carries a GOAL, not a daily target, so it takes no bar: a track
+  // running from zero to a goal weight measures nothing a person can act on.
+  // The delta is the fact, graded by the rule the old panel already stated —
+  // within 1 unit IS the goal (tape and scale noise exceed that), anything
+  // further is still travelling and takes no grade at all (B1).
+  const weightGoalUnit = targets?.weight_goal ? normUnit(targets.weight_goal_unit) : null
+  const weightCurrent = weightEntry && weightGoalUnit
+    ? Math.round(convertWeight(weightEntry.weight, normUnit(weightEntry.unit), weightGoalUnit) * 10) / 10
+    : null
+  const weightDiff = weightCurrent != null ? Math.round((weightCurrent - Number(targets.weight_goal)) * 10) / 10 : null
+  const weightSub = (() => {
+    if (!weightEntry) return 'No weight logged'
+    if (weightDiff == null) return weightEntry.weighed_at ? `Logged ${formatTime(weightEntry.weighed_at)}` : 'No goal set'
+    const phrase = weightDiff > 0 ? `${weightDiff.toFixed(1)} to go` : weightDiff < 0 ? `${Math.abs(weightDiff).toFixed(1)} below goal` : 'Goal reached'
+    return (
+      <>
+        Goal {targets.weight_goal} {weightGoalUnit} ·{' '}
+        <span style={Math.abs(weightDiff) < 1
+          ? { color: 'var(--color-success)', fontWeight: 'var(--weight-medium)' }
+          : { color: 'var(--color-text-dim)' }}>{phrase}</span>
+      </>
+    )
+  })()
+
+  const activityCells = [
+    {
+      key: 'cardio', label: 'Cardio', color: 'var(--color-cardio)',
+      value: cardioMinutes > 0 ? `${cardioMinutes}` : '—',
+      denom: cardioMinutes > 0 ? ' min' : null,
+      sub: targetSub(targets?.cardio_minutes, ' min', cardioPct), pct: cardioPct,
+    },
+    {
+      key: 'steps', label: 'Steps', color: 'var(--color-steps)',
+      value: stepsToday ? num(stepsCount) : '—',
+      sub: targetSub(targets?.steps, '', stepsPct), pct: stepsPct,
+    },
+    {
+      key: 'weight', label: 'Weight', color: 'var(--color-weight)',
+      value: weightEntry ? `${weightEntry.weight}` : '—',
+      denom: weightEntry ? ` ${weightEntry.unit}` : null,
+      sub: weightSub, pct: null,
+    },
+  ]
+
+  // The heading must not say "Today" when the stepper has moved off today —
+  // it did, and the panel then printed a past day's numbers under a word that
+  // contradicted the date control directly above it.
+  const todayHeading = isToday
+    ? 'Today'
+    : parseLocalDateString(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+
+  // ── The Trends panel ───────────────────────────────────────────────────
+  //
+  // Replaces three full-width 30-day bar charts and the weight line chart —
+  // four panels and ~2,400px that all left the comparison to the reader.
+  // Each row states the move; the chart is the row's disclosure.
+  const TREND_DAYS = 14
+
+  // The chart-colour toggle moved with its chart. It used to sit in each chart
+  // panel's SectionHeader, and those panels are gone; dropping it would have
+  // quietly removed a control rather than relocating one. Inside the disclosure
+  // it has no section title to sit beside, so it takes a written label — the
+  // bare switch alone said nothing about what it switched.
+  const gradedChart = (key, chart) => (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-8)', marginBottom: 'var(--space-8)' }}>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Colour bars by target</span>
+        <ChartColorToggle plain={plainCharts.has(key)} onToggle={() => togglePlain(key)} />
+      </div>
+      {chart}
+    </>
+  )
+  const fmtDelta = (t, unit, digits = 0) => {
+    if (!hasTrend(t)) return null
+    // A move inside the dead band prints its SIZE as nothing useful: cardio
+    // drifting 0.4 of a minute rendered "−0 min vs previous 14 days", a signed
+    // zero that reads as a rounding bug rather than as steadiness. The flat
+    // band already decided this is not a trend, so the row says so in words.
+    if (t.direction === 'flat') return `Holding steady · ${TREND_DAYS}-day average`
+    const sign = t.delta > 0 ? '+' : '−'
+    const size = Math.abs(t.delta)
+    // Thousands separator, or a step delta reads "−1358".
+    const shown = digits > 0
+      ? size.toFixed(digits)
+      : Math.round(size).toLocaleString()
+    return `${sign}${shown}${unit} vs previous ${TREND_DAYS} days`
+  }
+  const trendOf = (history, key) => windowTrend(history, key, { days: TREND_DAYS })
+
+  // F3: the row always carries a value, including when there is no trend to
+  // report. "Average per logged day · 0 days" was the first draft of this and
+  // it said nothing — an average over no days is not an average.
+  const trendSub = (t, unit, digits = 0) => {
+    const delta = fmtDelta(t, unit, digits)
+    if (delta) return delta
+    if (t.nCurrent === 0) return `Nothing logged in the last ${TREND_DAYS} days`
+    return `Average of ${t.nCurrent} logged ${t.nCurrent === 1 ? 'day' : 'days'} · no comparison yet`
+  }
+
+  const trendMetrics = [
+    ...(hideCalories ? [] : [(() => {
+      const t = trendOf(calorieHistory, 'calories')
+      return {
+        key: 'calories', label: 'Calories', color: 'var(--color-calories)', trend: t,
+        display: t.current != null ? `${Math.round(t.current).toLocaleString()}` : '—',
+        sub: trendSub(t, ' cal'),
+        chart: calorieHistory.length > 0 ? gradedChart('calorieChart',
+          <Bar data={metricBarData({ history: calorieHistory, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={calorieChartOptions} />
+        ) : null,
+      }
+    })()]),
+    (() => {
+      const t = trendOf(cardioHistory, 'minutes')
+      return {
+        key: 'cardio', label: 'Cardio', color: 'var(--color-cardio)', trend: t,
+        display: t.current != null ? `${Math.round(t.current)} min` : '—',
+        sub: trendSub(t, ' min'),
+        chart: cardioHistory.length > 0 ? gradedChart('cardioChart',
+          <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
+        ) : null,
+      }
+    })(),
+    (() => {
+      const t = trendOf(stepsHistory, 'steps')
+      return {
+        key: 'steps', label: 'Steps', color: 'var(--color-steps)', trend: t,
+        display: t.current != null ? Math.round(t.current).toLocaleString() : '—',
+        sub: trendSub(t, ''),
+        chart: stepsHistory.length > 0 ? gradedChart('stepsChart',
+          <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
+        ) : null,
+      }
+    })(),
+    (() => {
+      // Weight trends on the DISPLAY series, so the average is in the same
+      // unit as the goal rather than whatever unit each weigh-in was logged in.
+      const t = windowTrend(weightHistoryDisplay, 'weight', { days: TREND_DAYS })
+      return {
+        key: 'weight', label: 'Weight', color: 'var(--color-weight)', trend: t,
+        display: t.current != null ? `${t.current.toFixed(1)} ${weightDisplayUnit}` : '—',
+        sub: trendSub(t, ` ${weightDisplayUnit}`, 1),
+        chart: weightHistory.length > 1 ? (
+          <>
+            <Line
+              data={{
+                labels: weightHistoryDisplay.map(d => d.date),
+                datasets: [
+                  {
+                    label: 'Weight',
+                    data: weightHistoryDisplay.map(d => d.weight),
+                    // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
+                    borderColor: '#34d399',
+                    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                    // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
+                    pointBackgroundColor: '#34d399',
+                    pointRadius: 3,
+                    tension: 0.3,
+                    fill: true,
+                  },
+                  ...(hasSoloPremium ? [{
+                    label: '7-day avg',
+                    data: computeRollingAverage(weightHistoryDisplay),
+                    borderColor: 'rgba(52, 211, 153, 0.45)',
+                    backgroundColor: 'transparent',
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    tension: 0.3,
+                    fill: false,
+                  }] : []),
+                ]
+              }}
+              options={weightChartOptions}
+            />
+            {!hasSoloPremium && profile?.role !== 'client' && (
+              <div style={{ marginTop: 'var(--space-16)' }}>
+                <SoloUpgrade feature="The 7-day weight average" />
+              </div>
+            )}
+          </>
+        ) : null,
+      }
+    })(),
+  ].filter(m => m.chart || m.trend.current != null)
 
   // First-run: a brand-new account with nothing logged yet (no nutrition,
   // weight, cardio or steps history, and nothing today). Drives a getting-
@@ -1233,139 +1468,28 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         </div>
       )}
 
-      {/* Stat cards */}
+      {/* Today — one cell per metric, each carrying its own target.
+          Was two panels: "Today's stats" (seven bare numerals) immediately
+          followed by "Today vs target" (the same six with denominators). */}
       <div style={cardStyle}>
-        <SectionHeader title="Today's stats" collapsed={sectionsCollapsed.stats} onToggle={() => toggleSection('stats')}>
-          <div className="today-stats-grid">
-            {!hideCalories && <StatCard label="Calories" value={totals.calories} color="var(--color-calories)" />}
-            <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
-            <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
-            <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
-            <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
-            <StatCard label="Cardio" value={cardioToday?.minutes > 0 ? `${cardioToday.minutes} min` : '—'} color="var(--color-cardio)" />
-            <div style={{ gridColumn: '1 / -1' }}>
-              <StatCard label="Steps" value={stepsToday ? stepsToday.steps.toLocaleString() : '—'} color="var(--color-steps)" />
-            </div>
-          </div>
+        <SectionHeader title={todayHeading}>
+          <TodayPanel macros={macroCells} activity={activityCells} />
         </SectionHeader>
       </div>
 
-      {/* Today vs target — hidden when client is locked */}
       <Reorderable order={cardOrder} onReorder={saveCardOrder} enabled={profile?.role === 'solo' && hasSoloPremium}>
 
-      {!(profile?.role === 'client' && lockInfo.locked) && targets && (
-        <div key="targets" style={cardStyle}>
-          <SectionHeader title="Today vs target" collapsed={sectionsCollapsed.targets} onToggle={() => toggleSection('targets')}>
-              {[
-                ...(!hideCalories ? [{ label: 'Calories', actual: totals.calories, target: targets.calories, unit: 'cal', color: 'var(--color-calories)' }] : []),
-                { label: 'Protein', actual: totals.protein, target: targets.protein, unit: 'g', color: 'var(--color-protein)' },
-                { label: 'Carbs', actual: totals.carbs, target: targets.carbs, unit: 'g', color: 'var(--color-carbs)' },
-                { label: 'Fat', actual: totals.fat, target: targets.fat, unit: 'g', color: 'var(--color-fat)' },
-                { label: 'Cardio', actual: cardioToday.minutes, target: targets.cardio_minutes, unit: ' min', color: 'var(--color-cardio)' },
-                { label: 'Steps', actual: stepsToday?.steps || 0, target: targets.steps, unit: '', color: 'var(--color-steps)' },
-              ].filter(m => m.target).map(m => {
-                // The percentage and the BAR are two different numbers, and
-                // collapsing them is how this row came to misreport. One
-                // Math.min capped both, so 35 minutes against a 30-minute
-                // target printed "35 / 30 min (100%)" — the figure beside the
-                // true numbers contradicted them. The bar is a track that
-                // cannot render past its end; the percentage is a fact.
-                const pct = Math.round((m.actual / m.target) * 100)
-                const fill = Math.min(pct, 100)
-                return (
-                  <div key={m.label} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
-                      <span>{m.label}</span>
-                      <span className="tnum" style={{ color: 'var(--color-muted)' }}>{m.actual} / {m.target}{m.unit} ({pct}%)</span>
-                    </div>
-                    {/* No grade on the number, deliberately, and B3 is the
-                        reason: over-target means opposite things per metric —
-                        over on steps is the win, over on calories is the miss —
-                        so one tone cannot govern the column. `targets` carries
-                        no per-metric direction to derive it from. Colouring it
-                        anyway would be decoration; the honest number is the fix.
-                        A2 of the compliance scale is where that grade belongs
-                        once direction exists. */}
-                    <div style={{ height: '6px', backgroundColor: 'var(--color-border)', borderRadius: '999px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${fill}%`, backgroundColor: m.color, borderRadius: '999px', transition: 'width 0.3s ease' }} />
-                    </div>
-                  </div>
-                )
-              })}
-              {targets.weight_goal && weightEntry && (() => {
-                // Goal and weigh-in can carry different units; compare in the goal's
-                // unit so the delta is meaningful (a 63 kg weigh-in vs a 140 lb goal).
-                const goalUnit = normUnit(targets.weight_goal_unit)
-                const goal = Number(targets.weight_goal)
-                const current = Math.round(convertWeight(weightEntry.weight, normUnit(weightEntry.unit), goalUnit) * 10) / 10
-                const diff = Math.round((current - goal) * 10) / 10
-                return (
-                  <div className="tnum" style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', paddingTop: 'var(--space-4)' }}>
-                    Weight goal: {targets.weight_goal} {goalUnit} · Current: {current} {goalUnit} ·{' '}
-                    {/* B3: two GREENS were carrying two different meanings here
-                        — --color-success within 1 of goal, --color-primary
-                        otherwise — with no rule stated and no visible
-                        difference between them, which makes the colour
-                        decoration. The rule is: within 1 unit IS the goal
-                        (tape and scale noise exceed that), so it is graded
-                        green; anything further is still travelling, which is
-                        not a failure and so takes no grade at all (B1 — grey
-                        is the absence of one). One tone, one meaning. */}
-                    <span style={Math.abs(diff) < 1
-                      ? { color: 'var(--color-success)', fontWeight: 'var(--weight-medium)' }
-                      : { color: 'var(--color-text-dim)' }}>
-                      {diff > 0 ? `${diff.toFixed(1)} to go` : diff < 0 ? `${Math.abs(diff).toFixed(1)} below goal` : 'Goal reached'}
-                    </span>
-                  </div>
-                )
-              })()}
-          </SectionHeader>
-        </div>
-      )}
-
-      {/* Weight trend */}
-      {!(profile?.role === 'client' && lockInfo.locked) && weightHistory.length > 1 && (
-        <div key="weightChart" style={cardStyle}>
-          <SectionHeader title="Weight trend" collapsed={sectionsCollapsed.weightChart} onToggle={() => toggleSection('weightChart')} animated={false}>
-            {!sectionsCollapsed.weightChart && (
-              <>
-                <Line
-                  data={{
-                    labels: weightHistoryDisplay.map(d => d.date),
-                    datasets: [
-                      {
-                        label: 'Weight',
-                        data: weightHistoryDisplay.map(d => d.weight),
-                        // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
-                        borderColor: '#34d399',
-                        backgroundColor: 'rgba(52, 211, 153, 0.15)',
-                        // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
-                        pointBackgroundColor: '#34d399',
-                        pointRadius: 3,
-                        tension: 0.3,
-                        fill: true,
-                      },
-                      ...(hasSoloPremium ? [{
-                        label: '7-day avg',
-                        data: computeRollingAverage(weightHistoryDisplay),
-                        borderColor: 'rgba(52, 211, 153, 0.45)',
-                        backgroundColor: 'transparent',
-                        borderDash: [4, 4],
-                        pointRadius: 0,
-                        tension: 0.3,
-                        fill: false,
-                      }] : []),
-                    ]
-                  }}
-                  options={weightChartOptions}
-                />
-                {!hasSoloPremium && profile?.role !== 'client' && (
-                  <div style={{ marginTop: 'var(--space-16)' }}>
-                    <SoloUpgrade feature="The 7-day weight average" />
-                  </div>
-                )}
-              </>
-            )}
+      {/* Trends — the question this page never answered: which way am I going?
+          Replaces FOUR panels and ~2,400px: "Today vs target" (whose six rows
+          restated Today's six numbers), the weight line chart, and the three
+          near-identical 30-day bar charts for calories, cardio and steps. All
+          four left the comparison to the reader; thirty bars are a picture of a
+          series, not a statement about it. Each row now states the move, and
+          the chart is the row's disclosure rather than a standing panel. */}
+      {!(profile?.role === 'client' && lockInfo.locked) && trendMetrics.length > 0 && (
+        <div key="trends" style={cardStyle}>
+          <SectionHeader title="Trends">
+            <TrendsPanel metrics={trendMetrics} windowDays={TREND_DAYS} />
           </SectionHeader>
         </div>
       )}
@@ -1454,39 +1578,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           ) : (
             <SoloUpgrade feature="Logging consistency" />
           )}
-          </SectionHeader>
-        </div>
-      )}
-
-      {/* Calories chart */}
-      {!(profile?.role === 'client' && lockInfo.locked) && !hideCalories && calorieHistory.length > 0 && (
-        <div key="calorieChart" style={cardStyle}>
-          <SectionHeader title="Calories: last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={sectionsCollapsed.calorieChart} onToggle={() => toggleSection('calorieChart')} animated={false}>
-            {!sectionsCollapsed.calorieChart && (
-              <Bar data={metricBarData({ history: calorieHistory, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={calorieChartOptions} />
-            )}
-          </SectionHeader>
-        </div>
-      )}
-
-      {/* Cardio chart */}
-      {!(profile?.role === 'client' && lockInfo.locked) && cardioHistory.length > 0 && (
-        <div key="cardioChart" style={cardStyle}>
-          <SectionHeader title="Cardio: last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={sectionsCollapsed.cardioChart} onToggle={() => toggleSection('cardioChart')} animated={false}>
-            {!sectionsCollapsed.cardioChart && (
-              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
-            )}
-          </SectionHeader>
-        </div>
-      )}
-
-      {/* Steps chart */}
-      {!(profile?.role === 'client' && lockInfo.locked) && stepsHistory.length > 0 && (
-        <div key="stepsChart" style={cardStyle}>
-          <SectionHeader title="Steps: last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={sectionsCollapsed.stepsChart} onToggle={() => toggleSection('stepsChart')} animated={false}>
-            {!sectionsCollapsed.stepsChart && (
-              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
-            )}
           </SectionHeader>
         </div>
       )}

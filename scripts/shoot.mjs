@@ -89,7 +89,11 @@ if (await skipOnboarding.count()) {
   // Skipping drops you on /log, so come back to the dashboard.
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
 }
-await page.waitForSelector('text=Today\'s stats', { timeout: 20000 })
+// The panel is "Today" now — it absorbed "Today vs target", which was the same
+// six metrics with their denominators attached. A brand-new account has no
+// targets and no logs, so wait on the page title rather than on a section that
+// only renders once there is something to put in it.
+await page.waitForSelector('h1:text("My Progress")', { timeout: 20000 })
 
 // --- mobile shots ---
 await page.waitForTimeout(500)
@@ -123,7 +127,7 @@ await shot('m-profile-bottom')
 // --- desktop shots (resize same page so nav media query flips) ---
 await page.setViewportSize({ width: 1366, height: 900 })
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
-await page.waitForSelector('text=Today\'s stats')
+await page.waitForSelector('h1:text("My Progress")')
 await shot('d-dashboard')
 await page.goto(`${BASE}/log`, { waitUntil: 'networkidle' })
 await page.waitForSelector('text=Daily Log')

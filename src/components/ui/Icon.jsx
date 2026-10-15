@@ -31,6 +31,14 @@ const PATHS = {
   up:       <polyline points="18 15 12 9 6 15" />,
   down:     <polyline points="6 9 12 15 18 9" />,
   right:    <polyline points="9 18 15 12 9 6" />,
+  // The third trend direction. `up` and `down` already carry the other two —
+  // a trend mark is a chevron in a circle, which is what Apple's Trends rows
+  // use and what the design review compared this page against — so holding
+  // steady needed a mark and nothing else did. D4 is one glyph per MEANING,
+  // and "no material change" is a meaning the set had no way to say: the
+  // alternative was rendering no mark, which reads as missing data rather than
+  // as a flat line. Not reachable as a navigation glyph; it has no direction.
+  flat:     <line x1="5" y1="12" x2="19" y2="12" />,
   info:     <><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></>,
   leaf:     <><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" /><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" /></>,
   // Marks a saved meal — a group of entries logged together. Replaces a 🍽

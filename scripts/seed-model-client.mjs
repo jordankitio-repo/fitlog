@@ -71,7 +71,13 @@ const main = async () => {
   const client = await ensureUser(CLIENT.email, CLIENT.name)
   console.log('coach', coach.id, '\nclient', client.id)
 
-  await admin.from('profiles').upsert({ id: client.id, full_name: CLIENT.name, role: 'client' })
+  // `onboarded_at` matters: without it the app redirects to the first-run
+  // questionnaire, so a client with 90 days of logs behind her lands on "Let's
+  // set up your tracking" and My Progress is unreachable. A fixture that cannot
+  // reach the page it was built to populate is not a fixture.
+  await admin.from('profiles').upsert({
+    id: client.id, full_name: CLIENT.name, role: 'client', onboarded_at: iso(95),
+  })
 
   // Re-runnable: clear this client's own rows before writing.
   for (const t of ['nutrition_log', 'weight_log', 'cardio_log', 'steps_log', 'body_measurements', 'day_complete']) {

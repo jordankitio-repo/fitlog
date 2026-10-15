@@ -334,6 +334,40 @@ printed its source. Reading a coach's own sent report differs by exactly one
 thing (no sender column, since every report there is from the viewer), and one
 difference is a prop, not a second file.
 
+**C6. A number and its denominator are one fact, not two panels.**
+
+My Progress rendered "Today's stats" — seven bare numerals — and immediately
+below it "Today vs target", the same six numerals with their targets and a bar.
+So the reader met every number stripped of the only thing that makes it mean
+something, and then met it again with. Calories, cardio, steps and weight each
+appeared three times on that page once the 30-day charts are counted; protein,
+carbs and fat twice.
+
+Neither panel was wrong on its own, which is how this survives review: each
+reads as a reasonable thing to show. The duplication is only visible when you
+measure the page rather than the panel. **Count how many times a metric appears
+on a screen before adding a surface that shows it again.**
+
+**A progress track whose target is its END cannot show the common case.** The
+bar filled to `Math.min(pct, 100)`, so every metric at or past target rendered
+as an identical full-width stripe — on a real client's day, four of six rows,
+and the panel read as six solid bars of different hues with the numbers beside
+them carrying the whole signal. The target is a **mark on the track** now
+(`TargetBar`, notch at 80%, headroom past it), so under, at and over are three
+different shapes. Still ungraded, for B3's reason: over-target means opposite
+things per metric, so what carries past the notch is the same hue at lower
+opacity — a quantity, not a verdict.
+
+**And a fix lands on every copy, or it is not a fix.** `fetchWeightHistory`
+ordered `ascending: true` with `limit(30)`, which asks for the 30 OLDEST
+weigh-ins a user has ever logged: the longer someone used the app, the staler
+their weight chart. This exact bug was found and fixed in ClientView
+(`f04d72f`, where the comment reads "the single most load-bearing chart on the
+page, and it was lying") and the identical line in Dashboard was left alone.
+It hid for the same reason the ClientView one did — the chart is full of
+plausible, correctly-drawn, steadily-falling data, and nothing looks broken
+unless you read the axis.
+
 ---
 
 ### D. Controls
@@ -795,6 +829,7 @@ be reproduced without knowing that.
 | Dashboard ("My Progress") | 6518px · 74 surfaces · 60 nested · depth 3 · 17 paddings · 20 raw weights (incl. an 800) · 72 raw px spacings · 6 non-pressable pills · 6 ▶/▼ glyphs | **4690px · 17 · 7 · depth 1 · 4 source paddings · 0 · 0 · 0 · 0** |
 | ClientView (phone) | 14 stacked sections · 7,116px · no map · 6 of 11 destinations the same kind of thing | **summary + named destinations · 3,318px · Trends folds 6 into 1** |
 | Dashboard structure | reports nested 3 deep, twice over (active + archived); 3 hand-rolled notice cards; local `checkinPillStyle`/`checkinInputStyle` | **one `Notice`, `Pill`/`Field`/`Textarea`** |
+| Dashboard presentation | 9 sections · 4007px · 16 surfaces · every metric rendered 2–3 times · 7 accordions · no trend anywhere | **5 sections · 1315px · 8 · each metric once · 2 accordions · a Trends panel** |
 | Coach reports (both sides) | 2 implementations · markdown printed as source · week folders holding 1 file · no sender · gradient-clamp + hand-rolled modal · `x` used for archive | **one `ReportFeed` · `ReportProse` · label-when-needed · avatar + relative time · line-clamp + inline disclosure · an `archive` glyph** |
 
 **Measure the SOURCE as well as the render on this page.** ClientView's rendered

@@ -1507,31 +1507,6 @@ button, a, input, select, textarea {
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.12);
 }
 
-/* Today's stats: spread across columns on desktop; on mobile pack into 2
-   compact columns so all metrics fit in a glance instead of a long scroll. */
-.today-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-16);
-}
-@media (max-width: 600px) {
-  .today-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-8);
-  }
-  /* A3: was `11px 13px`, two numbers that appear nowhere else in the app and on
-     no step of the scale. It only rendered below 600px, which is why every
-     desktop measurement of this page came back clean. Nearest steps, and the
-     ratio the tighter cell wanted is preserved. */
-  .today-stats-grid .stat-card {
-    padding: var(--space-10) var(--space-12) !important;
-    min-height: 0 !important;
-  }
-  .today-stats-grid .stat-card-value {
-    font-size: var(--text-title) !important;
-  }
-}
-
 /* Dark scrollbar for message threads */
 .message-thread::-webkit-scrollbar {
   width: 4px;
@@ -2061,4 +2036,103 @@ button, a, input, select, textarea {
 @media (max-width: 600px) {
   .pw-card { padding: 28px 20px; border-radius: 16px; }
   .pw-plans { grid-template-columns: 1fr; gap: 10px; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   My Progress — the Today panel and the Trends rows.
+
+   Replaces four panels (Today's stats, Today vs target, and the three 30-day
+   charts) with two. See src/components/TodayPanel.jsx and TrendsPanel.jsx for
+   the reasoning; this file holds only what inline styles cannot express —
+   breakpoints, dividers, hover and focus.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* The macro block: four parts of ONE number, so no dividers between them.
+   Four across on a wide page, 2x2 on a phone — never the auto-fit grid the
+   old seven-cell version used, which stranded a cell on its own row. */
+.tp-macros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-20) var(--space-16);
+}
+/* A3: ≤12px within a group, ≥24px between groups. Without this the activity
+   strip's first label sat 16px under the macro bars and the two groups read as
+   one eight-cell block whose columns did not line up — the macros are four
+   across and the readings three, so the misalignment looked like a layout bug
+   rather than the grouping it is. The space is what separates them; the
+   strip's own vertical rules then read as internal to it. */
+.tp-macros + .ds-statstrip { margin-top: var(--space-24); }
+
+.tp-cell { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
+/* A label that wraps makes its cell taller than its neighbours and knocks the
+   row's numerals off a shared baseline — the same fix .ds-statcell carries. */
+.tp-cell > :first-child { white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .tp-macros { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-16) var(--space-12); }
+}
+
+/* Trends. The row is a button filling the panel width, so it lights a SURFACE
+   rather than only its type (D2 reserves fills for things that are buttons
+   first — this one is), starting from the panel's own colour so the fade never
+   interpolates through translucent black. Byte-identical in behaviour to
+   .rep-row, which is the same thing one panel over. */
+.trend-rows { display: flex; flex-direction: column; }
+.trend-row + .trend-row { border-top: 1px solid var(--color-border); }
+
+.trend-rowbtn {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-12) var(--space-4);
+  background: var(--color-surface);
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.trend-rowbtn:hover { background-color: var(--color-surface-2); }
+.trend-rowbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+
+/* The direction mark: a chevron in a disc of the metric's own hue.
+   This is NOT the banned status pill-with-a-dot — it holds no label, it is a
+   mark sitting behind an icon, which is the category .gnav-tab-pill is
+   sanctioned under. The disc is `currentColor` at low opacity so one rule
+   serves every metric and both themes; the inline style sets only the hue. */
+.trend-mark {
+  position: relative;
+  width: 28px; height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.trend-mark::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.16;
+}
+.trend-mark svg { position: relative; }
+
+.trend-text { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.trend-label { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
+.trend-sub { font-size: var(--text-sm); color: var(--color-muted); }
+.trend-value {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.trend-chart { padding: var(--space-4) 0 var(--space-16); }
+
+@media (max-width: 600px) {
+  /* The average is the row's primary fact on a narrow screen, so it keeps its
+     size; the window sub-line is what gives way. */
+  .trend-rowbtn { gap: var(--space-10); padding: var(--space-12) var(--space-2); }
+  .trend-value { font-size: var(--text-md); }
 }
