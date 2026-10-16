@@ -178,6 +178,11 @@ const TREND_LABELS = {
 }
 const DEFAULT_TREND = 'weightChart'
 
+// Sent reports load a page at a time, like the client's own archive
+// (Reports.jsx PAGE). A coach writes roughly one a week per client and the row
+// carries the full body, so "all of them" is a list that only ever grows.
+const SENT_PAGE = 20
+
 const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'measurements']
 
 // Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
@@ -310,6 +315,12 @@ function ClientView({ profile }) {
     if (error) console.error(error)
   }
   const [sentReports, setSentReports] = useState([])
+  // Totals come from the server, NOT from sentReports.length. The list is a
+  // window now, so its length is "how many are loaded" — using it for the
+  // section's count or its unread badge would quietly report 20 of 60.
+  const [sentTotal, setSentTotal] = useState(0)
+  const [sentUnread, setSentUnread] = useState(0)
+  const [loadingOlderSent, setLoadingOlderSent] = useState(false)
   // Per-report expansion replaces the per-week collapse map the folder tree
   // needed. Sent reports default closed: the coach wrote them, so the useful
   // scan is "which landed", not re-reading their own prose.
@@ -1334,16 +1345,40 @@ async function sendMessage(text) {
   await fetchMessages(refreshSize(messages.length))
 }
 
-  async function fetchSentReports() {
+  // `size` is how many of the NEWEST reports to read. This used to fetch every
+  // report ever written for the client, full body text included — one a week,
+  // forever, all of it loaded each time the coach opened the record. The
+  // client's own archive has been paged since it was built; the coach's copy
+  // never was.
+  async function fetchSentReports(size = SENT_PAGE) {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('reports')
-      .select('id, content, week_of, created_at, read_at, archived')
+      .select('id, content, week_of, created_at, read_at, archived', { count: 'exact' })
       .eq('coach_id', currentSession.user.id)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
-    if (error) console.error(error)
-    else setSentReports(data)
+      .range(0, size - 1)
+    if (error) { console.error(error); return }
+    setSentReports(data || [])
+    setSentTotal(count ?? (data || []).length)
+
+    // Unread is counted on the server rather than from the loaded page. An
+    // unread report older than the window would otherwise vanish from the
+    // badge — head:true means this costs a count, not rows.
+    const { count: unread, error: unreadError } = await supabase
+      .from('reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('coach_id', currentSession.user.id)
+      .eq('client_id', clientId)
+      .is('read_at', null)
+    if (!unreadError) setSentUnread(unread ?? 0)
+  }
+
+  async function loadOlderSentReports() {
+    setLoadingOlderSent(true)
+    await fetchSentReports(Math.max(sentReports.length, SENT_PAGE) + SENT_PAGE)
+    setLoadingOlderSent(false)
   }
 
   function goToPrevDay() {
@@ -1557,7 +1592,7 @@ async function sendMessage(text) {
       case 'privateNotes':
         if (!coachNotes?.trim()) return { text: 'None' }
         return notesUpdatedAt ? { text: numericDate(notesUpdatedAt) } : null
-      case 'sentReports': return { text: sentReports.length ? `${sentReports.length}` : 'None' }
+      case 'sentReports': return { text: sentTotal ? `${sentTotal}` : 'None' }
       case 'checkIn': return clientCheckIn ? null : { text: 'None this period' }
       default: return null
     }
@@ -1592,7 +1627,7 @@ async function sendMessage(text) {
   // when there's nothing to show.
   const presentReorderable = REORDERABLE_KEYS.filter(k => {
     if (hiddenCharts.includes(k)) return false
-    if (k === 'sentReports') return sentReports.length > 0
+    if (k === 'sentReports') return sentTotal > 0
     return true
   })
 
@@ -1673,9 +1708,7 @@ async function sendMessage(text) {
       ? { meta: `${daysSinceLog}d`, metaTone: daysSinceLog >= 4 ? 'error' : 'warning' }
       : null,
     measurements: measStatus?.due ? { meta: 'Due', metaTone: 'warning' } : null,
-    sentReports: sentReports.filter(r => !r.read_at).length > 0
-      ? { meta: `${sentReports.filter(r => !r.read_at).length} unread` }
-      : null,
+    sentReports: sentUnread > 0 ? { meta: `${sentUnread} unread` } : null,
   }
   const railItem = (key, label) => ({ key, label, ...(railMeta[key] || {}) })
 
@@ -2150,7 +2183,7 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      {sentReports.length > 0 && (
+      {sentTotal > 0 && (
         <div key="sentReports" id="section-sentReports" style={sectionStyle('sentReports')}>
           <SectionHeader title="Sent reports" collapsed={isCollapsed('sentReports')} onToggle={sectionToggle('sentReports')}>
             {/* The same ROW the client chooses from (.rep-row in index.css),
@@ -2202,6 +2235,18 @@ async function sendMessage(text) {
                   </div>
                 )
               })}
+              {sentReports.length < sentTotal && (
+                <button
+                  type="button"
+                  className="ds-disclosure ds-control"
+                  style={{ width: 'auto' }}
+                  onClick={loadOlderSentReports}
+                  disabled={loadingOlderSent}
+                >
+                  <Icon name="down" size={14} />
+                  <span>{loadingOlderSent ? 'Loading…' : 'Show older reports'}</span>
+                </button>
+              )}
             </div>
           </SectionHeader>
         </div>
