@@ -1021,7 +1021,21 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       : Math.round(size).toLocaleString()
     return `${sign}${shown}${unit} vs previous ${TREND_DAYS} days`
   }
-  const trendOf = (history, key) => windowTrend(history, key, { days: TREND_DAYS })
+  // The smallest change in each metric a person could actually act on, in that
+  // metric's own unit. A move must clear this AND the client's own day-to-day
+  // wobble before the card claims a direction (see progressTrends.js).
+  //
+  // These are not statistics, they are judgements about the unit, which is why
+  // they live at the call site rather than in the util:
+  //   calories  25/day  — below what food logging can resolve; portion
+  //                       estimates are routinely out by more than this
+  //   cardio     2 min  — shorter than the rounding on a logged session
+  //   steps    250/day  — a few minutes' walking, inside normal day-to-day drift
+  //   weight     0.4    — lb or kg; scale and hydration noise sit under this,
+  //                       and a fortnightly move above it is real progress
+  const MIN_MATERIAL = { calories: 25, minutes: 2, steps: 250, weight: 0.4 }
+  const trendOf = (history, key) =>
+    windowTrend(history, key, { days: TREND_DAYS, minMaterial: MIN_MATERIAL[key] })
 
   // F3: the row always carries a value, including when there is no trend to
   // report. "Average per logged day · 0 days" was the first draft of this and
@@ -1070,7 +1084,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     (() => {
       // Weight trends on the DISPLAY series, so the average is in the same
       // unit as the goal rather than whatever unit each weigh-in was logged in.
-      const t = windowTrend(weightHistoryDisplay, 'weight', { days: TREND_DAYS })
+      const t = windowTrend(weightHistoryDisplay, 'weight', { days: TREND_DAYS, minMaterial: MIN_MATERIAL.weight })
       return {
         key: 'weight', label: 'Weight', color: 'var(--color-weight)', trend: t,
         display: t.current != null ? `${t.current.toFixed(1)} ${weightDisplayUnit}` : '—',

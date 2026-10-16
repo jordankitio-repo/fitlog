@@ -13,20 +13,72 @@ const flatSeries = (n, value, key = 'steps') =>
   Array.from({ length: n }, (_, i) => ({ iso: daysBefore(n - 1 - i), [key]: value }))
 
 describe('trendDirection', () => {
-  it('calls a move inside the 2% dead band flat', () => {
-    expect(trendDirection(1000, 1015)).toBe('flat')
-    expect(trendDirection(1000, 990)).toBe('flat')
+  it('calls an unchanged metric flat, never a decline', () => {
+    // With the default floor of 0 this used to evaluate `abs(0) < 0` as false
+    // and fall through to `0 > 0 ? up : down`, so two identical averages
+    // reported a DECLINE.
+    expect(trendDirection(2100, 2100)).toBe('flat')
   })
 
-  it('calls a move outside the dead band', () => {
+  it('reports a move when nothing suppresses it', () => {
     expect(trendDirection(1100, 1000)).toBe('up')
     expect(trendDirection(900, 1000)).toBe('down')
+  })
+
+  it('suppresses a move below the caller\'s materiality floor', () => {
+    // 20 cal, under the 25/day floor Dashboard sets for calories.
+    expect(trendDirection(2020, 2000, undefined, 25)).toBe('flat')
+    expect(trendDirection(2040, 2000, undefined, 25)).toBe('up')
   })
 
   it('reports none rather than guessing when a side is missing', () => {
     expect(trendDirection(null, 1000)).toBe('none')
     expect(trendDirection(1000, null)).toBe('none')
     expect(trendDirection(1000, 0)).toBe('none')
+  })
+})
+
+describe('trendDirection — the noise floor', () => {
+  // The case that motivated it. Measured on a well-behaved seeded client,
+  // daily calories swing by ±262, so two 14-day averages wobble by ~99 cal by
+  // chance. A +67 move is inside that: the data cannot support a direction.
+  const noisy = (mean, swing, n) =>
+    Array.from({ length: n }, (_, i) => mean + (i % 2 ? swing : -swing))
+
+  it('calls a move smaller than the data\'s own wobble flat', () => {
+    const prior = noisy(2000, 262, 14)
+    const current = noisy(2067, 262, 14)
+    expect(trendDirection(2067, 2000, { current, prior })).toBe('flat')
+  })
+
+  it('still reports a move that clears the wobble', () => {
+    const prior = noisy(2000, 262, 14)
+    const current = noisy(2400, 262, 14)
+    expect(trendDirection(2400, 2000, { current, prior })).toBe('up')
+  })
+
+  it('is MORE sensitive for a client whose numbers are steady', () => {
+    // The same +67, on someone eating almost identically every day.
+    const prior = noisy(2000, 5, 14)
+    const current = noisy(2067, 5, 14)
+    expect(trendDirection(2067, 2000, { current, prior })).toBe('up')
+  })
+
+  it('the materiality floor still binds when variance is near zero', () => {
+    // Zero spread, so the noise floor is 0 and only the caller's floor stops a
+    // 1-cal move drawing an arrow.
+    const prior = Array(14).fill(2000)
+    const current = Array(14).fill(2001)
+    expect(trendDirection(2001, 2000, { current, prior }, 25)).toBe('flat')
+  })
+
+  it('does NOT use a percentage floor, which cannot serve two different units', () => {
+    // The bug this replaced: a flat 2% floor suppressed a real 1.6 lb move on
+    // a 170 lb client (2% = 3.4 lb) while waving through calorie moves far
+    // below what food logging can resolve.
+    const prior = [170.2, 170.0, 170.4, 170.1, 170.3, 170.2, 170.0]
+    const current = [168.6, 168.5, 168.8, 168.4, 168.7, 168.6, 168.5]
+    expect(trendDirection(168.6, 170.2, { current, prior }, 0.4)).toBe('down')
   })
 })
 

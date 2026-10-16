@@ -26,20 +26,72 @@ function averageOf(rows, valueKey) {
   return sum / rows.length
 }
 
-// A move smaller than this fraction of the prior average is NOISE, not a trend.
+// The smallest move worth calling a trend, in the METRIC'S OWN UNIT.
 //
-// Without a dead band every row renders an arrow, because two averages over
-// real data are never exactly equal — a 0.3% drift would draw the same
-// down-arrow as a genuine decline and the column would stop meaning anything.
-// 2% is below what any of these metrics can be steered by and above day-to-day
-// scatter in a two-week mean.
-const FLAT_BAND = 0.02
+// It was a flat 2% of the prior average, and a percentage cannot do this job
+// because the metrics do not share a scale. 2% of a day's calories is 41 cal,
+// which is a rounding error in food logging; 2% of a body weight is 3.4 lb,
+// which is a month of good work. The percentage floor was quietly suppressing
+// the single most important signal on the page — a client losing 1.6 lb a
+// fortnight was being told she was "holding steady" — while waving through
+// calorie moves far below what anyone can log accurately.
+//
+// So the caller names it, because the caller is the only one that knows the
+// unit. The fallback is deliberately 0: a metric that does not state a floor
+// gets the noise test alone, which is the honest default. See the call sites
+// in Dashboard.jsx for the per-metric numbers and why each was chosen.
+const DEFAULT_MIN_MATERIAL = 0
 
-export function trendDirection(current, prior) {
+// Population standard deviation. The window IS the population here — we are
+// describing the spread of the days the client logged, not estimating it for
+// some larger set of days they might have logged.
+function spread(values) {
+  if (values.length < 2) return 0
+  const mean = values.reduce((a, b) => a + b, 0) / values.length
+  const variance = values.reduce((acc, v) => acc + (v - mean) ** 2, 0) / values.length
+  return Math.sqrt(variance)
+}
+
+// How much two window averages would differ by chance alone.
+//
+// This is the thing the first version of this file got wrong, and it got it
+// wrong by guessing. A flat 2% band was chosen as "above day-to-day scatter in
+// a two-week mean" without ever checking, and the check says otherwise:
+// measured on a well-behaved seeded client, daily calories swing by ±262 and
+// two 14-day averages wobble by ~99 against a 2% band of 41 cal. The threshold
+// sat at less than half the noise, so the arrow pointed somewhere on nothing
+// most of the time — a direction the data could not support, rendered with the
+// same confidence as a real one.
+//
+// Standard error of the difference of two means. A client whose intake is
+// steady gets a sensitive trend; one whose intake is erratic has to move
+// further before the card will claim a direction. That is the honest
+// behaviour, and it falls out of their own data rather than a constant.
+function noiseFloor(currentValues, priorValues) {
+  const a = spread(currentValues)
+  const b = spread(priorValues)
+  const n = currentValues.length
+  const m = priorValues.length
+  if (n === 0 || m === 0) return Infinity
+  return Math.sqrt((a * a) / n + (b * b) / m)
+}
+
+// `samples` is optional so a caller holding only two averages still gets the
+// materiality floor; pass the window values to get the noise test too.
+export function trendDirection(current, prior, samples, minMaterial = DEFAULT_MIN_MATERIAL) {
   if (current == null || prior == null || prior === 0) return 'none'
-  const change = (current - prior) / Math.abs(prior)
-  if (Math.abs(change) < FLAT_BAND) return 'flat'
-  return change > 0 ? 'up' : 'down'
+  const delta = current - prior
+  // A move must clear BOTH bars: bigger than this client's own day-to-day
+  // wobble, and big enough that a person could act on it.
+  const floor = samples
+    ? Math.max(minMaterial, noiseFloor(samples.current, samples.prior))
+    : minMaterial
+  // `<=`, not `<`. With a floor of 0 — the default, and what a metric that
+  // names no materiality threshold gets — an unchanged metric has
+  // `Math.abs(0) < 0` evaluate false and fell through to the up/down branch,
+  // where `0 > 0` is false, so two identical averages reported a DECLINE.
+  if (Math.abs(delta) <= floor) return 'flat'
+  return delta > 0 ? 'up' : 'down'
 }
 
 // Split a history into two adjacent windows ending today and compare them.
@@ -50,7 +102,7 @@ export function trendDirection(current, prior) {
 // position, because the arrays are sparse: taking "the last 14 entries" of a
 // series with gaps silently reaches back weeks further on one metric than
 // another, and the two windows would then cover different spans.
-export function windowTrend(history, valueKey, { days = 14, asOf = new Date() } = {}) {
+export function windowTrend(history, valueKey, { days = 14, asOf = new Date(), minMaterial } = {}) {
   const end = new Date(asOf)
   end.setHours(12, 0, 0, 0)
 
@@ -70,6 +122,11 @@ export function windowTrend(history, valueKey, { days = 14, asOf = new Date() } 
   const current = averageOf(currentRows, valueKey)
   const prior = averageOf(priorRows, valueKey)
 
+  const samples = {
+    current: currentRows.map((r) => Number(r[valueKey]) || 0),
+    prior: priorRows.map((r) => Number(r[valueKey]) || 0),
+  }
+
   return {
     current,
     prior,
@@ -79,7 +136,7 @@ export function windowTrend(history, valueKey, { days = 14, asOf = new Date() } 
     // and on weight a percentage is close to meaningless to a human who thinks
     // in pounds. The unit comes from the call site.
     delta: current != null && prior != null ? current - prior : null,
-    direction: trendDirection(current, prior),
+    direction: trendDirection(current, prior, samples, minMaterial),
     days,
     nCurrent: currentRows.length,
     nPrior: priorRows.length,
