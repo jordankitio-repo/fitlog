@@ -1430,6 +1430,12 @@ nav a:hover {
   body.has-bottom-nav .chat-launcher {
     bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
+  /* Same lift for the toast. Portaling it (see Toast.jsx) is what lets it paint
+     above the bar at all; this is what stops it sitting ON the bar and burying
+     the tabs under a message the reader has to wait out. */
+  body.has-bottom-nav .ds-toast {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* Smooth transitions on all interactive elements */
@@ -1540,6 +1546,15 @@ button, a, input, select, textarea {
 }
 @media (prefers-reduced-motion: reduce) {
   .brand-loader-mark { animation: none; }
+}
+
+/* Toast — bottom-right, portaled to <body> (see Toast.jsx). The offsets live
+   here rather than inline so the mobile rule above can lift it over the tab
+   bar; an inline `bottom` would outrank that media query. */
+.ds-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
 }
 
 /* Chat bubble (bottom-right per-thread widget) */
