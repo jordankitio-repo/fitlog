@@ -39,6 +39,21 @@ export default function RangePicker({ value, onChange }) {
           aria-pressed={r.key === value}
           ariaLabel={r.name}
           onClick={() => onChange(r.key)}
+          // A ONE-CHARACTER chip is not the same object as a word-long one.
+          //
+          // Button `sm` is `6px 12px` on a 30px floor, and that floor exists so
+          // chips line up with the Open/Nudge buttons they sit beside on the
+          // roster. Here the siblings are a 16px heading and an 18px toggle, and
+          // a single letter in 12px of side padding comes out 32x30 — a circle
+          // that outweighs the title it is attached to.
+          //
+          // So the SHAPE is overridden, not the control: hover, press, focus
+          // ring and the active/muted variants all still come from Button. This
+          // is the one place in the app where a chip's label can never be more
+          // than one character, which is why the override lives in this
+          // component rather than at a call site — there is nothing here for it
+          // to drift against.
+          style={{ padding: '2px 8px', minHeight: '20px' }}
         >
           {r.label}
         </Pill>

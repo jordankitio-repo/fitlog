@@ -2148,6 +2148,15 @@ button.trend-rowbtn:hover { background-color: var(--color-surface-2); }
    every row underneath states it too. Three copies of one fact is not
    redundancy a reader benefits from. */
 .trend-ranges { display: flex; align-items: center; gap: var(--space-8); }
+/* The chip is 29x20 because a one-letter label in Button `sm`'s padding comes
+   out a 32x30 circle that outweighs the heading it sits beside. A 20px-tall
+   target is small for a finger, though, and on a phone these ARE the control
+   for the whole card — so the hit area is grown back past the paint. 16px of
+   vertical reach puts it at 36px; the horizontal 3px stops short of the 8px
+   gap, so neighbouring targets never overlap and a near-miss hits nothing
+   rather than the wrong range. */
+.trend-ranges button { position: relative; }
+.trend-ranges button::after { content: ''; position: absolute; inset: -8px -3px; }
 
 @media (max-width: 600px) {
   /* The average is the row's primary fact on a narrow screen, so it keeps its
