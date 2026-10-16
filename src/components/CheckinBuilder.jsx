@@ -193,7 +193,7 @@ export default function CheckinBuilder({ coachId }) {
                           </button>
                         )}
                         {openId === q.id ? (
-                          <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} aria-label="Remove question"><Icon name="x" /></button>
+                          <button onClick={() => setConfirmId(q.id)} style={{ ...iconBtn, color: 'var(--color-error)', marginLeft: '6px' }} aria-label="Remove question"><Icon name="trash" /></button>
                         ) : (
                           <Icon name="right" size={14} style={{ color: 'var(--color-faint)', flexShrink: 0 }} />
                         )}

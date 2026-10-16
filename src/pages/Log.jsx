@@ -1088,7 +1088,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : entry.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
             )}
             <button onClick={() => startEdit(entry)} style={iconBtnStyle} aria-label="Edit entry" title="Edit"><Icon name="pencil" /></button>
-            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete entry" title="Delete"><Icon name="x" /></button>
+            <button onClick={() => deleteEntry(entry.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete entry" title="Delete"><Icon name="trash" /></button>
           </div>
         )}
        </div>
@@ -1146,7 +1146,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             {moveTargets.length > 0 && (
               <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
             )}
-            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete meal" title="Delete meal"><Icon name="x" /></button>
+            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete meal" title="Delete meal"><Icon name="trash" /></button>
           </div>
         </div>
         {moveOpen && moveTargets.length > 0 && (
@@ -1722,7 +1722,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                       <button onClick={() => { setEditingSavedMealId(m.id); setSavedMealDraft(m.name) }} style={iconBtnStyle} title="Rename saved meal" aria-label="Rename saved meal"><Icon name="pencil" /></button>
                     )}
                     <button onClick={() => setLogPickId(picking ? null : m.id)} disabled={pending} title={`Log ${m.name}`} style={{ flexShrink: 0, background: picking ? 'var(--color-surface)' : 'var(--color-primary)', color: picking ? 'var(--color-text)' : 'var(--color-on-accent)', border: picking ? '1px solid var(--color-border)' : 'none', borderRadius: 'var(--radius)', padding: '5px 10px', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.5 : 1, fontFamily: 'inherit' }}>{picking ? 'Cancel' : '+ Log'}</button>
-                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete saved meal" title="Delete saved meal"><Icon name="x" /></button>
+                    <button onClick={() => deleteSavedMeal(m.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete saved meal" title="Delete saved meal"><Icon name="trash" /></button>
                   </div>
                   {picking && (
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '2px' }}>
@@ -1804,7 +1804,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </div>
             <div style={{ display: 'flex', gap: '2px' }}>
               <button onClick={() => startEditCardio(e)} style={iconBtnStyle} aria-label="Edit cardio entry" title="Edit"><Icon name="pencil" /></button>
-              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete cardio entry" title="Delete"><Icon name="x" /></button>
+              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete cardio entry" title="Delete"><Icon name="trash" /></button>
             </div>
           </div>
         ))}

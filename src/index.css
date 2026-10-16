@@ -1223,8 +1223,8 @@ summary:focus-visible {
 /* iOS Safari computes `box-sizing: content-box` on input[type="date"], beating
    the universal border-box reset at the top of this file. The inline
    `height: 36px` on the DOB field was therefore read as the CONTENT height and
-   the 9px padding + 1px border added on top — 56px on a real iPhone, against the
-   37px Sex pill sitting beside it in the same grid row.
+   the padding + 1px border added on top — 56px on a real iPhone, against the
+   Sex pills sitting beside it in the same grid row.
    Desktop phone emulation does not reproduce this: it renders a different date
    control and reports a clean 36px border-box, so the field only looks wrong on
    the device. Measured on an iPhone, before this rule:
@@ -1232,12 +1232,16 @@ summary:focus-visible {
      PILL h=37.0 box=border-box
    The `box-sizing` declaration below DOES NOT WIN — verified on the device, the
    field still computes content-box with it in place. The fix is carried entirely
-   by the zeroed VERTICAL padding: 36 + 0 + 2 = 38px against the 37px pill. The
-   declaration is kept only so the field stays correct (36px) if a future WebKit
-   ever honours it — do not take its presence as evidence it does anything today.
-   Horizontal padding is untouched; the text centres on its own. Measured after:
-     DOB  h=38.0 pad=0px/0px box=content-box
-     PILL h=37.0 pad=9px/9px box=border-box */
+   by the zeroed VERTICAL padding, which caps how far the two box models can
+   diverge at the 2px border. The declaration is kept only so the field stays
+   exact if a future WebKit ever honours it — do not take its presence as
+   evidence it does anything today, and do not remove the padding rule that is
+   actually doing the work. Horizontal padding is untouched; the text centres on
+   its own.
+
+   The inline height tracks Button `sm` (30px), which is what the Sex and Units
+   pills beside it now are since they became ui/Pill. If that size floor moves,
+   this field has to move with it or the grid row goes uneven again. */
 input.dob-field {
   box-sizing: border-box !important;
   padding-top: 0 !important;

@@ -1,4 +1,5 @@
 import { useThemePref } from '../utils/theme'
+import Pill from './ui/Pill'
 
 // Monochrome feather-style glyphs (stroke = currentColor, so they follow the
 // button text color). Auto = contrast half-circle, Light = sun (matches the
@@ -12,7 +13,19 @@ const OPTIONS = [
   { value: 'dark', label: 'Dark', icon: svg(<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />) },
 ]
 
-// Segmented control for the day/night preference. 'Auto' follows the OS.
+// Day/night preference. 'Auto' follows the OS.
+//
+// These are ui/Pill, not a bespoke segmented control. The hand-rolled version
+// painted its selected chip --color-primary with --color-on-accent text and no
+// elevation, while every other selectable chip in the app is Button `primary`:
+// --color-primary-fill, white label, --control-sheen over --control-shadow-accent.
+// Side by side the two greens plainly disagreed, and the toggle looked flat
+// next to the roster's lens chips. Nothing here needed its own control — it
+// needed the one that already existed.
+//
+// The old surface-2 track went with it: a row of pills IS the segmented
+// control, the same way the roster's lens bar is, and a track around pills
+// that already carry their own surface is a second container saying nothing.
 export default function ThemeToggle() {
   const [pref, setPref] = useThemePref()
 
@@ -20,43 +33,21 @@ export default function ThemeToggle() {
     <div
       role="radiogroup"
       aria-label="Appearance"
-      style={{
-        display: 'inline-flex',
-        gap: 4,
-        padding: 4,
-        borderRadius: 'var(--radius)',
-        background: 'var(--color-surface-2)',
-        border: '1px solid var(--color-border)',
-        alignSelf: 'flex-start',
-      }}
+      style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}
     >
       {OPTIONS.map((opt) => {
         const active = pref === opt.value
         return (
-          <button
+          <Pill
             key={opt.value}
-            type="button"
+            active={active}
             role="radio"
             aria-checked={active}
             onClick={() => setPref(opt.value)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '7px 14px',
-              borderRadius: 6,
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 'var(--text-sm)',
-              fontWeight: active ? 600 : 500,
-              background: active ? 'var(--color-primary)' : 'transparent',
-              color: active ? 'var(--color-on-accent)' : 'var(--color-muted)',
-              transition: 'background 0.15s ease, color 0.15s ease',
-            }}
           >
             {opt.icon}
             {opt.label}
-          </button>
+          </Pill>
         )
       })}
     </div>

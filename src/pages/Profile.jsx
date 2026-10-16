@@ -18,8 +18,8 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
 import { convertGoalValue } from '../utils/weightTarget'
-import { controlStyle, Icon, Panel } from '../components/ui'
-import { GOALS } from '../utils/goals'
+import { controlStyle, Icon, Panel, Pill } from '../components/ui'
+import { GOALS, goalLabel } from '../utils/goals'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -582,13 +582,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         const metric = bio.unit_preference === 'metric'
         const age = ageFromBirthDate(bio.birth_date)
         const isClient = profile?.role === 'client'
-        const pill = (active) => ({
-          flex: 1, padding: '9px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 'var(--text-sm)', fontWeight: active ? 600 : 500,
-          border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
-          background: active ? 'var(--color-primary-dim)' : 'var(--color-surface)',
-          color: active ? 'var(--color-primary)' : 'var(--color-muted)',
-        })
         const lbl = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
         return (
           <Panel id="section-details" title="Your details">
@@ -602,7 +595,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               <label style={lbl}>Units</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 {[['imperial', 'lb / ft·in'], ['metric', 'kg / cm']].map(([u, t]) => (
-                  <button key={u} type="button" onClick={() => setBio({ ...bio, unit_preference: u })} style={pill(bio.unit_preference === u)}>{t}</button>
+                  <Pill key={u} active={bio.unit_preference === u} aria-pressed={bio.unit_preference === u} onClick={() => setBio({ ...bio, unit_preference: u })}>{t}</Pill>
                 ))}
               </div>
             </div>
@@ -612,13 +605,13 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
                 <label style={lbl}>Sex</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[['male', 'Male'], ['female', 'Female']].map(([v, t]) => (
-                    <button key={v} type="button" onClick={() => setBio({ ...bio, sex: v })} style={pill(bio.sex === v)}>{t}</button>
+                    <Pill key={v} active={bio.sex === v} aria-pressed={bio.sex === v} onClick={() => setBio({ ...bio, sex: v })}>{t}</Pill>
                   ))}
                 </div>
               </div>
               <div>
                 <label style={lbl}>Date of birth{age != null ? ` · ${age} yrs` : ''}</label>
-                <input type="date" className="dob-field" value={bio.birth_date} max={todayStr()} onChange={(e) => setBio({ ...bio, birth_date: e.target.value })} style={{ ...pill(false), color: 'var(--color-text)', width: '100%', textAlign: 'center', height: '36px' }} />
+                <input type="date" className="dob-field" value={bio.birth_date} max={todayStr()} onChange={(e) => setBio({ ...bio, birth_date: e.target.value })} style={{ ...inputStyle, color: 'var(--color-text)', width: '100%', textAlign: 'center', height: '30px' }} />
               </div>
             </div>
 
@@ -643,24 +636,25 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
             <div>
               <label style={lbl}>Primary goal{isClient ? ' · set by your coach' : ''}</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-                {GOALS.map((g) => {
-                  const active = bio.primary_goal === g.key
-                  // Dimmed + default cursor + no handler, matching the Daily
-                  // targets inputs below, which a client also only reads.
-                  return isClient ? (
-                    <div
-                      key={g.key}
-                      aria-current={active ? 'true' : undefined}
-                      style={{ ...pill(active), cursor: 'default', opacity: active ? 0.85 : 0.5, textAlign: 'center' }}
-                    >
-                      {g.label}
-                    </div>
-                  ) : (
-                    <button key={g.key} type="button" onClick={() => setBio({ ...bio, primary_goal: g.key })} style={pill(active)}>{g.label}</button>
-                  )
-                })}
-              </div>
+              {/* A client does not choose this, so they do not get a row of
+                  controls. C1: "a pill you can press is fine; a pill you cannot
+                  press is decoration" — and four unpressable pills is also four
+                  tab stops that announce as buttons and do nothing. The answer
+                  is the answer, as text. */}
+              {isClient ? (
+                <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0 }}>
+                  {goalLabel(bio.primary_goal) || <span style={{ color: 'var(--color-muted)' }}>Not set yet</span>}
+                </p>
+              ) : (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {GOALS.map((g) => {
+                    const active = bio.primary_goal === g.key
+                    return (
+                      <Pill key={g.key} active={active} aria-pressed={active} onClick={() => setBio({ ...bio, primary_goal: g.key })}>{g.label}</Pill>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

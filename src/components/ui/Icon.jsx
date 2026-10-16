@@ -16,6 +16,13 @@ const PATHS = {
   // meaning, and archiving had no glyph of its own. Restoring keeps `repeat`,
   // which is a distinct meaning (put it back) and already reads that way.
   archive:  <><polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" rx="1" /><line x1="10" y1="12" x2="14" y2="12" /></>,
+  // Delete — destroying a row, not dismissing a view. Same borrowed-`x` story
+  // as `archive` directly above, one verb along: the Log's entry, meal, saved
+  // meal and cardio rows all hard-DELETE, and all four wore the mark that means
+  // "close this". A red `x` beside a pencil reads as "cancel the edit", which is
+  // the one thing it does not do. Feather's simple can, without the inner
+  // strokes — at 1em those two extra lines turn the glyph to mush.
+  trash:    <><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
   grip:     <><circle cx="9" cy="6" r="1.4" /><circle cx="9" cy="12" r="1.4" /><circle cx="9" cy="18" r="1.4" /><circle cx="15" cy="6" r="1.4" /><circle cx="15" cy="12" r="1.4" /><circle cx="15" cy="18" r="1.4" /></>,
   // `right` is THE forward glyph — navigation, CTAs, "go to this thing". There
   // is deliberately no second arrow style: one action, one mark.

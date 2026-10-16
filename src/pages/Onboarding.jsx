@@ -4,7 +4,7 @@ import Button from '../components/Button'
 import Logo from '../components/Logo'
 import { estimateTargets, ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, ftInToCm, todayStr } from '../utils/biometrics'
-import { controlStyle } from '../components/ui'
+import { controlStyle, Pill } from '../components/ui'
 import { GOALS } from '../utils/goals'
 
 // First-run setup for brand-new tracked users (solo + clients who weren't
@@ -117,14 +117,6 @@ export default function Onboarding({ session, profile, onComplete }) {
   const inputStyle = controlStyle
   const labelStyle = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
 
-  const pill = (active) => ({
-    flex: 1, padding: '10px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit',
-    fontSize: 'var(--text-sm)', fontWeight: active ? 600 : 500,
-    border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
-    background: active ? 'var(--color-primary-dim)' : 'var(--color-surface)',
-    color: active ? 'var(--color-primary)' : 'var(--color-muted)',
-  })
-
   const macro = (label, value, unit, color) => (
     <div style={{ flex: 1, minWidth: 64, textAlign: 'center', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 6px' }}>
       <div style={{ fontWeight: 700, fontSize: 'var(--text-subhead)', color }}>{value}{unit}</div>
@@ -147,7 +139,7 @@ export default function Onboarding({ session, profile, onComplete }) {
         <label style={labelStyle}>Units</label>
         <div style={{ display: 'flex', gap: '8px' }}>
           {[['imperial', 'lb / ft·in'], ['metric', 'kg / cm']].map(([u, lbl]) => (
-            <button key={u} type="button" onClick={() => setUnits(u)} style={pill(units === u)}>{lbl}</button>
+            <Pill key={u} active={units === u} aria-pressed={units === u} onClick={() => setUnits(u)}>{lbl}</Pill>
           ))}
         </div>
       </div>
@@ -158,13 +150,13 @@ export default function Onboarding({ session, profile, onComplete }) {
           <label style={labelStyle}>Sex <span style={{ color: 'var(--color-faint)' }}>· for metabolism</span></label>
           <div style={{ display: 'flex', gap: '8px' }}>
             {[['male', 'Male'], ['female', 'Female']].map(([v, lbl]) => (
-              <button key={v} type="button" onClick={() => setSex(v)} style={pill(sex === v)}>{lbl}</button>
+              <Pill key={v} active={sex === v} aria-pressed={sex === v} onClick={() => setSex(v)}>{lbl}</Pill>
             ))}
           </div>
         </div>
         <div>
           <label style={labelStyle}>Date of birth</label>
-          <input type="date" className="dob-field" value={birthDate} max={todayStr()} onChange={(e) => setBirthDate(e.target.value)} style={{ ...pill(false), color: 'var(--color-text)', width: '100%', textAlign: 'center', height: '36px' }} />
+          <input type="date" className="dob-field" value={birthDate} max={todayStr()} onChange={(e) => setBirthDate(e.target.value)} style={{ ...inputStyle, color: 'var(--color-text)', width: '100%', textAlign: 'center', height: '30px' }} />
         </div>
       </div>
 
@@ -196,9 +188,9 @@ export default function Onboarding({ session, profile, onComplete }) {
       {/* Goal */}
       <div>
         <label style={labelStyle}>Primary goal</label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {GOALS.map((g) => (
-            <button key={g.key} type="button" onClick={() => setGoal(g.key)} style={pill(goal === g.key)}>{g.label}</button>
+            <Pill key={g.key} active={goal === g.key} aria-pressed={goal === g.key} onClick={() => setGoal(g.key)}>{g.label}</Pill>
           ))}
         </div>
       </div>

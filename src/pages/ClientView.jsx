@@ -2317,26 +2317,18 @@ async function sendMessage(text) {
           </div>
           <div style={{ marginTop: 'var(--space-12)' }}>
             <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', color: 'var(--color-muted)' }}>Primary goal</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-8)' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
               {GOALS.map((g) => {
                 const active = clientGoal === g.key
                 return (
-                  <button
+                  <Pill
                     key={g.key}
-                    type="button"
+                    active={active}
                     aria-pressed={active}
                     onClick={() => setClientGoal(active ? '' : g.key)}
-                    style={{
-                      padding: 'var(--space-8)', borderRadius: 'var(--radius)', cursor: 'pointer',
-                      fontFamily: 'inherit', fontSize: 'var(--text-sm)',
-                      fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-medium)',
-                      border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                      background: active ? 'var(--color-primary-dim)' : 'var(--color-surface)',
-                      color: active ? 'var(--color-primary)' : 'var(--color-muted)',
-                    }}
                   >
                     {g.label}
-                  </button>
+                  </Pill>
                 )
               })}
             </div>
