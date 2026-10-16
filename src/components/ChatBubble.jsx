@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import Button from './Button'
 import Avatar from './Avatar'
 import Icon from './ui/Icon'
+import { leadOf } from '../utils/reportFeed'
 
 // A per-thread chat widget pinned to the bottom-right corner. Presentational +
 // open/close only — the page owns the data (messages, send, mark-read). Used on
@@ -19,7 +20,7 @@ function ChatIcon() {
   )
 }
 
-export default function ChatBubble({ messages = [], currentUserId, recipientName = 'client', recipientAvatarUrl, onSend, onMarkRead, hasOlder = false, onLoadOlder, loadingOlder = false }) {
+export default function ChatBubble({ messages = [], reports = [], onOpenReport, currentUserId, recipientName = 'client', recipientAvatarUrl, onSend, onMarkRead, hasOlder = false, onLoadOlder, loadingOlder = false }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -28,6 +29,19 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
   const [searchParams, setSearchParams] = useSearchParams()
 
   const unread = messages.filter(m => !m.read_at && m.sender_id !== currentUserId).length
+
+  // Messages and reports are ONE conversation, so they are one list. The
+  // client's thread has always read this way; the coach's side showed the two
+  // halves on separate surfaces, so a report and the exchange it caused never
+  // appeared together for the person who wrote both.
+  //
+  // The report is a CARD, not the prose. A report is several paragraphs and
+  // this panel is 380px — C5: a document inside a panel can only be a teaser,
+  // so the card carries the lead and opens the real thing.
+  const items = [
+    ...messages.map(m => ({ key: 'm' + m.id, at: m.created_at, message: m })),
+    ...reports.map(r => ({ key: 'r' + r.id, at: r.created_at, report: r })),
+  ].sort((a, b) => new Date(a.at) - new Date(b.at))
 
   // Open straight to the chat when a "Message" notification deep-links here.
   useEffect(() => {
@@ -62,10 +76,10 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
   // messages in above changes `messages` without changing the last id, and
   // depending on the array would snap the reader back to the bottom every time
   // they asked to see further back — the one thing they did not ask for.
-  const lastMessageId = messages.length ? messages[messages.length - 1].id : null
+  const lastItemKey = items.length ? items[items.length - 1].key : null
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: 'end' })
-  }, [open, lastMessageId])
+  }, [open, lastItemKey])
 
   async function handleOpen() {
     setOpen(true)
@@ -163,12 +177,47 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
             <span>{loadingOlder ? 'Loading…' : 'Show older messages'}</span>
           </button>
         )}
-        {messages.length === 0 ? (
+        {items.length === 0 ? (
           <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No messages yet. Send one below.</p>
-        ) : messages.map(m => {
+        ) : items.map(item => {
+          if (item.report) {
+            const r = item.report
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => onOpenReport?.(r)}
+                style={{
+                  width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 'var(--space-8)',
+                  background: 'var(--color-bg)', border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius)', padding: 'var(--space-12)',
+                }}
+              >
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', marginBottom: 4 }}>
+                    <span style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)', fontWeight: 'var(--weight-medium)' }}>
+                      Weekly report
+                    </span>
+                    {/* The whole reason a report belongs in the COACH's thread:
+                        did it land? C1 status text — read is graded green,
+                        unread is ungraded because nothing has happened yet. */}
+                    <span style={{ fontSize: 'var(--text-xs)', color: r.read_at ? 'var(--color-success)' : 'var(--color-muted)' }}>
+                      {r.read_at ? 'Read' : 'Unread'}
+                    </span>
+                  </span>
+                  <span style={{ display: 'block', fontSize: 'var(--text-base)', color: 'var(--color-text)', lineHeight: 1.5 }}>
+                    {leadOf(r.content)}
+                  </span>
+                </span>
+                <Icon name="right" size={16} />
+              </button>
+            )
+          }
+          const m = item.message
           const isMe = m.sender_id === currentUserId
           return (
-            <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: 4 }}>
+            <div key={item.key} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: 4 }}>
               <div style={{ maxWidth: '80%', backgroundColor: isMe ? 'var(--color-primary-fill)' : 'var(--color-bg)', border: isMe ? 'none' : '1px solid var(--color-border)', borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '10px 14px' }}>
                 <p style={{ fontSize: 'var(--text-base)', lineHeight: 1.5, color: isMe ? 'var(--color-on-primary-fill)' : 'var(--color-text)' }}>{m.content}</p>
               </div>

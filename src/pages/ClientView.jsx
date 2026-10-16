@@ -9,6 +9,7 @@ import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ReportProse from '../components/ReportProse'
+import Modal from '../components/Modal'
 import { relativeTime, numericDate } from '../utils/relativeTime'
 import { leadOf } from '../utils/reportFeed'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
@@ -183,6 +184,10 @@ const DEFAULT_TREND = 'weightChart'
 // carries the full body, so "all of them" is a list that only ever grows.
 const SENT_PAGE = 20
 
+// How many recent reports ride along in the thread. Matches Coach.jsx so the
+// two sides of one relationship show the same stretch of it.
+const THREAD_REPORTS = 8
+
 const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'measurements']
 
 // Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
@@ -321,6 +326,8 @@ function ClientView({ profile }) {
   const [sentTotal, setSentTotal] = useState(0)
   const [sentUnread, setSentUnread] = useState(0)
   const [loadingOlderSent, setLoadingOlderSent] = useState(false)
+  const [openReport, setOpenReport] = useState(null)      // report shown in the reader
+  const [archiveOpen, setArchiveOpen] = useState(false)   // the full collection
   // Per-report expansion replaces the per-week collapse map the folder tree
   // needed. Sent reports default closed: the coach wrote them, so the useful
   // scan is "which landed", not re-reading their own prose.
@@ -1700,6 +1707,16 @@ async function sendMessage(text) {
   // "behind" get one — a value on every row would be noise, and a rail where
   // everything is annotated annotates nothing. Tones match the roster's status
   // column so amber means the same thing in both places.
+  // The newest few reports go in the thread — the same rule, and the same
+  // count, the client's side already uses (Coach.jsx THREAD_REPORTS).
+  //
+  // Clipping these to the loaded message window was tried and was wrong: a
+  // coach writes weekly but messages in bursts, so Maya's six months of
+  // reports collapsed to the one that fell inside ten days of chat. The thread
+  // is a recent-activity view, not a strict intersection of two paged lists;
+  // the full set is one click away in the archive.
+  const threadReports = sentReports.slice(0, THREAD_REPORTS)
+
   const unreadFromClient = messages.filter(m => !m.read_at && m.sender_id === clientId).length
   const railMeta = {
     messages: unreadFromClient > 0 ? { meta: unreadFromClient, metaTone: 'warning' } : null,
@@ -2186,68 +2203,19 @@ async function sendMessage(text) {
       {sentTotal > 0 && (
         <div key="sentReports" id="section-sentReports" style={sectionStyle('sentReports')}>
           <SectionHeader title="Sent reports" collapsed={isCollapsed('sentReports')} onToggle={sectionToggle('sentReports')}>
-            {/* The same ROW the client chooses from (.rep-row in index.css),
-                so the two sides of one relationship present these the same way.
-                It expands in place here rather than navigating: the coach is
-                inside a client record with a rail beside them, and their
-                question is "which landed / what did I say", not a sit-down
-                read. No sender column — every report here is from the viewer.
-
-                Crucially it does NOT open the client's reader route, because
-                that marks the report read, and `read_at` is the client's state:
-                it is the very thing this list reports back to the coach. */}
-            <div style={{ marginTop: 'var(--space-4)' }}>
-              {sentReports.map(r => {
-                const open = openSentReport === r.id
-                return (
-                  <div key={r.id}>
-                    <button
-                      type="button"
-                      className="rep-row rep-row-nosender ds-control"
-                      aria-expanded={open}
-                      onClick={() => setOpenSentReport(open ? null : r.id)}
-                    >
-                      <span className="rep-row-body">
-                        <span className="rep-row-head">
-                          <span className="rep-row-when">{relativeTime(r.created_at)}</span>
-                          {/* C1 status text. Read is graded green — the report
-                              landed, which is the outcome the coach is checking
-                              for. Unread is ungraded (B1: nothing to grade yet). */}
-                          <span style={{
-                            fontSize: 'var(--text-xs)',
-                            color: r.read_at ? 'var(--color-success)' : 'var(--color-muted)',
-                          }}>
-                            {r.read_at ? 'Read' : 'Unread'}
-                          </span>
-                          {r.archived && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)' }}>Archived</span>}
-                        </span>
-                        {!open && <span className="rep-row-lead">{leadOf(r.content)}</span>}
-                      </span>
-                      <span className="ds-chev" style={{ color: 'var(--color-faint)', display: 'inline-flex' }}>
-                        <Icon name="right" size={16} />
-                      </span>
-                    </button>
-                    {open && (
-                      <div style={{ padding: '0 0 var(--space-16)', maxWidth: '68ch' }}>
-                        <ReportProse content={r.content} />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              {sentReports.length < sentTotal && (
-                <button
-                  type="button"
-                  className="ds-disclosure ds-control"
-                  style={{ width: 'auto' }}
-                  onClick={loadOlderSentReports}
-                  disabled={loadingOlderSent}
-                >
-                  <Icon name="down" size={14} />
-                  <span>{loadingOlderSent ? 'Loading…' : 'Show older reports'}</span>
-                </button>
-              )}
-            </div>
+            {/* The reports themselves now appear in the THREAD, in date order
+                beside the messages about them — the way the client has always
+                seen them. What stays here is the collection, one click away,
+                because a second always-open list of the same reports in the
+                same scroll is the thing that made this page long. The client's
+                archive works exactly this way: an overlay you ask for, not a
+                column you scroll past. */}
+            <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: '0 0 var(--space-12)' }}>
+              {sentTotal} {sentTotal === 1 ? 'report' : 'reports'} sent{sentUnread > 0 ? ` · ${sentUnread} unread` : ''}. They also appear in your thread with this client.
+            </p>
+            <Button variant="muted" size="sm" onClick={() => setArchiveOpen(true)}>
+              All reports
+            </Button>
           </SectionHeader>
         </div>
       )}
@@ -3058,9 +3026,76 @@ async function sendMessage(text) {
       </div>
         </div>
       </div>
+
+      {/* The full collection. Same rows the client chooses from, same
+          one-open-at-a-time disclosure, same paging. */}
+      <Modal open={archiveOpen} title="Sent reports" onClose={() => setArchiveOpen(false)} maxWidth={560}>
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              {sentReports.map(r => {
+                const open = openSentReport === r.id
+                return (
+                  <div key={r.id}>
+                    <button
+                      type="button"
+                      className="rep-row rep-row-nosender ds-control"
+                      aria-expanded={open}
+                      onClick={() => setOpenSentReport(open ? null : r.id)}
+                    >
+                      <span className="rep-row-body">
+                        <span className="rep-row-head">
+                          <span className="rep-row-when">{relativeTime(r.created_at)}</span>
+                          {/* C1 status text. Read is graded green — the report
+                              landed, which is the outcome the coach is checking
+                              for. Unread is ungraded (B1: nothing to grade yet). */}
+                          <span style={{
+                            fontSize: 'var(--text-xs)',
+                            color: r.read_at ? 'var(--color-success)' : 'var(--color-muted)',
+                          }}>
+                            {r.read_at ? 'Read' : 'Unread'}
+                          </span>
+                          {r.archived && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)' }}>Archived</span>}
+                        </span>
+                        {!open && <span className="rep-row-lead">{leadOf(r.content)}</span>}
+                      </span>
+                      <span className="ds-chev" style={{ color: 'var(--color-faint)', display: 'inline-flex' }}>
+                        <Icon name="right" size={16} />
+                      </span>
+                    </button>
+                    {open && (
+                      <div style={{ padding: '0 0 var(--space-16)', maxWidth: '68ch' }}>
+                        <ReportProse content={r.content} />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {sentReports.length < sentTotal && (
+                <button
+                  type="button"
+                  className="ds-disclosure ds-control"
+                  style={{ width: 'auto' }}
+                  onClick={loadOlderSentReports}
+                  disabled={loadingOlderSent}
+                >
+                  <Icon name="down" size={14} />
+                  <span>{loadingOlderSent ? 'Loading…' : 'Show older reports'}</span>
+                </button>
+              )}
+            </div>
+      </Modal>
+
+      {/* A report opened from the thread. It does NOT navigate to the client's
+          reader: that route marks the report read, and read_at is the client's
+          state — the very thing the card reports back to the coach. */}
+      <Modal open={Boolean(openReport)} title="Report" onClose={() => setOpenReport(null)} maxWidth={560}>
+        {openReport && <ReportProse content={openReport.content} />}
+      </Modal>
+
     <ChatBubble
       key={clientId}
       messages={messages}
+      reports={threadReports}
+      onOpenReport={setOpenReport}
       currentUserId={profile?.id}
       recipientName={clientProfile?.full_name || 'client'}
       recipientAvatarUrl={clientProfile?.avatar_url}
