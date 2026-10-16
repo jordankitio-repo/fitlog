@@ -15,7 +15,22 @@ import { RANGES } from '../utils/chartRange'
 // control system rather than from a second implementation of it.
 export default function RangePicker({ value, onChange }) {
   return (
-    <div className="trend-ranges" role="group" aria-label="Trend window">
+    // The click must not reach the header behind it.
+    //
+    // SectionHeader renders its `action` INSIDE the element carrying
+    // `onClick={onToggle}`, so on ClientView — where every chart section
+    // collapses — pressing W, M or Y set the range and then folded the chart
+    // shut, which looked like the chips closing the thing they had just
+    // changed. ChartColorToggle has stopped propagation for this reason since
+    // it was written, and SectionHeader wraps its own InfoTip the same way;
+    // this is the third instance of one rule, so it belongs in the component
+    // rather than at each call site.
+    <div
+      className="trend-ranges"
+      role="group"
+      aria-label="Trend window"
+      onClick={(e) => e.stopPropagation()}
+    >
       {RANGES.map((r) => (
         <Pill
           key={r.key}

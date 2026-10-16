@@ -14,7 +14,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { windowTrend, hasTrend } from '../utils/progressTrends'
-import { bucketHistory, rangeByKey, DEFAULT_RANGE } from '../utils/chartRange'
+import { bucketHistory, rangeByKey, DEFAULT_RANGE, historyWindow, LONGEST_RANGE_DAYS } from '../utils/chartRange'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
@@ -50,38 +50,17 @@ ChartJS.register(
   BarElement, Title, Tooltip, Legend, Filler
 )
 
-// How far back the metric histories reach: TWICE the longest range.
+// TWICE the longest chart range.
 //
 // Every Trends row states its window against the window before it, so the Y
 // range (12 months) needs a second 12 months behind it or the comparison is
 // not "not enough history yet", it is "we never asked". A card that reports a
 // gap it created itself is worse than one that reports nothing.
 //
-// It was 30 days, which was exactly the M range and nothing more. Measured on
-// a client logging ~3.7 nutrition rows a day, 730 days of the select this page
-// makes is ~125KB uncompressed and well under that on the wire; the other
-// three tables hold at most one row per day, so they are a few hundred rows
-// each.
-const HISTORY_DAYS = 730
-
-// The history window, computed ONCE.
-//
-// It was three hand-rolled copies — nutrition, cardio and steps each built the
-// same two dates inline — which is the shape the design system warns about: a
-// copy is not wrong on the day it is written, it is wrong on the day the
-// original changes. Widening 30 to 365 had to be made in three places, and the
-// fourth fetch (weight) was not even the same mechanism.
-//
-// All three used `toISOString()`, which converts to UTC: an evening run west of
-// Greenwich rolls the date forward and the window silently shifts a day. E2
-// names that trap by name and `toLocalDateString` is the answer, already
-// imported for the date stepper.
-function historyWindow(days = HISTORY_DAYS) {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - (days - 1))
-  return { from: toLocalDateString(start), to: toLocalDateString(end) }
-}
+// Measured on a client logging ~3.7 nutrition rows a day, 730 days of the
+// select this page makes is ~125KB uncompressed and well under that on the
+// wire; the other three tables hold at most one row per day.
+const HISTORY_DAYS = LONGEST_RANGE_DAYS * 2
 
 
 // The streak and milestone cards are ALWAYS-DARK surfaces — the one sanctioned
@@ -401,7 +380,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     // supports; under a row limit a user who weighs in twice a day would reach
     // back only half as far and quietly lose the oldest months of the year
     // view. A day window asks for what the chart actually plots.
-    const { from, to } = historyWindow()
+    const { from, to } = historyWindow(HISTORY_DAYS)
     const { data, error } = await supabase
       .from('weight_log').select('logged_date, weight, unit')
       .gte('logged_date', from).lte('logged_date', to)
@@ -415,7 +394,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   async function fetchCalorieHistory() {
-    const { from, to } = historyWindow()
+    const { from, to } = historyWindow(HISTORY_DAYS)
     const { data, error } = await supabase
       .from('nutrition_log').select('logged_date, calories')
       .gte('logged_date', from).lte('logged_date', to)
@@ -519,7 +498,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   async function fetchCardioHistory() {
-    const { from, to } = historyWindow()
+    const { from, to } = historyWindow(HISTORY_DAYS)
     const { data, error } = await supabase
       .from('cardio_log').select('logged_date, duration')
       .gte('logged_date', from).lte('logged_date', to)
@@ -534,7 +513,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   async function fetchStepsHistory() {
-    const { from, to } = historyWindow()
+    const { from, to } = historyWindow(HISTORY_DAYS)
     const { data, error } = await supabase
       .from('steps_log').select('logged_date, steps')
       .gte('logged_date', from).lte('logged_date', to)

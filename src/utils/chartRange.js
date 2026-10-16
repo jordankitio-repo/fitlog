@@ -47,6 +47,27 @@ export function rangeByKey(key) {
 }
 
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+// How far back a page must fetch to serve every range, and the window itself.
+//
+// Lives here rather than in a page because there are now two callers — the
+// client's My Progress and the coach's view of that same client — and the
+// third copy is where the drift starts. Dashboard already proved it: three
+// hand-rolled copies of these two dates meant widening the window had to be
+// done in three places, and all three used `toISOString()`, which converts to
+// UTC and slips the date a day for an evening run west of Greenwich.
+//
+// `LONGEST_RANGE_DAYS` is the chart span. A page that also states a trend
+// ("vs the previous 12 months") needs TWICE this, because the comparison
+// window sits behind the charted one; My Progress passes that explicitly.
+export const LONGEST_RANGE_DAYS = 365
+
+export function historyWindow(days = LONGEST_RANGE_DAYS) {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - (days - 1))
+  return { from: ymd(start), to: ymd(end) }
+}
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 // Bucket a sparse daily history into the points one range should plot.

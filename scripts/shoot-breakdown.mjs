@@ -92,8 +92,11 @@ try {
   const prog = pC.locator('canvas').first()
   await prog.scrollIntoViewIfNeeded(); await pC.waitForTimeout(500)
   await prog.screenshot({ path: `${OUT}/progress-chart.png` }); console.log('shot progress-chart')
-  // Expand "Calories — last 30 days" and shoot its (raw calorie) chart.
-  await pC.getByText('Calories — last 30 days', { exact: true }).click()
+  // Expand the raw calories chart. The section is titled just "Calories" now:
+  // its span is whatever the W/M/Y picker in the header says, so the title
+  // cannot promise one. (This selector was already stale before that — it used
+  // an em dash where the page rendered a colon.)
+  await pC.getByText('Calories', { exact: true }).click()
   await pC.waitForTimeout(600)
   const calChart = pC.locator('canvas').nth(1)
   await calChart.scrollIntoViewIfNeeded(); await pC.waitForTimeout(400)

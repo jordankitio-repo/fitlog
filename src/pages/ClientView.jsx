@@ -21,6 +21,8 @@ import InfoTip from '../components/InfoTip'
 import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
+import { bucketHistory, historyWindow, DEFAULT_RANGE } from '../utils/chartRange'
+import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
 import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from '../utils/weightTarget'
@@ -242,6 +244,28 @@ function ClientView({ profile }) {
 
   // Which series the Trends destination is showing. In the URL rather than in
   // state so the back button steps through metrics and a link can name one.
+  // W / M / Y, shared by every chart on this record rather than held per
+  // chart. The point of a coach's Trends tab is reading several metrics about
+  // ONE client together — weight against calories against steps — and that
+  // only works if they cover the same span. Mixed windows would let a coach
+  // compare a year of weight with a week of steps and see a relationship that
+  // is not there.
+  const [chartRange, setChartRange] = useState(DEFAULT_RANGE)
+
+  // The window picker and the colour toggle travel together on every bar
+  // chart, so they are declared once rather than spelled out at three call
+  // sites — the shape that let the roster's fourth banner segment drift a type
+  // step away from its three siblings and go unnoticed for a release.
+  // A3: 8px inside a group, a group-gap between groups. The two controls are
+  // NOT one control — the chips pick a window, the switch picks a colouring —
+  // and at the header's own 8px the switch sat as close to "Y" as "Y" sat to
+  // "M", so it read as a fourth range option.
+  const chartControls = (key) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-20)' }}>
+      <RangePicker value={chartRange} onChange={setChartRange} />
+      <ChartColorToggle plain={plainCharts.has(key)} onToggle={() => togglePlain(key)} />
+    </span>
+  )
   const trendParam = searchParams.get('m')
   const activeTrend = TREND_KEYS.includes(trendParam) ? trendParam : DEFAULT_TREND
   // Phone width. The consistency labels carry a parenthetical that is useful on
@@ -709,25 +733,28 @@ function ClientView({ profile }) {
   // frozen on their first month FOREVER: it never showed recent weight, and a
   // coach reading it would conclude the client had stopped moving. It is the
   // single most load-bearing chart on the page, and it was lying.
+  // A DATE window, not `limit(30)`. A row limit asks for 30 ROWS, and this
+  // table supports more than one weigh-in a day, so a client who steps on the
+  // scale twice reaches back half as far. It also capped the chart at the M
+  // range exactly, leaving the Y range nothing to draw.
+  const { from, to } = historyWindow()
   const { data, error } = await supabase
     .from('weight_log').select('logged_date, weight, unit')
     .eq('user_id', clientId)
-    .order('logged_date', { ascending: false }).limit(30)
+    .gte('logged_date', from).lte('logged_date', to)
+    .order('logged_date', { ascending: true })
   if (error) console.error(error)
   else setWeightHistory(
-    [...data].reverse().map(d => ({ iso: d.logged_date, date: shortDate(d.logged_date), weight: parseFloat(d.weight), unit: d.unit }))
+    data.map(d => ({ iso: d.logged_date, date: shortDate(d.logged_date), weight: parseFloat(d.weight), unit: d.unit }))
   )
 }
 
 async function fetchCalorieHistory() {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 29)
+  const { from, to } = historyWindow()
   const { data, error } = await supabase
     .from('nutrition_log').select('logged_date, calories')
     .eq('user_id', clientId)
-    .gte('logged_date', start.toISOString().split('T')[0])
-    .lte('logged_date', end.toISOString().split('T')[0])
+    .gte('logged_date', from).lte('logged_date', to)
   if (error) console.error(error)
   else {
     const grouped = {}
@@ -739,14 +766,11 @@ async function fetchCalorieHistory() {
 }
 
 async function fetchCardioHistory() {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 29)
+  const { from, to } = historyWindow()
   const { data, error } = await supabase
     .from('cardio_log').select('logged_date, duration')
     .eq('user_id', clientId)
-    .gte('logged_date', start.toISOString().split('T')[0])
-    .lte('logged_date', end.toISOString().split('T')[0])
+    .gte('logged_date', from).lte('logged_date', to)
   if (error) console.error(error)
   else {
     const grouped = {}
@@ -758,14 +782,11 @@ async function fetchCardioHistory() {
 }
 
 async function fetchStepsHistory() {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 29)
+  const { from, to } = historyWindow()
   const { data, error } = await supabase
     .from('steps_log').select('logged_date, steps')
     .eq('user_id', clientId)
-    .gte('logged_date', start.toISOString().split('T')[0])
-    .lte('logged_date', end.toISOString().split('T')[0])
+    .gte('logged_date', from).lte('logged_date', to)
   if (error) console.error(error)
   else setStepsHistory(data.map(d => ({
     iso: d.logged_date, date: shortDate(d.logged_date), steps: d.steps
@@ -1497,9 +1518,12 @@ async function sendMessage(text) {
     return { labels: allDates.map(shortDate), datasets }
   }
 
-  // Raw "Calories — last 30 days" bar chart: same bucket colors as the heatmap/
-  // summary (green on-target, orange over, amber/red under) plus a target line.
-  function calorieChartData(plain = false) {
+  // The raw calories bar chart: same bucket colors as the heatmap/summary
+  // (green on-target, orange over, amber/red under) plus a target line.
+  // `rows` is the range-bucketed series: the logged days for W and M, one
+  // averaged point per month for Y. It defaults to the full history so the
+  // function keeps working for any caller that has no range to apply.
+  function calorieChartData(plain = false, rows = calorieHistory) {
     const calTarget = parseInt(clientTargets.calories) || null
     const barColor = (cal, a) => {
       if (!calTarget || plain) return `rgba(251, 191, 36, ${a})`
@@ -1511,20 +1535,22 @@ async function sendMessage(text) {
     }
     const datasets = [{
       label: 'Calories',
-      data: calorieHistory.map(d => d.calories),
-      backgroundColor: calorieHistory.map(d => barColor(d.calories, 0.7)),
-      borderColor: calorieHistory.map(d => barColor(d.calories, 1)),
-      borderWidth: 1, borderRadius: 4, maxBarThickness: 12,
+      data: rows.map(d => d.calories),
+      backgroundColor: rows.map(d => barColor(d.calories, 0.7)),
+      borderColor: rows.map(d => barColor(d.calories, 1)),
+      // Bar width follows the series length, the same rule metricBarChart.js
+      // states: four monthly columns at 12px render as hairlines.
+      borderWidth: 1, borderRadius: 4, maxBarThickness: rows.length <= 12 ? 28 : 12,
     }]
     if (calTarget && !plain) {
       datasets.push({
         type: 'line', label: 'Target',
-        data: calorieHistory.map(() => calTarget),
+        data: rows.map(() => calTarget),
         borderColor: CHART.targetLine, borderDash: [4, 4],
         borderWidth: 1, pointRadius: 0, fill: false, tension: 0,
       })
     }
-    return { labels: calorieHistory.map(d => d.date), datasets }
+    return { labels: rows.map(d => d.date), datasets }
   }
 
   // One axis each. The top plot hides its x labels — the bottom plot carries
@@ -1670,7 +1696,7 @@ async function sendMessage(text) {
 
   // The rotated y-axis title is GONE from these three. "Calories (kcal)" set
   // sideways down the left duplicated the card heading directly above it
-  // ("Calories: last 30 days") and spent a column of width restating it. The
+  // ("Calories", with the span on its own picker) and spent a column of width restating it. The
   // ticks carry the unit; the heading carries the metric.
   //
   // Each is a single series plus its target line, so the legend box goes too —
@@ -2731,7 +2757,7 @@ async function sendMessage(text) {
 
       {!hiddenCharts.includes('weightChart') && (
         <div key="weightChart" id="section-weightChart" style={sectionStyle('weightChart')}>
-          <SectionHeader title="Weight trend" collapsed={isCollapsed('weightChart')} onToggle={sectionToggle('weightChart')} animated={false}>
+          <SectionHeader title="Weight" action={<RangePicker value={chartRange} onChange={setChartRange} />} collapsed={isCollapsed('weightChart')} onToggle={sectionToggle('weightChart')} animated={false}>
             {!isCollapsed('weightChart') && (weightHistory.length > 1 ? (() => {
               // The chart follows the weight-GOAL unit when a goal is set (so the
               // coach's unit choice drives the axis live), else the unit the
@@ -2743,11 +2769,18 @@ async function sendMessage(text) {
                 ? normUnit(clientTargets.weight_goal_unit)
                 : normUnit(weightHistory[weightHistory.length - 1]?.unit)
               const round1 = (n) => Math.round(n * 10) / 10
-              const dispHistory = weightHistory.map(d => ({
-                ...d,
-                unit: displayUnit,
-                weight: round1(convertWeight(d.weight, normUnit(d.unit || displayUnit), displayUnit)),
-              }))
+              // Convert FIRST, then bucket, so the year view averages weigh-ins
+              // that are already in one unit — averaging kg and lb together
+              // would produce a number that is neither.
+              const dispHistory = bucketHistory(
+                weightHistory.map(d => ({
+                  ...d,
+                  unit: displayUnit,
+                  weight: round1(convertWeight(d.weight, normUnit(d.unit || displayUnit), displayUnit)),
+                })),
+                'weight',
+                chartRange,
+              )
               // Goal reference line + the first weigh-in that reached it, computed
               // in the same display unit (weightTarget.js converts the goal in).
               const wt = computeWeightTarget({
@@ -2782,18 +2815,23 @@ async function sendMessage(text) {
                   tension: 0.3,
                   fill: true,
                 },
-                {
-                  label: '7-day avg',
-                  data: computeRollingAverage(dispHistory),
-                  borderColor: 'rgba(52, 211, 153, 0.45)',
-                  backgroundColor: 'transparent',
-                  borderWidth: MARK.lineWidth,
-                  borderDash: [4, 4],
-                  pointRadius: 0,
-                  tension: 0.3,
-                  fill: false,
-                },
               ]
+              // The 7-day average is dropped on the YEAR view. Those points are
+              // already monthly means, so a 7-point rolling mean over them
+              // smooths seven MONTHS and draws a near-flat line labelled
+              // "7-day avg" — a chart saying something untrue about its own
+              // window.
+              if (chartRange !== 'Y') datasets.push({
+                label: '7-day avg',
+                data: computeRollingAverage(dispHistory),
+                borderColor: 'rgba(52, 211, 153, 0.45)',
+                backgroundColor: 'transparent',
+                borderWidth: MARK.lineWidth,
+                borderDash: [4, 4],
+                pointRadius: 0,
+                tension: 0.3,
+                fill: false,
+              })
               if (wt) datasets.push({
                 label: `Goal (${wt.goal} ${wt.displayUnit})`,
                 data: dispHistory.map(() => wt.goal),
@@ -2853,9 +2891,9 @@ async function sendMessage(text) {
 
       {!hiddenCharts.includes('calorieChart') && (
         <div key="calorieChart" id="section-calorieChart" style={sectionStyle('calorieChart')}>
-          <SectionHeader title="Calories: last 30 days" action={<ChartColorToggle plain={plainCharts.has('calorieChart')} onToggle={() => togglePlain('calorieChart')} />} collapsed={isCollapsed('calorieChart')} onToggle={sectionToggle('calorieChart')} animated={false}>
+          <SectionHeader title="Calories" action={chartControls('calorieChart')} collapsed={isCollapsed('calorieChart')} onToggle={sectionToggle('calorieChart')} animated={false}>
             {!isCollapsed('calorieChart') && (calorieHistory.length > 0 ? (
-              <Bar data={calorieChartData(plainCharts.has('calorieChart'))} options={calorieChartOptions} />
+              <Bar data={calorieChartData(plainCharts.has('calorieChart'), bucketHistory(calorieHistory, 'calories', chartRange))} options={calorieChartOptions} />
             ) : chartEmpty('No nutrition logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
@@ -2863,9 +2901,9 @@ async function sendMessage(text) {
 
       {!hiddenCharts.includes('cardioChart') && (
         <div key="cardioChart" id="section-cardioChart" style={sectionStyle('cardioChart')}>
-          <SectionHeader title="Cardio: last 30 days" action={<ChartColorToggle plain={plainCharts.has('cardioChart')} onToggle={() => togglePlain('cardioChart')} />} collapsed={isCollapsed('cardioChart')} onToggle={sectionToggle('cardioChart')} animated={false}>
+          <SectionHeader title="Cardio" action={chartControls('cardioChart')} collapsed={isCollapsed('cardioChart')} onToggle={sectionToggle('cardioChart')} animated={false}>
             {!isCollapsed('cardioChart') && (cardioHistory.length > 0 ? (
-              <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
+              <Bar data={metricBarData({ history: bucketHistory(cardioHistory, 'minutes', chartRange), valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
             ) : chartEmpty('No cardio logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
@@ -2873,9 +2911,9 @@ async function sendMessage(text) {
 
       {!hiddenCharts.includes('stepsChart') && (
         <div key="stepsChart" id="section-stepsChart" style={sectionStyle('stepsChart')}>
-          <SectionHeader title="Steps: last 30 days" action={<ChartColorToggle plain={plainCharts.has('stepsChart')} onToggle={() => togglePlain('stepsChart')} />} collapsed={isCollapsed('stepsChart')} onToggle={sectionToggle('stepsChart')} animated={false}>
+          <SectionHeader title="Steps" action={chartControls('stepsChart')} collapsed={isCollapsed('stepsChart')} onToggle={sectionToggle('stepsChart')} animated={false}>
             {!isCollapsed('stepsChart') && (stepsHistory.length > 0 ? (
-              <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
+              <Bar data={metricBarData({ history: bucketHistory(stepsHistory, 'steps', chartRange), valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
             ) : chartEmpty('No steps logged yet', 'Your client logs this.'))}
           </SectionHeader>
         </div>
