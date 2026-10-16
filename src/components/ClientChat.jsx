@@ -38,13 +38,6 @@ export default function ClientChat({ profile }) {
     setLoadingOlder(false)
   }
 
-  // Tell the layout the bottom-right chat FAB is present so the mobile bottom
-  // tab bar gives trailing content extra clearance (FAB sits above the bar).
-  useEffect(() => {
-    document.body.classList.add('has-chat-fab')
-    return () => document.body.classList.remove('has-chat-fab')
-  }, [])
-
   // Fetch the client's active coach (name + avatar) for the chat header. RLS
   // allows a client to read their coach's profile (is_profile_related).
   useEffect(() => {

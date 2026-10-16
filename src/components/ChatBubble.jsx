@@ -40,6 +40,24 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
     return () => cancelAnimationFrame(raf)
   }, [searchParams, onMarkRead, setSearchParams])
 
+  // Tell the layout a bottom-right FAB is on screen, so the mobile bottom tab
+  // bar gives trailing content extra clearance
+  // (body.has-bottom-nav.has-chat-fab main, index.css).
+  //
+  // This used to live in ClientChat — which has no call site at all (see the
+  // note in App.jsx: the client's bubble went when that conversation moved to
+  // /coach). So the flag was set by a component that never mounts, the CSS rule
+  // keyed on it never fired anywhere, and the one surface that DOES draw a FAB
+  // — ClientView, which mounts a ChatBubble directly for the coach's thread —
+  // reserved no room for it. Whatever ended that page sat under the button.
+  // Measured on a 390px viewport: main's bottom padding was 80px while the FAB
+  // occupies the lowest 132px. The flag belongs to whoever paints the thing it
+  // describes, so it lives here now and follows the FAB onto any future screen.
+  useEffect(() => {
+    document.body.classList.add('has-chat-fab')
+    return () => document.body.classList.remove('has-chat-fab')
+  }, [])
+
   // Key the auto-scroll on the NEWEST message, not the array. Paging older
   // messages in above changes `messages` without changing the last id, and
   // depending on the array would snap the reader back to the bottom every time
@@ -81,7 +99,18 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
         style={{
           width: '56px', height: '56px', padding: 0,
           borderRadius: '50%',
-          boxShadow: 'var(--shadow-dropdown)',
+          /* BOTH shadows, and the order is not cosmetic. --shadow-dropdown is
+             what makes a floating button look lifted off the page; it is not a
+             control recipe and carries no inset. Setting it alone overwrote the
+             variant's --control-shadow-accent and silently dropped that token's
+             `inset 0 1px 0` top highlight, leaving this the only filled control
+             in the app without one.
+             Invisible in light, obvious in dark: --control-sheen is 30% white
+             on light and 3.5% on dark, so on a 56px circle the gradient alone
+             carries the gloss in light mode and carries nothing in dark. The
+             inset was the half still doing the work, and it was the half being
+             thrown away. */
+          boxShadow: 'var(--shadow-dropdown), var(--control-shadow-accent)',
           /* The sheen STAYS. It was suppressed here once, on the reading that a
              56px circle makes --control-sheen read as a gradient and the system
              allows gradients only on streak and milestone cards. That was the
