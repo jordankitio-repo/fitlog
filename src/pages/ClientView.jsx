@@ -313,7 +313,13 @@ function ClientView({ profile }) {
   // Per-report expansion replaces the per-week collapse map the folder tree
   // needed. Sent reports default closed: the coach wrote them, so the useful
   // scan is "which landed", not re-reading their own prose.
-  const [openSentReports, setOpenSentReports] = useState({})
+  //
+  // ONE id, not a map of them. A map let every report be open at once, and a
+  // report is several paragraphs — three expanded turned the panel into a page
+  // the coach had to scroll past to reach anything below it, which is the
+  // opposite of a list you scan. Opening one closes the other; clicking the
+  // open one closes it and leaves none open.
+  const [openSentReport, setOpenSentReport] = useState(null)
   const [messages, setMessages] = useState([])
   const [messageTotal, setMessageTotal] = useState(0)
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false)
@@ -2159,14 +2165,14 @@ async function sendMessage(text) {
                 it is the very thing this list reports back to the coach. */}
             <div style={{ marginTop: 'var(--space-4)' }}>
               {sentReports.map(r => {
-                const open = Boolean(openSentReports[r.id])
+                const open = openSentReport === r.id
                 return (
                   <div key={r.id}>
                     <button
                       type="button"
                       className="rep-row rep-row-nosender ds-control"
                       aria-expanded={open}
-                      onClick={() => setOpenSentReports(prev => ({ ...prev, [r.id]: !open }))}
+                      onClick={() => setOpenSentReport(open ? null : r.id)}
                     >
                       <span className="rep-row-body">
                         <span className="rep-row-head">
