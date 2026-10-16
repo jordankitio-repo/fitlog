@@ -2134,6 +2134,25 @@ button, a, input, select, textarea {
 }
 .trend-chart { padding: var(--space-4) 0 var(--space-16); }
 
+/* W / M / Y. The chips cluster at 8px because stepping between ranges is one
+   control; the window's written name sits a group-gap out (A3), so the letters
+   are never the only thing naming what is on screen — "M" is not a unit a
+   reader should have to decode. */
+.trend-ranges {
+  display: flex; align-items: center; gap: var(--space-8);
+  margin-bottom: var(--space-12);
+}
+.trend-ranges > .trend-range-name {
+  margin-left: var(--space-16);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+@media (max-width: 420px) {
+  /* The written name is the first thing to go: the active chip already says
+     which range is selected, and at this width it would wrap under them. */
+  .trend-range-name { display: none; }
+}
+
 @media (max-width: 600px) {
   /* The average is the row's primary fact on a narrow screen, so it keeps its
      size; the window sub-line is what gives way. */

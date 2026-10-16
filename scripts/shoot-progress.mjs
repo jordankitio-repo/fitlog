@@ -63,8 +63,11 @@ async function pass(label, viewport, theme, isMobile) {
   console.log(`shot ${label}  ${m.height}px  ${m.surfaces} bordered surfaces`)
   console.log(`     sections: ${m.headings.join(' | ')}`)
 
-  // The two behaviours a full-page screenshot cannot show.
-  if (!isMobile) {
+  // The behaviours a full-page screenshot cannot show. The chart disclosure
+  // and the range control run at BOTH widths — the phone is where a three-chip
+  // strip beside a labelled toggle is tightest, so shooting it only on desktop
+  // would check the width that cannot fail.
+  {
     // 1. A Trends row opens its chart. One row at a time — the accordion-all
     //    this panel replaced is what made the page 4,000px.
     const row = page.locator('.trend-rowbtn').first()
@@ -74,6 +77,27 @@ async function pass(label, viewport, theme, isMobile) {
       await page.screenshot({ path: `${OUT}/${label}-chart-open.png`, fullPage: true })
       const open = await page.locator('.trend-chart').count()
       console.log(`     chart disclosure: ${open} open (expect 1)`)
+
+      // W / M / Y. Y buckets to one averaged point per month, so the bar count
+      // must DROP sharply — that is the assertion that the range control is
+      // reshaping the series rather than just relabelling it.
+      for (const r of ['W', 'M', 'Y']) {
+        await page.locator('.trend-ranges button', { hasText: new RegExp(`^${r}$`) }).first().click()
+        await page.waitForTimeout(900)
+        // chart.js draws to a canvas, so the series cannot be read from the
+        // DOM — `bucketHistory` is unit-tested for the reshaping instead
+        // (src/utils/chartRange.test.js). What this captures is the thing a
+        // test cannot see: that the chart is drawn, labelled and legible at
+        // each range. Shot as an ELEMENT, because the chart sits below the
+        // fold at every viewport this script uses.
+        const empty = await page.locator('.trend-chart p').count()
+        const chart = page.locator('.trend-chart')
+        await chart.scrollIntoViewIfNeeded()
+        await page.waitForTimeout(300)
+        await chart.screenshot({ path: `${OUT}/${label}-range-${r}.png` })
+        console.log(`     range ${r}: ${empty ? 'EMPTY STATE (no data in window)' : 'chart drawn'}`)
+      }
+
       await row.click()
       await page.waitForTimeout(400)
     } else {
@@ -100,8 +124,9 @@ async function pass(label, viewport, theme, isMobile) {
     }
 
     // 3. Stepping off today must rename the Today panel. It used to say
-    //    "Today's stats" over a past day's numbers.
-    const prev = page.getByRole('button', { name: 'Previous day' })
+    //    "Today's stats" over a past day's numbers. Desktop only — the control
+    //    is identical at both widths and this leaves the phone pass shorter.
+    const prev = isMobile ? page.locator('__none__') : page.getByRole('button', { name: 'Previous day' })
     if (await prev.count()) {
       await prev.click()
       await page.waitForTimeout(1500)

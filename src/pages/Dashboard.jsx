@@ -14,6 +14,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { windowTrend, hasTrend } from '../utils/progressTrends'
+import { bucketHistory, rangeByKey } from '../utils/chartRange'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
 import { refreshNotifications } from '../utils/notifyRefresh'
@@ -47,6 +48,17 @@ ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, Title, Tooltip, Legend, Filler
 )
+
+// How far back the metric histories reach. It was 30 days everywhere, which is
+// exactly the M range and nothing more — the Y range would have drawn one
+// month. These are narrow selects on indexed `logged_date` columns, and three
+// of the four tables hold at most one row per day, so a year is a few hundred
+// rows each; nutrition is the only wide one and it already pulls 90 days for
+// the consistency heatmap.
+const HISTORY_DAYS = 365
+
+// `Notice` was declared here. It moved to components/ui when the Billing card
+// needed the same card for a failed payment.
 
 // The streak and milestone cards are ALWAYS-DARK surfaces — the one sanctioned
 // place on this page for a gradient, and the gradient is a deep green either
@@ -360,7 +372,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   async function fetchWeightHistory() {
     const { data, error } = await supabase
       .from('weight_log').select('logged_date, weight, unit')
-      .order('logged_date', { ascending: false }).limit(30)
+      .order('logged_date', { ascending: false }).limit(HISTORY_DAYS)
     if (error) console.error(error)
     // `date` is the MM-DD the charts plot; `iso` is the real date. Trends window
     // by calendar and cannot use the label — MM-DD has no year, so it can
@@ -373,7 +385,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   async function fetchCalorieHistory() {
     const end = new Date()
     const start = new Date()
-    start.setDate(start.getDate() - 29)
+    start.setDate(start.getDate() - (HISTORY_DAYS - 1))
     const { data, error } = await supabase
       .from('nutrition_log').select('logged_date, calories')
       .gte('logged_date', start.toISOString().split('T')[0])
@@ -480,7 +492,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   async function fetchCardioHistory() {
     const end = new Date()
     const start = new Date()
-    start.setDate(start.getDate() - 29)
+    start.setDate(start.getDate() - (HISTORY_DAYS - 1))
     const { data, error } = await supabase
       .from('cardio_log').select('logged_date, duration')
       .gte('logged_date', start.toISOString().split('T')[0])
@@ -498,7 +510,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   async function fetchStepsHistory() {
     const end = new Date()
     const start = new Date()
-    start.setDate(start.getDate() - 29)
+    start.setDate(start.getDate() - (HISTORY_DAYS - 1))
     const { data, error } = await supabase
       .from('steps_log').select('logged_date, steps')
       .gte('logged_date', start.toISOString().split('T')[0])
@@ -960,6 +972,26 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {chart}
     </>
   )
+
+  // A chart is now a function of the selected range, not a fixed node: W and M
+  // plot the logged days, Y plots one averaged point per month. `bucketHistory`
+  // owns that reshaping so the four call sites below stay declarations.
+  //
+  // An EMPTY bucket is its own state and must not fall through to a chart with
+  // no bars in it. A year view on an account three weeks old, or a week view
+  // after seven quiet days, draws an axis around nothing and reads as broken
+  // rather than as "no data here yet".
+  const rangedChart = (history, valueKey, render) => (rangeKey) => {
+    const rows = bucketHistory(history, valueKey, rangeKey)
+    if (rows.length === 0) {
+      return (
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 'var(--space-16) 0', textAlign: 'center' }}>
+          Nothing logged in the {rangeByKey(rangeKey).name.toLowerCase()}.
+        </p>
+      )
+    }
+    return render(rows, rangeKey)
+  }
   const fmtDelta = (t, unit, digits = 0) => {
     if (!hasTrend(t)) return null
     // A move inside the dead band prints its SIZE as nothing useful: cardio
@@ -994,9 +1026,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         key: 'calories', label: 'Calories', color: 'var(--color-calories)', trend: t,
         display: t.current != null ? `${Math.round(t.current).toLocaleString()}` : '—',
         sub: trendSub(t, ' cal'),
-        chart: calorieHistory.length > 0 ? gradedChart('calorieChart',
-          <Bar data={metricBarData({ history: calorieHistory, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={calorieChartOptions} />
-        ) : null,
+        chart: calorieHistory.length > 0 ? rangedChart(calorieHistory, 'calories', (rows) => gradedChart('calorieChart',
+          <Bar data={metricBarData({ history: rows, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={calorieChartOptions} />
+        )) : null,
       }
     })()]),
     (() => {
@@ -1005,9 +1037,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         key: 'cardio', label: 'Cardio', color: 'var(--color-cardio)', trend: t,
         display: t.current != null ? `${Math.round(t.current)} min` : '—',
         sub: trendSub(t, ' min'),
-        chart: cardioHistory.length > 0 ? gradedChart('cardioChart',
-          <Bar data={metricBarData({ history: cardioHistory, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
-        ) : null,
+        chart: cardioHistory.length > 0 ? rangedChart(cardioHistory, 'minutes', (rows) => gradedChart('cardioChart',
+          <Bar data={metricBarData({ history: rows, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
+        )) : null,
       }
     })(),
     (() => {
@@ -1016,9 +1048,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         key: 'steps', label: 'Steps', color: 'var(--color-steps)', trend: t,
         display: t.current != null ? Math.round(t.current).toLocaleString() : '—',
         sub: trendSub(t, ''),
-        chart: stepsHistory.length > 0 ? gradedChart('stepsChart',
-          <Bar data={metricBarData({ history: stepsHistory, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
-        ) : null,
+        chart: stepsHistory.length > 0 ? rangedChart(stepsHistory, 'steps', (rows) => gradedChart('stepsChart',
+          <Bar data={metricBarData({ history: rows, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
+        )) : null,
       }
     })(),
     (() => {
@@ -1029,15 +1061,15 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         key: 'weight', label: 'Weight', color: 'var(--color-weight)', trend: t,
         display: t.current != null ? `${t.current.toFixed(1)} ${weightDisplayUnit}` : '—',
         sub: trendSub(t, ` ${weightDisplayUnit}`, 1),
-        chart: weightHistory.length > 1 ? (
+        chart: weightHistory.length > 1 ? rangedChart(weightHistoryDisplay, 'weight', (rows, rangeKey) => (
           <>
             <Line
               data={{
-                labels: weightHistoryDisplay.map(d => d.date),
+                labels: rows.map(d => d.date),
                 datasets: [
                   {
                     label: 'Weight',
-                    data: weightHistoryDisplay.map(d => d.weight),
+                    data: rows.map(d => d.weight),
                     // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
                     borderColor: '#34d399',
                     backgroundColor: 'rgba(52, 211, 153, 0.15)',
@@ -1047,9 +1079,15 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                     tension: 0.3,
                     fill: true,
                   },
-                  ...(hasSoloPremium ? [{
+                  // The 7-day average is dropped on the YEAR view, deliberately.
+                  // Those points are already monthly means, so a 7-point rolling
+                  // mean over them is a smoothing of a smoothing covering seven
+                  // MONTHS — it would render as a nearly flat line labelled
+                  // "7-day avg", which is a chart saying something untrue about
+                  // its own window.
+                  ...(hasSoloPremium && rangeKey !== 'Y' ? [{
                     label: '7-day avg',
-                    data: computeRollingAverage(weightHistoryDisplay),
+                    data: computeRollingAverage(rows),
                     borderColor: 'rgba(52, 211, 153, 0.45)',
                     backgroundColor: 'transparent',
                     borderDash: [4, 4],
@@ -1067,7 +1105,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               </div>
             )}
           </>
-        ) : null,
+        )) : null,
       }
     })(),
   ].filter(m => m.chart || m.trend.current != null)

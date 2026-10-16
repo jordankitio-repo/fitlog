@@ -31,6 +31,18 @@ function color(pct, a, bidirectional) {
   return pct >= 90 ? GREEN(a) : pct >= 60 ? AMBER(a) : RED(a)
 }
 
+// Bar width has to follow the RANGE, not sit at one constant.
+//
+// The cap was a flat 12px, chosen so a sparse 30-day series did not balloon
+// into fat bars. Applied to the year view it did the opposite: four monthly
+// columns across a 2,000px card rendered as hairlines with vast gaps, which
+// reads as a broken chart rather than as four months. A short series wants
+// wide bars and a long one wants narrow ones — the same amount of ink either
+// way. 12 points is the W and Y ceiling; M's 30 stay slim.
+function barThickness(points) {
+  return points <= 12 ? 28 : 12
+}
+
 export function metricBarData({ history, valueKey, dateKey = 'date', label, target, fallback, plain = false, bidirectional = false }) {
   // plain = revert to the flat metric color (no target coloring, no target line).
   const barColor = (value, a) => (target && !plain ? color((value / target) * 100, a, bidirectional) : fallback(a))
@@ -44,9 +56,7 @@ export function metricBarData({ history, valueKey, dateKey = 'date', label, targ
     backgroundColor: history.map((d) => barColor(d[valueKey], 1)),
     borderWidth: 0,
     borderRadius: 4,
-    // Cap width so a chart with fewer logged days (e.g. cardio) doesn't balloon
-    // into fat bars — keeps all the metric charts visually consistent.
-    maxBarThickness: 12,
+    maxBarThickness: barThickness(history.length),
   }]
   if (target && !plain) {
     datasets.push({
