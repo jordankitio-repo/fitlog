@@ -5,6 +5,7 @@ import Logo from '../components/Logo'
 import { estimateTargets, ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, ftInToCm, todayStr } from '../utils/biometrics'
 import { controlStyle } from '../components/ui'
+import { GOALS } from '../utils/goals'
 
 // First-run setup for brand-new tracked users (solo + clients who weren't
 // already solo). Collects the stable biometrics the target math needs — stored
@@ -14,13 +15,6 @@ import { controlStyle } from '../components/ui'
 //
 // The gate that mounts this lives in App (role ∈ {solo,client} && !onboarded_at).
 // Coaches never see it (they aren't tracked).
-
-const GOALS = [
-  { key: 'lose', label: 'Lose fat' },
-  { key: 'gain', label: 'Build muscle' },
-  { key: 'maintain', label: 'Maintain' },
-  { key: 'recomp', label: 'Recomp' },
-]
 
 // A sensible default pace per goal (the assessment derives direction from
 // current vs goal weight; pace only sets the rate).

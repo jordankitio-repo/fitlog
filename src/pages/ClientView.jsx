@@ -14,6 +14,8 @@ import { leadOf } from '../utils/reportFeed'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
+import { fetchMessageWindow, refreshSize, growSize, hasOlderMessages } from '../utils/messageThread'
+import { GOALS } from '../utils/goals'
 import InfoTip from '../components/InfoTip'
 import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
@@ -262,6 +264,8 @@ function ClientView({ profile }) {
   const [daysSinceLog, setDaysSinceLog] = useState(null)
   const [statusStats, setStatusStats] = useState(null) // this client's triage facts (computeClientStats)
   const [hideCaloriesToggle, setHideCaloriesToggle] = useState(false)
+  // Coach-owned now: the client renders this read-only on their Profile.
+  const [clientGoal, setClientGoal] = useState('')
   const [checkinInterval, setCheckinInterval] = useState(1)
   const [savingCadence, setSavingCadence] = useState(false)
   const [coachNotes, setCoachNotes] = useState('')
@@ -311,6 +315,8 @@ function ClientView({ profile }) {
   // scan is "which landed", not re-reading their own prose.
   const [openSentReports, setOpenSentReports] = useState({})
   const [messages, setMessages] = useState([])
+  const [messageTotal, setMessageTotal] = useState(0)
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false)
   const [callBriefing, setCallBriefing] = useState('')
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [showOffboardConfirm, setShowOffboardConfirm] = useState(false)
@@ -470,6 +476,7 @@ function ClientView({ profile }) {
       .select('*')
       .eq('id', clientId)
       .single()
+    if (data) setClientGoal(data.primary_goal || '')
     if (error) console.error('Error fetching client profile:', error)
     else setClientProfile(data)
   }
@@ -1038,8 +1045,22 @@ async function addNoteEntry() {
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' })
 
-  if (error) console.error(error)
-  else { setTargetsSaved(true); setTimeout(() => setTargetsSaved(false), 2000) }
+  if (error) { console.error(error); return }
+
+  // The goal lives on `profiles`, which a coach cannot write directly (only
+  // profiles_update_self exists), so it goes through the narrow
+  // set_client_primary_goal RPC. Only on an actual change: no point writing a
+  // row every time the coach adjusts protein.
+  if (clientGoal !== (clientProfile?.primary_goal || '')) {
+    const { error: goalError } = await supabase.rpc('set_client_primary_goal', {
+      p_client_id: clientId,
+      p_goal: clientGoal || null,
+    })
+    if (goalError) { console.error(goalError); return }
+    await fetchClientProfile()
+  }
+
+  setTargetsSaved(true); setTimeout(() => setTargetsSaved(false), 2000)
 }
 
   async function generateWeeklyReport() {
@@ -1257,24 +1278,41 @@ async function addNoteEntry() {
 
   // Fetch only — do NOT mark read here, so the bubble's unread badge survives
 // until the coach actually opens it (markMessagesRead runs on open).
-async function fetchMessages() {
+// `size` is how many of the NEWEST messages to read — refreshSize() re-reads the
+// current window, growSize() pages further back. The thread is never fetched
+// whole; a long coaching relationship used to re-download every message here on
+// every open, and twice over, since markMessagesRead refetches.
+async function fetchMessages(size = refreshSize(0)) {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('coach_id', currentSession.user.id)
-    .eq('client_id', clientId)
-    .order('created_at', { ascending: true })
-  if (error) console.error(error)
-  else setMessages(data)
+  const { messages: page, total, error } = await fetchMessageWindow(
+    (q) => q.eq('coach_id', currentSession.user.id).eq('client_id', clientId),
+    size,
+  )
+  if (error) { console.error(error); return }
+  setMessages(page)
+  setMessageTotal(total)
+}
+
+async function loadOlderMessages() {
+  setLoadingOlderMessages(true)
+  await fetchMessages(growSize(messages.length))
+  setLoadingOlderMessages(false)
 }
 
 async function markMessagesRead() {
   const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const unreadIds = messages.filter(m => !m.read_at && m.sender_id !== currentSession.user.id).map(m => m.id)
-  if (unreadIds.length === 0) return
-  await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
-  await fetchMessages()
+  // Mark read by FILTER, not by the ids currently on screen. The thread is
+  // windowed now, so an id list would only ever clear the newest page and
+  // anything older would stay unread for good — the badge would never zero
+  // out. One indexed update covers the whole thread and no-ops when there is
+  // nothing unread.
+  await supabase.from('messages')
+    .update({ read_at: new Date().toISOString() })
+    .eq('coach_id', currentSession.user.id)
+    .eq('client_id', clientId)
+    .neq('sender_id', currentSession.user.id)
+    .is('read_at', null)
+  await fetchMessages(refreshSize(messages.length))
 }
 
 
@@ -1287,7 +1325,7 @@ async function sendMessage(text) {
     content: text
   }])
   if (error) { console.error(error); throw error }
-  await fetchMessages()
+  await fetchMessages(refreshSize(messages.length))
 }
 
   async function fetchSentReports() {
@@ -2277,6 +2315,35 @@ async function sendMessage(text) {
               </Select>
             </div>
           </div>
+          <div style={{ marginTop: 'var(--space-12)' }}>
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', color: 'var(--color-muted)' }}>Primary goal</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-8)' }}>
+              {GOALS.map((g) => {
+                const active = clientGoal === g.key
+                return (
+                  <button
+                    key={g.key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setClientGoal(active ? '' : g.key)}
+                    style={{
+                      padding: 'var(--space-8)', borderRadius: 'var(--radius)', cursor: 'pointer',
+                      fontFamily: 'inherit', fontSize: 'var(--text-sm)',
+                      fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-medium)',
+                      border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      background: active ? 'var(--color-primary-dim)' : 'var(--color-surface)',
+                      color: active ? 'var(--color-primary)' : 'var(--color-muted)',
+                    }}
+                  >
+                    {g.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)', margin: 'var(--space-6) 0 0' }}>
+              Your client sees this but cannot change it.
+            </p>
+          </div>
           <div style={{ marginTop: 'var(--space-8)' }}>
             <Button onClick={saveClientTargets} variant="primary" size="sm">
               {targetsSaved ? <>Saved <Icon name="check" /></> : 'Save targets'}
@@ -2956,6 +3023,9 @@ async function sendMessage(text) {
       recipientAvatarUrl={clientProfile?.avatar_url}
       onSend={sendMessage}
       onMarkRead={markMessagesRead}
+      hasOlder={hasOlderMessages(messageTotal, messages.length)}
+      onLoadOlder={loadOlderMessages}
+      loadingOlder={loadingOlderMessages}
     />
     <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
     </>

@@ -19,14 +19,7 @@ import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
 import { convertGoalValue } from '../utils/weightTarget'
 import { controlStyle, Icon, Panel } from '../components/ui'
-
-// Primary-goal options (mirrors Onboarding). Stored on profiles.primary_goal.
-const GOAL_OPTIONS = [
-  { key: 'lose', label: 'Lose fat' },
-  { key: 'gain', label: 'Build muscle' },
-  { key: 'maintain', label: 'Maintain' },
-  { key: 'recomp', label: 'Recomp' },
-]
+import { GOALS } from '../utils/goals'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -210,7 +203,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       birth_date: bio.birth_date || null,
       height_cm: bioHeightCm > 0 ? bioHeightCm : null,
       activity_level: bio.activity_level,
-      primary_goal: bio.primary_goal || null,
+      // primary_goal is coach-owned for a client, so it is deliberately absent
+      // from their update: leaving it in would let a stale local value overwrite
+      // what the coach just set, every time the client saved anything else.
+      ...(profile?.role === 'client' ? {} : { primary_goal: bio.primary_goal || null }),
     }).eq('id', session.user.id)
     setBioSaving(false)
     if (error) { console.error('Error saving details:', error); return }
@@ -585,6 +581,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       {profile?.role !== 'coach' && (() => {
         const metric = bio.unit_preference === 'metric'
         const age = ageFromBirthDate(bio.birth_date)
+        const isClient = profile?.role === 'client'
         const pill = (active) => ({
           flex: 1, padding: '9px', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'inherit',
           fontSize: 'var(--text-sm)', fontWeight: active ? 600 : 500,
@@ -596,7 +593,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         return (
           <Panel id="section-details" title="Your details">
             <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
-              Used to estimate your targets.{profile?.role === 'client' ? ' Your coach can see these to fine-tune your plan.' : ''}
+              {profile?.role === 'client'
+                ? 'Your coach uses these to set your targets. Keep them accurate.'
+                : 'Used to estimate your targets.'}
             </p>
 
             <div>
@@ -643,11 +642,24 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </div>
 
             <div>
-              <label style={lbl}>Primary goal</label>
+              <label style={lbl}>Primary goal{isClient ? ' · set by your coach' : ''}</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-                {GOAL_OPTIONS.map((g) => (
-                  <button key={g.key} type="button" onClick={() => setBio({ ...bio, primary_goal: g.key })} style={pill(bio.primary_goal === g.key)}>{g.label}</button>
-                ))}
+                {GOALS.map((g) => {
+                  const active = bio.primary_goal === g.key
+                  // Dimmed + default cursor + no handler, matching the Daily
+                  // targets inputs below, which a client also only reads.
+                  return isClient ? (
+                    <div
+                      key={g.key}
+                      aria-current={active ? 'true' : undefined}
+                      style={{ ...pill(active), cursor: 'default', opacity: active ? 0.85 : 0.5, textAlign: 'center' }}
+                    >
+                      {g.label}
+                    </div>
+                  ) : (
+                    <button key={g.key} type="button" onClick={() => setBio({ ...bio, primary_goal: g.key })} style={pill(active)}>{g.label}</button>
+                  )
+                })}
               </div>
             </div>
 

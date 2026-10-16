@@ -1,30 +1,42 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
 import ChatBubble from './ChatBubble'
+import { fetchMessageWindow, refreshSize, growSize, hasOlderMessages } from '../utils/messageThread'
 
 // Self-contained coach-thread chat for a client. Mounted once at the app layout
 // level so the message bubble follows the client onto every page (Dashboard,
 // Log, Profile, …). The data plumbing previously lived in Dashboard.
 export default function ClientChat({ profile }) {
   const [messages, setMessages] = useState([])
+  const [total, setTotal] = useState(0)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [coach, setCoach] = useState(null)
 
-  const fetchMessages = useCallback(async () => {
+  // `size` is how many of the NEWEST messages to read. Callers pass
+  // refreshSize() to re-read the window they already have and growSize() to
+  // page further back; the thread is never fetched whole.
+  const fetchMessages = useCallback(async (size) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('client_id', session.user.id)
-      .order('created_at', { ascending: true })
-    if (error) console.error(error)
-    else setMessages(data)
+    const { messages: page, total: count, error } = await fetchMessageWindow(
+      (q) => q.eq('client_id', session.user.id),
+      size,
+    )
+    if (error) { console.error(error); return }
+    setMessages(page)
+    setTotal(count)
   }, [])
 
   useEffect(() => {
-    async function load() { await fetchMessages() }
+    async function load() { await fetchMessages(refreshSize(0)) }
     load()
   }, [fetchMessages])
+
+  async function loadOlder() {
+    setLoadingOlder(true)
+    await fetchMessages(growSize(messages.length))
+    setLoadingOlder(false)
+  }
 
   // Tell the layout the bottom-right chat FAB is present so the mobile bottom
   // tab bar gives trailing content extra clearance (FAB sits above the bar).
@@ -60,12 +72,17 @@ export default function ClientChat({ profile }) {
   // the client actually opens the thread.
   async function markMessagesRead() {
     const { data: { session } } = await supabase.auth.getSession()
-    const unreadIds = messages
-      .filter((m) => !m.read_at && m.sender_id !== session.user.id)
-      .map((m) => m.id)
-    if (unreadIds.length === 0) return
-    await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds)
-    await fetchMessages()
+    // Mark read by FILTER, not by the ids currently on screen. The thread is
+    // windowed now, so an id list would only ever clear the newest page and
+    // anything older would stay unread for good — the badge would never zero
+    // out. One indexed update covers the whole thread and no-ops when there is
+    // nothing unread.
+    await supabase.from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('client_id', session.user.id)
+      .neq('sender_id', session.user.id)
+      .is('read_at', null)
+    await fetchMessages(refreshSize(messages.length))
   }
 
   async function sendMessage(text) {
@@ -84,7 +101,7 @@ export default function ClientChat({ profile }) {
       content: text,
     }])
     if (error) { console.error(error); throw error }
-    await fetchMessages()
+    await fetchMessages(refreshSize(messages.length))
   }
 
   return (
@@ -95,6 +112,9 @@ export default function ClientChat({ profile }) {
       recipientAvatarUrl={coach?.avatar_url}
       onSend={sendMessage}
       onMarkRead={markMessagesRead}
+      hasOlder={hasOlderMessages(total, messages.length)}
+      onLoadOlder={loadOlder}
+      loadingOlder={loadingOlder}
     />
   )
 }

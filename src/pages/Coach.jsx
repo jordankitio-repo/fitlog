@@ -10,6 +10,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import ReportReader, { ReportArchive } from './Reports'
 import { leadOf } from '../utils/reportFeed'
 import { threadRows } from '../utils/coachThread'
+import { fetchMessageWindow, refreshSize, growSize, hasOlderMessages } from '../utils/messageThread'
 import { dayStamp, relativeTime } from '../utils/relativeTime'
 
 // The client's ONE coach surface.
@@ -97,6 +98,9 @@ export default function Coach({ profile, archiveOpen = false }) {
   const [coach, setCoach] = useState(null)
   const [items, setItems] = useState([])
   const [reportCount, setReportCount] = useState(0)
+  const [messageCount, setMessageCount] = useState(0)
+  const [messageTotal, setMessageTotal] = useState(0)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [noCoach, setNoCoach] = useState(false)
@@ -105,13 +109,14 @@ export default function Coach({ profile, archiveOpen = false }) {
   // One fetch for the surface, because the surface is one list. Messages and
   // reports are two tables and one timeline; they are merged here rather than
   // rendered as two stacks, which is the whole point of the page.
-  const fetchThread = useCallback(async () => {
+  // Reports were always windowed here (THREAD_REPORTS); messages were not, and
+  // the merged timeline quietly carried the whole conversation. `size` is how
+  // many of the NEWEST messages to read.
+  const fetchThread = useCallback(async (size = refreshSize(0)) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
     const [msgRes, repRes] = await Promise.all([
-      supabase.from('messages').select('*')
-        .eq('client_id', session.user.id)
-        .order('created_at', { ascending: true }),
+      fetchMessageWindow((q) => q.eq('client_id', session.user.id), size),
       supabase.from('reports').select('id, subject, content, created_at, read_at', { count: 'exact' })
         .eq('archived', false)
         .order('created_at', { ascending: false })
@@ -120,9 +125,11 @@ export default function Coach({ profile, archiveOpen = false }) {
     if (msgRes.error) { console.error(msgRes.error); return }
     if (repRes.error) console.error(repRes.error)
 
-    const messages = msgRes.data || []
+    const messages = msgRes.messages
     const reports = repRes.data || []
     setReportCount(repRes.count ?? reports.length)
+    setMessageCount(messages.length)
+    setMessageTotal(msgRes.total)
     setItems([
       ...messages.map(m => ({ key: `m${m.id}`, at: m.created_at, message: m })),
       ...reports.map(r => ({ key: `r${r.id}`, at: r.created_at, report: r })),
@@ -137,10 +144,16 @@ export default function Coach({ profile, archiveOpen = false }) {
     // is opened, which is the reader's job: read_at belongs to the recipient
     // and it is the state the coach's sent list reports back to them, so
     // scrolling past a card must not claim it was read.
-    const unread = messages.filter(m => !m.read_at && m.sender_id !== session.user.id).map(m => m.id)
-    if (unread.length) {
-      await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unread)
-    }
+    // Mark read by FILTER, not by the ids currently on screen. The thread is
+    // windowed now, so an id list would only ever clear the newest page and
+    // anything older would stay unread for good — the badge would never zero
+    // out. One indexed update covers the whole thread and no-ops when there is
+    // nothing unread.
+    await supabase.from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('client_id', session.user.id)
+      .neq('sender_id', session.user.id)
+      .is('read_at', null)
   }, [reportId])
 
   useEffect(() => {
@@ -160,7 +173,17 @@ export default function Coach({ profile, archiveOpen = false }) {
     load()
   }, [fetchThread])
 
-  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [items.length])
+  // Keyed on the LAST item, not the count: paging older messages in above grows
+  // the list without changing its end, and scrolling to the bottom there would
+  // undo the thing the reader just asked for.
+  const lastItemKey = items.length ? items[items.length - 1].key : null
+  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [lastItemKey])
+
+  async function loadOlder() {
+    setLoadingOlder(true)
+    await fetchThread(growSize(messageCount))
+    setLoadingOlder(false)
+  }
 
   async function send() {
     const text = draft.trim()
@@ -176,7 +199,7 @@ export default function Coach({ profile, archiveOpen = false }) {
         sender_id: session.user.id, content: text,
       }])
       if (error) console.error(error)
-      else { setDraft(''); await fetchThread() }
+      else { setDraft(''); await fetchThread(refreshSize(messageCount)) }
     }
     setSending(false)
   }
@@ -256,6 +279,18 @@ export default function Coach({ profile, archiveOpen = false }) {
               </p>
             ) : (
               <div className="coach-msgs">
+                {hasOlderMessages(messageTotal, messageCount) && (
+                  <button
+                    type="button"
+                    className="ds-disclosure ds-control"
+                    style={{ width: 'auto' }}
+                    onClick={loadOlder}
+                    disabled={loadingOlder}
+                  >
+                    <Icon name="up" size={14} />
+                    <span>{loadingOlder ? 'Loading…' : 'Show older messages'}</span>
+                  </button>
+                )}
                 {rows.map(row => {
                   if (row.kind === 'day') {
                     return <p key={row.key} className="coach-day">{dayStamp(row.at)}</p>

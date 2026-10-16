@@ -19,7 +19,14 @@ export async function computeClientStats(clientIds, relationships = []) {
   const checkInWindowStart = toLocalDateString(new Date(Date.now() - 8 * 7 * 24 * 60 * 60 * 1000))
 
   const [logsResult, checkInsResult, nutritionResult, cardioResult, stepsResult, targetsResult] = await Promise.all([
-    supabase.from('nutrition_log').select('user_id, logged_date').in('user_id', clientIds).order('logged_date', { ascending: false }),
+    // One row per client (the date they last logged), NOT their whole history.
+    // This used to select every nutrition_log row for every client just to read
+    // the newest one per client — unbounded, and silently wrong under a
+    // db-max-rows cap, which truncates the oldest rows and so loses exactly the
+    // dormant clients the roster needs to flag. The group-by lives in the
+    // client_last_log_dates RPC because PostgREST aggregates are disabled here.
+    // RLS still scopes it: the function is SECURITY INVOKER.
+    supabase.rpc('client_last_log_dates', { p_client_ids: clientIds }),
     supabase.from('check_ins').select('*').in('client_id', clientIds).gte('week_of', checkInWindowStart),
     supabase.from('nutrition_log').select('user_id, logged_date, calories, protein').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
     supabase.from('cardio_log').select('user_id, logged_date, duration').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
@@ -27,7 +34,7 @@ export async function computeClientStats(clientIds, relationships = []) {
     supabase.from('targets').select('user_id, calories, protein, cardio_minutes, steps').in('user_id', clientIds),
   ])
 
-  const recentLogs = logsResult.data || []
+  const lastLogDates = new Map((logsResult.data || []).map(r => [r.user_id, r.last_logged_date]))
   const checkIns = checkInsResult.data || []
   const nutritionData = nutritionResult.data || []
   const cardioData = cardioResult.data || []
@@ -40,8 +47,7 @@ export async function computeClientStats(clientIds, relationships = []) {
 
   const stats = {}
   clientIds.forEach(id => {
-    const clientLogs = recentLogs.filter(l => l.user_id === id)
-    const lastLogDate = clientLogs.length > 0 ? clientLogs[0].logged_date : null
+    const lastLogDate = lastLogDates.get(id) || null
     const relationship = relationships.find(r => r.client_id === id)
     const lockInfo = relationship ? resolveLockState({
       lastNutritionDate: lastLogDate,

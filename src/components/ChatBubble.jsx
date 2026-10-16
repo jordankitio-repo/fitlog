@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import Button from './Button'
 import Avatar from './Avatar'
+import Icon from './ui/Icon'
 
 // A per-thread chat widget pinned to the bottom-right corner. Presentational +
 // open/close only — the page owns the data (messages, send, mark-read). Used on
@@ -18,7 +19,7 @@ function ChatIcon() {
   )
 }
 
-export default function ChatBubble({ messages = [], currentUserId, recipientName = 'client', recipientAvatarUrl, onSend, onMarkRead }) {
+export default function ChatBubble({ messages = [], currentUserId, recipientName = 'client', recipientAvatarUrl, onSend, onMarkRead, hasOlder = false, onLoadOlder, loadingOlder = false }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -39,9 +40,14 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
     return () => cancelAnimationFrame(raf)
   }, [searchParams, onMarkRead, setSearchParams])
 
+  // Key the auto-scroll on the NEWEST message, not the array. Paging older
+  // messages in above changes `messages` without changing the last id, and
+  // depending on the array would snap the reader back to the bottom every time
+  // they asked to see further back — the one thing they did not ask for.
+  const lastMessageId = messages.length ? messages[messages.length - 1].id : null
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: 'end' })
-  }, [open, messages])
+  }, [open, lastMessageId])
 
   async function handleOpen() {
     setOpen(true)
@@ -116,6 +122,18 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {hasOlder && (
+          <button
+            type="button"
+            className="ds-disclosure ds-control"
+            style={{ width: 'auto' }}
+            onClick={onLoadOlder}
+            disabled={loadingOlder}
+          >
+            <Icon name="up" size={14} />
+            <span>{loadingOlder ? 'Loading…' : 'Show older messages'}</span>
+          </button>
+        )}
         {messages.length === 0 ? (
           <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No messages yet. Send one below.</p>
         ) : messages.map(m => {

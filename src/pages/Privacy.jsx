@@ -14,7 +14,7 @@ export default function Privacy() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated July 12, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Last updated October 15, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -127,11 +127,24 @@ export default function Privacy() {
       <section style={{ marginBottom: 40 }}>
         <h2 style={h2}>7. How Long Do We Keep Your Information?</h2>
         <p style={p}>
-          We keep your personal information for as long as you have an active account with us. When you delete
-          your account via the Profile page, we permanently delete all of your data from our active databases.
-          This includes your nutrition logs, weight logs, body measurements, cardio logs, step logs, profile and
-          biometric details, any uploaded profile photo, messages, reports, and all other data associated with
-          your account.
+          We keep most of your personal information for as long as you have an active account with us. Your
+          logged history is the service itself — a weight trend or a year of nutrition logs is useful precisely
+          because it goes back — so we do not age it out while your account is open. This applies to your
+          nutrition logs, weight logs, body measurements, cardio logs, step logs, check-ins, reports, and your
+          profile and biometric details.
+        </p>
+        <p style={p}>
+          Messages are the exception. Messages between a coach and a client are automatically and permanently
+          deleted 24 months after they are sent. Conversations that old are rarely referred to again, and
+          holding sensitive discussion indefinitely creates risk for you without a corresponding benefit. This
+          deletion happens automatically, whether or not your account is still active, and it cannot be
+          reversed. Nothing else listed above is affected.
+        </p>
+        <p style={p}>
+          When you delete your account via the Profile page, we permanently delete all of your data from our
+          active databases. This includes your nutrition logs, weight logs, body measurements, cardio logs,
+          step logs, profile and biometric details, any uploaded profile photo, messages, reports, and all
+          other data associated with your account.
         </p>
       </section>
 

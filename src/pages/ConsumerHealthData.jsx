@@ -18,7 +18,7 @@ export default function ConsumerHealthData() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Consumer Health Data Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated June 25, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated October 15, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -132,7 +132,18 @@ export default function ConsumerHealthData() {
       </section>
 
       <section style={{ marginBottom: 40 }}>
-        <h2 style={h2}>7. How we protect it</h2>
+        <h2 style={h2}>7. How long we keep it</h2>
+        <p style={p}>
+          We keep your consumer health data for as long as you have an active account, because the history is
+          what makes it useful to you and to your coach. Messages between a coach and a client are the one
+          exception: they are automatically and permanently deleted 24 months after they are sent, whether or
+          not your account is still active. Deleting your account removes everything immediately — see our{' '}
+          <a href="/privacy" style={link}>Privacy Policy</a> for the full list.
+        </p>
+      </section>
+
+      <section style={{ marginBottom: 40 }}>
+        <h2 style={h2}>8. How we protect it</h2>
         <p style={p}>
           Consumer health data is protected by row-level security on every database table, encrypted (HTTPS)
           connections, hashed passwords, server-side key management, and a private, access-controlled store for
@@ -143,7 +154,7 @@ export default function ConsumerHealthData() {
       </section>
 
       <section style={{ marginBottom: 40 }}>
-        <h2 style={h2}>8. Changes to this Policy</h2>
+        <h2 style={h2}>9. Changes to this Policy</h2>
         <p style={p}>
           We may update this Policy to reflect changes in our practices or the law. When we do, we will revise the
           "Last updated" date above and post the new version on this page. If we make material changes, we will
@@ -152,7 +163,7 @@ export default function ConsumerHealthData() {
       </section>
 
       <section style={{ marginBottom: 40 }}>
-        <h2 style={h2}>9. Contact</h2>
+        <h2 style={h2}>10. Contact</h2>
         <p style={{ ...p, color: 'var(--color-text)' }}>
           Digigarden LLC<br />
           <a href="mailto:digigardenllc@gmail.com" style={link}>digigardenllc@gmail.com</a>
