@@ -57,8 +57,25 @@ ChartJS.register(
 // the consistency heatmap.
 const HISTORY_DAYS = 365
 
-// `Notice` was declared here. It moved to components/ui when the Billing card
-// needed the same card for a failed payment.
+// The history window, computed ONCE.
+//
+// It was three hand-rolled copies — nutrition, cardio and steps each built the
+// same two dates inline — which is the shape the design system warns about: a
+// copy is not wrong on the day it is written, it is wrong on the day the
+// original changes. Widening 30 to 365 had to be made in three places, and the
+// fourth fetch (weight) was not even the same mechanism.
+//
+// All three used `toISOString()`, which converts to UTC: an evening run west of
+// Greenwich rolls the date forward and the window silently shifts a day. E2
+// names that trap by name and `toLocalDateString` is the answer, already
+// imported for the date stepper.
+function historyWindow(days = HISTORY_DAYS) {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - (days - 1))
+  return { from: toLocalDateString(start), to: toLocalDateString(end) }
+}
+
 
 // The streak and milestone cards are ALWAYS-DARK surfaces — the one sanctioned
 // place on this page for a gradient, and the gradient is a deep green either
@@ -367,29 +384,32 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   // days of weigh-ins was shown July through September in October, and the
   // panel's own title said "Weight trend". It survived because the chart was
   // still full of plausible, correctly-drawn, steadily-falling data; nothing
-  // about it looked broken unless you read the axis. Descending with a limit
-  // takes the newest, then the rows are flipped back for display.
+  // about it looked broken unless you read the axis.
   async function fetchWeightHistory() {
+    // Filtered by DATE, like its three siblings — not `limit(HISTORY_DAYS)`,
+    // which counts ROWS. `fetchWeight` orders a single day's weigh-ins and
+    // takes the newest, so more than one row per date is a state this table
+    // supports; under a row limit a user who weighs in twice a day would reach
+    // back only half as far and quietly lose the oldest months of the year
+    // view. A day window asks for what the chart actually plots.
+    const { from, to } = historyWindow()
     const { data, error } = await supabase
       .from('weight_log').select('logged_date, weight, unit')
-      .order('logged_date', { ascending: false }).limit(HISTORY_DAYS)
+      .gte('logged_date', from).lte('logged_date', to)
+      .order('logged_date', { ascending: true })
     if (error) console.error(error)
     // `date` is the MM-DD the charts plot; `iso` is the real date. Trends window
     // by calendar and cannot use the label — MM-DD has no year, so it can
     // neither be compared across one nor sorted through December into January.
     else setWeightHistory(data
-      .map(d => ({ iso: d.logged_date, date: d.logged_date.slice(5), weight: parseFloat(d.weight), unit: d.unit }))
-      .reverse())
+      .map(d => ({ iso: d.logged_date, date: d.logged_date.slice(5), weight: parseFloat(d.weight), unit: d.unit })))
   }
 
   async function fetchCalorieHistory() {
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - (HISTORY_DAYS - 1))
+    const { from, to } = historyWindow()
     const { data, error } = await supabase
       .from('nutrition_log').select('logged_date, calories')
-      .gte('logged_date', start.toISOString().split('T')[0])
-      .lte('logged_date', end.toISOString().split('T')[0])
+      .gte('logged_date', from).lte('logged_date', to)
     if (error) console.error(error)
     else {
       const grouped = {}
@@ -490,13 +510,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   async function fetchCardioHistory() {
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - (HISTORY_DAYS - 1))
+    const { from, to } = historyWindow()
     const { data, error } = await supabase
       .from('cardio_log').select('logged_date, duration')
-      .gte('logged_date', start.toISOString().split('T')[0])
-      .lte('logged_date', end.toISOString().split('T')[0])
+      .gte('logged_date', from).lte('logged_date', to)
     if (error) console.error(error)
     else {
       const grouped = {}
@@ -508,13 +525,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   async function fetchStepsHistory() {
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - (HISTORY_DAYS - 1))
+    const { from, to } = historyWindow()
     const { data, error } = await supabase
       .from('steps_log').select('logged_date, steps')
-      .gte('logged_date', start.toISOString().split('T')[0])
-      .lte('logged_date', end.toISOString().split('T')[0])
+      .gte('logged_date', from).lte('logged_date', to)
     if (error) console.error(error)
     else setStepsHistory(data.map(d => ({
       iso: d.logged_date, date: d.logged_date.slice(5), steps: d.steps
