@@ -36,18 +36,28 @@ function TrendRow({ metric, open, onToggle, range, onRange }) {
   const dir = trend?.direction
   const glyph = DIRECTION_GLYPH[dir]
 
+  // A row with no chart is NOT a button.
+  //
+  // `trendMetrics` keeps a metric that has a trend but nothing to plot — weight
+  // needs two weigh-ins before a line means anything, so a client who has
+  // stepped on the scale exactly once lands here, which is every new client.
+  // Rendering the chevron anyway gave them a row that invites a press and
+  // answers with nothing, the thing SectionHeader's own comment bans and that
+  // F7 states as a rule: when a behaviour does not apply, its affordance must
+  // not render. So the element itself changes — no button, no hover fill, no
+  // focus stop, no aria-expanded pointing at a panel that will never exist.
+  const pressable = Boolean(chart)
+  const Tag = pressable ? 'button' : 'div'
+  const pressProps = pressable
+    ? { type: 'button', className: 'ds-control trend-rowbtn', 'aria-expanded': open, 'aria-controls': `trend-chart-${key}`, onClick: onToggle }
+    : { className: 'trend-rowbtn trend-rowbtn-static' }
+
   return (
     // NOT `ds-row`: that class exists to draw the hairline between records in
     // a Panel, and these rows carry no rule. Borrowing it for the layout alone
     // is how the dividers survived being deleted from .trend-row.
     <div className="trend-row">
-      <button
-        type="button"
-        className="ds-control trend-rowbtn"
-        aria-expanded={open}
-        aria-controls={`trend-chart-${key}`}
-        onClick={onToggle}
-      >
+      <Tag {...pressProps}>
         {/* The direction mark. A circle carrying the metric's hue at low
             opacity with the arrow at full — the mark Apple uses, and the one
             place on this row colour appears, so the eye finds the column. */}
@@ -66,18 +76,26 @@ function TrendRow({ metric, open, onToggle, range, onRange }) {
 
         {/* D3: a navigable row gets a direction cue, and D4 says there is one
             forward mark. Rotated to point down when the row is open, the same
-            way SectionHeader does it. */}
-        <Icon
-          name="right"
-          size="14px"
-          style={{
-            color: 'var(--color-muted)',
-            transform: open ? 'rotate(90deg)' : 'none',
-            transition: 'transform 180ms ease',
-            flexShrink: 0,
-          }}
-        />
-      </button>
+            way SectionHeader does it. Absent entirely when there is nothing to
+            open — the cue has to go with the behaviour, not outlive it. */}
+        {pressable ? (
+          <Icon
+            name="right"
+            size="14px"
+            style={{
+              color: 'var(--color-muted)',
+              transform: open ? 'rotate(90deg)' : 'none',
+              transition: 'transform 180ms ease',
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          // The column still has to exist or this row's value lands under the
+          // chevrons of the rows around it (A4: a grid column that resolves
+          // per row misaligns everything to its left).
+          <span aria-hidden="true" style={{ width: '14px', flexShrink: 0 }} />
+        )}
+      </Tag>
       {open && chart && (
         <div id={`trend-chart-${key}`} className="trend-chart">
           {/* W / M / Y. A pill you can PRESS keeps the capsule, because there

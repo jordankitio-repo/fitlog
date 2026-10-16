@@ -27,7 +27,21 @@ export default function Reorderable({ order, onReorder, enabled, children, gripS
 
   const rendered = keys.map((k) => byKey[k]).filter(Boolean)
 
-  if (!enabled) return <>{rendered}</>
+  // Fewer than three cards is not an arrangement problem.
+  //
+  // F6: don't add an affordance to a surface that does not need it. With two
+  // cards there is exactly one alternative order, and asking a reader to learn
+  // a drag mode, find a grip and complete a pointer gesture to reach it costs
+  // more than the arrangement is worth — the same trade that removed the
+  // phone record's reordering. Dashboard arrived here on its own: folding six
+  // chart panels into one Trends card left this wrapping two children, and a
+  // grip appeared beside both because nothing was watching the count.
+  //
+  // The rule lives HERE, not at the call site, for the reason F12 gives about
+  // the InfoTip width: a threshold checked by each caller is a threshold the
+  // next caller forgets. Saved orders are untouched — `mergeOrder` still runs,
+  // so a layout survives dropping below the floor and coming back.
+  if (!enabled || rendered.length < 3) return <>{rendered}</>
 
   function handleDragEnd({ active, over }) {
     if (!over || active.id === over.id) return

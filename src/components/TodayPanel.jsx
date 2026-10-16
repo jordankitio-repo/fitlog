@@ -52,7 +52,7 @@ function Cell({ label, color, value, denom, sub, pct, className = '', style }) {
       </span>
       {pct != null && (
         <div style={{ marginTop: 'var(--space-6)' }}>
-          <TargetBar pct={pct} color={color} label={label} />
+          <TargetBar pct={pct} color={color} />
         </div>
       )}
     </div>

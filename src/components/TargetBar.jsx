@@ -26,7 +26,7 @@
 const TARGET_AT = 0.8
 const MAX_PCT = 100 / TARGET_AT // 125
 
-export default function TargetBar({ pct, color, label }) {
+export default function TargetBar({ pct, color }) {
   const clamped = Math.max(0, Math.min(pct, MAX_PCT))
   const fill = clamped * TARGET_AT // → % of the track
   const upToTarget = Math.min(fill, TARGET_AT * 100)
@@ -47,7 +47,6 @@ export default function TargetBar({ pct, color, label }) {
         borderRadius: '999px',
         overflow: 'hidden',
       }}
-      data-label={label}
     >
       <div style={{
         position: 'absolute', inset: '0 auto 0 0',

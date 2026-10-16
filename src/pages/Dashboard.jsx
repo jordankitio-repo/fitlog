@@ -966,7 +966,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const gradedChart = (key, chart) => (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-8)', marginBottom: 'var(--space-8)' }}>
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Colour bars by target</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Color bars by target</span>
         <ChartColorToggle plain={plainCharts.has(key)} onToggle={() => togglePlain(key)} />
       </div>
       {chart}
