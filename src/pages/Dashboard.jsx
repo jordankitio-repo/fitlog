@@ -524,8 +524,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     setStreak(count)
   }
 
-  // Client messaging moved to <ClientChat>, mounted globally in App so the
-  // bubble is available on every page (not just the dashboard).
+  // Client messaging lives at /coach — a page, not a bubble. It passed through
+  // a globally mounted <ClientChat> on the way, which is why this comment used
+  // to name one; that component had no call site by the end and is now gone.
 
   async function fetchCheckIn() {
     const userId = (await supabase.auth.getSession()).data.session.user.id

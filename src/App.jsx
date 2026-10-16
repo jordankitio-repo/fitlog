@@ -137,11 +137,12 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   const ownsLayout = path.startsWith('/client/') || path === '/profile' || path.startsWith('/coach') || path.startsWith('/reports/')
 
   // Clients USED to carry a floating chat bubble (FAB, bottom-right) on every
-  // page, and <main> kept 96px of bottom clearance so content never sat under
-  // it. The bubble went when the conversation moved to /coach; the clearance
-  // stayed, so every client page has since reserved a strip for a control that
-  // is not rendered anywhere (`ClientChat` has no call site). The coach keeps
-  // their own bubble on ClientView, which owns its layout and pads itself.
+  // page, and <main> kept extra bottom clearance so content never sat under it.
+  // The bubble went when the conversation moved to /coach, and the component
+  // behind it has since been deleted outright. A client page now reserves only
+  // the bottom-nav strip, which it needs. The coach keeps their own bubble on
+  // ClientView; the clearance for it rides on ChatBubble, which sets
+  // `has-chat-fab` wherever it mounts rather than being claimed from here.
   const mainStyle = (isLanding || ownsLayout)
     ? { width: '100%' }
     : { maxWidth: isWideScreen ? '1180px' : '800px', margin: '0 auto', padding: '24px 16px' }

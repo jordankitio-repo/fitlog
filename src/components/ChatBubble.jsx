@@ -44,9 +44,9 @@ export default function ChatBubble({ messages = [], currentUserId, recipientName
   // bar gives trailing content extra clearance
   // (body.has-bottom-nav.has-chat-fab main, index.css).
   //
-  // This used to live in ClientChat — which has no call site at all (see the
-  // note in App.jsx: the client's bubble went when that conversation moved to
-  // /coach). So the flag was set by a component that never mounts, the CSS rule
+  // This used to live in ClientChat — a wrapper with no call site, retired when
+  // the client's conversation moved to /coach and since deleted. The flag was
+  // therefore set by a component that never mounted, the CSS rule
   // keyed on it never fired anywhere, and the one surface that DOES draw a FAB
   // — ClientView, which mounts a ChatBubble directly for the coach's thread —
   // reserved no room for it. Whatever ended that page sat under the button.

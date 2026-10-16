@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import { uploadAvatar, removeAvatar, AVATAR_MAX_BYTES } from '../utils/avatarUpload'
@@ -112,6 +112,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [exportLoading, setExportLoading] = useState(false)
   const [notice, setNotice] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState(null) // scroll-spy: section in view
 
   useEffect(() => {
@@ -460,21 +461,25 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     requestAnimationFrame(() => setTimeout(scroll, 80))
   }
 
-  // Rail clicks: "Messages" opens the client's chat bubble (it listens for
-  // ?focus=chat); everything else scrolls to its section.
+  // Rail clicks: "Messages" goes to the thread; everything else scrolls to its
+  // section. This used to set ?focus=chat and wait for the client's floating
+  // chat bubble to notice — but that bubble was retired when the conversation
+  // moved to /coach, so the rail item had quietly become a button that set a
+  // URL parameter and did nothing else. It is a destination now, like the
+  // notification that points at the same place.
   function handleRailJump(key) {
     if (key === 'messages') {
-      const sp = new URLSearchParams(searchParams)
-      sp.set('focus', 'chat')
-      setSearchParams(sp, { replace: true })
+      navigate('/coach')
       return
     }
     goToSection(key)
   }
 
   // Deep-link from another page (?focus=questionnaire etc.): scroll to it once,
-  // then strip the param so a refresh doesn't re-jump. 'chat' is owned by the
-  // ClientChat bubble (it opens + clears the param), so leave it alone here.
+  // then strip the param so a refresh doesn't re-jump. 'chat' is skipped
+  // because it names no section here: it belongs to ChatBubble, which only the
+  // coach's ClientView mounts. Nothing routes it to this page any more, but a
+  // hand-typed one must not be treated as a section name.
   useEffect(() => {
     const focus = searchParams.get('focus')
     if (!focus || focus === 'chat') return
