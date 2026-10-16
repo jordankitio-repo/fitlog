@@ -12,11 +12,33 @@
 // wearing the label of a metric, which is worse than not offering the range.
 // If per-entry event times are ever captured, D becomes real and belongs here.
 
+// Each range carries its own words, because one string cannot serve two
+// grammatical slots: the comparison reads "vs previous 7 days" (a noun) while
+// the average reads "7-day average" (an adjective). Interpolating `span` into
+// both produced "7 days average".
 export const RANGES = [
-  { key: 'W', label: 'W', days: 7, name: 'Last 7 days' },
-  { key: 'M', label: 'M', days: 30, name: 'Last 30 days' },
-  { key: 'Y', label: 'Y', days: 365, name: 'Last 12 months' },
+  { key: 'W', label: 'W', days: 7, name: 'Last 7 days', span: '7 days', adj: '7-day' },
+  { key: 'M', label: 'M', days: 30, name: 'Last 30 days', span: '30 days', adj: '30-day' },
+  { key: 'Y', label: 'Y', days: 365, name: 'Last 12 months', span: '12 months', adj: '12-month' },
 ]
+
+// The range governs the SENTENCE as well as the chart, which is why it sits
+// above both.
+//
+// It did not at first, and the card was incoherent for it: every row stated a
+// fixed 14-day comparison while the chart underneath offered 7 days, 30 days
+// or a year. One card, two different spans, and a reader with no way to tell
+// which to believe — open a row reading "holding steady" over 14 days and the
+// 30-day chart beneath it might visibly slope. Neither number was wrong. The
+// card was, for making two claims about one metric over two windows without
+// ever saying they were different windows.
+//
+// So there is exactly one window on this card at a time, the reader chooses
+// it, and the sentence and the picture describe the same span by construction
+// instead of by a constant picked in advance. 14 days is gone as a magic
+// number. That is also the answer to whose call the window is: not the
+// developer's, and not a setting buried in a profile either — a choice this
+// cheap to change belongs on a control that is already on screen.
 
 export const DEFAULT_RANGE = 'M'
 

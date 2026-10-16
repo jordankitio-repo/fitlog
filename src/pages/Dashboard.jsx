@@ -14,7 +14,8 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { windowTrend, hasTrend } from '../utils/progressTrends'
-import { bucketHistory, rangeByKey } from '../utils/chartRange'
+import { bucketHistory, rangeByKey, DEFAULT_RANGE } from '../utils/chartRange'
+import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
 import { refreshNotifications } from '../utils/notifyRefresh'
@@ -49,13 +50,19 @@ ChartJS.register(
   BarElement, Title, Tooltip, Legend, Filler
 )
 
-// How far back the metric histories reach. It was 30 days everywhere, which is
-// exactly the M range and nothing more — the Y range would have drawn one
-// month. These are narrow selects on indexed `logged_date` columns, and three
-// of the four tables hold at most one row per day, so a year is a few hundred
-// rows each; nutrition is the only wide one and it already pulls 90 days for
-// the consistency heatmap.
-const HISTORY_DAYS = 365
+// How far back the metric histories reach: TWICE the longest range.
+//
+// Every Trends row states its window against the window before it, so the Y
+// range (12 months) needs a second 12 months behind it or the comparison is
+// not "not enough history yet", it is "we never asked". A card that reports a
+// gap it created itself is worse than one that reports nothing.
+//
+// It was 30 days, which was exactly the M range and nothing more. Measured on
+// a client logging ~3.7 nutrition rows a day, 730 days of the select this page
+// makes is ~125KB uncompressed and well under that on the wire; the other
+// three tables hold at most one row per day, so they are a few hundred rows
+// each.
+const HISTORY_DAYS = 730
 
 // The history window, computed ONCE.
 //
@@ -185,6 +192,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [weightEntry, setWeightEntry] = useState(null)
   const [weightHistory, setWeightHistory] = useState([])
   const [plainCharts, togglePlain] = usePlainCharts()
+  // The Trends window. One per card, chosen by the reader in the panel header.
+  const [trendRangeKey, setTrendRangeKey] = useState(DEFAULT_RANGE)
   const [calorieHistory, setCalorieHistory] = useState([])
   const [targets, setTargets] = useState(null)
   const [cardioToday, setCardioToday] = useState({ minutes: 0, sessions: 0 })
@@ -970,7 +979,13 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   // Replaces three full-width 30-day bar charts and the weight line chart —
   // four panels and ~2,400px that all left the comparison to the reader.
   // Each row states the move; the chart is the row's disclosure.
-  const TREND_DAYS = 14
+  // The window the whole card reads over — chips in the panel header, not a
+  // constant here. See chartRange.js for why the sentence and the chart must
+  // share it.
+  const trendRange = rangeByKey(trendRangeKey)
+  const TREND_DAYS = trendRange.days
+  const TREND_SPAN = trendRange.span
+  const TREND_ADJ = trendRange.adj
 
   // The chart-colour toggle moved with its chart. It used to sit in each chart
   // panel's SectionHeader, and those panels are gone; dropping it would have
@@ -1012,14 +1027,14 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     // drifting 0.4 of a minute rendered "−0 min vs previous 14 days", a signed
     // zero that reads as a rounding bug rather than as steadiness. The flat
     // band already decided this is not a trend, so the row says so in words.
-    if (t.direction === 'flat') return `Holding steady · ${TREND_DAYS}-day average`
+    if (t.direction === 'flat') return `Holding steady · ${TREND_ADJ} average`
     const sign = t.delta > 0 ? '+' : '−'
     const size = Math.abs(t.delta)
     // Thousands separator, or a step delta reads "−1358".
     const shown = digits > 0
       ? size.toFixed(digits)
       : Math.round(size).toLocaleString()
-    return `${sign}${shown}${unit} vs previous ${TREND_DAYS} days`
+    return `${sign}${shown}${unit} vs previous ${TREND_SPAN}`
   }
   // The smallest change in each metric a person could actually act on, in that
   // metric's own unit. A move must clear this AND the client's own day-to-day
@@ -1043,7 +1058,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const trendSub = (t, unit, digits = 0) => {
     const delta = fmtDelta(t, unit, digits)
     if (delta) return delta
-    if (t.nCurrent === 0) return `Nothing logged in the last ${TREND_DAYS} days`
+    if (t.nCurrent === 0) return `Nothing logged in the last ${TREND_SPAN}`
     return `Average of ${t.nCurrent} logged ${t.nCurrent === 1 ? 'day' : 'days'} · no comparison yet`
   }
 
@@ -1560,12 +1575,13 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               underline anywhere — the tip is there for whoever presses it. */}
           <SectionHeader
             title={(
-              <InfoTip text={`Your last ${TREND_DAYS} days against the ${TREND_DAYS} before. Averaged over the days you logged, not over the calendar, so a gap in logging does not read as a drop.`}>
+              <InfoTip text={`Your last ${TREND_SPAN} against the ${TREND_SPAN} before. Averaged over the days you logged, not over the calendar, so a gap in logging does not read as a drop. A direction only shows when the move is bigger than your own day-to-day swing.`}>
                 Trends
               </InfoTip>
             )}
+            action={<RangePicker value={trendRangeKey} onChange={setTrendRangeKey} />}
           >
-            <TrendsPanel metrics={trendMetrics} />
+            <TrendsPanel metrics={trendMetrics} range={trendRangeKey} />
           </SectionHeader>
         </div>
       )}

@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import Icon from './ui/Icon'
-import Pill from './ui/Pill'
-import { RANGES, DEFAULT_RANGE, rangeByKey } from '../utils/chartRange'
 
 // The question the page never answered: which way am I going?
 //
@@ -31,7 +29,7 @@ import { RANGES, DEFAULT_RANGE, rangeByKey } from '../utils/chartRange'
 // chevron on a section header. The two never appear in the same role.
 const DIRECTION_GLYPH = { up: 'up', down: 'down', flat: 'flat' }
 
-function TrendRow({ metric, open, onToggle, range, onRange }) {
+function TrendRow({ metric, open, onToggle, range }) {
   const { key, label, color, display, sub, trend, chart } = metric
   const dir = trend?.direction
   const glyph = DIRECTION_GLYPH[dir]
@@ -98,30 +96,6 @@ function TrendRow({ metric, open, onToggle, range, onRange }) {
       </Tag>
       {open && chart && (
         <div id={`trend-chart-${key}`} className="trend-chart">
-          {/* W / M / Y. A pill you can PRESS keeps the capsule, because there
-              the shape is the affordance — the rule that bans the shape for
-              status, which is not a control. `Pill` is a Button, so the hover,
-              press and height come from the control system rather than from a
-              second implementation of it.
-
-              One range for the whole panel, not one per row: only a single
-              chart is open at a time, and a reader who sets the year view and
-              then opens a different metric means to stay in the year view. */}
-          <div className="trend-ranges" role="group" aria-label="Chart range">
-            {RANGES.map((r) => (
-              <Pill
-                key={r.key}
-                type="button"
-                active={r.key === range}
-                aria-pressed={r.key === range}
-                ariaLabel={r.name}
-                onClick={() => onRange(r.key)}
-              >
-                {r.label}
-              </Pill>
-            ))}
-            <span className="trend-range-name">{rangeByKey(range).name}</span>
-          </div>
           {chart(range)}
         </div>
       )}
@@ -137,9 +111,8 @@ function TrendRow({ metric, open, onToggle, range, onRange }) {
 // that the average is taken over the days you logged rather than over the
 // calendar. That is D5's test for the bubble, and it is the only part of that
 // sentence which earned a permanent line.
-export default function TrendsPanel({ metrics = [] }) {
+export default function TrendsPanel({ metrics = [], range }) {
   const [openKey, setOpenKey] = useState(null)
-  const [range, setRange] = useState(DEFAULT_RANGE)
 
   if (metrics.length === 0) return null
 
@@ -152,7 +125,6 @@ export default function TrendsPanel({ metrics = [] }) {
           open={openKey === m.key}
           onToggle={() => setOpenKey(openKey === m.key ? null : m.key)}
           range={range}
-          onRange={setRange}
         />
       ))}
     </div>
