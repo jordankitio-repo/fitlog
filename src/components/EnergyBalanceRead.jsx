@@ -21,7 +21,11 @@ const toneColor = (tone) => (tone === 'toward' ? GOOD : tone === 'away' ? WEAK :
 function Row({ label, value, note, tip }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-      <span style={{ fontSize: 'var(--text-sm)', color: TEXT }}>{label}{tip && <InfoTip text={tip} />}</span>
+      {/* F12: the label is the trigger, so no bare mark competes with the
+          value opposite it on a narrow row. */}
+      <span style={{ fontSize: 'var(--text-sm)', color: TEXT }}>
+        {tip ? <InfoTip text={tip}>{label}</InfoTip> : label}
+      </span>
       <span style={{ fontSize: 'var(--text-sm)', textAlign: 'right' }}>
         <strong style={{ fontWeight: 600, color: TEXT }}>{value}</strong>
         {note && <span style={{ fontSize: 'var(--text-xs)' }}>{' · '}{note}</span>}

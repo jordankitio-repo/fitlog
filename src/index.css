@@ -1693,6 +1693,8 @@ button, a, input, select, textarea {
   font-size: var(--text-xs); line-height: 1.5; color: var(--color-muted);
   font-weight: 400; text-transform: none; letter-spacing: normal; text-align: left;
   white-space: pre-line; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  /* Paired with the maxHeight InfoTip sets from the room on the chosen side. */
+  overflow: hidden;
   pointer-events: none; z-index: 3000;
 }
 

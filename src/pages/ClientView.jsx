@@ -2532,6 +2532,7 @@ async function sendMessage(text) {
             rather than a demand, so it stays tinted. */}
         <SectionHeader
           title={checkinInterval > 1 ? "This period's check-in" : "This week's check-in"}
+          info="These questions are shared by every client. Editing them changes all check-ins."
           collapsed={isCollapsed('checkIn')}
           onToggle={sectionToggle('checkIn')}
           badge={railMeta.checkIn?.meta}
@@ -2577,19 +2578,26 @@ async function sendMessage(text) {
                 <option key={opt.weeks} value={opt.weeks}>{opt.label}</option>
               ))}
             </Select>
-            {/* D5: no native title. The "applies to every client" caveat is
-                real information nothing else on the page shows, so it moves to
-                the app's own portaled bubble rather than an OS grey box. */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-              <Button
-                onClick={() => navigate('/profile?focus=questionnaire')}
-                variant="ghost"
-                size="sm"
-              >
-                Customize questions <Icon name="right" />
-              </Button>
-              <InfoTip text="These questions are shared by every client. Editing them changes all check-ins." />
-            </div>
+            {/* The "applies to every client" caveat lives on this section's
+                TITLE (the SectionHeader `info` above). It used to be a bare
+                mark parked beside this button, which is the one shape F12 is
+                against — a glyph plus its margin, on a row a phone already
+                wraps. It could not become this button's own trigger either:
+                InfoTip's wrapper carries tabIndex and role="note", and nesting
+                a real button inside that gives a keyboard user two stops for
+                one control and announces the button as a note.
+
+                Rebase note: the incoming patch closed a <div> here, because it
+                was written when this row held four cadence chips. Main has
+                since made that a <Select>, so the tag is the one the current
+                structure needs, not the one the patch carried. */}
+            <Button
+              onClick={() => navigate('/profile?focus=questionnaire')}
+              variant="ghost"
+              size="sm"
+            >
+              Customize questions <Icon name="right" />
+            </Button>
           </div>
           {!clientCheckIn ? (
             <div style={{ paddingTop: 'var(--space-8)' }}>

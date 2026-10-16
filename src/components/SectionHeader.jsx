@@ -21,13 +21,22 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTon
               renders on the roster. The bare global h2 (--text-lg) made every
               section title on ClientView and Profile a full step larger than
               every panel title on the reference screen. */}
-          <h2 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.005em' }}>{title}</h2>
-          {info && (
-            // Stop the click so tapping the "i" reveals the tip instead of collapsing.
-            <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
-              <InfoTip text={info} />
-            </span>
-          )}
+          {/* The TITLE is the tip's trigger, not a separate mark beside it.
+              F12: an InfoTip's label can be the trigger, and below 600px the
+              mark drops entirely, so the heading carries the explanation
+              without spending a glyph plus its margin on a phone — which is
+              exactly the width where there is none to spare. The click is
+              stopped so pressing the heading opens the tip rather than
+              collapsing the section underneath it. */}
+          <h2 style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.005em' }}>
+            {info
+              ? (
+                <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+                  <InfoTip text={info}>{title}</InfoTip>
+                </span>
+              )
+              : title}
+          </h2>
           {/* ui/Badge's own docs name tone="solid" as "the count badge in
               SectionHeader" — it had simply never been wired up here, so this
               was a hand-rolled copy of the primitive that described it, at 700

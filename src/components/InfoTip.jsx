@@ -35,7 +35,29 @@ export default function InfoTip({ text, children }) {
     const M = 8
     const center = r.left + r.width / 2
     const left = Math.max(HALF + M, Math.min(center, window.innerWidth - HALF - M))
-    setPos({ top: r.top - 8, left })
+
+    // Open on whichever side has the room, not always upward.
+    //
+    // The bubble was pinned above the trigger unconditionally, which is fine
+    // for a tip on a stat cell halfway down a page and wrong for one on a
+    // heading: the roster's "how to read a row" help moved onto the page title
+    // and twenty lines of it vanished off the top of the window, leaving the
+    // reader the last two. A tip near the top of the viewport has to drop.
+    //
+    // `maxHeight` is the room on the chosen side. A tip taller than both sides
+    // still clips — but it clips at the bottom of a correctly placed bubble
+    // rather than disappearing off the top, and `pointer-events: none` means
+    // a scrollbar here would not be usable anyway. If one ever genuinely needs
+    // scrolling, that is a signal the text is too long for a tooltip.
+    const above = r.top - M * 2
+    const below = window.innerHeight - r.bottom - M * 2
+    const drop = below > above
+    setPos({
+      left,
+      top: drop ? r.bottom + M : r.top - M,
+      drop,
+      maxHeight: Math.max(120, drop ? below : above),
+    })
   }
   // Leaving with the pointer must not close a tip the reader OPENED.
   //
@@ -67,7 +89,12 @@ export default function InfoTip({ text, children }) {
       {pos && createPortal(
         <span
           className="info-tip-bubble"
-          style={{ top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)' }}
+          style={{
+            top: pos.top,
+            left: pos.left,
+            maxHeight: pos.maxHeight,
+            transform: pos.drop ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+          }}
         >
           {text}
         </span>,

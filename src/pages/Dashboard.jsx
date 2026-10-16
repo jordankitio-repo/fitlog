@@ -119,8 +119,11 @@ function ratioTone(ratio) {
 function ConsistencyStat({ label, hint, n, of, tone, sub }) {
   return (
     <span className="ds-statcell" style={{ flex: '1 1 160px', minWidth: 0, gap: 'var(--space-6)' }}>
+      {/* F12: the LABEL is the trigger. The bare mark cost a glyph plus its
+          margin in a 110px cell, which is what pushed these labels onto two
+          lines and knocked the strip's numerals off a shared baseline. */}
       <span style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-faint)', fontWeight: 'var(--weight-medium)' }}>
-        {label} <InfoTip text={hint} />
+        <InfoTip text={hint}>{label}</InfoTip>
       </span>
       <span className="tnum" style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-semibold)', color: tone, lineHeight: 1.1 }}>
         {n}
@@ -1549,15 +1552,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {!(profile?.role === 'client' && lockInfo.locked) && trendMetrics.length > 0 && (
         <div key="trends" style={cardStyle}>
           {/* The window and the method hang off the title itself rather than
-              sitting above the rows as a standing paragraph. F12: the label is
-              the trigger, so the word carries no mark on a phone and no
-              underline anywhere — the tip is there for whoever presses it. */}
+              sitting above the rows as a standing paragraph. This was a hand-
+              placed InfoTip wrapping the title; SectionHeader does exactly that
+              for every caller now, so it goes through `info` like the rest. */}
           <SectionHeader
-            title={(
-              <InfoTip text={`Your last ${TREND_SPAN} against the ${TREND_SPAN} before. Averaged over the days you logged, not over the calendar, so a gap in logging does not read as a drop. A direction only shows when the move is bigger than your own day-to-day swing.`}>
-                Trends
-              </InfoTip>
-            )}
+            title="Trends"
+            info={`Your last ${TREND_SPAN} against the ${TREND_SPAN} before. Averaged over the days you logged, not over the calendar, so a gap in logging does not read as a drop. A direction only shows when the move is bigger than your own day-to-day swing.`}
             action={<RangePicker value={trendRangeKey} onChange={setTrendRangeKey} />}
           >
             <TrendsPanel metrics={trendMetrics} range={trendRangeKey} />

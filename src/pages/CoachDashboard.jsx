@@ -353,7 +353,37 @@ function CoachDashboard({ profile }) {
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
       <div>
-        <h1>Clients</h1>
+        {/* The roster's "how to read a row" help hangs off the page TITLE.
+            It used to be a bare mark floating at the end of the lens bar,
+            which is the shape F12 argues against — and this one had nothing to
+            attach to, because the Panel below carries no title and the column
+            header it explains is itself a sort BUTTON, which cannot host a tip
+            without nesting a tab stop inside a role="note". The page title is
+            the one non-interactive word on the screen that names the thing the
+            help is about, and below 600px the mark drops entirely. */}
+        <h1><InfoTip text={`How to read a row
+
+NEEDS ATTENTION is not one measurement — it is the single most pressing
+thing about that client, whichever kind that happens to be:
+
+  "5 days no log"      how recently they logged
+  "No check-in"        they haven't submitted this period's check-in
+  "Calories 2/7 days"  days on target in the last week
+  "No targets set"     you haven't set what to measure against
+  "Logged today"       nothing needs you
+
+So read DOWN the column for who needs you, not to compare clients on the
+same metric. Sorting by Attention puts the most pressing at the top.
+
+COLOUR IS A GRADE, GREY MEANS NO GRADE EXISTS:
+
+  RED     Intervene now.
+  AMBER   Watch.
+  GREEN   On track.
+  GREY    Nothing to grade yet — no targets set.
+
+CHECK-IN shows their latest self-ratings, adherence and energy, out of 10.
+A dash means none submitted this period.`}>Clients</InfoTip></h1>
         <p style={{ marginTop: 'var(--space-4)', color: 'var(--color-muted)' }}>Welcome, {profile.full_name}</p>
       </div>
 
@@ -441,31 +471,6 @@ function CoachDashboard({ profile }) {
                     <Icon name={sortDir === 'worst' ? 'down' : 'up'} size={13} strokeWidth={2.5} />
                   </button>
                 )}
-                <span style={{ marginLeft: 'auto', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
-                  <InfoTip text={`How to read a row
-
-NEEDS ATTENTION is not one measurement — it is the single most pressing
-thing about that client, whichever kind that happens to be:
-
-  "5 days no log"      how recently they logged
-  "No check-in"        they haven't submitted this period's check-in
-  "Calories 2/7 days"  days on target in the last week
-  "No targets set"     you haven't set what to measure against
-  "Logged today"       nothing needs you
-
-So read DOWN the column for who needs you, not to compare clients on the
-same metric. Sorting by Attention puts the most pressing at the top.
-
-COLOUR IS A GRADE, GREY MEANS NO GRADE EXISTS:
-
-  RED     Intervene now.
-  AMBER   Watch.
-  GREEN   On track.
-  GREY    Nothing to grade yet — no targets set.
-
-CHECK-IN shows their latest self-ratings, adherence and energy, out of 10.
-A dash means none submitted this period.`} />
-                </span>
               </div>
             <Panel flush density="compact">
               {/* Column header. One row, not per-row noise — and it earns its
