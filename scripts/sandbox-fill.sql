@@ -137,16 +137,16 @@ insert into body_measurements (user_id, logged_date, unit, neck, chest, waist, h
 -- they surface as fresh on both the coach's "Sent reports" list and the client's app.
 insert into reports (coach_id, client_id, content, week_of, created_at) values
   ((select coach from _ids), (select maya from _ids),
-   E'# Weekly Report — Maya\n\n**Great week.** Nutrition adherence held at ~94% and your weekend stayed in range, which has been the hard part.\n\n- **Weight:** trending down gently, right on plan for the cut.\n- **Body comp:** waist down 5.5cm since we started while your arm is *up* — that''s a recomp the scale alone would hide. This is the win.\n- **Cardio & steps:** consistently clearing target.\n\n**This week:** hold protein where it is, keep the Zone-2 walks. Nothing to change — momentum is the strategy.',
+   E'# Weekly Report — Maya · ' || to_char((current_date - extract(dow from current_date)::int), 'Mon FMDD') || E'\n\n**Great week.** Nutrition adherence held at ~94% and your weekend stayed in range, which has been the hard part.\n\n- **Weight:** trending down gently, right on plan for the cut.\n- **Body comp:** waist down 5.5cm since we started while your arm is *up* — that''s a recomp the scale alone would hide. This is the win.\n- **Cardio & steps:** consistently clearing target.\n\n**This week:** hold protein where it is, keep the Zone-2 walks. Nothing to change — momentum is the strategy.',
    (current_date - extract(dow from current_date)::int), now() - interval '1 day'),
   ((select coach from _ids), (select marcus from _ids),
-   E'# Weekly Report — Marcus\n\nReverse is doing exactly what it should: **weight is holding flat** while calories climb. That''s the goal.\n\n- **Watch-out:** cardio and steps dropped off during the travel week (1 session logged, steps ~7.4k vs 10k target).\n- **Nutrition:** on point at ~108% — good.\n\n**This week:** now you''re back, let''s re-anchor the daily walk and get two cardio sessions back on the board. Reply here with which days work.',
+   E'# Weekly Report — Marcus · ' || to_char((current_date - extract(dow from current_date)::int), 'Mon FMDD') || E'\n\nReverse is doing exactly what it should: **weight is holding flat** while calories climb. That''s the goal.\n\n- **Watch-out:** cardio and steps dropped off during the travel week (1 session logged, steps ~7.4k vs 10k target).\n- **Nutrition:** on point at ~108% — good.\n\n**This week:** now you''re back, let''s re-anchor the daily walk and get two cardio sessions back on the board. Reply here with which days work.',
    (current_date - extract(dow from current_date)::int), now() - interval '2 days'),
   ((select coach from _ids), (select marcus from _ids),
-   E'# Weekly Report — Marcus (prev week)\n\nSolid week. Weight steady, calories up another 100/day with no scale response — the reverse is working. Keep logging through the weekend and we''ll keep nudging intake up.',
+   E'# Weekly Report — Marcus · ' || to_char(((current_date - extract(dow from current_date)::int) - 7), 'Mon FMDD') || E'\n\nSolid week. Weight steady, calories up another 100/day with no scale response — the reverse is working. Keep logging through the weekend and we''ll keep nudging intake up.',
    (current_date - extract(dow from current_date)::int) - 7, now() - interval '9 days'),
   ((select coach from _ids), (select sam from _ids),
-   E'# Weekly Report — Sam\n\nLogging went quiet mid-week and I don''t have a check-in from you, so this one''s short.\n\n- Last few logged days were under target on calories and steps.\n- Weight''s drifted up a touch, which is fine — but I can''t coach what I can''t see.\n\n**This week:** just log. Even a rough day logged is worth more than a perfect day I never hear about. Let''s get a call on the calendar.',
+   E'# Weekly Report — Sam · ' || to_char(((current_date - extract(dow from current_date)::int) - 7), 'Mon FMDD') || E'\n\nLogging went quiet mid-week and I don''t have a check-in from you, so this one''s short.\n\n- Last few logged days were under target on calories and steps.\n- Weight''s drifted up a touch, which is fine — but I can''t coach what I can''t see.\n\n**This week:** just log. Even a rough day logged is worth more than a perfect day I never hear about. Let''s get a call on the calendar.',
    (current_date - extract(dow from current_date)::int) - 7, now() - interval '6 days');
 
 -- ── 5. Message threads (coach ↔ client) ───────────────────────────────────────
@@ -189,13 +189,13 @@ insert into coach_notes (coach_id, client_id, content) values
 -- with a single row neither structure renders.
 insert into reports (coach_id, client_id, content, week_of, created_at, read_at, archived) values
   ((select coach from _ids), (select maya from _ids),
-   E'# Weekly Report — Maya (wk -1)\n\nWeight moved the way we wanted and the tape backed it up. Protein was the standout: you hit it **every single day**, including the weekend.\n\n- **Calories:** 92% of target, no day below 85%.\n- **Steps:** cleared 9k on six of seven days.\n\n**This week:** same plan. Don''t change anything while it''s working.',
+   E'# Weekly Report — Maya · ' || to_char(((current_date - extract(dow from current_date)::int) - 7), 'Mon FMDD') || E'\n\nWeight moved the way we wanted and the tape backed it up. Protein was the standout: you hit it **every single day**, including the weekend.\n\n- **Calories:** 92% of target, no day below 85%.\n- **Steps:** cleared 9k on six of seven days.\n\n**This week:** same plan. Don''t change anything while it''s working.',
    (current_date - extract(dow from current_date)::int) - 7, now() - interval '8 days', now() - interval '7 days', false),
   ((select coach from _ids), (select maya from _ids),
-   E'# Weekly Report — Maya (wk -2)\n\nA harder week and you logged through it, which is the part that matters.\n\n- Two days under target on calories, both midweek.\n- Cardio held at four sessions.\n\n**This week:** let''s get the midweek lunches prepped ahead so the dip doesn''t repeat.',
+   E'# Weekly Report — Maya · ' || to_char(((current_date - extract(dow from current_date)::int) - 14), 'Mon FMDD') || E'\n\nA harder week and you logged through it, which is the part that matters.\n\n- Two days under target on calories, both midweek.\n- Cardio held at four sessions.\n\n**This week:** let''s get the midweek lunches prepped ahead so the dip doesn''t repeat.',
    (current_date - extract(dow from current_date)::int) - 14, now() - interval '15 days', now() - interval '14 days', false),
   ((select coach from _ids), (select maya from _ids),
-   E'# Weekly Report — Maya (wk -3)\n\nFirst full month done. Waist is down 3cm from where we started and your logging streak has not broken once.\n\n**This week:** measurements again on Sunday, then we''ll reassess the deficit.',
+   E'# Weekly Report — Maya · ' || to_char(((current_date - extract(dow from current_date)::int) - 21), 'Mon FMDD') || E'\n\nFirst full month done. Waist is down 3cm from where we started and your logging streak has not broken once.\n\n**This week:** measurements again on Sunday, then we''ll reassess the deficit.',
    (current_date - extract(dow from current_date)::int) - 21, now() - interval '22 days', now() - interval '21 days', true);
 
 -- A real backlog. Four reports never exercised the archive: no month
