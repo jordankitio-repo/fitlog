@@ -1,3 +1,4 @@
+import { wantsEmail } from '../_shared/notifications.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -92,6 +93,20 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ last_milestone_streak: streakCount }),
       })
       return jsonResponse({ ok: true, milestone: streakCount, note: 'no coach, skipped email' })
+    }
+
+    // Opting out still CONSUMES the milestone, exactly like the no-coach path
+    // directly above. `last_milestone_streak` is the dedupe marker, and it is
+    // written after the email below — so returning early without it would leave
+    // this milestone unmarked and have the client's app offer it again on every
+    // load, forever, for as long as the coach keeps the category muted.
+    if (!(await wantsEmail(supabaseUrl, serviceKey, coachId, 'milestone'))) {
+      await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${eq(clientId)}`, {
+        method: 'PATCH',
+        headers: { ...restHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ last_milestone_streak: streakCount }),
+      })
+      return jsonResponse({ ok: true, milestone: streakCount, note: 'coach opted out, skipped email' })
     }
 
     const coachRes = await fetch(

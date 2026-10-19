@@ -1,3 +1,4 @@
+import { wantsEmail } from '../_shared/notifications.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -69,6 +70,12 @@ Deno.serve(async (req) => {
     const clientName = escapeHtml(clientRows?.[0]?.full_name || 'there')
     const coachName = escapeHtml(coachRows?.[0]?.full_name || 'Your coach')
     const safeWeekOf = escapeHtml(weekOf || 'this week')
+
+    // The report row itself is created by the app and shows in the client's bell
+    // either way. This gate is only about whether it also arrives as mail.
+    if (!(await wantsEmail(supabaseUrl, serviceKey, clientId, 'report'))) {
+      return jsonResponse({ success: true, emailed: false })
+    }
 
     const apiKey = Deno.env.get('RESEND_API_KEY')
     if (!apiKey) return jsonResponse({ error: 'RESEND_API_KEY is not configured' }, 500)

@@ -93,26 +93,47 @@ codes. Named for completeness; not worth it before launch.
 ## 3. Notifications
 
 ### 3.1 Notification preferences
-**Status:** not started · **Effort:** ~2 days · **Priority:** high
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was high
 
-The biggest non-billing gap. We send notifications (the bell, plus email via
-Resend) and the user has **zero control** — there is no preference table,
-column, or screen anywhere in the codebase. A client cannot say "email me
-reports but not messages".
+`notification_preferences` (one row per user, one JSONB map) plus
+`wants_email_notification`, the single SQL function every sender asks before it
+sends. Profile → Notifications renders the categories for the reader's role;
+solo users see no panel, because every category needs a coach on one end.
 
-ChatGPT's model is the right one: per-category rows, each with a channel choice
-(Push / Email / both).
+**Two scope decisions**, both deliberate:
 
-Two reasons this is more than a nicety:
-- **CAN-SPAM** needs a working opt-out for anything marketing-flavoured, and the
-  line between transactional and marketing has to be drawn somewhere visible.
-- It pairs with the **MHMDA consent-withdrawal** story already drafted in the
-  Consumer Health Data Policy.
+- **Email only.** The in-app bell stays on. Email is the channel that intrudes
+  and the one CAN-SPAM governs; the bell is pull-not-push and derives most of
+  its entries live from `messages`/`check_ins`/`reports`, so silencing it means
+  filtering those reads for no gain the reader asked for.
+- **Six switchable categories**, all of them ACTIVITY within a coaching
+  relationship: `report`, `checkin_review`, `nudge` (client) and
+  `client_checkin`, `milestone`, `weekly_digest` (coach). Everything that
+  announces a change to the relationship ITSELF stays always-on and has no
+  category at all: an invite, a coaching connection ending either way, and the
+  cadence-change notice the entry below used to raise as an open question. So
+  does every account, security and billing notice. The table is an allow-list of
+  what is switchable, so an email nobody thought about is not silenceable by
+  accident.
 
-Shape: a preferences table (or JSONB on `profiles`), checked before each send.
-Note the new cadence-change notification (`notify_cadence_change` trigger) is a
-*transactional* notice about an obligation — probably not opt-out-able, which is
-itself a decision to make deliberately rather than by omission.
+`absent key = send`, so a user who never opens the screen has no row and
+receives everything. The gate fails OPEN on a lookup error, which is right for
+relationship mail and would be wrong for marketing — stated in the helper, so
+the first marketing email cannot quietly inherit it.
+
+*Found while building it:* `revoke all on function ... from public` does NOT
+make a function service_role-only on Supabase. Platform default privileges grant
+EXECUTE to `anon` and `authenticated` directly, and revoking from PUBLIC leaves
+those standing — so the gate, a SECURITY DEFINER function over a table nobody
+else can read, was callable by any signed-in user, one category at a time,
+against anyone's id. Caught by a test asserting the refusal. Same fix and same
+cause as `20260625000000_rate_limit_lockdown`, which means this trap has now
+been hit twice: **any new SECURITY DEFINER function in this codebase must
+revoke from `public, anon, authenticated`.**
+
+Key drift between the three places the category names live (the screen, the
+sender type, the check constraint) is a silent failure in both directions, so
+`notificationCategories.test.js` asserts all three against each other.
 
 ---
 
@@ -145,11 +166,17 @@ bigger change than it looks. Named, not recommended yet.
 ## 5. Data controls
 
 ### 5.1 Communication / consent preferences
-**Status:** not started · **Priority:** medium — overlaps 3.1
+**Status:** not started · **Priority:** medium — 3.1 built the surface for it
 
 ChatGPT's Data controls page carries marketing privacy and cookie preferences.
 Gardnr's "Data" section is Export + Delete only. The consent half ties directly
-to the MHMDA work; build it with 3.1 rather than separately.
+to the MHMDA work.
+
+3.1 shipped without it, so the remaining piece is specifically CONSENT rather
+than delivery preference: the MHMDA withdrawal story, and the first category
+that is marketing rather than relationship mail. That one cannot reuse
+`wants_email_notification` as written — it fails open, and marketing has to fail
+closed. A sibling helper, not an extra argument.
 
 ### 5.2 "Who we share data with"
 **Status:** not started · **Effort:** small · **Priority:** low
@@ -321,9 +348,9 @@ consent questions attached (see 6.2). Named so it is not forgotten.
 1. ~~**1.1 Stripe portal**~~ — SHIPPED. Needs the Dashboard portal config before
    it works in production; see 1.1.
 2. ~~**2.1 Log out everywhere**~~ — was already shipped when this list was written.
-3. **3.1 Notification preferences** (+ 5.1 consent) — the gap a user would notice.
-   **Next up.**
-4. **5.3 `reports.archived`** — finish or delete, stop carrying it
+3. ~~**3.1 Notification preferences**~~ — SHIPPED. 5.1 (consent preferences) is
+   still open and now has a panel to live in.
+4. **5.3 `reports.archived`** — finish or delete, stop carrying it. **Next up.**
 5. **4.1 / 4.2 accessibility** — cheap, supports the AA commitment
 6. **8.1 branch divergence** — must be resolved before 7.x
 7. **7.1–7.3 structure pass** (+ 9.4, same decision) — one pass, not piecemeal

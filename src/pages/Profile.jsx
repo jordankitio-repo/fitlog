@@ -18,8 +18,9 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
 import { convertGoalValue } from '../utils/weightTarget'
-import { controlStyle, Icon, Panel, Pill } from '../components/ui'
+import { controlStyle, Icon, Panel, Pill, Toggle } from '../components/ui'
 import { GOALS, goalLabel } from '../utils/goals'
+import { categoriesForRole, isEnabled } from '../utils/notificationCategories'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -123,6 +124,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [codeSending, setCodeSending] = useState(false)
   const [showTargetCalc, setShowTargetCalc] = useState(false)
   const [hiddenCharts, setHiddenCharts] = useState(profile?.layout?.hiddenCharts || [])
+  // Email notification preferences. Absent key = send, so an untouched account
+  // has no row at all and every toggle reads as on.
+  const emailCategories = categoriesForRole(profile?.role)
+  const [emailPrefs, setEmailPrefs] = useState(null)
 
   // Coach toggles which charts show on their clients' records (persisted to
   // profiles.layout.hiddenCharts; ClientView reads it). All shown by default.
@@ -136,6 +141,24 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     if (error) { console.error('Error saving chart prefs:', error); return }
     onProfileUpdate?.()
   }
+  // Optimistic, like toggleChart above: the control answers the tap and the
+  // write follows. A failed write reverts, because a toggle that stays switched
+  // while the server disagrees is the one failure a preferences screen must not
+  // have — the user would believe they had opted out.
+  async function toggleEmailCategory(key) {
+    const current = emailPrefs || {}
+    const next = { ...current, [key]: !isEnabled(current, key) }
+    setEmailPrefs(next)
+    const { error } = await supabase
+      .from('notification_preferences')
+      .upsert({ user_id: session.user.id, email: next, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' })
+    if (error) {
+      console.error('Error saving notification preferences:', error)
+      setEmailPrefs(current)
+    }
+  }
+
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [notice, setNotice] = useState(null)
@@ -166,6 +189,21 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       }
     }
     loadTargets()
+  }, [session.user.id])
+
+  useEffect(() => {
+    // maybeSingle, not single: "no row" is the normal state for anyone who has
+    // never changed a preference, and it means every category is on.
+    async function loadEmailPrefs() {
+      const { data, error } = await supabase
+        .from('notification_preferences')
+        .select('email')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+      if (error) console.error('Error fetching notification preferences:', error)
+      setEmailPrefs(data?.email || {})
+    }
+    loadEmailPrefs()
   }, [session.user.id])
 
   // Sync the editable name when the profile (re)loads — React's "adjust state
@@ -294,6 +332,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     const [
       profile, targets, nutrition, weight, cardio, steps, measurements,
       savedMeals, savedMealItems, dayComplete, checkIns, messages, notifications,
+      emailPreferences,
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase.from('targets').select('*').eq('user_id', userId),
@@ -308,6 +347,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       supabase.from('check_ins').select('*').eq('client_id', userId).order('created_at', { ascending: true }),
       supabase.from('messages').select('*').or(`coach_id.eq.${userId},client_id.eq.${userId}`).order('created_at', { ascending: true }),
       supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+      supabase.from('notification_preferences').select('*').eq('user_id', userId).maybeSingle(),
     ])
 
     const payload = {
@@ -326,6 +366,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       check_ins: checkIns.data || [],
       messages: messages.data || [],
       notifications: notifications.data || [],
+      notification_preferences: emailPreferences.data || null,
     }
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -467,6 +508,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     { key: 'messages', label: 'Messages', show: profile?.role === 'client' },
     { key: 'account', label: 'Account', show: true },
     { key: 'appearance', label: 'Appearance', show: true },
+    { key: 'notifications', label: 'Notifications', show: emailCategories.length > 0 },
     { key: 'details', label: 'Your details', show: profile?.role !== 'coach' },
     { key: 'targets', label: 'Daily targets', show: profile?.role !== 'coach' },
     { key: 'questionnaire', label: 'Check-in questions', show: profile?.role === 'coach' },
@@ -610,6 +652,29 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </p>
         <ThemeToggle />
       </Panel>
+
+      {emailCategories.length > 0 && (
+        <Panel id="section-notifications" title="Notifications">
+          <p style={{ fontSize: 'var(--text-base)', marginTop: '-6px', color: 'var(--color-muted)' }}>
+            Which emails we send you. Everything stays in the app either way, and
+            account, security and billing emails are always sent.
+          </p>
+          {emailCategories.map(c => (
+            <Toggle
+              key={c.key}
+              label={c.label}
+              description={c.description}
+              checked={isEnabled(emailPrefs, c.key)}
+              onChange={() => toggleEmailCategory(c.key)}
+              // Until the row has loaded, `emailPrefs` is null and every switch
+              // would read as on. Disabled rather than hidden, so the panel does
+              // not change height under the reader, and so a tap during the
+              // round trip cannot write a map built from a guess.
+              disabled={emailPrefs === null}
+            />
+          ))}
+        </Panel>
+      )}
 
       {profile?.role !== 'coach' && (() => {
         const metric = bio.unit_preference === 'metric'
@@ -855,23 +920,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px', color: 'var(--color-muted)' }}>
             Choose which charts appear on your clients' records. All shown by default.
           </p>
-          {CHART_TOGGLES.map(c => {
-            const shown = !hiddenCharts.includes(c.key)
-            return (
-              <div key={c.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{c.label}</span>
-                <button
-                  type="button"
-                  onClick={() => toggleChart(c.key)}
-                  aria-pressed={shown}
-                  aria-label={`${c.label} chart`}
-                  style={{ width: '44px', height: '24px', borderRadius: '999px', border: 'none', backgroundColor: shown ? 'var(--color-primary)' : 'var(--color-border)', cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}
-                >
-                  <span style={{ position: 'absolute', top: '2px', left: shown ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'var(--color-on-accent)', transition: 'left 0.2s' }} />
-                </button>
-              </div>
-            )
-          })}
+          {CHART_TOGGLES.map(c => (
+            <Toggle
+              key={c.key}
+              label={c.label}
+              checked={!hiddenCharts.includes(c.key)}
+              onChange={() => toggleChart(c.key)}
+            />
+          ))}
         </Panel>
       )}
 
