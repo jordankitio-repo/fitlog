@@ -12,24 +12,46 @@ every month it is open.
 ## 1. Revenue
 
 ### 1.1 Stripe Billing Portal — payment method, invoices, receipts
-**Status:** not started · **Effort:** ~1 day · **Priority:** highest
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was highest
 
-A coach can do exactly two things with their subscription today: **cancel** and
-**resume** (`SubscriptionManager.jsx`). There is no way to view or change a
-payment method, and no customer-portal link anywhere in the app.
+`create-portal-session` opens Stripe's hosted portal for a verified coach or
+legacy solo subscriber. The caller sends an `intent` LABEL only (`portal` or
+`payment_method`), validated against an allow-list the same way checkout
+validates `cadence`; the return URL is built server-side from `APP_URL`, never
+from the request, so there is no open redirect behind the billing endpoint.
+Guards run caller → role → rate limit → subscription → config → Stripe, which
+is why `tests/rls/portalFn.test.js` can prove the authorization half with no
+Stripe credentials at all.
 
-Meanwhile `supabase/functions/stripe-webhook/index.ts` handles
-`invoice.payment_failed`. So we *detect* the failure and offer the coach no way
-to fix it — their card expires, payment fails, and the only self-serve button on
-the page says "Cancel subscription". That is involuntary churn, and it is the
-single most expensive gap on this list.
+On the page, `past_due` now leads the Billing card with an amber `Notice` and an
+"Update card" button that goes straight into Stripe's payment-method flow. The
+portal link outlives the subscription, because invoices do: a cancelled coach
+still reaches theirs.
 
-One `billingPortal.sessions.create` redirect covers payment methods, invoices
-and receipts together. Receipts matter on their own: coaches are businesses who
-need invoices at tax time.
+**Still needed before this works in production** (neither is code):
+1. Deploy the function and, if the sandbox should return to itself, set `APP_URL`.
+2. Stripe Dashboard → Billing → Customer portal: turn ON payment methods and
+   invoice history, leave cancellation and plan switching OFF. The function
+   header says why. With no saved configuration Stripe refuses every session.
 
-*Keep what is already good:* the cancel flow's "You'll keep access until
-[date]" is the same reassurance ChatGPT uses. Do not lose it in the move.
+*Three things found while building it, all pre-existing:*
+- `billing_interval` was written by the webhook and selected by nobody, so the
+  plan-price line in `SubscriptionManager` had never rendered for a single user
+  since the column shipped in August.
+- The card printed "Renews <date>" for every status that was not `trialing`,
+  which put a renewal date under **Canceled** and directly above the new
+  payment-failed notice. The date was real and the verb was a lie. Status → verb
+  is an allow-list now, so an unhandled status renders no line at all.
+- `textTransform: capitalize` rendered `past_due` as "Past_due".
+
+*Why it was first on the list:* a coach could do exactly two things with their
+subscription — cancel and resume. Meanwhile `stripe-webhook` already handled
+`invoice.payment_failed`, so the app DETECTED a dead card and offered no way to
+fix it: the only self-serve button on the page said "Cancel subscription". That
+is involuntary churn, and it was the single most expensive gap on this list.
+
+The cancel flow's "You'll keep access until [date]" reassurance was kept, and is
+the reason cancellation stays in the app rather than moving into the portal.
 
 ### 1.2 Backup payment method
 **Status:** not started · **Effort:** small, after 1.1 · **Priority:** high
@@ -43,12 +65,14 @@ Stripe configuration once the portal exists.
 ## 2. Security
 
 ### 2.1 Log out everywhere
-**Status:** not started · **Effort:** ~1 hour · **Priority:** high (cheapest win)
+**Status:** ALREADY SHIPPED — this entry was wrong
 
-`supabase.auth.signOut()` is called in five places and every one is local to the
-device. There is no way to revoke a session on a phone you no longer have. For
-an app holding health data that is a reasonable expectation, and Supabase does
-it in one argument: `signOut({ scope: 'global' })`.
+`Profile.jsx` has `signOutEverywhere()` calling `signOut({ scope: 'global' })`,
+with its own control and copy in the Security card ("Ends your session on every
+device, including ones you no longer have"). It landed in `56624cc` with the
+passwordless-auth work, which is before this roadmap was written: the entry was
+drafted from the five LOCAL `signOut()` call sites without checking whether a
+global one existed beside them. Verified on `main` Oct 19 2026.
 
 ### 2.2 Active sessions list
 **Status:** not started · **Effort:** unknown — needs research · **Priority:** medium
@@ -294,9 +318,11 @@ consent questions attached (see 6.2). Named so it is not forgotten.
 
 ## Suggested order
 
-1. **1.1 Stripe portal** — stops losing subscribers
-2. **2.1 Log out everywhere** — an hour, closes a real gap
-3. **3.1 Notification preferences** (+ 5.1 consent) — the gap a user would notice
+1. ~~**1.1 Stripe portal**~~ — SHIPPED. Needs the Dashboard portal config before
+   it works in production; see 1.1.
+2. ~~**2.1 Log out everywhere**~~ — was already shipped when this list was written.
+3. **3.1 Notification preferences** (+ 5.1 consent) — the gap a user would notice.
+   **Next up.**
 4. **5.3 `reports.archived`** — finish or delete, stop carrying it
 5. **4.1 / 4.2 accessibility** — cheap, supports the AA commitment
 6. **8.1 branch divergence** — must be resolved before 7.x

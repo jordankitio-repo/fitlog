@@ -107,6 +107,14 @@ verify_jwt = false
 [functions.create-checkout-session]
 verify_jwt = false
 
+# Grouped with its two billing siblings above, and `false` for the same reason
+# they are: the function verifies the caller itself against /auth/v1/user, so it
+# owns the 401 and the CORS headers on it rather than handing back the
+# gateway's. The gate is real either way — see tests/rls/portalFn.test.js, which
+# asserts both the missing-token and forged-token refusals.
+[functions.create-portal-session]
+verify_jwt = false
+
 [functions.offboard-client]
 verify_jwt = false
 

@@ -24,6 +24,34 @@ import { GOALS, goalLabel } from '../utils/goals'
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
 
+// Stripe's status strings are machine names, and this card used to render them
+// through `textTransform: capitalize` — which turns `past_due` into "Past_due",
+// on the one status a coach is most likely to be reading, at the moment they are
+// least inclined to be charitable about it. The capitalize is gone with it: it
+// also title-cased everything it touched ("Free Trial"), and a map that returns
+// display-ready text has no use for a second opinion. An unmapped status falls
+// through as its raw name, which is a visible prompt to add it here.
+const STATUS_LABEL = {
+  trialing: 'Free trial',
+  active: 'Active',
+  past_due: 'Past due',
+  canceled: 'Canceled',
+  incomplete: 'Incomplete',
+}
+
+// What the date on a subscription row MEANS depends on its status, and only
+// three statuses have an honest sentence for it. The card used to print
+// "Renews <date>" for everything that was not `trialing`, which put "Renews 6
+// Nov" under "Canceled" and directly above a past-due payment notice — the date
+// is real, the verb is a lie, and nothing about either line looks wrong on its
+// own. An allow-list rather than a list of exceptions, so a status nobody
+// thought about renders no line instead of inheriting the wrong one.
+const DATE_LABEL = {
+  active: 'Renews',
+  trialing: 'Trial ends',
+  canceled: 'Ended',
+}
+
 // Coach-controlled chart visibility on the client record (keys match ClientView
 // REORDERABLE_KEYS). Stored as profiles.layout.hiddenCharts; absent = all shown.
 const CHART_TOGGLES = [
@@ -852,18 +880,25 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           {subscription ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
-              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
-                {subscription.status}
+              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>
+                {STATUS_LABEL[subscription.status] ?? subscription.status}
               </p>
-              {subscriptionDate && !subscription.cancel_at_period_end && (
+              {/* Suppressed while cancelling: SubscriptionManager prints the
+                  "you keep access until <date>" line for that case, and this
+                  one would be the same date wearing the opposite verb. */}
+              {subscriptionDate && DATE_LABEL[subscription.status] && !subscription.cancel_at_period_end && (
                 <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
-                  {subscription.status === 'trialing' ? 'Trial ends' : 'Renews'}{' '}
+                  {DATE_LABEL[subscription.status]}{' '}
                   {new Date(subscriptionDate).toLocaleDateString()}
                 </p>
               )}
-              {['trialing', 'active', 'past_due'].includes(subscription.status) && (
-                <SubscriptionManager subscription={subscription} onChange={() => window.location.reload()} />
-              )}
+              {/* No status gate here. Which controls apply is a function of the
+                  status, and that decision now lives in SubscriptionManager so
+                  there is one copy of it: a cancelled coach keeps a route to
+                  their invoices (the half of the billing portal that outlives
+                  the subscription), and a status with neither controls nor
+                  history renders nothing. */}
+              <SubscriptionManager subscription={subscription} onChange={() => window.location.reload()} />
             </div>
           ) : (
             <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>No active subscription.</p>
@@ -879,18 +914,21 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           {soloSubActive ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
-              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, textTransform: 'capitalize', color: 'var(--color-text)', margin: 0 }}>
-                {soloSubscription.status}
+              <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>
+                {STATUS_LABEL[soloSubscription.status] ?? soloSubscription.status}
               </p>
-              {(soloSubscription.current_period_end || soloSubscription.trial_end) && !soloSubscription.cancel_at_period_end && (
+              {(soloSubscription.current_period_end || soloSubscription.trial_end) && DATE_LABEL[soloSubscription.status] && !soloSubscription.cancel_at_period_end && (
                 <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
-                  {soloSubscription.status === 'trialing' ? 'Trial ends' : 'Renews'}{' '}
+                  {DATE_LABEL[soloSubscription.status]}{' '}
                   {new Date(soloSubscription.current_period_end || soloSubscription.trial_end).toLocaleDateString()}
                 </p>
               )}
-              {['trialing', 'active', 'past_due'].includes(soloSubscription.status) && (
-                <SubscriptionManager subscription={soloSubscription} onChange={() => window.location.reload()} />
-              )}
+              {/* `soloSubActive` above is already exactly these three statuses
+                  minus a coaching pause, so the second gate was always true
+                  here. Solo billing is retired, so this card stays scoped to a
+                  legacy LIVE subscription rather than widening to cancelled
+                  ones the way the coach card does. */}
+              <SubscriptionManager subscription={soloSubscription} onChange={() => window.location.reload()} />
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

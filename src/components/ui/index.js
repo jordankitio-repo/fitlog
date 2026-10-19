@@ -2,6 +2,7 @@
 export { default as Panel } from './Panel'
 export { default as Row } from './Row'
 export { default as Card } from './Card'
+export { default as Notice } from './Notice'
 export { default as Pill } from './Pill'
 export { default as IconButton } from './IconButton'
 export { default as Badge } from './Badge'
