@@ -26,7 +26,6 @@ import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
 import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from '../utils/weightTarget'
 import { measurementCadenceDays, measurementStatus } from '../utils/measurementCadence'
 import { useMediaQuery } from '../hooks/useMediaQuery'
-import { useOverflowFade } from '../hooks/useOverflowFade'
 import Reorderable from '../components/Reorderable'
 import SectionRail from '../components/SectionRail'
 import { SECTION_ICONS } from '../utils/sectionIcons'
@@ -239,7 +238,6 @@ function ClientView({ profile }) {
   // left fourteen stacked sections and no map. That is the split this page
   // branches on — not "mobile" in the abstract, but "is there a rail".
   const hasRail = useMediaQuery('(min-width: 1024px)')
-  const [cadenceRef, cadenceStrip] = useOverflowFade()
 
   // Which series the Trends destination is showing. In the URL rather than in
   // state so the back button steps through metrics and a link can name one.
@@ -787,6 +785,10 @@ async function fetchStepsHistory() {
 
   async function updateCadence(weeks) {
     if (!profile?.id) return
+    // Re-selecting the current value is not a change. The trigger that tells
+    // the client their schedule moved guards on this too, but there is no
+    // reason to make the round trip to find that out.
+    if (weeks === checkinInterval) return
     const prev = checkinInterval
     setSavingCadence(true)
     setCheckinInterval(weeks)
@@ -2518,22 +2520,24 @@ async function sendMessage(text) {
           {/* Check-in config: this client's cadence + a pointer to the shared
               questionnaire (which is per-coach, so it lives on Profile). */}
           <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
-            <div ref={cadenceRef} className={`cv-checkin-chips ${cadenceStrip}`} style={{ alignItems: 'center', gap: 'var(--space-8)' }}>
-              {/* D2: these are Pills. The hand-rolled copy they replace set its
-                  own padding and so stood 4px short of every other chip in the
-                  app, the exact bug the Pill minHeight floor exists to prevent. */}
+            {/* A SELECT, not four chips. The capsule means "a control you press
+                repeatedly" — the chart range chips, which a coach flips while
+                reading. A check-in cadence is set once per client and then left
+                alone, so by that same shape rule it is a VALUE, and a value
+                belongs in a field. Four chips also wrapped on a phone and took
+                more of this card than the check-in they configure, which the
+                layout comment above was already working around by reordering. */}
+            <Select
+              aria-label="Check-in cadence"
+              value={checkinInterval}
+              disabled={savingCadence}
+              onChange={(e) => updateCadence(Number(e.target.value))}
+              style={{ width: 'auto', cursor: 'pointer' }}
+            >
               {CADENCE_OPTIONS.map(opt => (
-                <Pill
-                  key={opt.weeks}
-                  active={checkinInterval === opt.weeks}
-                  onClick={() => updateCadence(opt.weeks)}
-                  disabled={savingCadence}
-                  aria-pressed={checkinInterval === opt.weeks}
-                >
-                  {opt.label}
-                </Pill>
+                <option key={opt.weeks} value={opt.weeks}>{opt.label}</option>
               ))}
-            </div>
+            </Select>
             {/* D5: no native title. The "applies to every client" caveat is
                 real information nothing else on the page shows, so it moves to
                 the app's own portaled bubble rather than an OS grey box. */}
