@@ -229,6 +229,69 @@ drives the nudge). Awaiting a call.
 
 ---
 
+## 9. Navigation & identity (from the app, not the settings screens)
+
+Added after a second look. Three of the reference screenshots were not settings
+at all — the main sidebar, the public profile page, and the account menu — and
+the first pass only pulled the stats strip out of them.
+
+Verified against `CoachDashboard.jsx`: the roster has the four lens chips and a
+sort direction, and **no search, no pinning, no grouping**. (A "search field"
+mention in that file is a button-sizing analogy to Cloudflare's UI, not a
+rejected feature.)
+
+### 9.1 Roster search
+**Status:** not started · **Effort:** small · **Priority:** high
+
+The sidebar carries a search field. The roster has none. At 13 clients you
+scan; the stated goal is "run 100 clients with the attention of 20", and at
+100 scanning is not a strategy. Cheapest item in this section and the one that
+scales worst if left.
+
+### 9.2 Pin a client
+**Status:** not started · **Effort:** small · **Priority:** high
+
+ChatGPT pins an item above Projects and Recents. A coach is actively working
+two or three clients in any given week and currently has to re-find them
+against a triage sort that keeps moving. A boolean on `coach_clients` plus a
+sort key, which composes with the existing lenses rather than replacing them.
+
+### 9.3 Client groups
+**Status:** not started · **Effort:** medium · **Priority:** medium
+
+"Projects" are named folders holding chats. The coach equivalent is named
+groups holding clients — prep team, online, paused, new intake. This is the
+difference between a list and a workspace, and it is what makes 100 clients
+tractable in a way sorting alone does not.
+
+Do 9.1 and 9.2 first: both are cheap, and they may absorb enough of the need
+to change what this should look like.
+
+### 9.4 Profile is not Settings
+**Status:** not started · **Effort:** part of the 7.x pass · **Priority:** medium
+
+ChatGPT separates them, and its settings rail even marks Profile with an
+external-link arrow because choosing it leaves settings. Profile is public
+identity — avatar, handle, stats, showcase, and an Edit / Private / Share
+control. Settings is configuration.
+
+Gardnr folds both into `/profile`. Worth splitting during 7.1 rather than
+after, since it is the same navigation decision.
+
+### 9.5 A coach's public profile
+**Status:** flagged · **Priority:** deferred, but think about it
+
+For ChatGPT a public profile is self-expression. For a coach it is **client
+acquisition** — credentials, results, a way to be found and to send prospects
+somewhere. Distribution is the stated constraint on this product, and this is
+the only item on this list that addresses it directly.
+
+Not scoped here because it is a product decision rather than a settings one,
+and because anything public touching client outcomes is health data with
+consent questions attached (see 6.2). Named so it is not forgotten.
+
+---
+
 ## Suggested order
 
 1. **1.1 Stripe portal** — stops losing subscribers
@@ -237,5 +300,10 @@ drives the nudge). Awaiting a call.
 4. **5.3 `reports.archived`** — finish or delete, stop carrying it
 5. **4.1 / 4.2 accessibility** — cheap, supports the AA commitment
 6. **8.1 branch divergence** — must be resolved before 7.x
-7. **7.1–7.3 structure pass** — one pass, not piecemeal
+7. **7.1–7.3 structure pass** (+ 9.4, same decision) — one pass, not piecemeal
 8. **6.1 stats strip** — once the surfaces above are stable
+
+Slot **9.1 roster search** and **9.2 pin a client** in wherever there is a gap —
+both are small, neither blocks anything, and they are the two items a coach
+would feel immediately. **9.3 client groups** after those two, once it is clear
+how much of the need they already absorbed.
