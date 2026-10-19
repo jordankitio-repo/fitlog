@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import Button from './Button'
 import Logo from './Logo'
 import FeedbackButton from './FeedbackButton'
+import { COACH_PLANS, planFor } from '../utils/coachPlans'
 
 function CheckIcon() {
   return (
@@ -40,15 +41,12 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
 
   const isCanceled = subscription?.status === 'canceled'
 
-  // Coach billing cadences. The client sends only the KEY; create-checkout-session
-  // resolves the real Stripe price server-side from role + key (never a price from
-  // the browser). Keep these keys in sync with COACH_CADENCE_PRICE_IDS there.
-  const PLANS = [
-    { key: 'monthly', name: 'Monthly', amount: '$49', period: 'per month', permo: '', badge: null },
-    { key: '6mo', name: '6 months', amount: '$264', period: 'per 6 months', permo: '$44/mo', badge: { text: 'Save 10%', tone: 'soft' } },
-    { key: 'annual', name: 'Annual', amount: '$490', period: 'per year', permo: '$41/mo', badge: { text: '2 months free', tone: 'solid' } },
-  ]
-  const plan = PLANS.find((p) => p.key === cadence) ?? PLANS[0]
+  // Coach billing cadences, shared with the Billing card now that a coach can
+  // change cadence after subscribing too. The client sends only the KEY;
+  // create-checkout-session resolves the real Stripe price server-side from
+  // role + key (never a price from the browser).
+  const PLANS = COACH_PLANS
+  const plan = planFor(cadence) ?? PLANS[0]
 
   useEffect(() => {
     async function checkEligibility() {

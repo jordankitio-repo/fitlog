@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '../supabase'
 import Button from './Button'
-import { Notice } from './ui'
+import { Notice, Pill } from './ui'
+import { COACH_PLANS, planFor, isUpgrade } from '../utils/coachPlans'
 
 // Statuses where cancel / resume mean something: there is a live subscription to
 // stop or restart.
@@ -24,6 +25,9 @@ function SubscriptionManager({ subscription, onChange }) {
   const [portalBusy, setPortalBusy] = useState(false)
   const [error, setError] = useState(null)
   const [confirming, setConfirming] = useState(false)
+  // The cadence the coach has picked but not yet confirmed, or null.
+  const [pendingCadence, setPendingCadence] = useState(null)
+  const [cadenceBusy, setCadenceBusy] = useState(false)
 
   const periodEndDate = subscription?.current_period_end || subscription?.trial_end
   const isCanceling = subscription?.cancel_at_period_end
@@ -31,13 +35,9 @@ function SubscriptionManager({ subscription, onChange }) {
   const isPastDue = subscription?.status === 'past_due'
   const canCancel = BILLABLE.includes(subscription?.status)
   const hasHistory = HAS_HISTORY.includes(subscription?.status)
-  // Maps the stored cadence key to a display amount. Undefined for older rows
-  // that predate billing_interval — the summary line just hides in that case.
-  const planAmount = {
-    monthly: '$49/month',
-    '6mo': '$264 every 6 months',
-    annual: '$490/year',
-  }[subscription?.billing_interval]
+  // Undefined for an older row that predates billing_interval, or one whose
+  // price this deployment has no env for — the summary line just hides.
+  const planAmount = planFor(subscription?.billing_interval)?.summary
 
   const asDate = (value) => new Date(value).toLocaleDateString()
 
@@ -108,6 +108,103 @@ function SubscriptionManager({ subscription, onChange }) {
     }
     setPortalBusy(false)
   }
+
+  // Moves the coach up or down the ladder. Sends a cadence KEY; the Stripe
+  // price is resolved server-side from it, never sent from here.
+  async function changeCadence(cadence) {
+    setCadenceBusy(true)
+    setError(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/change-cadence`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ cadence }),
+        }
+      )
+      const json = await res.json()
+
+      if (json.ok) {
+        setPendingCadence(null)
+        if (onChange) onChange()
+      } else {
+        setError(json.error || 'Could not change your plan.')
+      }
+    } catch {
+      setError('Could not change your plan.')
+    }
+    setCadenceBusy(false)
+  }
+
+  const currentPlan = planFor(subscription?.billing_interval)
+  const pendingPlan = planFor(pendingCadence)
+
+  // The ladder. Pills, because 999px is this app's shape for a control you
+  // press repeatedly and `Pill` is already muted-inactive / primary-selected.
+  // Hidden entirely when the stored cadence is unrecognised: without knowing
+  // where the coach IS, the strip cannot show a selected state, and a picker
+  // with nothing selected invites a change that might be a no-op or a
+  // downgrade.
+  const cadencePicker = currentPlan && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+      <p style={{
+        fontSize: 'var(--text-xs)',
+        color: 'var(--color-muted)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        margin: 0,
+      }}>
+        Billing cadence
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-8)' }}>
+        {COACH_PLANS.map((p) => {
+          const selected = p.key === currentPlan.key
+          return (
+            <Pill
+              key={p.key}
+              active={selected}
+              disabled={cadenceBusy}
+              onClick={() => !selected && setPendingCadence(p.key)}
+            >
+              {p.name} · {p.amount}
+            </Pill>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  // Changing cadence moves money today, in a direction that depends on which
+  // way you went, so the confirm step says WHICH and WHY rather than "are you
+  // sure". An upgrade takes the difference now; a downgrade hands unused time
+  // back as credit, not cash, and saying so here is the difference between a
+  // coach feeling billed and feeling robbed.
+  const cadenceConfirm = pendingPlan && currentPlan && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+      <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', margin: 0, lineHeight: 1.6 }}>
+        Switch to {pendingPlan.name}, {pendingPlan.summary}?{' '}
+        {isTrialing
+          ? 'Nothing is charged while your trial runs. The new price applies when it ends.'
+          : isUpgrade(currentPlan.key, pendingPlan.key)
+            ? `You'll be charged the difference today, less the unused part of your ${currentPlan.name.toLowerCase()} plan.`
+            : `The unused part of your ${currentPlan.name.toLowerCase()} plan becomes credit against your next invoices, so you keep what you've already paid for.`}
+      </p>
+      <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
+        <Button variant="primary" onClick={() => changeCadence(pendingPlan.key)} loading={cadenceBusy}>
+          Switch to {pendingPlan.name}
+        </Button>
+        <Button variant="ghost" onClick={() => setPendingCadence(null)} disabled={cadenceBusy}>
+          Keep {currentPlan.name}
+        </Button>
+      </div>
+    </div>
+  )
 
   const portalButton = (
     <Button variant="muted" onClick={() => openPortal('portal')} loading={portalBusy}>
@@ -183,26 +280,43 @@ function SubscriptionManager({ subscription, onChange }) {
     ) : null
   }
 
+  /* The picker's selected pill already reads "Monthly · $49", so this line only
+     earns its place while the coach is NOT yet paying it: "then" is the one
+     thing the pills cannot say. C6 — count how many times a number appears
+     before adding a surface that shows it again. It also carries the whole fact
+     when the picker is hidden, which is any row whose cadence we cannot
+     resolve. */
+  const amountLine = planAmount && (!cadencePicker || isTrialing) && (
+    <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>
+      {isTrialing ? `Then ${planAmount}.` : `${planAmount}.`}
+    </p>
+  )
+
   return (
-    <div style={{ marginTop: 12 }}>
-      {errorLine}
-      {/* The amount only. This line used to repeat the renewal date that the
-          card already prints directly above it, which it got away with because
-          `billing_interval` was never selected, so the whole line had been
-          invisible since the column shipped. With it rendering, the date was
-          on screen twice in four inches. */}
-      {planAmount && (
-        <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginBottom: 8 }}>
-          {isTrialing ? `Then ${planAmount}.` : `${planAmount}.`}
-        </p>
+    // --space-24 rather than 12 here, and the header block is only rendered
+    // when it has something in it. Wrapping "nothing" in a div still makes it a
+    // flex item, so the separation below the Status block was coming from a gap
+    // either side of an empty element: correct by accident, and silently wrong
+    // the moment anything moved. A3 wants ≥24 between groups, so it says 24.
+    <div style={{ marginTop: 'var(--space-24)', display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
+      {(errorLine || amountLine) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+          {errorLine}
+          {amountLine}
+        </div>
       )}
+
+      {/* One decision on screen at a time. Cancelling outranks a cadence
+          change, and a cadence change outranks the idle picker it came from —
+          otherwise the coach is asked to confirm a switch while the controls
+          that started it are still live behind the question. */}
       {confirming ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+          <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>
             Cancel your subscription? You'll keep access until{' '}
             {periodEndDate ? asDate(periodEndDate) : 'the end of your current period'}.
           </p>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
             <Button variant="danger" onClick={() => callManage('cancel')} loading={loading}>
               Yes, cancel
             </Button>
@@ -211,13 +325,18 @@ function SubscriptionManager({ subscription, onChange }) {
             </Button>
           </div>
         </div>
+      ) : pendingCadence ? (
+        cadenceConfirm
       ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-12)' }}>
-          {portalButton}
-          <button onClick={() => setConfirming(true)} style={linkStyle}>
-            Cancel subscription
-          </button>
-        </div>
+        <>
+          {cadencePicker}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-12)' }}>
+            {portalButton}
+            <button onClick={() => setConfirming(true)} style={linkStyle}>
+              Cancel subscription
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

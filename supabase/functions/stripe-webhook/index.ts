@@ -1,3 +1,4 @@
+import { cadenceForPrice } from '../_shared/coachPricing.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
@@ -411,9 +412,18 @@ Deno.serve(async (req) => {
             status,
             trial_end: trialEnd,
             current_period_end: currentPeriodEnd,
-            // Coach billing cadence for display. Only written when present so a
-            // later metadata-less event can't wipe it; solo subs have none.
-            ...(sub?.metadata?.cadence ? { billing_interval: sub.metadata.cadence } : {}),
+            // Coach billing cadence for display, derived from the PRICE the
+            // subscription actually carries. It used to come from
+            // `metadata.cadence`, which is stamped at checkout and never
+            // updated — so once a cadence could change without a new checkout,
+            // that metadata recorded what the coach first bought rather than
+            // what they pay now. Metadata is kept only as the fallback for a
+            // price this deployment has no env for. Still only written when
+            // resolvable, so a later event can't wipe it; solo subs have none.
+            ...(() => {
+              const cadence = cadenceForPrice(priceId) ?? sub?.metadata?.cadence
+              return cadence ? { billing_interval: cadence } : {}
+            })(),
           },
         )
 
@@ -446,7 +456,15 @@ Deno.serve(async (req) => {
             current_period_end: fromUnixSeconds(object?.current_period_end),
             trial_end: fromUnixSeconds(object?.trial_end),
             cancel_at_period_end: object?.cancel_at_period_end ?? false,
-            ...(object?.metadata?.cadence ? { billing_interval: object.metadata.cadence } : {}),
+            // Derived from the price, not from checkout-time metadata. THIS is
+            // the event a cadence change arrives on, so reading metadata here
+            // was the bug: the price would update and the displayed interval
+            // would not. See _shared/coachPricing.ts.
+            ...(() => {
+              const cadence = cadenceForPrice(object?.items?.data?.[0]?.price?.id)
+                ?? object?.metadata?.cadence
+              return cadence ? { billing_interval: cadence } : {}
+            })(),
           },
         )
         break

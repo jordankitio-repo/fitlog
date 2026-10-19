@@ -27,9 +27,16 @@
 // would get a silently different experience from one who cancelled here. The
 // DB would stay correct either way (`customer.subscription.updated` syncs
 // `cancel_at_period_end`), which is what makes this a copy problem rather than
-// a data one, and therefore easy to miss. Plan switching is off for the same
-// reason create-checkout-session never trusts a price from the browser: the
-// cadence ladder is priced server-side.
+// a data one, and therefore easy to miss.
+//
+// Plan switching is off because the app owns that flow: `change-cadence` moves
+// a coach between the three cadences with our own confirm step, which says
+// whether money leaves today or comes back as credit. Stripe's portal would do
+// the same repricing silently and with different wording, and two paths to one
+// outcome is how copy drifts apart. It would no longer CORRUPT anything —
+// `billing_interval` is derived from the price now, not from checkout-time
+// metadata, so a portal switch would be recorded correctly — but "it no longer
+// breaks" is not a reason to have two of something.
 //
 // With no default configuration saved, Stripe rejects the session outright;
 // that specific failure is detected below and reported as configuration rather

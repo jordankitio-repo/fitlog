@@ -53,6 +53,43 @@ is involuntary churn, and it was the single most expensive gap on this list.
 The cancel flow's "You'll keep access until [date]" reassurance was kept, and is
 the reason cancellation stays in the app rather than moving into the portal.
 
+### 1.3 Change billing cadence (upgrade / downgrade)
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was unlisted
+
+Surfaced by a question about Stripe's portal config: *do we allow plan
+switching?* No, and worse, there was no way to switch at all. The three-cadence
+ladder was selectable exactly once, at first checkout — `create-checkout-session`
+refuses a second checkout while a subscription is live, and CoachPaywall (the
+only picker) renders only when there isn't one. **A coach on monthly had no
+route to annual anywhere in the product**, which is the cadence the business
+most wants people on.
+
+`change-cadence` moves them, both directions, from the Billing card. The caller
+sends a cadence LABEL and the Stripe Price is resolved server-side, same as
+checkout — but unlike checkout an unknown label is REJECTED rather than
+defaulted, because defaulting at checkout costs nobody anything while
+defaulting here would silently move a paying coach down the ladder.
+
+**Proration: `always_invoice`, both ways, immediately.** Up the ladder charges
+the difference today less unused time; down hands the unused remainder back as
+credit against future invoices, not cash. Stripe's default `create_prorations`
+was wrong in a quiet way: it parks the adjustment on the NEXT invoice, and
+switching to annual makes the next invoice a year away, so a coach would have
+had twelve months of access before being billed the difference.
+
+*The bug this depended on fixing first:* `billing_interval` was written from
+`subscription.metadata.cadence`, which is stamped at checkout and never again.
+The moment a price could change without a new checkout, that metadata became a
+record of what the coach first bought rather than what they pay now — a coach
+who moved monthly to annual would have kept "$49/month." on their Billing card
+while Stripe charged $490/year. The webhook derives the interval from the PRICE
+now. **A field that records an intention will disagree with the system that
+records the fact, and the screen will show the intention.**
+
+Keep "Customers can switch plans" OFF in the Stripe portal. It is no longer
+dangerous, but the app owns this flow and its wording; two paths to one outcome
+is how copy drifts.
+
 ### 1.2 Backup payment method
 **Status:** not started · **Effort:** small, after 1.1 · **Priority:** high
 

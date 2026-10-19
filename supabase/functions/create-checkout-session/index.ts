@@ -1,3 +1,4 @@
+import { coachPriceId, isCoachCadence } from '../_shared/coachPricing.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -100,22 +101,20 @@ Deno.serve(async (req) => {
     // maps to a server-only Price ID; an unknown or missing cadence falls back to
     // 'monthly', never to a caller-supplied value.
     //
-    // Requires these in the function env (server-side, NOT VITE_*):
+    // The cadence/price mapping lives in _shared/coachPricing.ts, because a
+    // coach can now change cadence after checkout too (change-cadence) and the
+    // webhook has to read a price back into a cadence. One ladder, one module.
     //   STRIPE_COACH_PRICE_MONTHLY / _6MO / _ANNUAL  (coach, per cadence)
     //   STRIPE_SOLO_PRICE_ID                          (solo, single — dormant)
-    const COACH_CADENCE_PRICE_IDS: Record<string, string | undefined> = {
-      monthly: Deno.env.get('STRIPE_COACH_PRICE_MONTHLY'),
-      '6mo': Deno.env.get('STRIPE_COACH_PRICE_6MO'),
-      annual: Deno.env.get('STRIPE_COACH_PRICE_ANNUAL'),
-    }
-
+    //
     // Read the requested cadence from the body, validated against the allow-list.
     // Anything unrecognized (or absent) resolves to 'monthly' — we trust a
-    // caller-supplied *label*, never a caller-supplied price.
+    // caller-supplied *label*, never a caller-supplied price. Defaulting is safe
+    // HERE, where the alternative is no subscription at all; change-cadence
+    // deliberately rejects instead, because there a silent default would move a
+    // paying coach onto a cadence they did not pick.
     const body = (await req.json().catch(() => ({}))) as { cadence?: string }
-    const cadence = ['monthly', '6mo', 'annual'].includes(body.cadence ?? '')
-      ? body.cadence!
-      : 'monthly'
+    const cadence = isCoachCadence(body.cadence) ? body.cadence : 'monthly'
 
     // Verify caller
     const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
@@ -150,7 +149,7 @@ Deno.serve(async (req) => {
     // closed: if the env var is missing we refuse to open a checkout rather than
     // fall back to anything the caller supplied.
     const stripePriceId = role === 'coach'
-      ? COACH_CADENCE_PRICE_IDS[cadence]
+      ? coachPriceId(cadence)
       : Deno.env.get('STRIPE_SOLO_PRICE_ID')
     if (!stripePriceId) {
       console.error(`No Stripe price configured for role "${role}" cadence "${cadence}"`)

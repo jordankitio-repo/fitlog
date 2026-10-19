@@ -115,6 +115,11 @@ verify_jwt = false
 [functions.create-portal-session]
 verify_jwt = false
 
+# Same reasoning as its billing siblings: the function verifies the caller
+# itself, so it owns the 401 and the CORS headers on it.
+[functions.change-cadence]
+verify_jwt = false
+
 [functions.offboard-client]
 verify_jwt = false
 
