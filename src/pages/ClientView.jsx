@@ -2519,7 +2519,7 @@ async function sendMessage(text) {
           <div className="cv-checkin">
           {/* Check-in config: this client's cadence + a pointer to the shared
               questionnaire (which is per-coach, so it lives on Profile). */}
-          <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
+          <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
             {/* A SELECT, not four chips. The capsule means "a control you press
                 repeatedly" — the chart range chips, which a coach flips while
                 reading. A check-in cadence is set once per client and then left
@@ -2527,12 +2527,25 @@ async function sendMessage(text) {
                 belongs in a field. Four chips also wrapped on a phone and took
                 more of this card than the check-in they configure, which the
                 layout comment above was already working around by reordering. */}
+            {/* A VISIBLE label, via Field's own `label` prop so the text and
+                the control are one <label> and the association is real. The
+                select shipped with only an aria-label, which left a sighted
+                coach a box reading "Weekly" and nothing saying weekly WHAT —
+                the four chips at least implied their own subject. It also
+                carries the accessible name now, so there is no second name in
+                an aria-label for a voice user to have to guess at.
+
+                Sized to Button `sm`, which is what sits beside it: controlStyle
+                is 10px/--text-base and rendered 39px against the 30px of
+                "Customize questions", and two controls on one row disagreeing
+                by 9px is the kind of thing that reads as sloppy without being
+                obviously wrong. */}
             <Select
-              aria-label="Check-in cadence"
+              label="Check-in frequency"
               value={checkinInterval}
               disabled={savingCadence}
               onChange={(e) => updateCadence(Number(e.target.value))}
-              style={{ width: 'auto', cursor: 'pointer' }}
+              style={{ width: 'auto', cursor: 'pointer', padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px' }}
             >
               {CADENCE_OPTIONS.map(opt => (
                 <option key={opt.weeks} value={opt.weeks}>{opt.label}</option>
