@@ -363,9 +363,15 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     // Complete personal-data export (data-portability right). Covers every table
     // that holds the user's own data — keep in sync with the delete-account erasure
     // list. RLS still scopes each query to the caller's rows.
+    // Note on device sync: `device_connections` is exported because it is the
+    // user's own record of what they connected, and the metric rows above now
+    // carry `source` so the export shows where each number came from. Nothing
+    // credential-bearing is exported — the connection row holds no tokens by
+    // design, and `device_dismissals` is internal bookkeeping, not user data.
     const [
       profile, targets, nutrition, weight, cardio, steps, measurements,
       savedMeals, savedMealItems, dayComplete, checkIns, messages, notifications,
+      deviceConnections, deviceMetricSources, healthConsents,
       emailPreferences,
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
@@ -381,6 +387,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       supabase.from('check_ins').select('*').eq('client_id', userId).order('created_at', { ascending: true }),
       supabase.from('messages').select('*').or(`coach_id.eq.${userId},client_id.eq.${userId}`).order('created_at', { ascending: true }),
       supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+      supabase.from('device_connections').select('*').eq('user_id', userId).order('connected_at', { ascending: true }),
+      supabase.from('device_metric_preferences').select('*').eq('user_id', userId),
+      supabase.from('health_data_consents').select('*').eq('user_id', userId).order('granted_at', { ascending: true }),
       supabase.from('notification_preferences').select('*').eq('user_id', userId).maybeSingle(),
     ])
 
@@ -400,6 +409,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       check_ins: checkIns.data || [],
       messages: messages.data || [],
       notifications: notifications.data || [],
+      device_connections: deviceConnections.data || [],
+      device_metric_preferences: deviceMetricSources.data || [],
+      health_data_consents: healthConsents.data || [],
       notification_preferences: emailPreferences.data || null,
     }
 

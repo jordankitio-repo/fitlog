@@ -431,6 +431,11 @@ describe('erasure contract (service_role clears every personal-data table)', () 
     saved_meals: { name: 'usual breakfast' },
     day_complete: { logged_date: today },
     notifications: { type: 't', title: 't', body: 'b', href: '/' },
+    device_connections: { provider: 'apple_health', device_label: 'probe phone' },
+    health_data_consents: { kind: 'device_collect', scope: 'apple_health', policy_version: 'probe' },
+    // device_metric_preferences and device_dismissals are not seedable from this
+    // shape (both require a real connection_id) and both cascade from
+    // device_connections — asserted directly in deviceSync.test.js.
   }
   it.each(Object.keys(SEEDS))('service_role can seed + delete %s', async (table) => {
     const probe = await makeUser('solo', `erase-${table}`)

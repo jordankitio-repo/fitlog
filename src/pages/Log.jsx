@@ -855,9 +855,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const weighed_at = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
 
     if (savedWeight) {
+      // source: 'manual' pins this value — a later device sync will not
+      // overwrite it (enforced in apply_device_metrics, not here). external_id
+      // is deliberately LEFT ALONE: it is the dedupe key, so clearing it would
+      // make the next sync find no match and insert a duplicate of the row the
+      // client just corrected.
       const { error } = await supabase
         .from('weight_log')
-        .update({ weight: parseFloat(weight), unit: weightUnit, weighed_at })
+        .update({ weight: parseFloat(weight), unit: weightUnit, weighed_at, source: 'manual' })
         .eq('id', savedWeight.id)
       if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
     } else {
@@ -891,7 +896,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
         exercise_type: exerciseType,
         duration: parseInt(duration),
         calories_burned: parseInt(caloriesBurned) || null,
-        avg_heart_rate: parseInt(avgHeartRate) || null
+        avg_heart_rate: parseInt(avgHeartRate) || null,
+        source: 'manual', // pins the edit against later syncs; see saveWeight
       }).eq('id', editingCardio.id)
       if (error) { console.error(error); showToast('Couldn\'t save your cardio. Try again.', 'error') }
       else { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
@@ -951,6 +957,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
           logged_date: selectedDate,
           steps: parseInt(steps),
           distance: parseFloat(distance) || null,
+          // Typing a step count claims the day: this upsert deliberately
+          // overwrites a device-synced value, and marking it manual stops any
+          // later sync from taking it back. See saveWeight.
+          source: 'manual',
         },
         { onConflict: 'user_id,logged_date' }
       )

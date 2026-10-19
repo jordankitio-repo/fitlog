@@ -423,10 +423,41 @@ Deno.serve(async (req) => {
       `coach_clients?client_id=eq.${uid}`,
       `coach_clients?coach_id=eq.${uid}`,
       `invitations?coach_id=eq.${uid}`,
+      // Device sync. device_connections cascades to device_metric_preferences
+      // and device_dismissals, and the latter is keyed on connection_id so it
+      // could not be deleted by user_id anyway. Listed before the explicit
+      // preferences delete so the cascade does the work either way.
+      `device_connections?user_id=eq.${uid}`,
+      `device_metric_preferences?user_id=eq.${uid}`,
+      `health_data_consents?user_id=eq.${uid}`,
     ]
 
+    // Every response IS checked, and a failure aborts before the auth user is
+    // deleted below. This loop used to discard the responses, which is how a
+    // missing service_role grant on weight_log/cardio_log/steps_log hid for so
+    // long: PostgREST answers 42501 (permission denied) with a 4xx and the
+    // DELETE silently no-ops. Erasure that reports success while leaving health
+    // data behind is the worst possible failure mode here (FTC Health Breach
+    // Notification Rule + the state consumer-health-data laws), and on these
+    // three tables user_id has no FK to auth.users, so there is no cascade to
+    // catch the miss either -- the rows would orphan permanently.
+    //
+    // Deliberately fail CLOSED, matching the coach-subscriptions delete below:
+    // better to leave the account intact and alert than to delete the login and
+    // strand the data. Every path is collected first so one run reports every
+    // broken table, not just the first.
+    const failedDeletions: string[] = []
     for (const path of deletions) {
-      await fetch(`${supabaseUrl}/rest/v1/${path}`, { method: 'DELETE', headers })
+      const res = await fetch(`${supabaseUrl}/rest/v1/${path}`, { method: 'DELETE', headers })
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        const table = path.split('?')[0]
+        console.error(`Erasure DELETE failed on ${table} (${res.status}):`, body)
+        failedDeletions.push(`${table} (${res.status})`)
+      }
+    }
+    if (failedDeletions.length > 0) {
+      throw new Error(`Account erasure incomplete, aborted before auth deletion: ${failedDeletions.join(', ')}`)
     }
 
     // Purge the user's profile photo from Storage. The avatar lives at

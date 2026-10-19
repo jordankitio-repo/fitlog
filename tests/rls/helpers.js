@@ -70,6 +70,11 @@ export async function cleanupUsers(users) {
     'nutrition_log', 'weight_log', 'cardio_log', 'steps_log', 'targets',
     'body_measurements', 'day_complete', 'saved_meal_items', 'saved_meals',
     'notifications', 'rate_limits', 'notification_preferences',
+    // Device sync. `device_metric_preferences` and `device_dismissals` both
+    // cascade from device_connections, and dismissals is keyed on
+    // connection_id so it could not be cleared by this user_id loop anyway —
+    // deleting the connection is what reaps them.
+    'device_metric_preferences', 'device_connections', 'health_data_consents',
   ]) {
     try { await admin.from(t).delete().in('user_id', ids) } catch { /* noop */ }
   }
