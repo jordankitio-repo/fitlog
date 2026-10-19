@@ -185,12 +185,22 @@ ChatGPT has "Information shared with apps". The subprocessor register is already
 written in `compliance/` — this is mostly surfacing what exists.
 
 ### 5.3 `reports.archived` — wire it up or delete the column
-**Status:** open since Oct 15 · **Effort:** small either way · **Priority:** medium
+**Status:** DELETED (Oct 19 2026, `feat/settings-account`) · **Priority:** was medium
 
-Every report query filters `archived = false`. **Nothing anywhere sets it.** The
-escape hatch exists in the schema, is honoured on read, and is unreachable.
-ChatGPT's "Archived chats" is the pattern it was presumably built for. Either
-finish it or drop the column — leaving it is the worst of the three.
+Dropped, and this was not a fresh call: the decision was made in September and
+left half-done. `451d7db` (May) shipped a working client-side archive;
+`a070598` (Sep) deleted it on purpose — "Archive is gone from the client: a
+filing chore for a handful of letters" — but removed only the WRITERS. The
+column, four `.eq('archived', false)` filters, an "Archived" badge in the
+coach's sent list and the `archive` glyph all survived the feature they
+existed for. So the column was read on every report load and written by nothing
+for thirteen months.
+
+**Before deploying:** `select count(*) from public.reports where archived;` on
+production. Any report a client archived before September is currently hidden
+from them, and dropping the column puts it back in their list. That is the
+behaviour September chose, but it is visible to those clients. Expected to be
+zero.
 
 ---
 
@@ -350,8 +360,8 @@ consent questions attached (see 6.2). Named so it is not forgotten.
 2. ~~**2.1 Log out everywhere**~~ — was already shipped when this list was written.
 3. ~~**3.1 Notification preferences**~~ — SHIPPED. 5.1 (consent preferences) is
    still open and now has a panel to live in.
-4. **5.3 `reports.archived`** — finish or delete, stop carrying it. **Next up.**
-5. **4.1 / 4.2 accessibility** — cheap, supports the AA commitment
+4. ~~**5.3 `reports.archived`**~~ — DELETED, the September removal finished.
+5. **4.1 / 4.2 accessibility** — cheap, supports the AA commitment. **Next up.**
 6. **8.1 branch divergence** — must be resolved before 7.x
 7. **7.1–7.3 structure pass** (+ 9.4, same decision) — one pass, not piecemeal
 8. **6.1 stats strip** — once the surfaces above are stable

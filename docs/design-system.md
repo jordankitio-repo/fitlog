@@ -310,6 +310,18 @@ link pointed straight at it. Always render the only route to a destination.
 control, its state, and a whole second tree, for a surface holding a handful of
 letters. Old ones fall down the list.
 
+*Finished Oct 19 2026, and the gap is the lesson.* Only the WRITERS went in
+September. `reports.archived` stayed in the schema, four `.eq('archived',
+false)` filters stayed on every report query, an "Archived" badge stayed in the
+coach's sent list, and the `archive` glyph stayed in the icon set — five
+leftovers from one deleted feature, each of them harmless-looking on its own.
+The column had been read on every load and written by nothing for thirteen
+months. **Deleting a feature means deleting what it reads from and what it
+drew with, not just the control** — otherwise the next person finds an escape
+hatch that is honoured on read, reachable from nowhere, and indistinguishable
+from a feature. The row below still records what that pass shipped, including
+the glyph; this is what happened to it.
+
 **`read_at` belongs to the recipient.** It is the very thing the coach's list
 reports back to them ("Read" / "Unread"), so the reader marks it only when the
 viewer IS the client, and the coach's own sent list expands in place rather than

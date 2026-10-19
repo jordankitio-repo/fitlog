@@ -10,14 +10,15 @@ const PATHS = {
   x:        <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>,
   pencil:   <><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></>,
   repeat:   <><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></>,
-  // Archive — filing a report away, not dismissing it. It was borrowed `x`,
-  // which is the DISMISS mark: a client hovering their coach's report saw the
-  // glyph that everywhere else means "get rid of this". D4 is one glyph per
-  // meaning, and archiving had no glyph of its own. Restoring keeps `repeat`,
-  // which is a distinct meaning (put it back) and already reads that way.
-  archive:  <><polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" rx="1" /><line x1="10" y1="12" x2="14" y2="12" /></>,
-  // Delete — destroying a row, not dismissing a view. Same borrowed-`x` story
-  // as `archive` directly above, one verb along: the Log's entry, meal, saved
+  // There was an `archive` glyph here, drawn for one caller: the control that
+  // filed a coach's report away. That feature was deleted in September 2026 as
+  // a filing chore, and `reports.archived` with it — so the glyph outlived the
+  // only action it named, carrying five lines explaining a verb the app no
+  // longer has. An icon set is a set of MEANINGS, and a meaning nothing means
+  // any more is not one. `repeat` stays: it still un-does things on the Log.
+  //
+  // Delete — destroying a row, not dismissing a view. It was borrowed `x`, the
+  // DISMISS mark, one verb along: the Log's entry, meal, saved
   // meal and cardio rows all hard-DELETE, and all four wore the mark that means
   // "close this". A red `x` beside a pencil reads as "cancel the edit", which is
   // the one thing it does not do. Feather's simple can, without the inner
