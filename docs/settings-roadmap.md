@@ -273,6 +273,28 @@ already caused a cherry-pick conflict (Oct 19) that had to be ported by hand, an
 every further change to that file will need the same. Decide what happens to
 those commits before starting 7.1.
 
+### 8.2a FIXED: a client could rewrite their coach's report
+
+Found Oct 19 2026 while doing 5.3, on the same table, and fixed in
+`20261019120000`. The policy `"Clients can update their report read status"`
+restricts the ROW and not the COLUMN, so a client could UPDATE any field on
+their own report row — `content` included. Demonstrated before the fix: a
+client UPDATE replaced a coach's assessment with their own text, no error, and
+the coach's sent list then showed the altered version back to them, because
+both sides read the same row.
+
+**The policy name was the whole bug.** It states an intent RLS cannot express —
+RLS filters rows and has no opinion about columns — and it reads as correct in
+every review. Column privileges express it: UPDATE on `reports` is now granted
+only on `read_at`. Verified against every writer first (coaches INSERT and
+never UPDATE; clients write `read_at` only), so nothing legitimate lost a
+capability. `reportIntegrity.test.js` asserts both halves.
+
+**Worth sweeping for:** this is a class, not an instance. Any policy whose NAME
+names a column is making a promise `USING`/`WITH CHECK` cannot keep. See 8.2
+directly below, which is the same failure with the enforcement missing
+entirely rather than mis-expressed.
+
 ### 8.2 Coach-only controls are UI-only, not enforced
 RLS policy `coach_clients_update_by_client` lets a **client** update their own
 `coach_clients` row, so a client can change their own `checkin_interval_weeks`
