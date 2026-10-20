@@ -1,3 +1,4 @@
+import { wantsEmail } from '../_shared/notifications.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -36,7 +37,6 @@ Deno.serve(async (req) => {
 
     if (!authHeader) return jsonResponse({ error: 'Missing authorization header' }, 401)
     if (!clientId) return jsonResponse({ error: 'Missing clientId' }, 400)
-    if (!resendApiKey) return jsonResponse({ error: 'RESEND_API_KEY is not configured' }, 500)
 
     const token = authHeader.replace('Bearer ', '')
 
@@ -114,7 +114,22 @@ Deno.serve(async (req) => {
       ctaHref = 'https://www.gardnr.fit/log'
     }
 
-    const emailRes = await fetch('https://api.resend.com/emails', {
+    // Only the EMAIL is optional. `last_nudged_at` below is written either way:
+    // it drives the client's in-app nudge notice (the channel that survives an
+    // email opt-out) and the coach's roster cooldown, so skipping it would make
+    // a muted client look un-nudged to their coach and re-nudgeable forever.
+    const sendEmail = await wantsEmail(supabaseUrl, serviceKey, clientProfile.id, 'nudge')
+
+    // The key is checked HERE rather than at the top, because a nudge to a
+    // client who muted nudge email sends no mail and so needs no mail
+    // configuration. Checked up front, an opted-out nudge would fail with
+    // "RESEND_API_KEY is not configured" while having nothing to configure it
+    // for, and the coach's nudge would not register.
+    if (sendEmail && !resendApiKey) {
+      return jsonResponse({ error: 'RESEND_API_KEY is not configured' }, 500)
+    }
+
+    const emailRes = sendEmail ? await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -136,9 +151,9 @@ Deno.serve(async (req) => {
           </div>
         `,
       }),
-    })
-    const emailData = await emailRes.json()
-    if (!emailRes.ok) {
+    }) : null
+    if (emailRes && !emailRes.ok) {
+      const emailData = await emailRes.json()
       return jsonResponse({ success: false, error: emailData }, emailRes.status)
     }
 
@@ -156,7 +171,7 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to update nudge timestamp: ${updateText}`)
     }
 
-    return jsonResponse({ success: true })
+    return jsonResponse({ success: true, emailed: sendEmail })
   } catch (error) {
     return jsonResponse({ error: error.message }, 500)
   }

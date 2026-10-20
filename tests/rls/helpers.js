@@ -69,7 +69,7 @@ export async function cleanupUsers(users) {
   for (const t of [
     'nutrition_log', 'weight_log', 'cardio_log', 'steps_log', 'targets',
     'body_measurements', 'day_complete', 'saved_meal_items', 'saved_meals',
-    'notifications', 'rate_limits',
+    'notifications', 'rate_limits', 'notification_preferences',
   ]) {
     try { await admin.from(t).delete().in('user_id', ids) } catch { /* noop */ }
   }

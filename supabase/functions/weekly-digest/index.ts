@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { wantsEmail } from '../_shared/notifications.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -82,6 +83,13 @@ async function runDigest() {
   for (const coach of coachProfiles || []) {
     const clientList = coachMap[coach.id]?.clients || []
     if (clientList.length === 0) continue
+
+    // Checked at the TOP of the loop, not at the send: a coach who muted the
+    // digest should not have a week of their roster's logs queried and totalled
+    // so the result can be thrown away.
+    if (!(await wantsEmail(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, coach.id, 'weekly_digest'))) {
+      continue
+    }
 
     const clientIds = clientList.map((c: any) => c.id)
 

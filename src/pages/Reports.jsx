@@ -81,7 +81,6 @@ export function ReportArchive({ profile, activeId = null }) {
     async function load() {
       const { data, error, count } = await supabase
         .from('reports').select('*', { count: 'exact' })
-        .eq('archived', false)
         .order('created_at', { ascending: false })
         .range(0, PAGE - 1)
       if (error) { console.error(error); setReports([]); return }
@@ -96,7 +95,6 @@ export function ReportArchive({ profile, activeId = null }) {
     const from = reports.length
     const { data, error } = await supabase
       .from('reports').select('*')
-      .eq('archived', false)
       .order('created_at', { ascending: false })
       .range(from, from + PAGE - 1)
     if (!error && data) setReports(prev => [...prev, ...data])
@@ -200,7 +198,7 @@ export default function ReportReader({ inPane = false, inModal = false }) {
       // the one thing every archive that works does not do.
       const { data: all } = await supabase
         .from('reports').select('id, created_at')
-        .eq('client_id', data.client_id).eq('archived', false)
+        .eq('client_id', data.client_id)
         .order('created_at', { ascending: false })
       setSiblings(all || [])
     }

@@ -65,6 +65,7 @@ import {
   Filler
 } from 'chart.js'
 import { Icon, Pill, Field, Select, Textarea } from '../components/ui'
+import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -381,7 +382,7 @@ function ClientView({ profile }) {
     let tries = 0
     const scroll = () => {
       const el = document.getElementById('section-' + key)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
       else if (tries++ < 20) setTimeout(scroll, 100)
     }
     // Expand + scroll deferred to a frame so calling this from the deep-link
@@ -1362,7 +1363,7 @@ async function sendMessage(text) {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const { data, error, count } = await supabase
       .from('reports')
-      .select('id, content, week_of, created_at, read_at, archived', { count: 'exact' })
+      .select('id, content, week_of, created_at, read_at', { count: 'exact' })
       .eq('coach_id', currentSession.user.id)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
@@ -2241,7 +2242,6 @@ async function sendMessage(text) {
                           }}>
                             {r.read_at ? 'Read' : 'Unread'}
                           </span>
-                          {r.archived && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)' }}>Archived</span>}
                         </span>
                         {!open && <span className="rep-row-lead">{leadOf(r.content)}</span>}
                       </span>

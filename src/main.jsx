@@ -4,9 +4,16 @@ import './index.css'
 import { Sentry } from './sentry'
 import App from './App.jsx'
 import { initThemeWatcher } from './utils/theme'
+import { initMotion } from './utils/motion'
+import { initTextScale } from './utils/textScale'
 import { initIosInputZoomGuard } from './utils/iosInputZoom'
 
 initThemeWatcher()
+// The inline script in index.html has already applied all three before first
+// paint. These re-apply from the same storage and, for theme and motion,
+// subscribe to the OS setting so a change there lands without a reload.
+initMotion()
+initTextScale()
 initIosInputZoomGuard()
 
 createRoot(document.getElementById('root')).render(

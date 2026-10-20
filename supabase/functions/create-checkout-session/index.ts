@@ -1,3 +1,5 @@
+import { coachPriceId, isCoachCadence } from '../_shared/coachPricing.ts'
+import { idempotencyHeader } from '../_shared/stripeIdempotency.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -17,14 +19,19 @@ function stripeHeaders(stripeSecretKey: string) {
   }
 }
 
+// `idempotency` is the header object from idempotencyHeader(), or nothing. A
+// double-submitted checkout used to be able to mint a second Stripe CUSTOMER
+// for the same coach, which is how an account ends up with its billing history
+// split across two records that neither Stripe nor we can reconcile later.
 async function stripePost(
   path: string,
   params: URLSearchParams,
   stripeSecretKey: string,
+  idempotency: Record<string, string> = {},
 ) {
   const response = await fetch(`https://api.stripe.com/v1/${path}`, {
     method: 'POST',
-    headers: stripeHeaders(stripeSecretKey),
+    headers: { ...stripeHeaders(stripeSecretKey), ...idempotency },
     body: params.toString(),
   })
   const data = await response.json()
@@ -100,22 +107,20 @@ Deno.serve(async (req) => {
     // maps to a server-only Price ID; an unknown or missing cadence falls back to
     // 'monthly', never to a caller-supplied value.
     //
-    // Requires these in the function env (server-side, NOT VITE_*):
+    // The cadence/price mapping lives in _shared/coachPricing.ts, because a
+    // coach can now change cadence after checkout too (change-cadence) and the
+    // webhook has to read a price back into a cadence. One ladder, one module.
     //   STRIPE_COACH_PRICE_MONTHLY / _6MO / _ANNUAL  (coach, per cadence)
     //   STRIPE_SOLO_PRICE_ID                          (solo, single — dormant)
-    const COACH_CADENCE_PRICE_IDS: Record<string, string | undefined> = {
-      monthly: Deno.env.get('STRIPE_COACH_PRICE_MONTHLY'),
-      '6mo': Deno.env.get('STRIPE_COACH_PRICE_6MO'),
-      annual: Deno.env.get('STRIPE_COACH_PRICE_ANNUAL'),
-    }
-
+    //
     // Read the requested cadence from the body, validated against the allow-list.
     // Anything unrecognized (or absent) resolves to 'monthly' — we trust a
-    // caller-supplied *label*, never a caller-supplied price.
-    const body = (await req.json().catch(() => ({}))) as { cadence?: string }
-    const cadence = ['monthly', '6mo', 'annual'].includes(body.cadence ?? '')
-      ? body.cadence!
-      : 'monthly'
+    // caller-supplied *label*, never a caller-supplied price. Defaulting is safe
+    // HERE, where the alternative is no subscription at all; change-cadence
+    // deliberately rejects instead, because there a silent default would move a
+    // paying coach onto a cadence they did not pick.
+    const body = (await req.json().catch(() => ({}))) as { cadence?: string; requestId?: string }
+    const cadence = isCoachCadence(body.cadence) ? body.cadence : 'monthly'
 
     // Verify caller
     const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
@@ -150,7 +155,7 @@ Deno.serve(async (req) => {
     // closed: if the env var is missing we refuse to open a checkout rather than
     // fall back to anything the caller supplied.
     const stripePriceId = role === 'coach'
-      ? COACH_CADENCE_PRICE_IDS[cadence]
+      ? coachPriceId(cadence)
       : Deno.env.get('STRIPE_SOLO_PRICE_ID')
     if (!stripePriceId) {
       console.error(`No Stripe price configured for role "${role}" cadence "${cadence}"`)
@@ -187,7 +192,7 @@ Deno.serve(async (req) => {
           email: profile.email || user.email || '',
           'metadata[coach_id]': user.id,
           'metadata[plan_type]': 'coach',
-        }), stripeSecretKey)
+        }), stripeSecretKey, idempotencyHeader(`customer:${user.id}`, body.requestId))
         stripeCustomerId = customer.id
       }
 
@@ -210,7 +215,8 @@ Deno.serve(async (req) => {
       })
       if (coachTrialEligible) sessionParams.set('subscription_data[trial_period_days]', '14')
 
-      const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
+      const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey,
+        idempotencyHeader(`checkout:${user.id}`, body.requestId))
 
       // NOTE: trial usage is recorded by stripe-webhook when the subscription
       // actually enters `trialing` — not here. Marking it at session creation
@@ -272,7 +278,7 @@ Deno.serve(async (req) => {
           email: profile.email || user.email || '',
           'metadata[solo_id]': user.id,
           'metadata[plan_type]': 'solo',
-        }), stripeSecretKey)
+        }), stripeSecretKey, idempotencyHeader(`customer:${user.id}`, body.requestId))
         stripeCustomerId = customer.id
       }
 
@@ -294,7 +300,8 @@ Deno.serve(async (req) => {
       })
       if (soloTrialEligible) sessionParams.set('subscription_data[trial_period_days]', '14')
 
-      const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey)
+      const session = await stripePost('checkout/sessions', sessionParams, stripeSecretKey,
+        idempotencyHeader(`checkout:${user.id}`, body.requestId))
 
       // NOTE: trial usage is recorded by stripe-webhook when the subscription
       // actually enters `trialing` — not here. See coach flow above.

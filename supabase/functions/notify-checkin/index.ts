@@ -1,3 +1,4 @@
+import { wantsEmail } from '../_shared/notifications.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -62,6 +63,11 @@ Deno.serve(async (req) => {
     ])
     const coachEmail = coachRows?.[0]?.email
     if (!coachEmail) return jsonResponse({ error: 'Coach email not found' }, 404)
+
+    // The check-in is in the coach's bell either way; this is the mail about it.
+    if (!(await wantsEmail(supabaseUrl, serviceKey, coachId, 'client_checkin'))) {
+      return jsonResponse({ success: true, emailed: false })
+    }
 
     const apiKey = Deno.env.get('RESEND_API_KEY')
     if (!apiKey) return jsonResponse({ error: 'RESEND_API_KEY is not configured' }, 500)

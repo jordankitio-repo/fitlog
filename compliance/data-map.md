@@ -17,6 +17,7 @@
 | Billing | Stripe customer/subscription IDs, status, trial flags; **hashed** email for trial dedup | `subscriptions`, `trial_ledger` | — |
 | Card data | **NONE stored** — entered on Stripe-hosted Checkout | (Stripe only) | — |
 | Notifications | server-pushed events | `notifications` | — |
+| Notification prefs | which emails the user switched off (per category) | `notification_preferences` | — |
 | Technical | IP, user-agent, device, usage | Supabase + Vercel request logs | — |
 | Client-side prefs | theme, notif last-seen, chart prefs | browser `localStorage` (not cookies) | — |
 | Abuse control | per-user rate-limit counters | `rate_limits` | — |
@@ -41,7 +42,7 @@
 
 **PCI DSS — SAQ A.** All card entry happens on the **Stripe-hosted Checkout page** (`create-checkout-session` returns a URL; the frontend redirects). No PAN touches Gardnr's frontend or servers. Eligible for the shortest self-assessment (SAQ A); rely on Stripe's PCI Level 1 attestation.
 
-**Other binding regimes (US):** CCPA/CPRA + ~14 state privacy laws (access / delete / correct / **portability** / "do not sell or share" — Gardnr does not sell); WA MHMDA + NV/CT consumer-health-data laws (separate policy + consent + no geofencing + no sale without separate authorization); CAN-SPAM (transactional only today); ADA / WCAG 2.1 AA.
+**Other binding regimes (US):** CCPA/CPRA + ~14 state privacy laws (access / delete / correct / **portability** / "do not sell or share" — Gardnr does not sell); WA MHMDA + NV/CT consumer-health-data laws (separate policy + consent + no geofencing + no sale without separate authorization); CAN-SPAM (transactional only today; per-category email opt-out shipped Oct 19 2026, Profile → Notifications); ADA / WCAG 2.1 AA.
 
 ## 4. Data-subject rights — current implementation
 

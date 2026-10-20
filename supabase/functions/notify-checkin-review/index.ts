@@ -1,3 +1,4 @@
+import { wantsEmail } from '../_shared/notifications.ts'
 // Email a client when their coach reviews their check-in (optionally with a
 // comment). Mirrors notify-report: the caller must be the client's ACTIVE
 // coach, the recipient + names are derived server-side (never trust a
@@ -71,6 +72,11 @@ Deno.serve(async (req) => {
     const clientName = escapeHtml(clientRows?.[0]?.full_name || 'there')
     const coachName = escapeHtml(coachRows?.[0]?.full_name || 'Your coach')
     const safeComment = comment ? escapeHtml(comment) : ''
+
+    // The review is already visible on the client's check-in; this is the mail.
+    if (!(await wantsEmail(supabaseUrl, serviceKey, clientId, 'checkin_review'))) {
+      return jsonResponse({ success: true, emailed: false })
+    }
 
     const apiKey = Deno.env.get('RESEND_API_KEY')
     if (!apiKey) return jsonResponse({ error: 'RESEND_API_KEY is not configured' }, 500)

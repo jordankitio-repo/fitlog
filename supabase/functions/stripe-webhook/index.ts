@@ -1,3 +1,4 @@
+import { cadenceForPrice } from '../_shared/coachPricing.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
@@ -205,6 +206,55 @@ async function offboardCoachClients(
   }
 }
 
+// Stripe delivers at least once, so the same event can arrive twice — and two
+// of the handlers below do real, non-repeatable work (offboarding a whole
+// roster and emailing them; burning a free trial). These claim the event
+// before any of that runs. See 20261019130000_stripe_event_dedupe.sql for why
+// it is a CLAIM rather than a "have I seen this" check.
+//
+// Fails OPEN: if the claim call itself errors we process the event anyway.
+// Processing a duplicate is recoverable; dropping a subscription event because
+// a bookkeeping table was unreachable is not.
+async function claimEvent(
+  supabaseUrl: string,
+  serviceKey: string,
+  eventId: string,
+  type: string,
+): Promise<boolean> {
+  if (!eventId) return true
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/claim_stripe_event`, {
+      method: 'POST',
+      headers: restHeaders(serviceKey),
+      body: JSON.stringify({ p_event_id: eventId, p_type: type }),
+    })
+    if (!res.ok) {
+      console.error(`claim_stripe_event -> ${res.status}; processing anyway`)
+      return true
+    }
+    return (await res.json()) !== false
+  } catch (err) {
+    console.error('claim_stripe_event threw; processing anyway:', err)
+    return true
+  }
+}
+
+// Only ever called after the handler returns without throwing. A failed run
+// deliberately leaves the claim unfinished, so Stripe's retry can pick it up
+// once the claim goes stale.
+async function completeEvent(supabaseUrl: string, serviceKey: string, eventId: string) {
+  if (!eventId) return
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/rpc/complete_stripe_event`, {
+      method: 'POST',
+      headers: restHeaders(serviceKey),
+      body: JSON.stringify({ p_event_id: eventId }),
+    })
+  } catch (err) {
+    console.error('complete_stripe_event failed:', err)
+  }
+}
+
 function restHeaders(serviceKey: string) {
   return {
     'Authorization': `Bearer ${serviceKey}`,
@@ -268,6 +318,100 @@ async function markTrialUsed(
   }
 }
 
+// Tells the coach their payment failed, by email, because the app cannot.
+//
+// The Billing card already shows a recovery notice on `past_due` — but a coach
+// only sees it if they open the app and scroll to that card. Stripe retries a
+// failed card for about two weeks and then the subscription is gone, taking
+// every one of that coach's clients' access with it. Discovering that by
+// logging in one day and finding your roster offboarded is the worst outcome
+// this system can produce, and it was reachable in silence.
+//
+// WHY IT EMAILS ON EVERY ATTEMPT, NOT JUST THE FIRST. Stripe fires this event
+// once per retry, and each one is a different message: the early ones say when
+// the next attempt is, the last one says there isn't one. `next_payment_attempt`
+// is null on the final failure, which is the only moment the words "your
+// subscription will end" are true — and that is the message most likely to be
+// acted on. Sending only the first would put the gentlest warning in front of
+// the coach and nothing at all at the deadline.
+//
+// Never gated on notification preferences. Billing is always-on, alongside
+// account and security mail: this is not activity within a relationship, it is
+// the relationship about to stop.
+async function sendPaymentFailedEmail(
+  supabaseUrl: string,
+  serviceKey: string,
+  ownerId: string,
+  invoice: Record<string, unknown>,
+) {
+  const resendKey = Deno.env.get('RESEND_API_KEY')
+  if (!resendKey) return
+
+  const headers = restHeaders(serviceKey)
+  const profileRes = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?id=eq.${eq(ownerId)}&select=email,full_name`,
+    { headers },
+  )
+  const profile = (await profileRes.json().catch(() => []))?.[0]
+  if (!profileRes.ok || !profile?.email) return
+
+  const name = escapeHtml(profile.full_name || 'there')
+  const nextAttempt = typeof invoice?.next_payment_attempt === 'number'
+    ? new Date((invoice.next_payment_attempt as number) * 1000)
+    : null
+  const amountDue = typeof invoice?.amount_due === 'number'
+    ? `$${((invoice.amount_due as number) / 100).toFixed(2)}`
+    : null
+
+  const isFinal = !nextAttempt
+  const subject = isFinal
+    ? 'Last chance: your Gardnr subscription is about to end'
+    : 'Your Gardnr payment did not go through'
+
+  const lead = isFinal
+    ? `We could not take ${amountDue ? `the ${amountDue} payment` : 'your payment'}, and that was the last attempt. Your subscription will end shortly, and your clients will lose access with it.`
+    : `We could not take ${amountDue ? `the ${amountDue} payment` : 'your payment'} for your Gardnr subscription. We will try again on ${nextAttempt!.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.`
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="background:#0a0a0a;color:#a3a3a3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:0">
+  <div style="max-width:560px;margin:0 auto;padding:40px 24px">
+    <p style="font-size:22px;font-weight:700;color:#f4f4f4;letter-spacing:-0.02em;margin:0 0 32px">Gardnr</p>
+    <h2 style="font-size:18px;font-weight:600;color:#f4f4f4;margin:0 0 16px">${isFinal ? 'Your subscription is about to end' : 'Your payment did not go through'}</h2>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">Hi ${name},</p>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 16px">${lead}</p>
+    <p style="font-size:14px;color:#a3a3a3;line-height:1.7;margin:0 0 32px">
+      Updating your card takes a minute and fixes it. Nothing else about your account changes.
+    </p>
+    <a href="https://www.gardnr.fit/profile?focus=billing" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">
+      Update payment method
+    </a>
+    <p style="margin-top:32px;font-size:11px;color:#333;line-height:1.6">
+      Gardnr &middot; <a href="https://www.gardnr.fit" style="color:#333">gardnr.fit</a>
+    </p>
+  </div>
+</body>
+</html>`
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
+      body: JSON.stringify({
+        from: 'Gardnr <noreply@gardnr.fit>',
+        to: profile.email,
+        subject,
+        html,
+      }),
+    })
+    if (!res.ok) console.error('payment-failed email rejected:', await res.text())
+  } catch (err) {
+    console.error('payment-failed email threw:', err)
+  }
+}
+
 async function fetchSubscriptionRow(
   supabaseUrl: string,
   serviceKey: string,
@@ -278,7 +422,7 @@ async function fetchSubscriptionRow(
 
   if (stripeSubscriptionId) {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/subscriptions?stripe_subscription_id=eq.${eq(stripeSubscriptionId)}&select=id,coach_id,paused_for_coaching&limit=1`,
+      `${supabaseUrl}/rest/v1/subscriptions?stripe_subscription_id=eq.${eq(stripeSubscriptionId)}&select=id,coach_id,solo_id,paused_for_coaching&limit=1`,
       { headers },
     )
     const rows = await response.json()
@@ -288,7 +432,7 @@ async function fetchSubscriptionRow(
 
   if (stripeCustomerId) {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/subscriptions?stripe_customer_id=eq.${eq(stripeCustomerId)}&select=id,coach_id,paused_for_coaching&limit=1`,
+      `${supabaseUrl}/rest/v1/subscriptions?stripe_customer_id=eq.${eq(stripeCustomerId)}&select=id,coach_id,solo_id,paused_for_coaching&limit=1`,
       { headers },
     )
     const rows = await response.json()
@@ -365,6 +509,12 @@ Deno.serve(async (req) => {
     const event = JSON.parse(rawBody)
     const object = event?.data?.object
 
+    // A duplicate delivery gets a 200, not an error: Stripe only stops retrying
+    // on a 2xx, and "we already did this" is a success from its point of view.
+    if (!(await claimEvent(supabaseUrl, serviceKey, event?.id, event?.type))) {
+      return jsonResponse({ received: true, duplicate: true })
+    }
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const stripeCustomerId = getStringId(object?.customer)
@@ -411,9 +561,18 @@ Deno.serve(async (req) => {
             status,
             trial_end: trialEnd,
             current_period_end: currentPeriodEnd,
-            // Coach billing cadence for display. Only written when present so a
-            // later metadata-less event can't wipe it; solo subs have none.
-            ...(sub?.metadata?.cadence ? { billing_interval: sub.metadata.cadence } : {}),
+            // Coach billing cadence for display, derived from the PRICE the
+            // subscription actually carries. It used to come from
+            // `metadata.cadence`, which is stamped at checkout and never
+            // updated — so once a cadence could change without a new checkout,
+            // that metadata recorded what the coach first bought rather than
+            // what they pay now. Metadata is kept only as the fallback for a
+            // price this deployment has no env for. Still only written when
+            // resolvable, so a later event can't wipe it; solo subs have none.
+            ...(() => {
+              const cadence = cadenceForPrice(priceId) ?? sub?.metadata?.cadence
+              return cadence ? { billing_interval: cadence } : {}
+            })(),
           },
         )
 
@@ -446,7 +605,23 @@ Deno.serve(async (req) => {
             current_period_end: fromUnixSeconds(object?.current_period_end),
             trial_end: fromUnixSeconds(object?.trial_end),
             cancel_at_period_end: object?.cancel_at_period_end ?? false,
-            ...(object?.metadata?.cadence ? { billing_interval: object.metadata.cadence } : {}),
+            // Stripe owns the pause once it is set: it clears pause_collection
+            // itself on the resume date, and that arrives here as an update
+            // with no pause on it. Syncing from the event rather than trusting
+            // our own row is what makes the auto-resume show up in the app
+            // without anyone asking it to.
+            paused_until: object?.pause_collection?.resumes_at
+              ? new Date(object.pause_collection.resumes_at * 1000).toISOString()
+              : null,
+            // Derived from the price, not from checkout-time metadata. THIS is
+            // the event a cadence change arrives on, so reading metadata here
+            // was the bug: the price would update and the displayed interval
+            // would not. See _shared/coachPricing.ts.
+            ...(() => {
+              const cadence = cadenceForPrice(object?.items?.data?.[0]?.price?.id)
+                ?? object?.metadata?.cadence
+              return cadence ? { billing_interval: cadence } : {}
+            })(),
           },
         )
         break
@@ -498,6 +673,22 @@ Deno.serve(async (req) => {
           stripeSubscriptionId,
           { status: 'past_due' },
         )
+
+        // Marking the row past_due only reaches someone who opens the app. The
+        // email is the half that reaches someone who doesn't, and this handler
+        // existed without it for as long as it has existed.
+        const row = await fetchSubscriptionRow(
+          supabaseUrl,
+          serviceKey,
+          stripeCustomerId,
+          stripeSubscriptionId,
+        )
+        const ownerId = row?.coach_id || row?.solo_id
+        if (ownerId) {
+          await sendPaymentFailedEmail(supabaseUrl, serviceKey, ownerId, object ?? {})
+        } else {
+          console.error('payment_failed: no owner found for', stripeCustomerId, stripeSubscriptionId)
+        }
         break
       }
 
@@ -505,6 +696,7 @@ Deno.serve(async (req) => {
         break
     }
 
+    await completeEvent(supabaseUrl, serviceKey, event?.id)
     return jsonResponse({ received: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error'

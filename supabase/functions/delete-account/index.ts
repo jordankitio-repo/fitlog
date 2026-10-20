@@ -411,6 +411,7 @@ Deno.serve(async (req) => {
       `saved_meals?user_id=eq.${uid}`,
       `day_complete?user_id=eq.${uid}`,
       `notifications?user_id=eq.${uid}`,
+      `notification_preferences?user_id=eq.${uid}`,
       `check_ins?client_id=eq.${uid}`,
       `messages?client_id=eq.${uid}`,
       `messages?coach_id=eq.${uid}`,

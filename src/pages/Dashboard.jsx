@@ -38,55 +38,13 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { controlStyle, Icon, Pill, Textarea, Field, IconButton } from '../components/ui'
+import { controlStyle, Icon, Notice, Pill, Textarea, Field, IconButton } from '../components/ui'
+import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, Title, Tooltip, Legend, Filler
 )
-
-// The three dismissable notices on this page — coach offboarded, coach nudged,
-// time to re-measure — were three hand-rolled copies of the same card, each
-// with its own padding, its own icon markup and its own bare <button> for the
-// dismiss. D2: a hand-rolled copy is not wrong on the day it is written, it is
-// wrong on the day the original changes. One component, so there is nothing to
-// keep in step by hand.
-//
-// Shape is the "what IS wanted" recipe: a clean card with a UNIFORM border and
-// a flat tint, never the coloured left edge. `tone` picks the tint and the
-// glyph's stroke — amber for a recoverable state the user fixes by acting, green
-// for routine.
-function Notice({ tone = 'primary', icon, children, action, onDismiss }) {
-  const accent = tone === 'warning' ? 'var(--color-warning)' : 'var(--color-primary)'
-  const tint = tone === 'warning' ? 'var(--color-warning-dim)' : 'var(--color-primary-dim)'
-  return (
-    <div style={{
-      ...baseCardStyle,
-      backgroundColor: tint,
-      padding: 'var(--space-12) var(--space-16)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 'var(--space-12)',
-    }}>
-      <svg
-        width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={accent}
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        aria-hidden="true" style={{ flexShrink: 0 }}
-      >
-        {icon}
-      </svg>
-      <p style={{ flex: 1, fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0, lineHeight: 1.6 }}>
-        {children}
-      </p>
-      {action}
-      {onDismiss && (
-        <IconButton onClick={onDismiss} aria-label="Dismiss" style={{ flexShrink: 0 }}>
-          <Icon name="x" size={18} />
-        </IconButton>
-      )}
-    </div>
-  )
-}
 
 // The streak and milestone cards are ALWAYS-DARK surfaces — the one sanctioned
 // place on this page for a gradient, and the gradient is a deep green either
@@ -246,7 +204,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     let timer, tries = 0
     const scrollWhenReady = () => {
       const el = document.getElementById('section-' + focus)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
       else if (tries++ < 20) timer = setTimeout(scrollWhenReady, 100)
     }
     const raf = requestAnimationFrame(() => {

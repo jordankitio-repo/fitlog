@@ -22,6 +22,7 @@ function complianceRatio(s) {
 }
 import { cardStyle } from '../utils/styles'
 import { Pill, Field, Icon, Panel, Row } from '../components/ui'
+import { scrollBehavior } from '../utils/motion'
 
 const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
@@ -196,7 +197,7 @@ function CoachDashboard({ profile }) {
 
   // Jump the new coach straight to the invite field from the empty-roster CTA.
   function focusInvite() {
-    inviteInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    inviteInputRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'center' })
     setTimeout(() => inviteInputRef.current?.focus(), 350)
   }
 

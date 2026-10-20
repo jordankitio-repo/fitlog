@@ -118,7 +118,6 @@ export default function Coach({ profile, archiveOpen = false }) {
     const [msgRes, repRes] = await Promise.all([
       fetchMessageWindow((q) => q.eq('client_id', session.user.id), size),
       supabase.from('reports').select('id, subject, content, created_at, read_at', { count: 'exact' })
-        .eq('archived', false)
         .order('created_at', { ascending: false })
         .limit(THREAD_REPORTS),
     ])

@@ -12,24 +12,168 @@ every month it is open.
 ## 1. Revenue
 
 ### 1.1 Stripe Billing Portal — payment method, invoices, receipts
-**Status:** not started · **Effort:** ~1 day · **Priority:** highest
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was highest
 
-A coach can do exactly two things with their subscription today: **cancel** and
-**resume** (`SubscriptionManager.jsx`). There is no way to view or change a
-payment method, and no customer-portal link anywhere in the app.
+`create-portal-session` opens Stripe's hosted portal for a verified coach or
+legacy solo subscriber. The caller sends an `intent` LABEL only (`portal` or
+`payment_method`), validated against an allow-list the same way checkout
+validates `cadence`; the return URL is built server-side from `APP_URL`, never
+from the request, so there is no open redirect behind the billing endpoint.
+Guards run caller → role → rate limit → subscription → config → Stripe, which
+is why `tests/rls/portalFn.test.js` can prove the authorization half with no
+Stripe credentials at all.
 
-Meanwhile `supabase/functions/stripe-webhook/index.ts` handles
-`invoice.payment_failed`. So we *detect* the failure and offer the coach no way
-to fix it — their card expires, payment fails, and the only self-serve button on
-the page says "Cancel subscription". That is involuntary churn, and it is the
-single most expensive gap on this list.
+On the page, `past_due` now leads the Billing card with an amber `Notice` and an
+"Update card" button that goes straight into Stripe's payment-method flow. The
+portal link outlives the subscription, because invoices do: a cancelled coach
+still reaches theirs.
 
-One `billingPortal.sessions.create` redirect covers payment methods, invoices
-and receipts together. Receipts matter on their own: coaches are businesses who
-need invoices at tax time.
+**Still needed before this works in production** (neither is code):
+1. Deploy the function and, if the sandbox should return to itself, set `APP_URL`.
+2. Stripe Dashboard → Billing → Customer portal: turn ON payment methods and
+   invoice history, leave cancellation and plan switching OFF. The function
+   header says why. With no saved configuration Stripe refuses every session.
 
-*Keep what is already good:* the cancel flow's "You'll keep access until
-[date]" is the same reassurance ChatGPT uses. Do not lose it in the move.
+*Three things found while building it, all pre-existing:*
+- `billing_interval` was written by the webhook and selected by nobody, so the
+  plan-price line in `SubscriptionManager` had never rendered for a single user
+  since the column shipped in August.
+- The card printed "Renews <date>" for every status that was not `trialing`,
+  which put a renewal date under **Canceled** and directly above the new
+  payment-failed notice. The date was real and the verb was a lie. Status → verb
+  is an allow-list now, so an unhandled status renders no line at all.
+- `textTransform: capitalize` rendered `past_due` as "Past_due".
+
+*Why it was first on the list:* a coach could do exactly two things with their
+subscription — cancel and resume. Meanwhile `stripe-webhook` already handled
+`invoice.payment_failed`, so the app DETECTED a dead card and offered no way to
+fix it: the only self-serve button on the page said "Cancel subscription". That
+is involuntary churn, and it was the single most expensive gap on this list.
+
+The cancel flow's "You'll keep access until [date]" reassurance was kept, and is
+the reason cancellation stays in the app rather than moving into the portal.
+
+### 1.3 Change billing cadence (upgrade / downgrade)
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was unlisted
+
+Surfaced by a question about Stripe's portal config: *do we allow plan
+switching?* No, and worse, there was no way to switch at all. The three-cadence
+ladder was selectable exactly once, at first checkout — `create-checkout-session`
+refuses a second checkout while a subscription is live, and CoachPaywall (the
+only picker) renders only when there isn't one. **A coach on monthly had no
+route to annual anywhere in the product**, which is the cadence the business
+most wants people on.
+
+`change-cadence` moves them, both directions, from the Billing card. The caller
+sends a cadence LABEL and the Stripe Price is resolved server-side, same as
+checkout — but unlike checkout an unknown label is REJECTED rather than
+defaulted, because defaulting at checkout costs nobody anything while
+defaulting here would silently move a paying coach down the ladder.
+
+**Proration: `always_invoice`, both ways, immediately.** Up the ladder charges
+the difference today less unused time; down hands the unused remainder back as
+credit against future invoices, not cash. Stripe's default `create_prorations`
+was wrong in a quiet way: it parks the adjustment on the NEXT invoice, and
+switching to annual makes the next invoice a year away, so a coach would have
+had twelve months of access before being billed the difference.
+
+*The bug this depended on fixing first:* `billing_interval` was written from
+`subscription.metadata.cadence`, which is stamped at checkout and never again.
+The moment a price could change without a new checkout, that metadata became a
+record of what the coach first bought rather than what they pay now — a coach
+who moved monthly to annual would have kept "$49/month." on their Billing card
+while Stripe charged $490/year. The webhook derives the interval from the PRICE
+now. **A field that records an intention will disagree with the system that
+records the fact, and the screen will show the intention.**
+
+Keep "Customers can switch plans" OFF in the Stripe portal. It is no longer
+dangerous, but the app owns this flow and its wording; two paths to one outcome
+is how copy drifts.
+
+### 1.4 Billing hardening: dunning, idempotency, event de-duplication
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was unlisted
+
+Three gaps found by auditing the billing path against normal practice. All
+three live in the "what happens when something goes wrong" layer, which is
+where billing bugs live.
+
+**1. Nobody told the coach their payment failed.** `invoice.payment_failed` set
+the row to `past_due` and stopped there, so the only signal was a notice on a
+page the coach had to think to open. Stripe retries for about two weeks and
+then the subscription dies, taking every client's access with it — reachable in
+total silence. The webhook emails now, on every attempt, because each retry is
+a different message: the early ones say when the next attempt is,
+`next_payment_attempt: null` marks the last one and is the only moment "your
+subscription will end" is true. Not gated on notification preferences: billing
+is always-on.
+
+**2. A lost response could charge twice.** Stripe does the work and then
+answers; if the ANSWER is what goes missing, the coach taps again and is
+invoiced twice for one decision — both requests valid, both successful, the
+only trace on a card statement. The money-moving calls now carry an
+`Idempotency-Key`. The key is generated in the BROWSER per confirmed intention,
+because it must be stable across a retry and different across a new decision,
+and only the caller knows which it is looking at: a key derived server-side
+from the request contents would make a coach who switches annual → monthly →
+annual in one day have the third switch silently replay the first.
+
+**3. Duplicate webhook deliveries re-ran real work.** Stripe delivers at least
+once by design. Most handlers survived that by luck (setting a status twice is
+harmless), but `customer.subscription.deleted` offboards a coach's whole
+roster, flips their roles and emails all of them, and
+`checkout.session.completed` burns a free trial. Events are CLAIMED now, not
+merely recorded: the naive "insert the id, skip on conflict" turns a crash
+halfway through into permanent silence, since the id is stored before the work
+and the retry then skips it. An unfinished claim becomes reclaimable after five
+minutes; a completed one never does.
+
+**Deploy note:** `STRIPE_COACH_PRICE_6MO` is absent from the local function
+env. If it is also absent in production, the 6-month cadence fails closed with
+"That plan is not available right now" — correct behaviour, but check it is set.
+
+### 1.5 Pause a subscription
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was unlisted
+
+The only way to stop paying was to cancel, and cancelling offboards every
+client: roles flip to solo, relationships end, everyone is emailed. So a coach
+on parental leave, injured, or in a quiet season chose between paying for
+months they would not work and dismantling the thing they would come back to.
+Most pick the second and never come back. **This is a retention feature wearing
+a billing feature's clothes.**
+
+Billing stops (`pause_collection`, `behavior: void`, so the gap is voided
+rather than accrued) and **nothing else changes**: clients keep logging, keep
+their history, keep their coach. That is a deliberate departure from how most
+subscriptions treat non-payment, and the reason is that here the person who
+would lose access is not the person who stopped paying. A client agreed to
+nothing; ending their streak because their coach took leave punishes the wrong
+person. It also needs no access-gate changes at all, because `pause_collection`
+leaves the Stripe status `active`.
+
+Two limits make the above something other than a free account:
+
+- **Three months**, and Stripe resumes it itself on the date. A pause that
+  needs a human to end it ends when someone remembers.
+- **Once per twelve months**, measured from the START of the last pause, so
+  resuming cannot reset it. Without this, pause-resume-pause is an indefinite
+  free subscription assembled entirely out of legal moves.
+
+**The placement is the point.** A standing "Pause subscription" link is only
+found by someone already looking for it. The one that earns its keep is the
+offer inside the CANCEL flow — "Need a break rather than an ending?" — because
+that is the moment a coach who needs time off is about to dismantle their
+roster instead, cancelling having been the only thing available. That cancel
+step also now says out loud that clients will be offboarded, which it never
+did.
+
+*Pausing is refused on a trial (already free), on `past_due` (voiding future
+invoices would look like settling a debt that stays exactly where it is), and
+while a cancellation is scheduled.*
+
+**Not built:** the reminder email a few days before billing restarts. The
+resume date is chosen by the coach and shown on the card, but three months is
+long enough to forget. It needs a daily `pg_cron` job calling a new function,
+following `weekly-coach-digest`'s pattern including its one-shot auth helper.
 
 ### 1.2 Backup payment method
 **Status:** not started · **Effort:** small, after 1.1 · **Priority:** high
@@ -43,12 +187,14 @@ Stripe configuration once the portal exists.
 ## 2. Security
 
 ### 2.1 Log out everywhere
-**Status:** not started · **Effort:** ~1 hour · **Priority:** high (cheapest win)
+**Status:** ALREADY SHIPPED — this entry was wrong
 
-`supabase.auth.signOut()` is called in five places and every one is local to the
-device. There is no way to revoke a session on a phone you no longer have. For
-an app holding health data that is a reasonable expectation, and Supabase does
-it in one argument: `signOut({ scope: 'global' })`.
+`Profile.jsx` has `signOutEverywhere()` calling `signOut({ scope: 'global' })`,
+with its own control and copy in the Security card ("Ends your session on every
+device, including ones you no longer have"). It landed in `56624cc` with the
+passwordless-auth work, which is before this roadmap was written: the entry was
+drafted from the five LOCAL `signOut()` call sites without checking whether a
+global one existed beside them. Verified on `main` Oct 19 2026.
 
 ### 2.2 Active sessions list
 **Status:** not started · **Effort:** unknown — needs research · **Priority:** medium
@@ -69,46 +215,105 @@ codes. Named for completeness; not worth it before launch.
 ## 3. Notifications
 
 ### 3.1 Notification preferences
-**Status:** not started · **Effort:** ~2 days · **Priority:** high
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was high
 
-The biggest non-billing gap. We send notifications (the bell, plus email via
-Resend) and the user has **zero control** — there is no preference table,
-column, or screen anywhere in the codebase. A client cannot say "email me
-reports but not messages".
+`notification_preferences` (one row per user, one JSONB map) plus
+`wants_email_notification`, the single SQL function every sender asks before it
+sends. Profile → Notifications renders the categories for the reader's role;
+solo users see no panel, because every category needs a coach on one end.
 
-ChatGPT's model is the right one: per-category rows, each with a channel choice
-(Push / Email / both).
+**Two scope decisions**, both deliberate:
 
-Two reasons this is more than a nicety:
-- **CAN-SPAM** needs a working opt-out for anything marketing-flavoured, and the
-  line between transactional and marketing has to be drawn somewhere visible.
-- It pairs with the **MHMDA consent-withdrawal** story already drafted in the
-  Consumer Health Data Policy.
+- **Email only.** The in-app bell stays on. Email is the channel that intrudes
+  and the one CAN-SPAM governs; the bell is pull-not-push and derives most of
+  its entries live from `messages`/`check_ins`/`reports`, so silencing it means
+  filtering those reads for no gain the reader asked for.
+- **Six switchable categories**, all of them ACTIVITY within a coaching
+  relationship: `report`, `checkin_review`, `nudge` (client) and
+  `client_checkin`, `milestone`, `weekly_digest` (coach). Everything that
+  announces a change to the relationship ITSELF stays always-on and has no
+  category at all: an invite, a coaching connection ending either way, and the
+  cadence-change notice the entry below used to raise as an open question. So
+  does every account, security and billing notice. The table is an allow-list of
+  what is switchable, so an email nobody thought about is not silenceable by
+  accident.
 
-Shape: a preferences table (or JSONB on `profiles`), checked before each send.
-Note the new cadence-change notification (`notify_cadence_change` trigger) is a
-*transactional* notice about an obligation — probably not opt-out-able, which is
-itself a decision to make deliberately rather than by omission.
+`absent key = send`, so a user who never opens the screen has no row and
+receives everything. The gate fails OPEN on a lookup error, which is right for
+relationship mail and would be wrong for marketing — stated in the helper, so
+the first marketing email cannot quietly inherit it.
+
+*Found while building it:* `revoke all on function ... from public` does NOT
+make a function service_role-only on Supabase. Platform default privileges grant
+EXECUTE to `anon` and `authenticated` directly, and revoking from PUBLIC leaves
+those standing — so the gate, a SECURITY DEFINER function over a table nobody
+else can read, was callable by any signed-in user, one category at a time,
+against anyone's id. Caught by a test asserting the refusal. Same fix and same
+cause as `20260625000000_rate_limit_lockdown`, which means this trap has now
+been hit twice: **any new SECURITY DEFINER function in this codebase must
+revoke from `public, anon, authenticated`.**
+
+Key drift between the three places the category names live (the screen, the
+sender type, the check constraint) is a silent failure in both directions, so
+`notificationCategories.test.js` asserts all three against each other.
 
 ---
 
 ## 4. Accessibility (Appearance)
 
 ### 4.1 Reduce motion override
-**Status:** not started · **Effort:** ~2 hours · **Priority:** medium
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was medium
 
-`index.css` honours `@media (prefers-reduced-motion: reduce)`, but the user has
-no override. ChatGPT exposes System / On / Off. Cheap, and it aligns with the
-WCAG 2.1 AA work already in the compliance program.
+System / Reduced / Full, in Profile → Appearance.
+
+**The entry above was wrong about the premise, and the correction was most of
+the work.** `index.css` "honoured" `prefers-reduced-motion` in exactly one
+rule — `.brand-loader-mark { animation: none }` — while every control hover,
+toggle knob, splash fade and toast kept animating. A preference observed by one
+element is not observed, and a switch layered on top of that would have been a
+switch that mostly did nothing. Motion is damped globally now, keyed off the
+media query AND the override, in that order, so the OS setting still works with
+no JavaScript.
+
+Two details worth keeping:
+
+- Damped to `0.01ms`, never `animation: none`. `none` on something that
+  animates IN from `opacity: 0` leaves it invisible forever, so the accessible
+  setting would hide content.
+- `scrollIntoView({ behavior: 'smooth' })` names its behaviour in the call, so
+  CSS never sees it. Four call sites (Profile, Dashboard, ClientView,
+  CoachDashboard) went through `scrollBehavior()`. A settings page that
+  smooth-scrolls to a section is exactly the animation someone turns this on to
+  avoid.
+
+`Full` exists so the OS setting is a default rather than a ceiling.
 
 ### 4.2 Text size control
-**Status:** not started · **Effort:** ~half a day · **Priority:** medium
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was medium
 
-ChatGPT has UI and code font-size inputs. Gardnr has neither. Coaching skews
-older than ChatGPT's user base, so this is a real need rather than a nicety.
+Default / Large / Largest, in Profile → Appearance.
 
-Careful: the type ramp is tokenised and lint-enforced. A size control should
-scale the root, not add per-component overrides.
+Cheaper than estimated, because the ramp was **already in `rem`** — `--text-xs`
+is `0.6875rem`, not `11px`. One root font-size therefore scales all ten steps,
+and the per-component overrides this entry warned about never had to exist.
+
+`font-size: calc(100% * var(--text-scale))`, and the `100%` is the part that
+matters: a pixel value would discard the reader's own browser font-size
+setting and make this the one site that ignores it. Someone running their
+browser at 20px who picks Large gets 22.5px, not 18px. It also means the app
+respected that setting before this control existed.
+
+Verified for horizontal overflow at Largest on the roster and the full Profile
+page: none.
+
+**A trap found while shipping it.** The pre-paint script in `index.html` is
+pinned by a CSP hash in `vercel.json`. Editing one character of it — which this
+had to, to apply text size before the page renders — invalidates that hash, and
+the browser then silently refuses to run the script in production: no theme, no
+motion, no text size, and a flash of the wrong one of each. Nothing errors, the
+build passes, and the dev server has no CSP, so it only appears on the deployed
+site. `tests/cspHashes.test.js` recomputes both hashes and fails on drift, in
+both directions.
 
 ### 4.3 Contrast slider
 **Status:** not started · **Priority:** low
@@ -121,11 +326,17 @@ bigger change than it looks. Named, not recommended yet.
 ## 5. Data controls
 
 ### 5.1 Communication / consent preferences
-**Status:** not started · **Priority:** medium — overlaps 3.1
+**Status:** not started · **Priority:** medium — 3.1 built the surface for it
 
 ChatGPT's Data controls page carries marketing privacy and cookie preferences.
 Gardnr's "Data" section is Export + Delete only. The consent half ties directly
-to the MHMDA work; build it with 3.1 rather than separately.
+to the MHMDA work.
+
+3.1 shipped without it, so the remaining piece is specifically CONSENT rather
+than delivery preference: the MHMDA withdrawal story, and the first category
+that is marketing rather than relationship mail. That one cannot reuse
+`wants_email_notification` as written — it fails open, and marketing has to fail
+closed. A sibling helper, not an extra argument.
 
 ### 5.2 "Who we share data with"
 **Status:** not started · **Effort:** small · **Priority:** low
@@ -134,12 +345,22 @@ ChatGPT has "Information shared with apps". The subprocessor register is already
 written in `compliance/` — this is mostly surfacing what exists.
 
 ### 5.3 `reports.archived` — wire it up or delete the column
-**Status:** open since Oct 15 · **Effort:** small either way · **Priority:** medium
+**Status:** DELETED (Oct 19 2026, `feat/settings-account`) · **Priority:** was medium
 
-Every report query filters `archived = false`. **Nothing anywhere sets it.** The
-escape hatch exists in the schema, is honoured on read, and is unreachable.
-ChatGPT's "Archived chats" is the pattern it was presumably built for. Either
-finish it or drop the column — leaving it is the worst of the three.
+Dropped, and this was not a fresh call: the decision was made in September and
+left half-done. `451d7db` (May) shipped a working client-side archive;
+`a070598` (Sep) deleted it on purpose — "Archive is gone from the client: a
+filing chore for a handful of letters" — but removed only the WRITERS. The
+column, four `.eq('archived', false)` filters, an "Archived" badge in the
+coach's sent list and the `archive` glyph all survived the feature they
+existed for. So the column was read on every report load and written by nothing
+for thirteen months.
+
+**Before deploying:** `select count(*) from public.reports where archived;` on
+production. Any report a client archived before September is currently hidden
+from them, and dropping the column puts it back in their list. That is the
+behaviour September chose, but it is visible to those clients. Expected to be
+zero.
 
 ---
 
@@ -173,31 +394,70 @@ These are presentation changes, not features. Worth doing as one pass rather
 than piecemeal.
 
 ### 7.1 Make the settings rail navigate, not scroll
-**Status:** not started · **Effort:** ~2 days · **Priority:** medium
-**Blocked by:** the ClientView divergence (see 8.1)
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`)
 
-ChatGPT's rail turns each entry into its own **page**, which is why their screens
-stay short while carrying 17 of them. Gardnr's Profile is one long page with
-10–11 anchored sections that the rail scrolls to, and three of those sections
-("Your details", "Daily targets", "Check-in questions") are full forms.
+Each section is a route (`/profile/:section`), the shape the client record
+already used. The rail navigates; the screen is only ever as long as the thing
+you came for. One `isVisible` switch, sections left inline — eleven wrappers or
+eleven files would both have been worse.
 
-The pattern is already proven in this codebase: the coach's client record uses
-sections-as-routes on mobile (`/client/:id/:section`). Settings never got it.
+**The phone was the real gap, and the entry above missed it.** The rail is
+desktop-only, so below 900px this was one scrolling page thousands of pixels
+long with no map at all. It gets the client record's `.cv-dest` list: eight
+destinations, grouped, on one screen, and a back link that names its
+destination.
+
+`?focus=<key>` is kept **permanently**, not migrated off. Stripe's
+billing-portal return URL and the payment-failed email both point at
+`/profile?focus=billing`, and those URLs exist outside this codebase — in mail
+already sent and in a dashboard someone configured. They redirect to the route
+with `replace`, so Back goes where the reader came from. An unknown section
+falls back to the first real one rather than rendering nothing.
+
+*The trap worth recording:* `SectionPanel` is declared at module scope. Defined
+inside `Profile()` it would be a new component type every render, so React
+would remount the whole subtree and every field would lose its value and its
+focus on each keystroke — invisible in a diff, obvious the first time someone
+types their name.
 
 ### 7.2 Group the rail
-**Status:** not started · **Effort:** small
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`)
 
-ChatGPT groups "Personal" / "Integrations". Gardnr's rail is flat and
-role-dependent. Something like You / Coaching / Account would help, and costs
-almost nothing once 7.1 is done.
+**You / Coaching / Account.** The split answers "what is this about?": how the
+app behaves for you, how you work with the people in it, your relationship with
+Gardnr. `SectionRail` already took `groups` (ClientView used them), so this
+cost almost nothing, exactly as predicted. An empty group does not render, so
+no role sees a heading with nothing under it.
 
 ### 7.3 One row pattern
-**Status:** not started · **Effort:** medium
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`)
 
-ChatGPT uses a single shape everywhere: label (+ description sub-line) on the
-left, control on the right. That uniformity is what makes a long list scannable.
-Gardnr alternates between forms and rows. Converging on one row primitive is
-what makes 7.1 pay off.
+`ui/SettingRow`: label (+ description sub-line) on the left, control on the
+right. Five call sites had written that shape independently — Toggle's switch
+rows, "Sign out everywhere", "Export", "Delete account", and the Appearance
+choices — and **they had already drifted on the one thing a reader notices.**
+Toggle labelled at `--text-base`, the hand-written ones at `--text-sm` with a
+raw `fontWeight: 600`. None was wrong alone; they were only wrong together,
+which is the failure a primitive prevents. A5 settles it: `--text-base` /
+`--weight-medium`, with `--text-sm` muted beneath.
+
+`stacked` puts the control under the text, for a control too wide to sit beside
+it (three Pills). The header treatment is what is being standardised; where a
+control physically sits is a width question, and pretending otherwise is how a
+primitive starts fighting its call sites.
+
+### 9.4 Profile is not Settings — DEFERRED, deliberately
+
+Named in the suggested order as part of this pass; held back after looking at
+it. The split is between PUBLIC identity and configuration, and there is no
+public identity to separate: 9.5 (a coach's public profile) is deferred, so
+renaming `/profile` to `/settings` today would move every section to a new URL,
+break the Stripe return URL and the already-sent payment-failed emails, and
+leave a redirect to maintain — in exchange for a page called Settings that
+contains exactly what it contains now. **Do it when 9.5 creates the thing it
+would be split from**, and do it in the same change, so the rename and the page
+that justifies it arrive together.
+
 
 ---
 
@@ -206,11 +466,62 @@ what makes 7.1 pay off.
 Not from the ChatGPT comparison — surfaced while working, and listed because
 these items will be hit while doing the above.
 
-### 8.1 `ClientView.jsx` is diverging between `main` and `feat/device-sync`
-`main` does not have the 10 progress-chart commits that live on the branch. This
-already caused a cherry-pick conflict (Oct 19) that had to be ported by hand, and
-every further change to that file will need the same. Decide what happens to
-those commits before starting 7.1.
+### 8.1 `ClientView.jsx` divergence — RESOLVED (Oct 19 2026)
+
+**This entry was wrong about the cause, and the real one was more tractable.**
+It said main lacked the progress-chart commits. Main has them (`02e4f8a`); what
+was stranded was a later, different batch.
+
+Measured rather than assumed: `feat/device-sync` was 26 commits ahead of main,
+and **15 of those were already on main under different hashes** — cherry-picked
+across at some point. Those duplicates were the whole reason the branch kept
+conflicting: git sees the same change twice and cannot tell which is which.
+Of the 11 genuinely unique commits, only ONE was device-sync work. The other 10
+were finished UI work stranded on a branch named for something else: the My
+Progress rebuild (Today panel + Trends card), W/M/Y windows on both the client's
+and the coach's charts, the tips refactor, a rangepicker fix.
+
+Rebased onto main. Git dropped 14 duplicates by patch-id on its own; one more
+(`eb8c568`) had to be skipped by hand after confirming its diff was byte-identical
+to `c94e5ea` on main. One real conflict, in the check-in cadence row: the
+incoming patch closed a `<div>` because it was written when that row held four
+chips, and main had since made it a `<Select>`. Resolved to the structure main
+needs, keeping the incoming change — the "applies to every client" caveat had
+already moved onto the SectionHeader's `info`, so dropping the inline InfoTip
+lost nothing. Verified on screen, not just compiled.
+
+**26 commits → 11.** The branch no longer carries anything main already has, so
+it will stop conflicting. `backup/device-sync-pre-rebase` holds the pre-rebase
+state; delete it once the branch is pushed and confirmed good.
+
+**History was rewritten**, so if that branch was ever pushed it needs a
+force-push (`--force-with-lease`).
+
+*The lesson worth keeping:* a branch that keeps conflicting is usually carrying
+duplicates, not disagreements. Count what is genuinely unique before planning
+around the conflict.
+
+### 8.2a FIXED: a client could rewrite their coach's report
+
+Found Oct 19 2026 while doing 5.3, on the same table, and fixed in
+`20261019120000`. The policy `"Clients can update their report read status"`
+restricts the ROW and not the COLUMN, so a client could UPDATE any field on
+their own report row — `content` included. Demonstrated before the fix: a
+client UPDATE replaced a coach's assessment with their own text, no error, and
+the coach's sent list then showed the altered version back to them, because
+both sides read the same row.
+
+**The policy name was the whole bug.** It states an intent RLS cannot express —
+RLS filters rows and has no opinion about columns — and it reads as correct in
+every review. Column privileges express it: UPDATE on `reports` is now granted
+only on `read_at`. Verified against every writer first (coaches INSERT and
+never UPDATE; clients write `read_at` only), so nothing legitimate lost a
+capability. `reportIntegrity.test.js` asserts both halves.
+
+**Worth sweeping for:** this is a class, not an instance. Any policy whose NAME
+names a column is making a promise `USING`/`WITH CHECK` cannot keep. See 8.2
+directly below, which is the same failure with the enforcement missing
+entirely rather than mis-expressed.
 
 ### 8.2 Coach-only controls are UI-only, not enforced
 RLS policy `coach_clients_update_by_client` lets a **client** update their own
@@ -294,12 +605,15 @@ consent questions attached (see 6.2). Named so it is not forgotten.
 
 ## Suggested order
 
-1. **1.1 Stripe portal** — stops losing subscribers
-2. **2.1 Log out everywhere** — an hour, closes a real gap
-3. **3.1 Notification preferences** (+ 5.1 consent) — the gap a user would notice
-4. **5.3 `reports.archived`** — finish or delete, stop carrying it
-5. **4.1 / 4.2 accessibility** — cheap, supports the AA commitment
-6. **8.1 branch divergence** — must be resolved before 7.x
+1. ~~**1.1 Stripe portal**~~ — SHIPPED. Needs the Dashboard portal config before
+   it works in production; see 1.1.
+2. ~~**2.1 Log out everywhere**~~ — was already shipped when this list was written.
+3. ~~**3.1 Notification preferences**~~ — SHIPPED. 5.1 (consent preferences) is
+   still open and now has a panel to live in.
+4. ~~**5.3 `reports.archived`**~~ — DELETED, the September removal finished.
+5. ~~**4.1 / 4.2 accessibility**~~ — SHIPPED.
+6. ~~**8.1 branch divergence**~~ — RESOLVED. 26 commits → 11, mostly duplicates.
+   7.x is unblocked.
 7. **7.1–7.3 structure pass** (+ 9.4, same decision) — one pass, not piecemeal
 8. **6.1 stats strip** — once the surfaces above are stable
 
