@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Button from './Button'
+import { cmToFtIn, convertWeight, ftInToCm } from '../utils/biometrics'
 import { estimateTargets, ACTIVITY_LEVELS, PACES } from '../utils/targetEstimate'
 import { controlStyle, Pill } from './ui'
 
@@ -32,26 +33,53 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
   const [bodyFat, setBodyFat] = useState('')
   const [activity, setActivity] = useState(initial.activity || 'moderate')
   const [pace, setPace] = useState('moderate')
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState('')
 
   const metric = units === 'metric'
   const wUnit = metric ? 'kg' : 'lb'
+
+  // Converts what is already entered. See src/utils/biometrics.js — all three
+  // unit toggles in the app had the same gap, and this one fed the target
+  // maths directly.
+  function changeUnits(next) {
+    if (next === units) return
+    setWeight((w) => convertWeight(w, units, next))
+    setGoalWeight((g) => convertWeight(g, units, next))
+    if (next === 'metric') {
+      const cm = ftInToCm(heightFt, heightIn)
+      setHeightCm(cm ? String(cm) : '')
+    } else {
+      const { ft, in: inches } = cmToFtIn(heightCm)
+      setHeightFt(ft)
+      setHeightIn(inches)
+    }
+    setUnits(next)
+  }
   // One canonical control style for the whole app (src/components/ui/Field.jsx).
   const inputStyle = controlStyle
   const labelStyle = { fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginBottom: '4px', display: 'block' }
 
-  function compute() {
+  // Live, not on a button press.
+  //
+  // It used to compute only when "Calculate" was clicked and keep the answer in
+  // state. So changing Pace — or anything else — left the previous numbers on
+  // screen: the reader moved the control that is supposed to drive the calories
+  // and the calories did not move. That reads as a broken control, and it was
+  // worse than cosmetic, because "Use these targets" applies whatever is in
+  // that state. A coach could pick an aggressive pace, see the moderate
+  // numbers, and write the moderate numbers to their client.
+  //
+  // The arithmetic is pure and costs nothing, so there was never a reason for
+  // it to be a step. A result that can disagree with the inputs above it is the
+  // bug; removing the gap between them is the fix.
+  const result = useMemo(() => {
     const height = metric ? Number(heightCm) : (Number(heightFt) * 12 + Number(heightIn || 0))
-    const r = estimateTargets({
+    return estimateTargets({
       sex, age, weight, goalWeight,
       weightUnit: metric ? 'kg' : 'lbs',
       height, heightUnit: metric ? 'cm' : 'in',
       activity, pace, bodyFat,
     })
-    if (!r) { setError('Enter age, height, and current weight.'); setResult(null); return }
-    setError(''); setResult(r)
-  }
+  }, [metric, heightCm, heightFt, heightIn, sex, age, weight, goalWeight, activity, pace, bodyFat])
 
   const macro = (label, value, unit, color) => (
     <div style={{ flex: 1, minWidth: 64, textAlign: 'center', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 6px' }}>
@@ -83,7 +111,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
             <Pill
               key={u}
               active={units === u}
-              onClick={() => setUnits(u)}
+              onClick={() => changeUnits(u)}
               aria-pressed={units === u}
               style={{ flex: 1 }}
             >
@@ -136,9 +164,14 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
         </div>
       </div>
 
-      {error && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)', margin: 0 }}>{error}</p>}
-
-      <Button onClick={compute} variant="muted" size="sm">Calculate</Button>
+      {/* Guidance, not an error: nothing has gone wrong, there is just not
+          enough yet to answer with. Muted rather than red for the same reason —
+          red is for something the reader got wrong. */}
+      {!result && (
+        <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>
+          Enter age, height, and current weight to see suggested targets.
+        </p>
+      )}
 
       {result && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>

@@ -528,6 +528,26 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     }
   }
 
+  // Switching units CONVERTS the height already entered rather than just
+  // relabelling the fields. The toggle used to set `unit_preference` and
+  // nothing else, so a person who had entered 5'11" and switched to metric saw
+  // an empty centimetres box and had to measure themselves again — or worse,
+  // retyped 511. Height changes SHAPE between the systems (two fields or one),
+  // so this converts between forms rather than scaling a number.
+  //
+  // Weight is not here: the only weight on this page is the goal in Daily
+  // targets, which carries its own unit and its own converter.
+  function changeBioUnits(next) {
+    if (next === bio.unit_preference) return
+    if (next === 'metric') {
+      const cm = ftInToCm(bio.height_ft, bio.height_in)
+      setBio({ ...bio, unit_preference: next, height_cm: cm ? String(cm) : '' })
+    } else {
+      const { ft, in: inches } = cmToFtIn(bio.height_cm)
+      setBio({ ...bio, unit_preference: next, height_ft: ft, height_in: inches })
+    }
+  }
+
   const subscriptionDate = subscription?.current_period_end || subscription?.trial_end
   // Paused is a date in the future, matching SubscriptionManager's reading of
   // the same column.
@@ -808,7 +828,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               <label style={lbl}>Units</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 {[['imperial', 'lb / ft·in'], ['metric', 'kg / cm']].map(([u, t]) => (
-                  <Pill key={u} active={bio.unit_preference === u} aria-pressed={bio.unit_preference === u} onClick={() => setBio({ ...bio, unit_preference: u })}>{t}</Pill>
+                  <Pill key={u} active={bio.unit_preference === u} aria-pressed={bio.unit_preference === u} onClick={() => changeBioUnits(u)}>{t}</Pill>
                 ))}
               </div>
             </div>

@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
 import { estimateTargets, ACTIVITY_LEVELS } from '../utils/targetEstimate'
-import { ageFromBirthDate, ftInToCm, todayStr } from '../utils/biometrics'
+import { ageFromBirthDate, cmToFtIn, convertWeight, ftInToCm, todayStr } from '../utils/biometrics'
 import { controlStyle, Pill } from '../components/ui'
 import { GOALS } from '../utils/goals'
 
@@ -37,6 +37,30 @@ export default function Onboarding({ session, profile, onComplete }) {
 
   const metric = units === 'metric'
   const wUnit = metric ? 'kg' : 'lbs'
+
+  // Switching units CONVERTS what is already typed. Without this the toggle
+  // only relabelled the boxes: someone who entered 180 lb and 5'11" and then
+  // changed to metric was left holding "180 kg" and an empty height, with the
+  // label beside it as the only clue. Nothing errored, 180 kg is a plausible
+  // number, and the starting targets below were then computed for someone
+  // twice their weight.
+  function changeUnits(next) {
+    if (next === units) return
+    setWeight((w) => convertWeight(w, units, next))
+    setGoalWeight((g) => convertWeight(g, units, next))
+    // Height is two fields in one system and one in the other, so it converts
+    // between SHAPES rather than scaling a number. Going metric, the canonical
+    // cm is derived from ft+in; coming back, it is split again.
+    if (next === 'metric') {
+      const cm = ftInToCm(heightFt, heightIn)
+      setHeightCm(cm ? String(cm) : '')
+    } else {
+      const { ft, in: inches } = cmToFtIn(heightCm)
+      setHeightFt(ft)
+      setHeightIn(inches)
+    }
+    setUnits(next)
+  }
 
   // Canonical height in cm from whichever unit the user is entering.
   const heightInCm = metric ? (Number(heightCm) || 0) : ftInToCm(heightFt, heightIn)
@@ -139,7 +163,7 @@ export default function Onboarding({ session, profile, onComplete }) {
         <label style={labelStyle}>Units</label>
         <div style={{ display: 'flex', gap: '8px' }}>
           {[['imperial', 'lb / ft·in'], ['metric', 'kg / cm']].map(([u, lbl]) => (
-            <Pill key={u} active={units === u} aria-pressed={units === u} onClick={() => setUnits(u)}>{lbl}</Pill>
+            <Pill key={u} active={units === u} aria-pressed={units === u} onClick={() => changeUnits(u)}>{lbl}</Pill>
           ))}
         </div>
       </div>

@@ -29,3 +29,31 @@ export function ftInToCm(ft, inch) {
   const total = (Number(ft) || 0) * 12 + (Number(inch) || 0)
   return total > 0 ? Math.round(total * 2.54 * 10) / 10 : 0
 }
+
+// Weight between the two unit systems. The ratio is the one already used in
+// energyBalanceRead.js; it is stated once here so a third copy never appears.
+export const KG_PER_LB = 0.45359237
+
+// Switching the unit toggle has to CONVERT what is already entered, not just
+// relabel the box.
+//
+// Onboarding, the Profile biometrics and the target calculator each had their
+// own toggle and none of them did this: a person who typed 180 lb and then
+// changed to metric was left with "180 kg", and the only clue was that the
+// label beside it had changed. Nothing errored, the number was plausible, and
+// the next screen quietly computed targets for someone twice their weight.
+//
+// Returns a STRING, because these are all text inputs and handing an input a
+// number makes it uncontrolled on the next render. An empty or unparseable
+// value converts to an empty one: there is nothing to convert, and inventing a
+// 0 would put a weight of zero in a field the reader never filled.
+export function convertWeight(value, fromUnit, toUnit) {
+  if (fromUnit === toUnit) return value
+  const n = Number(value)
+  if (!value || Number.isNaN(n)) return value === '' || value == null ? '' : value
+  const kg = toUnit === 'kg' || toUnit === 'metric'
+  const converted = kg ? n * KG_PER_LB : n / KG_PER_LB
+  // One decimal: the precision a bathroom scale offers, and enough that
+  // round-tripping lb -> kg -> lb comes back to the same number.
+  return String(Math.round(converted * 10) / 10)
+}
