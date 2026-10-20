@@ -112,6 +112,11 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
     setLoading(true)
     setError(null)
 
+    // See SubscriptionManager.changeCadence: a retry of THIS attempt must not
+    // mint a second Stripe customer or a second checkout session for the same
+    // coach. A fresh attempt gets a fresh id.
+    const requestId = crypto.randomUUID()
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(
@@ -126,7 +131,7 @@ function CoachPaywall({ subscription, profile, onSignOut }) {
           // Stripe price from our verified role + this key — see
           // create-checkout-session. Sending a price meant it lived in the JS
           // bundle, where anyone could swap it for a cheaper one.
-          body: JSON.stringify({ cadence }),
+          body: JSON.stringify({ cadence, requestId }),
         }
       )
       const json = await res.json()

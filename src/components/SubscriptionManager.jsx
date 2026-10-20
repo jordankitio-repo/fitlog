@@ -115,6 +115,13 @@ function SubscriptionManager({ subscription, onChange }) {
     setCadenceBusy(true)
     setError(null)
 
+    // One id per confirmed intention. If the response is what goes missing —
+    // a dropped connection, a timeout — Stripe has already done the work, and
+    // a second attempt carrying this same id replays the first answer instead
+    // of invoicing the coach twice. A NEW decision gets a new id, so switching
+    // annual to monthly and back again is two real changes, not a replay.
+    const requestId = crypto.randomUUID()
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(
@@ -125,7 +132,7 @@ function SubscriptionManager({ subscription, onChange }) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ cadence }),
+          body: JSON.stringify({ cadence, requestId }),
         }
       )
       const json = await res.json()

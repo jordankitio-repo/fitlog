@@ -90,6 +90,47 @@ Keep "Customers can switch plans" OFF in the Stripe portal. It is no longer
 dangerous, but the app owns this flow and its wording; two paths to one outcome
 is how copy drifts.
 
+### 1.4 Billing hardening: dunning, idempotency, event de-duplication
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was unlisted
+
+Three gaps found by auditing the billing path against normal practice. All
+three live in the "what happens when something goes wrong" layer, which is
+where billing bugs live.
+
+**1. Nobody told the coach their payment failed.** `invoice.payment_failed` set
+the row to `past_due` and stopped there, so the only signal was a notice on a
+page the coach had to think to open. Stripe retries for about two weeks and
+then the subscription dies, taking every client's access with it — reachable in
+total silence. The webhook emails now, on every attempt, because each retry is
+a different message: the early ones say when the next attempt is,
+`next_payment_attempt: null` marks the last one and is the only moment "your
+subscription will end" is true. Not gated on notification preferences: billing
+is always-on.
+
+**2. A lost response could charge twice.** Stripe does the work and then
+answers; if the ANSWER is what goes missing, the coach taps again and is
+invoiced twice for one decision — both requests valid, both successful, the
+only trace on a card statement. The money-moving calls now carry an
+`Idempotency-Key`. The key is generated in the BROWSER per confirmed intention,
+because it must be stable across a retry and different across a new decision,
+and only the caller knows which it is looking at: a key derived server-side
+from the request contents would make a coach who switches annual → monthly →
+annual in one day have the third switch silently replay the first.
+
+**3. Duplicate webhook deliveries re-ran real work.** Stripe delivers at least
+once by design. Most handlers survived that by luck (setting a status twice is
+harmless), but `customer.subscription.deleted` offboards a coach's whole
+roster, flips their roles and emails all of them, and
+`checkout.session.completed` burns a free trial. Events are CLAIMED now, not
+merely recorded: the naive "insert the id, skip on conflict" turns a crash
+halfway through into permanent silence, since the id is stored before the work
+and the retry then skips it. An unfinished claim becomes reclaimable after five
+minutes; a completed one never does.
+
+**Deploy note:** `STRIPE_COACH_PRICE_6MO` is absent from the local function
+env. If it is also absent in production, the 6-month cadence fails closed with
+"That plan is not available right now" — correct behaviour, but check it is set.
+
 ### 1.2 Backup payment method
 **Status:** not started · **Effort:** small, after 1.1 · **Priority:** high
 

@@ -29,6 +29,7 @@
 // would silently downgrade a paying coach who sent a typo.
 
 import { coachPriceId, isCoachCadence } from '../_shared/coachPricing.ts'
+import { idempotencyHeader } from '../_shared/stripeIdempotency.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,7 +73,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = (await req.json().catch(() => ({}))) as { cadence?: string }
+    const body = (await req.json().catch(() => ({}))) as { cadence?: string; requestId?: string }
     if (!isCoachCadence(body.cadence)) {
       return jsonResponse({ error: 'Unknown billing cadence' }, 400)
     }
@@ -182,9 +183,19 @@ Deno.serve(async (req) => {
       'metadata[cadence]': cadence,
     })
 
+    // This call invoices the coach immediately, so a retry that is really the
+    // same tap must not become a second invoice. The key is scoped by user and
+    // by subscription as well as by the browser's request id.
     const updateRes = await fetch(
       `https://api.stripe.com/v1/subscriptions/${sub.stripe_subscription_id}`,
-      { method: 'POST', headers: stripeHeaders(stripeSecretKey), body: params.toString() },
+      {
+        method: 'POST',
+        headers: {
+          ...stripeHeaders(stripeSecretKey),
+          ...idempotencyHeader(`cadence:${user.id}:${sub.stripe_subscription_id}`, body.requestId),
+        },
+        body: params.toString(),
+      },
     )
     const updated = await updateRes.json().catch(() => null)
 
