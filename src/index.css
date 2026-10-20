@@ -800,15 +800,28 @@ body {
    the vertical rule. */
 .ds-statstrip { display: flex; flex-wrap: wrap; row-gap: var(--space-16); }
 @media (max-width: 620px) {
-  .ds-statstrip { display: block; }
-  .ds-statstrip .ds-statcell { padding-right: 0; }
-  .ds-statstrip .ds-statcell + .ds-statcell {
+  .ds-statstrip:not(.is-compact) { display: block; }
+  .ds-statstrip:not(.is-compact) .ds-statcell { padding-right: 0; }
+  .ds-statstrip:not(.is-compact) .ds-statcell + .ds-statcell {
     padding-left: 0;
     border-left: none;
     margin-top: var(--space-16);
     padding-top: var(--space-16);
     border-top: 1px solid var(--color-border);
   }
+}
+
+/* `is-compact` keeps a strip in a ROW at every width, for cells whose values
+   are short enough to share a phone. The stacking above was written for the
+   consistency strip, whose cells carry a ratio and a sentence and genuinely
+   need 160px each. The identity strip's cells hold "5 days" — stacked, three
+   of them pushed the whole page below the fold on the one screen whose job is
+   "log today", which is a worse answer than a narrower column. */
+.ds-statstrip.is-compact { flex-wrap: nowrap; }
+.ds-statstrip.is-compact .ds-statcell { flex: 1 1 0; min-width: 0; }
+@media (max-width: 620px) {
+  .ds-statstrip.is-compact .ds-statcell { padding-right: var(--space-10); }
+  .ds-statstrip.is-compact .ds-statcell + .ds-statcell { padding-left: var(--space-10); }
 }
 
 /* The lens chips' wrapper is NOT in the desktop layout: `contents` makes its

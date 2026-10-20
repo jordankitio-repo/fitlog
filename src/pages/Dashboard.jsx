@@ -62,16 +62,18 @@ ChartJS.register(
 //
 // So these are the dark-mode values, pinned. A token here is the bug.
 /* eslint-disable no-restricted-syntax -- always-dark surfaces, see above */
+//
+// Six of these went with the standing streak card when 6.1 replaced it with a
+// stat strip: the two streak gradients and the decorative #86efac/#6ee7b7
+// pair, plus the primary and warning it painted its numeral and nudge in. They
+// were literals exempted by name for a surface that no longer exists, which is
+// the failure the design system names — a literal sanctioned by name outlives
+// the thing it named. What is left is the milestone card, which is still an
+// always-dark surface and still the one place a gradient is sanctioned.
 const ALWAYS_DARK = {
-  streakHot:   'linear-gradient(135deg, #065f46, #064e3b)',
-  streakCool:  'linear-gradient(135deg, #052e16, #14532d)',
   milestone:   'linear-gradient(135deg, #1a1a1a 0%, #1f2a1f 100%)',
-  primary:     '#22c55e', // --color-primary,  dark
   success:     '#34d399', // --color-success,  dark
-  warning:     '#fbbf24', // --color-warning,  dark
   muted:       '#888',    // --color-muted,    dark
-  label:       '#86efac', // decorative streak palette
-  cheer:       '#6ee7b7', // decorative streak palette
 }
 /* eslint-enable no-restricted-syntax */
 
@@ -112,6 +114,31 @@ function ConsistencyStat({ label, hint, n, of, tone, sub }) {
   )
 }
 
+// One cell of the identity strip. Same shape as ConsistencyStat above — the
+// page should have one cell vocabulary, not two — but it states a whole number
+// rather than a ratio, and its sub-line is where the nudge lives.
+function IdentityStat({ label, value, unit, sub, subTone }) {
+  return (
+    <span className="ds-statcell" style={{ flex: '1 1 160px', minWidth: 0, gap: 'var(--space-6)' }}>
+      <span style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-faint)', fontWeight: 'var(--weight-medium)' }}>
+        {label}
+      </span>
+      <span className="tnum" style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text)', lineHeight: 1.1 }}>
+        {value}
+        {unit && (
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}> {unit}</span>
+        )}
+      </span>
+      {/* Reserved whether or not there is anything to say, so the numerals
+          across the strip keep a shared baseline instead of lifting whenever a
+          neighbour has no sub-line. */}
+      <span style={{ fontSize: 'var(--text-xs)', color: subTone || 'var(--color-muted)', minHeight: '1em' }}>
+        {sub || '\u00a0'}
+      </span>
+    </span>
+  )
+}
+
 function computeRollingAverage(data, window = 7) {
   return data.map((_, i) => {
     const start = Math.max(0, i - window + 1)
@@ -142,6 +169,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [answers, setAnswers] = useState({})          // { [questionId]: value }
   const [notice, setNotice] = useState(null)          // branded one-button notice message, or null
   const [streak, setStreak] = useState(0)
+  // The other two identity facts, from the same one round trip as the streak.
+  const [daysLogged, setDaysLogged] = useState(0)
+  const [longestStreak, setLongestStreak] = useState(0)
   const [bestWeek, setBestWeek] = useState(null)
   const [consistency, setConsistency] = useState(null)
   const [heatmapData, setHeatmapData] = useState({})
@@ -459,27 +489,30 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     })).sort((a, b) => a.date.localeCompare(b.date)))
   }
 
+  // Days logged, longest run and current run, in one round trip.
+  //
+  // This used to pull 60 days of `logged_date` and walk backwards through them
+  // in the browser. That had a ceiling of 60 built into its own query window
+  // while MILESTONES below lists 90, so a 90-day streak could not be reported
+  // and that celebration was unreachable. It also could not answer "longest
+  // ever" or "days logged" without shipping a user's entire history here to be
+  // counted.
+  //
+  // The local date is passed in rather than read from the database, which
+  // answers in UTC: west of Greenwich, an evening would otherwise be counted
+  // as tomorrow and every streak would read as broken for the last hours of
+  // each day.
   async function fetchStreak() {
-    const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const { data, error } = await supabase
-      .from('nutrition_log')
-      .select('logged_date')
-      .eq('user_id', currentSession.user.id)
-      .gte('logged_date', toLocalDateString(new Date(new Date().setDate(new Date().getDate() - 60))))
-      .order('logged_date', { ascending: false })
+    const { data, error } = await supabase.rpc('logging_identity', {
+      p_today: toLocalDateString(new Date()),
+    })
     if (error) { console.error(error); return }
-    const loggedDates = [...new Set(data.map(e => e.logged_date))]
-    const today = new Date()
-    const startOffset = loggedDates.includes(toLocalDateString(today)) ? 0 : 1
-    let count = 0
-    for (let i = startOffset; i < 60; i++) {
-      const d = new Date(today)
-      d.setDate(d.getDate() - i)
-      if (loggedDates.includes(toLocalDateString(d))) count++
-      else break
-    }
-    setLoggedToday(loggedDates.includes(toLocalDateString(today)))
-    setStreak(count)
+    const row = data?.[0]
+    if (!row) return
+    setStreak(row.current_streak ?? 0)
+    setLongestStreak(row.longest_streak ?? 0)
+    setDaysLogged(row.days_logged ?? 0)
+    setLoggedToday(Boolean(row.logged_today))
   }
 
   // Client messaging lives at /coach — a page, not a bubble. It passed through
@@ -951,30 +984,53 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	            before it became "Clients". NavBar carries the matching label. */}
 	        <h1>My Progress</h1>
 
-        {streak > 0 && (
-          <div style={{
-            background: streak >= 7 ? ALWAYS_DARK.streakHot : ALWAYS_DARK.streakCool,
-            border: `1px solid ${ALWAYS_DARK.primary}`,
-            borderRadius: 'var(--radius)', padding: 'var(--space-16) var(--space-20)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}>
-            <div>
-              <p style={{ fontSize: 'var(--text-xs)', color: ALWAYS_DARK.label, marginBottom: 'var(--space-4)', fontWeight: 'var(--weight-medium)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Logging streak</p>
-              {/* A5: --weight-bold is display numerals only, and this is the one
-                  on the page that qualifies. It was 800, a step off the four-step
-                  ramp entirely. .tnum so the digit doesn't jitter as it climbs. */}
-              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-display)', color: ALWAYS_DARK.primary, lineHeight: 1 }}>
-                {streak} <span style={{ fontSize: 'var(--text-body)', fontWeight: 'var(--weight-normal)' }}>{streak === 1 ? 'day' : 'days'}</span>
-              </p>
-              {streak >= 7 && loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: ALWAYS_DARK.cheer, marginTop: 'var(--space-4)' }}>Keep it going, you're on a roll!</p>}
-              {!loggedToday && <p style={{ fontSize: 'var(--text-sm)', color: ALWAYS_DARK.warning, marginTop: 'var(--space-4)' }}>Log today to keep your streak!</p>}
-            </div>
-            {/* eslint-disable-next-line no-restricted-syntax -- decorative emoji glyph, sized to the icon not the text ramp */}
-            <span style={{ fontSize: streak >= 7 ? '2.5rem' : '2rem' }}>
-              {streak >= 30 ? '🏆' : streak >= 14 ? '🔥' : streak >= 7 ? '⭐' : '💪'}
-            </span>
-          </div>
-        )}
+        {/* THE IDENTITY STRIP (roadmap 6.1).
+            Three facts about one subject is a StatCell strip (C1), and these
+            three are the ones a person's logging history says about them.
+
+            It replaces the standing gradient streak card, which stated the
+            current streak in a surface of its own directly above a page that
+            now states it here. C6: a number met twice on one screen is the
+            duplication that survives review, because each surface reads as
+            reasonable on its own. The CELEBRATION is not lost — the milestone
+            card below is the earned, transient one, and it is the half the
+            design system sanctions a gradient for. What went is the permanent
+            card that re-announced a number every day whether or not anything
+            had happened.
+
+            The nudge went with it, into the sub-line under the number it is
+            about, which is nearer to the thing it is asking for than a
+            sentence in a separate card was. */}
+        {/* The parent's 8px gap was sized for a BORDERED card: the streak card
+            drew its own edge, so the space around it only had to stop it
+            touching its neighbours. A borderless strip has nothing but space
+            to separate it from the title above and the date control below, so
+            it carries its own — A3 wants ≥24 between groups, and 8 + 16 is
+            where that lands. */}
+        <div className="ds-statstrip is-compact" style={{ margin: 'var(--space-16) 0' }}>
+          <IdentityStat
+            label="Current streak"
+            value={streak}
+            unit={streak === 1 ? 'day' : 'days'}
+            sub={!loggedToday && streak > 0 ? 'Log today to keep it' : (streak >= 7 && loggedToday ? "You're on a roll" : '')}
+            subTone={!loggedToday && streak > 0 ? 'var(--color-warning)' : undefined}
+          />
+          <IdentityStat
+            label="Longest streak"
+            value={longestStreak}
+            unit={longestStreak === 1 ? 'day' : 'days'}
+            // Only worth saying when it is not the same run twice. A personal
+            // best that IS the current streak is the thing the first cell
+            // already said.
+            sub={longestStreak > 0 && longestStreak === streak ? 'Your best, right now' : ''}
+          />
+          <IdentityStat
+            label="Days logged"
+            value={daysLogged}
+            unit={daysLogged === 1 ? 'day' : 'days'}
+            sub="All time"
+          />
+        </div>
 
         {/* A3, and the reason it is two nested flexes rather than one row:
             `‹ date ›` is ONE control — stepping and picking set the same value —

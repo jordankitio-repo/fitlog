@@ -982,7 +982,16 @@ Each carries an `eslint-disable` with a reason. Leave them alone:
   background and destroy contrast.
 - **`BarcodeScanner`** — white on a 92%-black scrim over live camera video, not
   a themed surface.
-- **The streak-card gradient palette** (`#86efac`, `#6ee7b7`). The entry that
+- ~~**The streak-card gradient palette** (`#86efac`, `#6ee7b7`)~~ — **gone
+  (Oct 19 2026)**, with the standing streak card it decorated. 6.1 replaced
+  that card with a stat strip, because the current streak was being stated in a
+  surface of its own directly above a page that now states it in the strip
+  (C6). The milestone card keeps its gradient and its sanction: it is the
+  EARNED, transient celebration, which is the half this exception was for. Six
+  literals went at once — two gradients, the decorative pair, and the primary
+  and warning the numeral and its nudge were painted in. This entry is left
+  struck through rather than deleted because the paragraph below is the rule it
+  demonstrates. The entry that
   used to sit beside it — a "decorative check-in badge in ClientView"
   (`#1e3a5f`/`#93c5fd`) — named the read/unread pills on *Sent reports*, not a
   check-in badge, and it is gone: C1 made them plain status text. The sanction

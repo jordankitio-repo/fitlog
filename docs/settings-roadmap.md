@@ -367,16 +367,42 @@ zero.
 ## 6. Identity & motivation
 
 ### 6.1 Stats strip
-**Status:** not started · **Effort:** ~1 day · **Priority:** medium
+**Status:** SHIPPED (Oct 19 2026, `feat/stats-strip`, branched from
+`feat/device-sync`) · **Priority:** was medium
 
-ChatGPT's profile leads with a compact strip — lifetime, peak, longest task,
-longest streak, current streak — then an activity heatmap with Daily/Weekly/
-Cumulative, then "Insights".
+**Current streak · Longest streak · Days logged**, as a StatCell strip at the
+head of My Progress.
 
-Gardnr already has every equivalent: streaks, milestones, the 90-day consistency
-heatmap, the weekday/weekend split. They are scattered across My Progress. The
-borrowable idea is *compacting them into one identity surface*. In a fitness app
-that is retention, not vanity.
+Two of those three did not exist. The page computed the current streak in the
+browser from a 60-day pull, which could answer neither "longest ever" nor "days
+logged" without shipping a user's whole history to be counted there.
+`logging_identity(p_today)` answers all three in one round trip, over the whole
+history, with ONE definition of the word streak — two definitions on one screen
+is worse than no streak at all.
+
+*The bug that was hiding in the old version:* the loop was capped at 60 by its
+own query window, and `MILESTONES` on that page lists 90. **A 90-day streak
+could not be reported, so that celebration and its email were unreachable.**
+Asserted now by a test that logs 95 consecutive days.
+
+`p_today` is the caller's LOCAL date, not `current_date`. Postgres answers in
+UTC, so west of Greenwich an evening counts as tomorrow and every streak reads
+as broken for the last hours of each day — the same trap E2 records for seed
+data.
+
+**What it replaced.** The standing gradient streak card is gone: it stated the
+current streak in a surface of its own, directly above a page that now states
+it in the strip (C6). The celebration is not lost — the milestone card is the
+earned, transient one, and that is the half the design system's gradient
+exception was always for. The nudge moved into the sub-line under the number it
+is about. Six sanctioned literals went with the card, and the design-system
+entry naming them is struck through rather than deleted, because it is now the
+example of its own rule.
+
+**Branch note:** built on `feat/device-sync`, not `main`, because that branch
+rebuilds this exact page (+353/−192 in `Dashboard.jsx`). Building it on main
+would have put a third version of that file in play — 8.1 again, one day later.
+It therefore lands when device-sync does.
 
 ### 6.2 Shareable progress
 **Status:** flagged, not recommended yet · **Priority:** deferred
