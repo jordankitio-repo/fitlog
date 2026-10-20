@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import { uploadAvatar, removeAvatar, AVATAR_MAX_BYTES } from '../utils/avatarUpload'
@@ -12,6 +12,7 @@ import CheckinBuilder from '../components/CheckinBuilder'
 import AppearanceControls from '../components/AppearanceControls'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { SOLO_BILLING_ENABLED } from '../App'
+import { SECTION_ICONS } from '../utils/sectionIcons'
 import ConfirmDialog from '../components/ConfirmDialog'
 import TargetCalculator from '../components/TargetCalculator'
 import { useMediaQuery } from '../hooks/useMediaQuery'
@@ -21,7 +22,6 @@ import { convertGoalValue } from '../utils/weightTarget'
 import { controlStyle, Icon, Panel, Pill, Toggle } from '../components/ui'
 import { GOALS, goalLabel } from '../utils/goals'
 import { categoriesForRole, isEnabled } from '../utils/notificationCategories'
-import { scrollBehavior } from '../utils/motion'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -64,6 +64,34 @@ const CHART_TOGGLES = [
   { key: 'stepsChart', label: 'Steps' },
   { key: 'measurements', label: 'Body measurements' },
 ]
+
+// The phone's way back out of a section. Type-only, and it travels the same
+// --color-faint -> --color-text-dim -> --color-text progression every other
+// type-only control in the app uses (D2).
+const backLinkStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 'var(--space-4)',
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  cursor: 'pointer',
+  color: 'var(--color-faint)',
+  fontSize: 'var(--text-sm)',
+  alignSelf: 'flex-start',
+}
+
+// A settings section. Renders nothing unless it is the one the route is on.
+//
+// Declared at module scope on purpose. Defined inside Profile() it would be a
+// brand-new component type on every render, so React would unmount and remount
+// the entire subtree each time — every field on this page losing its value and
+// its focus on each keystroke. That bug is invisible in a diff and obvious the
+// first time someone types their name.
+function SectionPanel({ active, children, ...rest }) {
+  if (!active) return null
+  return <Panel {...rest}>{children}</Panel>
+}
 
 function Profile({ session, profile, subscription, soloSubscription, onProfileUpdate }) {
   // The mobile bottom tab bar has no sign-out (the old hamburger did), so surface
@@ -163,9 +191,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [notice, setNotice] = useState(null)
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const [activeSection, setActiveSection] = useState(null) // scroll-spy: section in view
+  const { section: routeSection } = useParams()
 
   useEffect(() => {
     async function loadTargets() {
@@ -504,89 +532,169 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // One canonical control style for the whole app (src/components/ui/Field.jsx).
   const inputStyle = controlStyle
 
-  // --- In-page section rail (desktop) + deep-link scroll ---
-  // The rail mirrors which cards actually render for this role, in order. Other
-  // pages deep-link here with ?focus=<key> (e.g. ClientView → questionnaire).
-  const railSections = [
-    // Clients can message their coach via the app-level chat bubble; coaches and
-    // solo users have no bubble on this page, so no Messages entry for them.
-    { key: 'messages', label: 'Messages', show: profile?.role === 'client' },
-    { key: 'account', label: 'Account', show: true },
-    { key: 'appearance', label: 'Appearance', show: true },
-    { key: 'notifications', label: 'Notifications', show: emailCategories.length > 0 },
-    { key: 'details', label: 'Your details', show: profile?.role !== 'coach' },
-    { key: 'targets', label: 'Daily targets', show: profile?.role !== 'coach' },
-    { key: 'questionnaire', label: 'Check-in questions', show: profile?.role === 'coach' },
-    { key: 'charts', label: 'Charts', show: profile?.role === 'coach' },
-    { key: 'billing', label: 'Billing', show: profile?.role === 'coach' },
-    { key: 'soloBilling', label: 'Solo Premium', show: profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) },
-    { key: 'security', label: 'Security', show: true },
-    { key: 'data', label: 'Data', show: true },
-  ].filter(s => s.show).map(({ key, label }) => ({ key, label }))
+  // --- The settings rail: three groups, each entry its own route ---
+  //
+  // GROUPED, because a flat column of eleven makes the reader scan all eleven
+  // to find one. The split answers "what is this about?": YOU is how the app
+  // behaves for you, COACHING is how you work with the people in it, ACCOUNT
+  // is the relationship with Gardnr itself. A coach sees three in the middle
+  // group and a client sees two; the group vanishes when it is empty, so no
+  // role is shown a heading with nothing under it.
+  const railGroups = [
+    {
+      label: 'You',
+      items: [
+        // Clients message their coach from the app-level thread; coaches and
+        // solo users have no bubble on this page, so no Messages entry.
+        { key: 'messages', label: 'Messages', show: profile?.role === 'client' },
+        { key: 'account', label: 'Account', show: true },
+        { key: 'appearance', label: 'Appearance', show: true },
+        { key: 'notifications', label: 'Notifications', show: emailCategories.length > 0 },
+      ],
+    },
+    {
+      label: 'Coaching',
+      items: [
+        { key: 'details', label: 'Your details', show: profile?.role !== 'coach' },
+        { key: 'targets', label: 'Daily targets', show: profile?.role !== 'coach' },
+        { key: 'questionnaire', label: 'Check-in questions', show: profile?.role === 'coach' },
+        { key: 'charts', label: 'Charts', show: profile?.role === 'coach' },
+      ],
+    },
+    {
+      label: 'Account',
+      items: [
+        { key: 'billing', label: 'Billing', show: profile?.role === 'coach' },
+        { key: 'soloBilling', label: 'Solo Premium', show: profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) },
+        { key: 'security', label: 'Security', show: true },
+        { key: 'data', label: 'Data', show: true },
+      ],
+    },
+  ]
+    .map(g => ({ ...g, items: g.items.filter(i => i.show).map(({ key, label }) => ({ key, label })) }))
+    .filter(g => g.items.length)
 
-  // Smooth-scroll to a section. Profile cards aren't collapsible, so this only
-  // scrolls (the retry loop covers a card whose async content hasn't mounted).
-  function goToSection(key) {
-    let tries = 0
-    const scroll = () => {
-      const el = document.getElementById('section-' + key)
-      if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
-      else if (tries++ < 20) setTimeout(scroll, 100)
-    }
-    requestAnimationFrame(() => setTimeout(scroll, 80))
-  }
+  // Every destination this role actually has, flat, in rail order. One source:
+  // the rail, the route validator and the phone's list all read it, so a
+  // section cannot be reachable from one and missing from another.
+  const destinations = railGroups.flatMap(g => g.items).filter(d => d.key !== 'messages')
 
-  // Rail clicks: "Messages" goes to the thread; everything else scrolls to its
-  // section. This used to set ?focus=chat and wait for the client's floating
-  // chat bubble to notice — but that bubble was retired when the conversation
-  // moved to /coach, so the rail item had quietly become a button that set a
-  // URL parameter and did nothing else. It is a destination now, like the
-  // notification that points at the same place.
+  // The section this route is on. An unknown or absent one falls back to the
+  // first destination on a desktop (the rail is on screen, so landing
+  // somewhere real beats landing nowhere) and to null on a phone, where null
+  // IS a screen: the list of destinations.
+  const requestedSection = destinations.some(d => d.key === routeSection) ? routeSection : null
+  const activeSection = requestedSection ?? (isMobile ? null : destinations[0]?.key ?? null)
+
+  // One switch, like ClientView's. The sections stay inline exactly where they
+  // are and hiding costs one token each, rather than eleven files or eleven
+  // brace-matched wrappers.
+  const isVisible = (key) => key === activeSection
+
+  // The rail navigates. It used to scroll a 3,400px page, which is why the
+  // page was 3,400px: everything had to be mounted for the scroll to have
+  // somewhere to land. A settings page is visited to change ONE thing, so the
+  // section is a route and the screen is only ever as long as the thing you
+  // came for.
   function handleRailJump(key) {
     if (key === 'messages') {
       navigate('/coach')
       return
     }
-    goToSection(key)
+    navigate(`/profile/${key}`)
   }
 
-  // Deep-link from another page (?focus=questionnaire etc.): scroll to it once,
-  // then strip the param so a refresh doesn't re-jump. 'chat' is skipped
-  // because it names no section here: it belongs to ChatBubble, which only the
-  // coach's ClientView mounts. Nothing routes it to this page any more, but a
-  // hand-typed one must not be treated as a section name.
+  // `?focus=<key>` is a PERMANENT entry point, not a legacy one to migrate off.
+  // It is baked into URLs that live outside this codebase and cannot be
+  // changed after the fact: Stripe's billing-portal return URL, and the
+  // payment-failed email, both of which point at /profile?focus=billing. Every
+  // one of those must keep landing on the right section for as long as the
+  // mail exists.
+  //
+  // It redirects to the route and replaces the history entry, so the back
+  // button goes where the reader came from rather than back to a redirect.
+  // 'chat' is skipped because it names no section here — it belonged to the
+  // retired ChatBubble — and a hand-typed one must not be treated as a section.
   useEffect(() => {
     const focus = searchParams.get('focus')
     if (!focus || focus === 'chat') return
-    goToSection(focus)
     const sp = new URLSearchParams(searchParams)
     sp.delete('focus')
-    setSearchParams(sp, { replace: true })
-  }, [searchParams, setSearchParams])
+    const query = sp.toString()
+    const known = focus === 'messages' || destinations.some(d => d.key === focus)
+    navigate(
+      known && focus !== 'messages'
+        ? `/profile/${focus}${query ? `?${query}` : ''}`
+        : focus === 'messages' ? '/coach' : `/profile${query ? `?${query}` : ''}`,
+      { replace: true },
+    )
+  }, [searchParams, navigate, destinations])
 
   // Scroll-spy: highlight the rail item for whichever section is near the top.
   // Re-runs when the rendered set changes (role/billing) so new anchors get observed.
-  useEffect(() => {
-    const els = Array.from(document.querySelectorAll('[id^="section-"]'))
-    if (!els.length) return
-    const io = new IntersectionObserver((entries) => {
-      const vis = entries.filter(e => e.isIntersecting)
-      if (!vis.length) return
-      const top = vis.reduce((a, b) => (a.boundingClientRect.top <= b.boundingClientRect.top ? a : b))
-      setActiveSection(top.target.id.replace('section-', ''))
-    }, { rootMargin: '-88px 0px -65% 0px', threshold: 0 })
-    els.forEach(el => io.observe(el))
-    return () => io.disconnect()
-  }, [profile, soloSubActive])
+  // The scroll-spy that used to live here is gone with the scrolling. The
+  // route says which section is active, so there is nothing to observe and no
+  // second opinion about it.
 
   return (
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div className="cv-shell">
-        <SectionRail sections={railSections} activeKey={activeSection} onJump={handleRailJump} label="Profile" />
+        <SectionRail groups={railGroups} activeKey={activeSection} onJump={handleRailJump} />
         <div className="cv-main">
-      <h1 style={{ margin: 0 }}>Profile</h1>
+      {/* C5: a back link names its destination. On a phone a section IS the
+          page, so the way out has to be on it — there is no rail to return to. */}
+      {isMobile && activeSection && (
+        <button type="button" onClick={() => navigate('/profile')} className="ds-control" style={backLinkStyle}>
+          <Icon name="left" size={16} /> Profile
+        </button>
+      )}
 
-      <Panel id="section-account" title="Account">
+      <h1 style={{ margin: 0 }}>
+        {isMobile && activeSection
+          ? destinations.find(d => d.key === activeSection)?.label ?? 'Profile'
+          : 'Profile'}
+      </h1>
+
+      {/* The phone's map. There is no rail below 900px, so without this a
+          phone had one scrolling page thousands of pixels long and no way to
+          see what was on it. Same `.cv-dest` rows the client record uses, and
+          the same glyphs as the rail, so a section reads the same whichever
+          map you arrived by. Grouped like the rail for the same reason. */}
+      {isMobile && !activeSection && railGroups.map(group => (
+        <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+          <p style={{
+            fontSize: 'var(--text-xs)',
+            color: 'var(--color-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            fontWeight: 'var(--weight-medium)',
+            margin: 0,
+          }}>
+            {group.label}
+          </p>
+          <nav className="cv-dest" aria-label={group.label}>
+            {group.items.map(item => (
+              <Link
+                key={item.key}
+                to={item.key === 'messages' ? '/coach' : `/profile/${item.key}`}
+                className="cv-dest-row ds-control"
+              >
+                <svg
+                  className="cv-dest-icon" width="17" height="17" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="1.75"
+                  strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                >
+                  {SECTION_ICONS[item.key] || null}
+                </svg>
+                <span className="cv-dest-label">{item.label}</span>
+                <Icon name="right" size={16} />
+              </Link>
+            ))}
+          </nav>
+        </div>
+      ))}
+
+      <SectionPanel active={isVisible('account')} id="section-account" title="Account">
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Avatar url={avatarUrl} name={profile?.full_name || ''} size={64} />
@@ -649,14 +757,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </p>
           </div>
         )}
-      </Panel>
+      </SectionPanel>
 
-      <Panel id="section-appearance" title="Appearance">
+      <SectionPanel active={isVisible('appearance')} id="section-appearance" title="Appearance">
         <AppearanceControls />
-      </Panel>
+      </SectionPanel>
 
       {emailCategories.length > 0 && (
-        <Panel id="section-notifications" title="Notifications">
+        <SectionPanel active={isVisible('notifications')} id="section-notifications" title="Notifications">
           <p style={{ fontSize: 'var(--text-base)', marginTop: '-6px', color: 'var(--color-muted)' }}>
             Which emails we send you. Everything stays in the app either way, and
             account, security and billing emails are always sent.
@@ -675,7 +783,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               disabled={emailPrefs === null}
             />
           ))}
-        </Panel>
+        </SectionPanel>
       )}
 
       {profile?.role !== 'coach' && (() => {
@@ -684,7 +792,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         const isClient = profile?.role === 'client'
         const lbl = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
         return (
-          <Panel id="section-details" title="Your details">
+          <SectionPanel active={isVisible('details')} id="section-details" title="Your details">
             <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
               {profile?.role === 'client'
                 ? 'Your coach uses these to set your targets. Keep them accurate.'
@@ -761,12 +869,12 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               <Button onClick={saveBio} variant="primary" loading={bioSaving}>Save details</Button>
               {bioSaved && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-sm)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>Saved <Icon name="check" /></span>}
             </div>
-          </Panel>
+          </SectionPanel>
         )
       })()}
 
       {profile?.role !== 'coach' && (
-      <Panel id="section-targets" title="Daily targets">
+      <SectionPanel active={isVisible('targets')} id="section-targets" title="Daily targets">
         <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px' }}>
           {profile?.role === 'client'
             ? 'These targets were set by your coach.'
@@ -908,17 +1016,17 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             {saved ? <>Saved <Icon name="check" /></> : 'Save targets'}
           </Button>
         )}
-      </Panel>
+      </SectionPanel>
       )}
 
       {profile?.role === 'coach' && (
-        <Panel id="section-questionnaire" title="Check-in questionnaire">
+        <SectionPanel active={isVisible('questionnaire')} id="section-questionnaire" title="Check-in questionnaire">
           <CheckinBuilder coachId={profile.id} />
-        </Panel>
+        </SectionPanel>
       )}
 
       {profile?.role === 'coach' && (
-        <Panel id="section-charts" title="Charts">
+        <SectionPanel active={isVisible('charts')} id="section-charts" title="Charts">
           <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px', color: 'var(--color-muted)' }}>
             Choose which charts appear on your clients' records. All shown by default.
           </p>
@@ -930,11 +1038,11 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               onChange={() => toggleChart(c.key)}
             />
           ))}
-        </Panel>
+        </SectionPanel>
       )}
 
       {profile?.role === 'coach' && (
-        <Panel id="section-billing" title="Billing">
+        <SectionPanel active={isVisible('billing')} id="section-billing" title="Billing">
           {subscription ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
@@ -965,14 +1073,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           ) : (
             <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>No active subscription.</p>
           )}
-        </Panel>
+        </SectionPanel>
       )}
 
       {/* Solo billing is retired (Solo is free). Only show this card if the user
           still has a legacy active sub to manage, OR billing is re-enabled.
           When billing is off and there's nothing to manage, no dead paywall. */}
       {profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) && (
-        <Panel id="section-soloBilling" title="Solo Premium">
+        <SectionPanel active={isVisible('soloBilling')} id="section-soloBilling" title="Solo Premium">
           {soloSubActive ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
@@ -1000,10 +1108,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               <SoloUpgrade feature="Advanced analytics and AI nutrition feedback" />
             </div>
           )}
-        </Panel>
+        </SectionPanel>
       )}
 
-      <Panel id="section-security" title="Security">
+      <SectionPanel active={isVisible('security')} id="section-security" title="Security">
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
           A password is optional. If you sign in with emailed codes you can carry on doing that —
           setting one here just gives you a second way in.
@@ -1086,10 +1194,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </Button>
           </div>
         </div>
-      </Panel>
+      </SectionPanel>
 
       {/* Data */}
-      <Panel id="section-data" title="Data">
+      <SectionPanel active={isVisible('data')} id="section-data" title="Data">
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>Export</p>
@@ -1169,7 +1277,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </div>
           )}
         </div>
-      </Panel>
+      </SectionPanel>
 
       {isMobile && (
         <div style={{ padding: '20px 0 0' }}>

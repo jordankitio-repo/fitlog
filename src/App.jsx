@@ -124,7 +124,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   // profile, and a client's full record at /client/:id) get the full width so
   // they're visually consistent. Only the auth/standalone pages stay narrow.
   const isWideScreen =
-    path === '/' || path === '/log' || path === '/profile' || path.startsWith('/client/')
+    path === '/' || path === '/log' || path.startsWith('/profile') || path.startsWith('/client/')
   // The rail + content pages (a client's full record and the coach/settings
   // Profile) OWN THEIR LAYOUT. They render a full-height sidebar flush to the
   // viewport edge, which a centred max-width <main> makes impossible — the rail
@@ -134,7 +134,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   // /coach joins them: its archive rail is flush to the window edge, which a
   // centred max-width <main> makes impossible. /coach/reports renders the same
   // page with the archive modal up, so it wants the same layout.
-  const ownsLayout = path.startsWith('/client/') || path === '/profile' || path.startsWith('/coach') || path.startsWith('/reports/')
+  const ownsLayout = path.startsWith('/client/') || path.startsWith('/profile') || path.startsWith('/coach') || path.startsWith('/reports/')
 
   // Clients USED to carry a floating chat bubble (FAB, bottom-right) on every
   // page, and <main> kept extra bottom clearance so content never sat under it.
@@ -164,6 +164,13 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
             ) : (showLoginAsHome ? <Login /> : <Landing />)} />
             <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
             <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
+            {/* Each settings section is its own route, the same shape the
+                coach's client record uses (/client/:id/:section). The rail
+                navigates rather than scrolling, which is what keeps a screen
+                short enough to read. `/profile` with no section is the index:
+                the first section on a desktop, a list of destinations on a
+                phone. See Profile.jsx. */}
+            <Route path="/profile/:section" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
             <Route path="/coach" element={session ? <Coach profile={profile} /> : <Navigate to="/login" />} />
             {/* The archive is a modal over the thread, not a page of its own.
                 The URL still addresses it, so a link opens the thread with it up. */}

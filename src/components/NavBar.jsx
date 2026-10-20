@@ -162,7 +162,7 @@ function NavBar({ profile }) {
             style={{
               background: 'none', border: 'none', padding: 0, cursor: 'pointer',
               borderRadius: '50%', display: 'inline-flex',
-              boxShadow: location.pathname === '/profile' ? '0 0 0 2px var(--color-primary)' : 'none',
+              boxShadow: location.pathname.startsWith('/profile') ? '0 0 0 2px var(--color-primary)' : 'none',
             }}
           >
             <Avatar url={profile?.avatar_url} name={profile?.full_name} size={34} />
@@ -184,7 +184,7 @@ function NavBar({ profile }) {
                 <Link
                   to="/profile"
                   onClick={() => setMenuOpen(false)}
-                  className={`gnav-menu-item${location.pathname === '/profile' ? ' active' : ''}`}
+                  className={`gnav-menu-item${location.pathname.startsWith('/profile') ? ' active' : ''}`}
                 >
                   Profile
                 </Link>
