@@ -1,0 +1,103 @@
+# Runs the tests that already exist, on every push.
+#
+# WHY THIS WAS WORTH AN HOUR. The suite was comprehensive and ran when someone
+# remembered. Two bugs found by hand on 2026-10-19 were both caught by tests
+# that existed and had simply never been run on that commit:
+#
+#   * a client could rewrite the report their coach wrote about them
+#   * a 90-day streak could never be reported, so that milestone and its email
+#     were unreachable
+#
+# Both live in database-level tests, which is why the `database` job below
+# matters more than the fast one and is worth the minutes it costs.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# A second push to the same branch cancels the first: no point finishing a run
+# for a commit nobody is looking at any more.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: lint · unit tests · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Not `|| true`. The lint rules here are load-bearing — they are what
+      # keeps raw hex colours and off-ramp font sizes out of src/ — so a
+      # failure has to stop the run rather than scroll past.
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npx vitest run --reporter=verbose
+
+      - name: Build
+        run: npm run build
+
+  database:
+    name: database + edge function tests
+    runs-on: ubuntu-latest
+    # Pulling the Supabase images takes a few minutes; the default 360 would
+    # let a wedged container burn an hour.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # The same script used locally, so CI cannot drift from what a developer
+      # runs. EXCLUDES is overridden to KEEP edge-runtime, functions and
+      # inbucket, which the default (local, fast) list drops — without them the
+      # seven function-level test files skip themselves silently.
+      - name: Start the stack and load the schema
+        env:
+          EXCLUDES: vector,analytics,imgproxy,realtime,storage,studio,meta
+        run: npm run rls:setup
+
+      - name: Integration tests
+        run: npx vitest run --config vitest.integration.config.js --reporter=verbose
+
+      # A suite that skips itself reports success. Several files skip when the
+      # edge runtime is unreachable, and `webhookPaymentFailed` skips without a
+      # Stripe webhook secret, which CI has no business holding. That is fine
+      # as long as it is VISIBLE — a silent skip-everything is a green tick
+      # that means nothing.
+      - name: Report what actually ran
+        if: always()
+        run: |
+          npx vitest run --config vitest.integration.config.js --reporter=json \
+            --outputFile=/tmp/res.json > /dev/null 2>&1 || true
+          node -e '
+            const r = require("/tmp/res.json");
+            // "skipped" per assertion, "pending" in the top-level counters —
+            // vitest uses both words. A file whose every test skipped still
+            // reports status "passed", which is the false green this step
+            // exists to catch.
+            const isSkip = (a) => a.status === "skipped" || a.status === "pending";
+            const files = r.testResults;
+            const skipped = files.filter(f => f.assertionResults.length > 0 && f.assertionResults.every(isSkip));
+            const empty = files.filter(f => f.assertionResults.length === 0);
+            console.log(`files: ${files.length}  passed: ${r.numPassedTests}  skipped: ${r.numPendingTests}`);
+            [...skipped, ...empty].forEach(f => console.log("  SKIPPED ENTIRELY: " + f.name.split("/").pop()));
+            if (r.numPassedTests === 0) { console.error("Nothing ran at all. Failing."); process.exit(1); }
+          '
