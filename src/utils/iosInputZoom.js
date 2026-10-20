@@ -15,13 +15,47 @@
 // and is fully reachable by blurring the field — the static viewport meta keeps
 // no maximum-scale, so the page remains pinch-zoomable at rest (and axe stays
 // clean, since it scans the resting meta).
+//
+// SCOPE, both halves of it learned the hard way: iOS only, and text fields
+// only. Rewriting the viewport meta makes the browser re-lay-out the viewport,
+// and this used to do that on every platform for every field — including
+// <select>, whose native dropdown is positioned at the moment of the tap this
+// handler fires on. See the note on `isField` below.
+
+// iPadOS 13+ reports itself as a Mac, and touch points are the only thing
+// separating it from a trackpad Mac.
+function isIOS() {
+  try {
+    const ua = navigator.userAgent || ''
+    return /iPad|iPhone|iPod/.test(ua)
+      || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+  } catch {
+    return false
+  }
+}
+
 export function initIosInputZoomGuard() {
+  if (!isIOS()) return
+
   const meta = document.querySelector('meta[name="viewport"]')
   if (!meta) return
 
   const RELAXED = meta.getAttribute('content') || 'width=device-width, initial-scale=1.0'
   const LOCKED = `${RELAXED}, maximum-scale=1.0`
-  const isField = (el) => !!el && typeof el.matches === 'function' && el.matches('input, select, textarea')
+
+  // NOT `select`. This is the bug this guard caused for two reasons at once.
+  //
+  // Tapping a <select> opens a NATIVE dropdown, which the browser positions
+  // against the control at the moment of the tap — and this handler fires on
+  // pointerdown, BEFORE that, rewriting the viewport meta. The viewport
+  // re-lays-out underneath a list that has already been placed, and the list
+  // lands somewhere the control no longer is. On a narrow viewport the offset
+  // was hundreds of pixels: a dropdown floating over unrelated fields.
+  //
+  // And it was never needed here. The zoom this guards against is iOS
+  // enlarging the page so a CARET is legible during text entry. A select
+  // presents a picker, not a keyboard, and has no caret to zoom to.
+  const isField = (el) => !!el && typeof el.matches === 'function' && el.matches('input, textarea')
 
   const lock = () => {
     if (meta.getAttribute('content') !== LOCKED) meta.setAttribute('content', LOCKED)
@@ -36,7 +70,7 @@ export function initIosInputZoomGuard() {
   // is the input itself. Use closest() too so a tap on padding still counts.
   const onDown = (e) => {
     const t = e.target
-    if (isField(t) || (t && typeof t.closest === 'function' && t.closest('input, select, textarea'))) {
+    if (isField(t) || (t && typeof t.closest === 'function' && t.closest('input, textarea'))) {
       lock()
     }
   }
