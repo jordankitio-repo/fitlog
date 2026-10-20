@@ -218,20 +218,58 @@ sender type, the check constraint) is a silent failure in both directions, so
 ## 4. Accessibility (Appearance)
 
 ### 4.1 Reduce motion override
-**Status:** not started · **Effort:** ~2 hours · **Priority:** medium
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was medium
 
-`index.css` honours `@media (prefers-reduced-motion: reduce)`, but the user has
-no override. ChatGPT exposes System / On / Off. Cheap, and it aligns with the
-WCAG 2.1 AA work already in the compliance program.
+System / Reduced / Full, in Profile → Appearance.
+
+**The entry above was wrong about the premise, and the correction was most of
+the work.** `index.css` "honoured" `prefers-reduced-motion` in exactly one
+rule — `.brand-loader-mark { animation: none }` — while every control hover,
+toggle knob, splash fade and toast kept animating. A preference observed by one
+element is not observed, and a switch layered on top of that would have been a
+switch that mostly did nothing. Motion is damped globally now, keyed off the
+media query AND the override, in that order, so the OS setting still works with
+no JavaScript.
+
+Two details worth keeping:
+
+- Damped to `0.01ms`, never `animation: none`. `none` on something that
+  animates IN from `opacity: 0` leaves it invisible forever, so the accessible
+  setting would hide content.
+- `scrollIntoView({ behavior: 'smooth' })` names its behaviour in the call, so
+  CSS never sees it. Four call sites (Profile, Dashboard, ClientView,
+  CoachDashboard) went through `scrollBehavior()`. A settings page that
+  smooth-scrolls to a section is exactly the animation someone turns this on to
+  avoid.
+
+`Full` exists so the OS setting is a default rather than a ceiling.
 
 ### 4.2 Text size control
-**Status:** not started · **Effort:** ~half a day · **Priority:** medium
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was medium
 
-ChatGPT has UI and code font-size inputs. Gardnr has neither. Coaching skews
-older than ChatGPT's user base, so this is a real need rather than a nicety.
+Default / Large / Largest, in Profile → Appearance.
 
-Careful: the type ramp is tokenised and lint-enforced. A size control should
-scale the root, not add per-component overrides.
+Cheaper than estimated, because the ramp was **already in `rem`** — `--text-xs`
+is `0.6875rem`, not `11px`. One root font-size therefore scales all ten steps,
+and the per-component overrides this entry warned about never had to exist.
+
+`font-size: calc(100% * var(--text-scale))`, and the `100%` is the part that
+matters: a pixel value would discard the reader's own browser font-size
+setting and make this the one site that ignores it. Someone running their
+browser at 20px who picks Large gets 22.5px, not 18px. It also means the app
+respected that setting before this control existed.
+
+Verified for horizontal overflow at Largest on the roster and the full Profile
+page: none.
+
+**A trap found while shipping it.** The pre-paint script in `index.html` is
+pinned by a CSP hash in `vercel.json`. Editing one character of it — which this
+had to, to apply text size before the page renders — invalidates that hash, and
+the browser then silently refuses to run the script in production: no theme, no
+motion, no text size, and a flash of the wrong one of each. Nothing errors, the
+build passes, and the dev server has no CSP, so it only appears on the deployed
+site. `tests/cspHashes.test.js` recomputes both hashes and fails on drift, in
+both directions.
 
 ### 4.3 Contrast slider
 **Status:** not started · **Priority:** low
@@ -461,8 +499,9 @@ consent questions attached (see 6.2). Named so it is not forgotten.
 3. ~~**3.1 Notification preferences**~~ — SHIPPED. 5.1 (consent preferences) is
    still open and now has a panel to live in.
 4. ~~**5.3 `reports.archived`**~~ — DELETED, the September removal finished.
-5. **4.1 / 4.2 accessibility** — cheap, supports the AA commitment. **Next up.**
-6. **8.1 branch divergence** — must be resolved before 7.x
+5. ~~**4.1 / 4.2 accessibility**~~ — SHIPPED.
+6. **8.1 branch divergence** — must be resolved before 7.x. **Next up**, and it
+   is a decision rather than a build.
 7. **7.1–7.3 structure pass** (+ 9.4, same decision) — one pass, not piecemeal
 8. **6.1 stats strip** — once the surfaces above are stable
 

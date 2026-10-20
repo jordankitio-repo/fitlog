@@ -3,18 +3,12 @@
 // <html data-theme="..."> which flips the CSS-variable ramp in index.css.
 // An inline script in index.html applies the same logic before first paint to
 // avoid a flash; this module keeps it live afterwards.
-import { useEffect, useState } from 'react'
-
-const KEY = 'gardnr-theme'
-const EVENT = 'gardnr-theme-change'
-
-export function getThemePref() {
-  try {
-    const v = localStorage.getItem(KEY)
-    if (v === 'light' || v === 'dark' || v === 'auto') return v
-  } catch { /* localStorage unavailable */ }
-  return 'auto'
-}
+//
+// The storage/event/hook mechanics moved to preference.js when motion and text
+// size needed the same ones. This file kept its name and its exports, because
+// both are referenced by the design system doc and by every call site; what it
+// no longer keeps is its own copy of the machinery.
+import { createPreference } from './preference'
 
 export function systemTheme() {
   try {
@@ -24,39 +18,22 @@ export function systemTheme() {
   }
 }
 
-export function resolveTheme(pref = getThemePref()) {
-  return pref === 'auto' ? systemTheme() : pref
+export function resolveTheme(pref) {
+  return pref === 'auto' || !pref ? systemTheme() : pref
 }
 
-export function applyTheme(pref = getThemePref()) {
-  document.documentElement.setAttribute('data-theme', resolveTheme(pref))
-}
+const theme = createPreference({
+  key: 'gardnr-theme',
+  values: ['auto', 'light', 'dark'],
+  fallback: 'auto',
+  resolve: resolveTheme,
+  apply: (resolved) => document.documentElement.setAttribute('data-theme', resolved),
+})
 
-export function setThemePref(pref) {
-  try { localStorage.setItem(KEY, pref) } catch { /* ignore */ }
-  applyTheme(pref)
-  window.dispatchEvent(new CustomEvent(EVENT, { detail: pref }))
-}
+export const getThemePref = theme.read
+export const setThemePref = theme.set
+export const applyTheme = theme.apply
+export const useThemePref = theme.usePreference
 
 // Call once at startup: keeps the app in sync with the OS while in 'auto'.
-export function initThemeWatcher() {
-  applyTheme()
-  try {
-    const mq = window.matchMedia('(prefers-color-scheme: light)')
-    mq.addEventListener('change', () => {
-      if (getThemePref() === 'auto') applyTheme('auto')
-    })
-  } catch { /* matchMedia unavailable */ }
-}
-
-// Hook for the profile toggle. Returns [pref, setPref] and stays in sync if the
-// preference changes elsewhere.
-export function useThemePref() {
-  const [pref, setPref] = useState(getThemePref)
-  useEffect(() => {
-    const onChange = (e) => setPref(e.detail ?? getThemePref())
-    window.addEventListener(EVENT, onChange)
-    return () => window.removeEventListener(EVENT, onChange)
-  }, [])
-  return [pref, setThemePref]
-}
+export const initThemeWatcher = () => theme.init('(prefers-color-scheme: light)')

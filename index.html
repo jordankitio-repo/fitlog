@@ -6,8 +6,22 @@
          iOS auto-zoom on input focus is prevented by the 16px input font instead. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Apply the saved/auto theme before first paint to avoid a flash. Mirrors
-         src/utils/theme.js (keep in sync). -->
+    <!-- WARNING: this script is pinned by a CSP hash in vercel.json. Editing
+         ANY character of it — a space, a comment — changes that hash, and the
+         browser then silently refuses to run it in production: no theme, no
+         motion override, no text size, and a flash of the wrong one of each.
+         Nothing errors and the dev server is unaffected, so it only shows up
+         on the deployed site. tests/cspHashes.test.js recomputes both hashes
+         and fails if they have drifted.
+
+         Appearance preferences, applied before first paint. Mirrors
+         src/utils/theme.js, motion.js and textScale.js (keep in sync).
+
+         Text size has to be here more than the theme does: the theme flashes a
+         wrong colour, but a late font-size change REFLOWS the entire page, and
+         the reader who set it is by definition the one least able to follow
+         text that jumps. Motion is here for the same reason in reverse — an
+         entry animation that has already started cannot be un-started. -->
     <script>
       (function () {
         try {
@@ -16,6 +30,19 @@
             p = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
           }
           document.documentElement.setAttribute('data-theme', p);
+        } catch (e) {}
+        try {
+          var m = localStorage.getItem('gardnr-motion');
+          if (m === 'reduced' || m === 'full') {
+            document.documentElement.setAttribute('data-motion', m);
+          }
+        } catch (e) {}
+        try {
+          var scales = { default: 1, large: 1.125, largest: 1.25 };
+          var t = localStorage.getItem('gardnr-text-scale');
+          if (scales[t]) {
+            document.documentElement.style.setProperty('--text-scale', String(scales[t]));
+          }
         } catch (e) {}
       })();
     </script>

@@ -65,6 +65,7 @@ import {
   Filler
 } from 'chart.js'
 import { Icon, Pill, Field, Select, Textarea } from '../components/ui'
+import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -381,7 +382,7 @@ function ClientView({ profile }) {
     let tries = 0
     const scroll = () => {
       const el = document.getElementById('section-' + key)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
       else if (tries++ < 20) setTimeout(scroll, 100)
     }
     // Expand + scroll deferred to a frame so calling this from the deep-link

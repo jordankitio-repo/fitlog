@@ -9,7 +9,7 @@ import PasswordInput from '../components/PasswordInput'
 import SoloUpgrade from '../components/SoloUpgrade'
 import SubscriptionManager from '../components/SubscriptionManager'
 import CheckinBuilder from '../components/CheckinBuilder'
-import ThemeToggle from '../components/ThemeToggle'
+import AppearanceControls from '../components/AppearanceControls'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { SOLO_BILLING_ENABLED } from '../App'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -21,6 +21,7 @@ import { convertGoalValue } from '../utils/weightTarget'
 import { controlStyle, Icon, Panel, Pill, Toggle } from '../components/ui'
 import { GOALS, goalLabel } from '../utils/goals'
 import { categoriesForRole, isEnabled } from '../utils/notificationCategories'
+import { scrollBehavior } from '../utils/motion'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -525,7 +526,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     let tries = 0
     const scroll = () => {
       const el = document.getElementById('section-' + key)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
       else if (tries++ < 20) setTimeout(scroll, 100)
     }
     requestAnimationFrame(() => setTimeout(scroll, 80))
@@ -647,10 +648,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       </Panel>
 
       <Panel id="section-appearance" title="Appearance">
-        <p style={{ fontSize: 'var(--text-base)', marginTop: '-6px', color: 'var(--color-muted)' }}>
-          Auto follows your device's day/night setting.
-        </p>
-        <ThemeToggle />
+        <AppearanceControls />
       </Panel>
 
       {emailCategories.length > 0 && (

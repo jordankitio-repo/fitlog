@@ -39,6 +39,7 @@ import {
   Filler
 } from 'chart.js'
 import { controlStyle, Icon, Notice, Pill, Textarea, Field, IconButton } from '../components/ui'
+import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -203,7 +204,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     let timer, tries = 0
     const scrollWhenReady = () => {
       const el = document.getElementById('section-' + focus)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
       else if (tries++ < 20) timer = setTimeout(scrollWhenReady, 100)
     }
     const raf = requestAnimationFrame(() => {
