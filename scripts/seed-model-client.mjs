@@ -209,7 +209,6 @@ const main = async () => {
       content: `Week of ${ymd(d)}\n\nAdherence is holding at 95%+ and the weight trend is on schedule for ${GOAL_WEIGHT} lbs.\n\nKeep protein at ${TARGETS.protein}g. No changes this week.`,
       created_at: iso(w * 7 - 1),
       read_at: w > 2 ? iso(w * 7 - 1) : null,
-      archived: false,
     })
   }
   await chunk('reports', reports)

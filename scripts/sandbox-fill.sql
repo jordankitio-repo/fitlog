@@ -184,19 +184,22 @@ insert into coach_notes (coach_id, client_id, content) values
 -- seeded row ever triggered the three dismissable notices. Each block below
 -- names the condition in the page that it exists to satisfy.
 
--- Maya's report history — four weeks, mixed state, one archived. The page groups
--- reports by week behind a disclosure and keeps archived ones in a second tree;
--- with a single row neither structure renders.
-insert into reports (coach_id, client_id, content, week_of, created_at, read_at, archived) values
+-- Maya's report history — four weeks, mixed read/unread state. (It used to seed
+-- one ARCHIVED row too: the page once kept archived reports in a second tree.
+-- That feature was deleted in September 2025 as a filing chore, and
+-- `reports.archived` was dropped on 2026-10-19 — this insert still named the
+-- column and was the last thing holding a reference to it, which is why the
+-- sandbox fill broke the first time it ran after the drop.)
+insert into reports (coach_id, client_id, content, week_of, created_at, read_at) values
   ((select coach from _ids), (select maya from _ids),
    E'# Weekly Report — Maya · ' || to_char(((current_date - extract(dow from current_date)::int) - 7), 'Mon FMDD') || E'\n\nWeight moved the way we wanted and the tape backed it up. Protein was the standout: you hit it **every single day**, including the weekend.\n\n- **Calories:** 92% of target, no day below 85%.\n- **Steps:** cleared 9k on six of seven days.\n\n**This week:** same plan. Don''t change anything while it''s working.',
-   (current_date - extract(dow from current_date)::int) - 7, now() - interval '8 days', now() - interval '7 days', false),
+   (current_date - extract(dow from current_date)::int) - 7, now() - interval '8 days', now() - interval '7 days'),
   ((select coach from _ids), (select maya from _ids),
    E'# Weekly Report — Maya · ' || to_char(((current_date - extract(dow from current_date)::int) - 14), 'Mon FMDD') || E'\n\nA harder week and you logged through it, which is the part that matters.\n\n- Two days under target on calories, both midweek.\n- Cardio held at four sessions.\n\n**This week:** let''s get the midweek lunches prepped ahead so the dip doesn''t repeat.',
-   (current_date - extract(dow from current_date)::int) - 14, now() - interval '15 days', now() - interval '14 days', false),
+   (current_date - extract(dow from current_date)::int) - 14, now() - interval '15 days', now() - interval '14 days'),
   ((select coach from _ids), (select maya from _ids),
    E'# Weekly Report — Maya · ' || to_char(((current_date - extract(dow from current_date)::int) - 21), 'Mon FMDD') || E'\n\nFirst full month done. Waist is down 3cm from where we started and your logging streak has not broken once.\n\n**This week:** measurements again on Sunday, then we''ll reassess the deficit.',
-   (current_date - extract(dow from current_date)::int) - 21, now() - interval '22 days', now() - interval '21 days', true);
+   (current_date - extract(dow from current_date)::int) - 21, now() - interval '22 days', now() - interval '21 days');
 
 -- A real backlog. Four reports never exercised the archive: no month
 -- separators, no pagination, and a "See all" that opened a page shorter than
@@ -204,7 +207,7 @@ insert into reports (coach_id, client_id, content, week_of, created_at, read_at,
 -- client actually accumulates, and it is the only way to see this surface
 -- behave. Bodies vary by week (E2: seed data must read like real records, not
 -- twenty copies of one paragraph).
-insert into reports (coach_id, client_id, content, week_of, created_at, read_at, archived)
+insert into reports (coach_id, client_id, content, week_of, created_at, read_at)
 select
   (select coach from _ids),
   (select maya from _ids),
@@ -217,8 +220,7 @@ select
   end,
   (current_date - extract(dow from current_date)::int) - (w * 7),
   (now() - (w * interval '7 days') - interval '2 days'),
-  (now() - (w * interval '7 days') - interval '1 day'),  -- all read: they are history
-  false
+  (now() - (w * interval '7 days') - interval '1 day')  -- all read: they are history
 from generate_series(4, 25) as w;
 
 -- The coach's reply on a submitted check-in. Renders the "Coach's note" block
