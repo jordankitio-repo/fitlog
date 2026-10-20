@@ -427,11 +427,40 @@ what makes 7.1 pay off.
 Not from the ChatGPT comparison — surfaced while working, and listed because
 these items will be hit while doing the above.
 
-### 8.1 `ClientView.jsx` is diverging between `main` and `feat/device-sync`
-`main` does not have the 10 progress-chart commits that live on the branch. This
-already caused a cherry-pick conflict (Oct 19) that had to be ported by hand, and
-every further change to that file will need the same. Decide what happens to
-those commits before starting 7.1.
+### 8.1 `ClientView.jsx` divergence — RESOLVED (Oct 19 2026)
+
+**This entry was wrong about the cause, and the real one was more tractable.**
+It said main lacked the progress-chart commits. Main has them (`02e4f8a`); what
+was stranded was a later, different batch.
+
+Measured rather than assumed: `feat/device-sync` was 26 commits ahead of main,
+and **15 of those were already on main under different hashes** — cherry-picked
+across at some point. Those duplicates were the whole reason the branch kept
+conflicting: git sees the same change twice and cannot tell which is which.
+Of the 11 genuinely unique commits, only ONE was device-sync work. The other 10
+were finished UI work stranded on a branch named for something else: the My
+Progress rebuild (Today panel + Trends card), W/M/Y windows on both the client's
+and the coach's charts, the tips refactor, a rangepicker fix.
+
+Rebased onto main. Git dropped 14 duplicates by patch-id on its own; one more
+(`eb8c568`) had to be skipped by hand after confirming its diff was byte-identical
+to `c94e5ea` on main. One real conflict, in the check-in cadence row: the
+incoming patch closed a `<div>` because it was written when that row held four
+chips, and main had since made it a `<Select>`. Resolved to the structure main
+needs, keeping the incoming change — the "applies to every client" caveat had
+already moved onto the SectionHeader's `info`, so dropping the inline InfoTip
+lost nothing. Verified on screen, not just compiled.
+
+**26 commits → 11.** The branch no longer carries anything main already has, so
+it will stop conflicting. `backup/device-sync-pre-rebase` holds the pre-rebase
+state; delete it once the branch is pushed and confirmed good.
+
+**History was rewritten**, so if that branch was ever pushed it needs a
+force-push (`--force-with-lease`).
+
+*The lesson worth keeping:* a branch that keeps conflicting is usually carrying
+duplicates, not disagreements. Count what is genuinely unique before planning
+around the conflict.
 
 ### 8.2a FIXED: a client could rewrite their coach's report
 
@@ -544,8 +573,8 @@ consent questions attached (see 6.2). Named so it is not forgotten.
    still open and now has a panel to live in.
 4. ~~**5.3 `reports.archived`**~~ — DELETED, the September removal finished.
 5. ~~**4.1 / 4.2 accessibility**~~ — SHIPPED.
-6. **8.1 branch divergence** — must be resolved before 7.x. **Next up**, and it
-   is a decision rather than a build.
+6. ~~**8.1 branch divergence**~~ — RESOLVED. 26 commits → 11, mostly duplicates.
+   7.x is unblocked.
 7. **7.1–7.3 structure pass** (+ 9.4, same decision) — one pass, not piecemeal
 8. **6.1 stats strip** — once the surfaces above are stable
 
