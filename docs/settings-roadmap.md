@@ -394,31 +394,70 @@ These are presentation changes, not features. Worth doing as one pass rather
 than piecemeal.
 
 ### 7.1 Make the settings rail navigate, not scroll
-**Status:** not started · **Effort:** ~2 days · **Priority:** medium
-**Blocked by:** the ClientView divergence (see 8.1)
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`)
 
-ChatGPT's rail turns each entry into its own **page**, which is why their screens
-stay short while carrying 17 of them. Gardnr's Profile is one long page with
-10–11 anchored sections that the rail scrolls to, and three of those sections
-("Your details", "Daily targets", "Check-in questions") are full forms.
+Each section is a route (`/profile/:section`), the shape the client record
+already used. The rail navigates; the screen is only ever as long as the thing
+you came for. One `isVisible` switch, sections left inline — eleven wrappers or
+eleven files would both have been worse.
 
-The pattern is already proven in this codebase: the coach's client record uses
-sections-as-routes on mobile (`/client/:id/:section`). Settings never got it.
+**The phone was the real gap, and the entry above missed it.** The rail is
+desktop-only, so below 900px this was one scrolling page thousands of pixels
+long with no map at all. It gets the client record's `.cv-dest` list: eight
+destinations, grouped, on one screen, and a back link that names its
+destination.
+
+`?focus=<key>` is kept **permanently**, not migrated off. Stripe's
+billing-portal return URL and the payment-failed email both point at
+`/profile?focus=billing`, and those URLs exist outside this codebase — in mail
+already sent and in a dashboard someone configured. They redirect to the route
+with `replace`, so Back goes where the reader came from. An unknown section
+falls back to the first real one rather than rendering nothing.
+
+*The trap worth recording:* `SectionPanel` is declared at module scope. Defined
+inside `Profile()` it would be a new component type every render, so React
+would remount the whole subtree and every field would lose its value and its
+focus on each keystroke — invisible in a diff, obvious the first time someone
+types their name.
 
 ### 7.2 Group the rail
-**Status:** not started · **Effort:** small
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`)
 
-ChatGPT groups "Personal" / "Integrations". Gardnr's rail is flat and
-role-dependent. Something like You / Coaching / Account would help, and costs
-almost nothing once 7.1 is done.
+**You / Coaching / Account.** The split answers "what is this about?": how the
+app behaves for you, how you work with the people in it, your relationship with
+Gardnr. `SectionRail` already took `groups` (ClientView used them), so this
+cost almost nothing, exactly as predicted. An empty group does not render, so
+no role sees a heading with nothing under it.
 
 ### 7.3 One row pattern
-**Status:** not started · **Effort:** medium
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`)
 
-ChatGPT uses a single shape everywhere: label (+ description sub-line) on the
-left, control on the right. That uniformity is what makes a long list scannable.
-Gardnr alternates between forms and rows. Converging on one row primitive is
-what makes 7.1 pay off.
+`ui/SettingRow`: label (+ description sub-line) on the left, control on the
+right. Five call sites had written that shape independently — Toggle's switch
+rows, "Sign out everywhere", "Export", "Delete account", and the Appearance
+choices — and **they had already drifted on the one thing a reader notices.**
+Toggle labelled at `--text-base`, the hand-written ones at `--text-sm` with a
+raw `fontWeight: 600`. None was wrong alone; they were only wrong together,
+which is the failure a primitive prevents. A5 settles it: `--text-base` /
+`--weight-medium`, with `--text-sm` muted beneath.
+
+`stacked` puts the control under the text, for a control too wide to sit beside
+it (three Pills). The header treatment is what is being standardised; where a
+control physically sits is a width question, and pretending otherwise is how a
+primitive starts fighting its call sites.
+
+### 9.4 Profile is not Settings — DEFERRED, deliberately
+
+Named in the suggested order as part of this pass; held back after looking at
+it. The split is between PUBLIC identity and configuration, and there is no
+public identity to separate: 9.5 (a coach's public profile) is deferred, so
+renaming `/profile` to `/settings` today would move every section to a new URL,
+break the Stripe return URL and the already-sent payment-failed emails, and
+leave a redirect to maintain — in exchange for a page called Settings that
+contains exactly what it contains now. **Do it when 9.5 creates the thing it
+would be split from**, and do it in the same change, so the rename and the page
+that justifies it arrive together.
+
 
 ---
 

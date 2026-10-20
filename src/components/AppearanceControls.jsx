@@ -2,6 +2,7 @@ import ThemeToggle from './ThemeToggle'
 import { useMotionPref } from '../utils/motion'
 import { useTextScalePref } from '../utils/textScale'
 import Pill from './ui/Pill'
+import SettingRow from './ui/SettingRow'
 
 // The three reader settings, as one block: theme, motion, text size.
 //
@@ -21,28 +22,13 @@ const TEXT_OPTIONS = [
   { value: 'largest', label: 'Largest' },
 ]
 
-// The A5 eyebrow role, for a label naming the control under it.
-const eyebrow = {
-  fontSize: 'var(--text-xs)',
-  color: 'var(--color-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-  margin: 0,
-  fontWeight: 'var(--weight-medium)',
-}
-
-const hint = {
-  fontSize: 'var(--text-sm)',
-  color: 'var(--color-muted)',
-  margin: 0,
-  lineHeight: 1.5,
-}
-
+// `stacked`, because three Pills do not fit to the right of a label and a
+// sentence — forcing them there either squeezes the text or wraps the chips
+// into a ragged column. The header treatment is what SettingRow standardises;
+// where a control sits is a width question.
 function Choice({ label, hintText, options, value, onChange }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-      <p style={eyebrow}>{label}</p>
-      <p style={hint}>{hintText}</p>
+    <SettingRow label={label} description={hintText} stacked>
       <div role="radiogroup" aria-label={label} style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
         {options.map((opt) => {
           const active = value === opt.value
@@ -59,7 +45,7 @@ function Choice({ label, hintText, options, value, onChange }) {
           )
         })}
       </div>
-    </div>
+    </SettingRow>
   )
 }
 
@@ -68,12 +54,10 @@ export default function AppearanceControls() {
   const [textScale, setTextScale] = useTextScalePref()
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-        <p style={eyebrow}>Theme</p>
-        <p style={hint}>Auto follows your device&apos;s day/night setting.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+      <SettingRow label="Theme" description="Auto follows your device's day/night setting." stacked>
         <ThemeToggle />
-      </div>
+      </SettingRow>
 
       <Choice
         label="Text size"

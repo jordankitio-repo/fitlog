@@ -19,7 +19,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
 import { convertGoalValue } from '../utils/weightTarget'
-import { controlStyle, Icon, Panel, Pill, Toggle } from '../components/ui'
+import { controlStyle, Icon, Panel, Pill, SettingRow, Toggle } from '../components/ui'
 import { GOALS, goalLabel } from '../utils/goals'
 import { categoriesForRole, isEnabled } from '../utils/notificationCategories'
 
@@ -1180,51 +1180,46 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
         <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>
+        <SettingRow
+          label="Sign out everywhere"
+          description="Ends your session on every device, including ones you no longer have. Use this if a phone or laptop goes missing."
+        >
+          <Button onClick={signOutEverywhere} variant="muted" loading={globalSignOutBusy}>
             Sign out everywhere
-          </p>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-            Ends your session on every device, including ones you no longer have. Use this if a phone
-            or laptop goes missing.
-          </p>
-          <div>
-            <Button onClick={signOutEverywhere} variant="muted" loading={globalSignOutBusy}>
-              Sign out everywhere
-            </Button>
-          </div>
-        </div>
+          </Button>
+        </SettingRow>
       </SectionPanel>
 
       {/* Data */}
       <SectionPanel active={isVisible('data')} id="section-data" title="Data">
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>Export</p>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-            Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file.
-          </p>
-          <div>
-            <Button onClick={exportData} variant="muted" loading={exportLoading}>
-              {exportLoading ? 'Exporting...' : 'Download data'}
-            </Button>
-          </div>
-        </div>
+        <SettingRow
+          label="Export"
+          description="Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file."
+        >
+          <Button onClick={exportData} variant="muted" loading={exportLoading}>
+            {exportLoading ? 'Exporting...' : 'Download data'}
+          </Button>
+        </SettingRow>
 
         <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-error)', margin: 0 }}>Delete account</p>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-            Permanently delete your account and all associated data. This cannot be undone.
-          </p>
-          {deleteStage === 'idle' ? (
-            <div>
+          {/* `tone="danger"` colours the LABEL, not the row: B2 keeps colour in
+              the thing it grades. The confirm stages below are a flow, not a
+              control, so they stack under the row rather than sitting in it. */}
+          <SettingRow
+            label="Delete account"
+            tone="danger"
+            description="Permanently delete your account and all associated data. This cannot be undone."
+          >
+            {deleteStage === 'idle' && (
               <Button onClick={() => { setDeleteStage('confirm'); setDeleteError('') }} variant="danger">
                 Delete my account
               </Button>
-            </div>
-          ) : deleteStage === 'confirm' ? (
+            )}
+          </SettingRow>
+          {deleteStage === 'idle' ? null : deleteStage === 'confirm' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', fontWeight: 600, margin: 0 }}>
                 Are you sure? This will delete all your data permanently.

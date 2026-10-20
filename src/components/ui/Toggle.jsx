@@ -1,3 +1,4 @@
+import SettingRow from './SettingRow'
 // A labelled on/off switch: label (and optional description) on the left, the
 // switch on the right.
 //
@@ -8,32 +9,16 @@
 // day the original changes. Both call sites render this now, so the switch can
 // only look like itself.
 //
-// The row shape is the one ChatGPT's settings use and the one 7.3 of the
-// settings roadmap wants everywhere: label left, control right, description in
-// a quieter line underneath. It is deliberately NOT a `Button` — Button is for
-// a control you press to DO something, and this one reports a state.
+// The row itself is `SettingRow` now, shared with every other setting on the
+// page. This file owns the SWITCH and nothing else, which is the whole point:
+// when Toggle drew its own label too, its rows and the hand-written ones beside
+// them disagreed about type size and weight.
+//
+// Deliberately NOT a `Button` — Button is for a control you press to DO
+// something, and this one reports a state.
 export default function Toggle({ checked, onChange, label, description, disabled = false }) {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: description ? 'flex-start' : 'center',
-      justifyContent: 'space-between',
-      gap: 'var(--space-16)',
-      padding: 'var(--space-6) 0',
-    }}>
-      <div style={{ minWidth: 0 }}>
-        <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{label}</span>
-        {description && (
-          <p style={{
-            fontSize: 'var(--text-sm)',
-            color: 'var(--color-muted)',
-            margin: '2px 0 0',
-            lineHeight: 1.5,
-          }}>
-            {description}
-          </p>
-        )}
-      </div>
+    <SettingRow label={label} description={description}>
       <button
         type="button"
         role="switch"
@@ -52,9 +37,10 @@ export default function Toggle({ checked, onChange, label, description, disabled
           position: 'relative',
           transition: 'background-color 0.2s',
           flexShrink: 0,
-          // The switch sits on the label's first line when a description pushes
-          // the row taller, rather than floating in the middle of two lines.
+          // Sits on the label's first line when a description makes the row
+          // taller, rather than floating between two lines.
           marginTop: description ? '2px' : 0,
+          display: 'block',
         }}
       >
         <span style={{
@@ -68,6 +54,6 @@ export default function Toggle({ checked, onChange, label, description, disabled
           transition: 'left 0.2s',
         }} />
       </button>
-    </div>
+    </SettingRow>
   )
 }
