@@ -297,7 +297,7 @@ function App() {
       setSubLoading(true)
       const { data, error } = await supabase
         .from('subscriptions')
-        .select('status, trial_end, current_period_end, stripe_price_id, billing_interval, cancel_at_period_end')
+        .select('status, trial_end, current_period_end, stripe_price_id, billing_interval, cancel_at_period_end, paused_until, last_paused_at')
         .eq('coach_id', profile.id)
         .maybeSingle()
 

@@ -496,6 +496,10 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   }
 
   const subscriptionDate = subscription?.current_period_end || subscription?.trial_end
+  // Paused is a date in the future, matching SubscriptionManager's reading of
+  // the same column.
+  const isPaused = Boolean(subscription?.paused_until)
+    && new Date(subscription.paused_until) > new Date()
 
   // One canonical control style for the whole app (src/components/ui/Field.jsx).
   const inputStyle = controlStyle
@@ -937,10 +941,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               <p style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>
                 {STATUS_LABEL[subscription.status] ?? subscription.status}
               </p>
-              {/* Suppressed while cancelling: SubscriptionManager prints the
-                  "you keep access until <date>" line for that case, and this
-                  one would be the same date wearing the opposite verb. */}
-              {subscriptionDate && DATE_LABEL[subscription.status] && !subscription.cancel_at_period_end && (
+              {/* Suppressed while cancelling or paused, both for the same
+                  reason: SubscriptionManager prints the date that actually
+                  governs in those states, and this line would sit above it
+                  wearing the opposite verb. A paused subscription does NOT
+                  renew on its renewal date, which is exactly the kind of
+                  sentence that is true of the column and false of the world. */}
+              {subscriptionDate && DATE_LABEL[subscription.status]
+                && !subscription.cancel_at_period_end && !isPaused && (
                 <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
                   {DATE_LABEL[subscription.status]}{' '}
                   {new Date(subscriptionDate).toLocaleDateString()}

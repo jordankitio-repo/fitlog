@@ -120,6 +120,9 @@ verify_jwt = false
 [functions.change-cadence]
 verify_jwt = false
 
+[functions.pause-subscription]
+verify_jwt = false
+
 [functions.offboard-client]
 verify_jwt = false
 

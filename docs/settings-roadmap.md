@@ -131,6 +131,50 @@ minutes; a completed one never does.
 env. If it is also absent in production, the 6-month cadence fails closed with
 "That plan is not available right now" — correct behaviour, but check it is set.
 
+### 1.5 Pause a subscription
+**Status:** SHIPPED (Oct 19 2026, `feat/settings-account`) · **Priority:** was unlisted
+
+The only way to stop paying was to cancel, and cancelling offboards every
+client: roles flip to solo, relationships end, everyone is emailed. So a coach
+on parental leave, injured, or in a quiet season chose between paying for
+months they would not work and dismantling the thing they would come back to.
+Most pick the second and never come back. **This is a retention feature wearing
+a billing feature's clothes.**
+
+Billing stops (`pause_collection`, `behavior: void`, so the gap is voided
+rather than accrued) and **nothing else changes**: clients keep logging, keep
+their history, keep their coach. That is a deliberate departure from how most
+subscriptions treat non-payment, and the reason is that here the person who
+would lose access is not the person who stopped paying. A client agreed to
+nothing; ending their streak because their coach took leave punishes the wrong
+person. It also needs no access-gate changes at all, because `pause_collection`
+leaves the Stripe status `active`.
+
+Two limits make the above something other than a free account:
+
+- **Three months**, and Stripe resumes it itself on the date. A pause that
+  needs a human to end it ends when someone remembers.
+- **Once per twelve months**, measured from the START of the last pause, so
+  resuming cannot reset it. Without this, pause-resume-pause is an indefinite
+  free subscription assembled entirely out of legal moves.
+
+**The placement is the point.** A standing "Pause subscription" link is only
+found by someone already looking for it. The one that earns its keep is the
+offer inside the CANCEL flow — "Need a break rather than an ending?" — because
+that is the moment a coach who needs time off is about to dismantle their
+roster instead, cancelling having been the only thing available. That cancel
+step also now says out loud that clients will be offboarded, which it never
+did.
+
+*Pausing is refused on a trial (already free), on `past_due` (voiding future
+invoices would look like settling a debt that stays exactly where it is), and
+while a cancellation is scheduled.*
+
+**Not built:** the reminder email a few days before billing restarts. The
+resume date is chosen by the coach and shown on the card, but three months is
+long enough to forget. It needs a daily `pg_cron` job calling a new function,
+following `weekly-coach-digest`'s pattern including its one-shot auth helper.
+
 ### 1.2 Backup payment method
 **Status:** not started · **Effort:** small, after 1.1 · **Priority:** high
 

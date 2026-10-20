@@ -605,6 +605,14 @@ Deno.serve(async (req) => {
             current_period_end: fromUnixSeconds(object?.current_period_end),
             trial_end: fromUnixSeconds(object?.trial_end),
             cancel_at_period_end: object?.cancel_at_period_end ?? false,
+            // Stripe owns the pause once it is set: it clears pause_collection
+            // itself on the resume date, and that arrives here as an update
+            // with no pause on it. Syncing from the event rather than trusting
+            // our own row is what makes the auto-resume show up in the app
+            // without anyone asking it to.
+            paused_until: object?.pause_collection?.resumes_at
+              ? new Date(object.pause_collection.resumes_at * 1000).toISOString()
+              : null,
             // Derived from the price, not from checkout-time metadata. THIS is
             // the event a cadence change arrives on, so reading metadata here
             // was the bug: the price would update and the displayed interval

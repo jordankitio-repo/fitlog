@@ -16,6 +16,11 @@ const HAS_HISTORY = [...BILLABLE, 'canceled']
 
 // Feather's credit-card glyph, for the failed-payment notice. Notice takes raw
 // SVG children rather than an Icon name, like its three call sites on Dashboard.
+// Feather's pause mark. Two bars is the one shape nobody has to be taught.
+const PAUSE_GLYPH = (
+  <><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></>
+)
+
 const CARD_GLYPH = (
   <><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></>
 )
@@ -28,8 +33,30 @@ function SubscriptionManager({ subscription, onChange }) {
   // The cadence the coach has picked but not yet confirmed, or null.
   const [pendingCadence, setPendingCadence] = useState(null)
   const [cadenceBusy, setCadenceBusy] = useState(false)
+  // null = not choosing; a number = the month count being confirmed.
+  const [pendingPause, setPendingPause] = useState(null)
+  // The standing control opens the chooser rather than pre-picking a length:
+  // "Pause" is the decision, "how long" is the next one, and answering the
+  // second on the reader's behalf is how a confirm step turns into a trap.
+  const [choosingPause, setChoosingPause] = useState(false)
+  const [pauseBusy, setPauseBusy] = useState(false)
 
   const periodEndDate = subscription?.current_period_end || subscription?.trial_end
+  // Paused is a date in the future, not a flag: one field that cannot disagree
+  // with itself. Stripe clears it on the resume date and the webhook follows.
+  const pausedUntil = subscription?.paused_until && new Date(subscription.paused_until) > new Date()
+    ? new Date(subscription.paused_until)
+    : null
+  // Once per twelve months, measured from the start of the last pause. The
+  // function enforces this too — this only decides whether to offer it, and a
+  // hidden button is a suggestion rather than a rule.
+  const pauseEligibleFrom = subscription?.last_paused_at
+    ? new Date(new Date(subscription.last_paused_at).setMonth(new Date(subscription.last_paused_at).getMonth() + 12))
+    : null
+  const canPause = subscription?.status === 'active'
+    && !subscription?.cancel_at_period_end
+    && !pausedUntil
+    && (!pauseEligibleFrom || pauseEligibleFrom <= new Date())
   const isCanceling = subscription?.cancel_at_period_end
   const isTrialing = subscription?.status === 'trialing'
   const isPastDue = subscription?.status === 'past_due'
@@ -213,6 +240,76 @@ function SubscriptionManager({ subscription, onChange }) {
     </div>
   )
 
+  async function callPause(action, months) {
+    setPauseBusy(true)
+    setError(null)
+    const requestId = crypto.randomUUID()
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pause-subscription`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action, months, requestId }),
+        }
+      )
+      const json = await res.json()
+
+      if (json.ok) {
+        setPendingPause(null)
+        setChoosingPause(false)
+        setConfirming(false)
+        if (onChange) onChange()
+      } else {
+        setError(json.error || 'Could not change your subscription.')
+      }
+    } catch {
+      setError('Could not change your subscription.')
+    }
+    setPauseBusy(false)
+  }
+
+  // Confirming a pause. The sentence says the three things a coach actually
+  // wants to know and would otherwise have to assume: their clients are not
+  // affected, nothing is owed for the gap, and the date it ends by itself.
+  const pauseConfirm = pendingPause && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+      <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', margin: 0, lineHeight: 1.6 }}>
+        Pause billing for {pendingPause} {pendingPause === 1 ? 'month' : 'months'}? Your clients keep
+        everything as it is and carry on logging. You won&apos;t be charged for the break, and billing
+        restarts on{' '}
+        {new Date(new Date().setMonth(new Date().getMonth() + pendingPause)).toLocaleDateString()}.
+        Pausing is available once a year.
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-8)' }}>
+        <Button variant="primary" onClick={() => callPause('pause', pendingPause)} loading={pauseBusy}>
+          Pause for {pendingPause} {pendingPause === 1 ? 'month' : 'months'}
+        </Button>
+        <Button variant="ghost" onClick={() => setPendingPause(null)} disabled={pauseBusy}>
+          Back
+        </Button>
+      </div>
+    </div>
+  )
+
+  // How long. Three Pills rather than a dropdown: three options that are a
+  // single tap each, in the shape every other choice on this card uses.
+  const pauseChooser = (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-8)' }}>
+      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Pause for</span>
+      {[1, 2, 3].map((m) => (
+        <Pill key={m} active={false} disabled={pauseBusy} onClick={() => setPendingPause(m)}>
+          {m} {m === 1 ? 'month' : 'months'}
+        </Pill>
+      ))}
+    </div>
+  )
+
   const portalButton = (
     <Button variant="muted" onClick={() => openPortal('portal')} loading={portalBusy}>
       Payment method and invoices
@@ -254,6 +351,31 @@ function SubscriptionManager({ subscription, onChange }) {
             Invoices and receipts
           </button>
         </div>
+      </div>
+    )
+  }
+
+  // Paused leads the card for the same reason past-due does: it is a state with
+  // a date attached that the coach needs to be able to see without hunting, and
+  // the one question they will have is "when does this end". Amber, not green —
+  // B1, a recoverable state the reader resolves by acting — and not red, which
+  // in this app means a client is in trouble.
+  if (pausedUntil) {
+    return (
+      <div style={{ marginTop: 'var(--space-16)', display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+        <Notice
+          tone="warning"
+          icon={PAUSE_GLYPH}
+          action={
+            <Button variant="primary" onClick={() => callPause('resume')} loading={pauseBusy}>
+              Resume now
+            </Button>
+          }
+        >
+          Billing is paused until {pausedUntil.toLocaleDateString()}, when it restarts on its own.
+          Your clients are unaffected.
+        </Notice>
+        {errorLine}
       </div>
     )
   }
@@ -321,7 +443,8 @@ function SubscriptionManager({ subscription, onChange }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
           <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>
             Cancel your subscription? You'll keep access until{' '}
-            {periodEndDate ? asDate(periodEndDate) : 'the end of your current period'}.
+            {periodEndDate ? asDate(periodEndDate) : 'the end of your current period'}, and your
+            clients will be offboarded then.
           </p>
           <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
             <Button variant="danger" onClick={() => callManage('cancel')} loading={loading}>
@@ -331,6 +454,27 @@ function SubscriptionManager({ subscription, onChange }) {
               Keep plan
             </Button>
           </div>
+          {/* The deflection, and the reason pausing is worth building at all.
+              A standing pause control is only found by someone already looking
+              for it; this is the moment a coach who needs a break is about to
+              dismantle their roster instead, because cancelling was the only
+              thing on offer. */}
+          {canPause && (
+            <div style={{
+              borderTop: '1px solid var(--color-border)',
+              paddingTop: 'var(--space-12)',
+              marginTop: 'var(--space-4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--space-8)',
+            }}>
+              <p style={{ color: 'var(--color-text)', fontSize: 'var(--text-sm)', margin: 0, lineHeight: 1.6 }}>
+                Need a break rather than an ending? Pause billing for up to 3 months. Your clients
+                keep everything, and you pick up where you left off.
+              </p>
+              {pendingPause ? pauseConfirm : pauseChooser}
+            </div>
+          )}
         </div>
       ) : pendingCadence ? (
         cadenceConfirm
@@ -339,10 +483,23 @@ function SubscriptionManager({ subscription, onChange }) {
           {cadencePicker}
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-12)' }}>
             {portalButton}
+            {canPause && !choosingPause && (
+              <button onClick={() => setChoosingPause(true)} style={linkStyle}>
+                Pause subscription
+              </button>
+            )}
             <button onClick={() => setConfirming(true)} style={linkStyle}>
               Cancel subscription
             </button>
           </div>
+          {choosingPause && (pendingPause ? pauseConfirm : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-12)' }}>
+              {pauseChooser}
+              <button onClick={() => setChoosingPause(false)} style={linkStyle}>
+                Never mind
+              </button>
+            </div>
+          ))}
         </>
       )}
     </div>
