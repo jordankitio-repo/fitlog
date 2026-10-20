@@ -1,3 +1,5 @@
+import { useMediaQuery } from '../../hooks/useMediaQuery'
+
 // One setting: what it is on the left, the control for it on the right.
 //
 // This shape was written five separate times before it was a component —
@@ -25,8 +27,20 @@ export default function SettingRow({
   description,
   children,
   stacked = false,
+  keepInline = false,
   tone,
 }) {
+  // F1: a row is REBUILT at phone width, not reflowed. A button beside a
+  // description takes ~280px of a 390px screen, which squeezed "Download all
+  // your logged data..." into a four-line ribbon next to a button with room to
+  // spare. Below 600px the control moves under the text and both get the full
+  // width.
+  //
+  // `keepInline` is for a control narrow enough that stacking makes it worse:
+  // a 44px switch under its own label reads as a stray object, where beside it
+  // it reads as the row's answer. Toggle is the only caller.
+  const narrow = useMediaQuery('(max-width: 600px)')
+  const stackIt = stacked || (narrow && !keepInline)
   const labelColor = tone === 'danger' ? 'var(--color-error)' : 'var(--color-text)'
 
   const text = (
@@ -52,7 +66,7 @@ export default function SettingRow({
     </div>
   )
 
-  if (stacked) {
+  if (stackIt) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)', padding: 'var(--space-6) 0' }}>
         {text}

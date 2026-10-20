@@ -18,7 +18,7 @@ import SettingRow from './SettingRow'
 // something, and this one reports a state.
 export default function Toggle({ checked, onChange, label, description, disabled = false }) {
   return (
-    <SettingRow label={label} description={description}>
+    <SettingRow label={label} description={description} keepInline>
       <button
         type="button"
         role="switch"

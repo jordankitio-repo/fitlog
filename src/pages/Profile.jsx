@@ -88,9 +88,14 @@ const backLinkStyle = {
 // the entire subtree each time — every field on this page losing its value and
 // its focus on each keystroke. That bug is invisible in a diff and obvious the
 // first time someone types their name.
-function SectionPanel({ active, children, ...rest }) {
+function SectionPanel({ active, hideTitle, title, children, ...rest }) {
   if (!active) return null
-  return <Panel {...rest}>{children}</Panel>
+  // On a phone the section IS the page, so the h1 above already names it and
+  // the panel's own header would say it a second time, three lines below the
+  // first — on the screen with the least room to spare. On a desktop the h1 is
+  // the page ("Profile") and the panel header is the section, so both earn
+  // their place.
+  return <Panel title={hideTitle ? undefined : title} {...rest}>{children}</Panel>
 }
 
 function Profile({ session, profile, subscription, soloSubscription, onProfileUpdate }) {
@@ -694,7 +699,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </div>
       ))}
 
-      <SectionPanel active={isVisible('account')} id="section-account" title="Account">
+      <SectionPanel hideTitle={isMobile} active={isVisible('account')} id="section-account" title="Account">
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Avatar url={avatarUrl} name={profile?.full_name || ''} size={64} />
@@ -759,12 +764,12 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         )}
       </SectionPanel>
 
-      <SectionPanel active={isVisible('appearance')} id="section-appearance" title="Appearance">
+      <SectionPanel hideTitle={isMobile} active={isVisible('appearance')} id="section-appearance" title="Appearance">
         <AppearanceControls />
       </SectionPanel>
 
       {emailCategories.length > 0 && (
-        <SectionPanel active={isVisible('notifications')} id="section-notifications" title="Notifications">
+        <SectionPanel hideTitle={isMobile} active={isVisible('notifications')} id="section-notifications" title="Notifications">
           <p style={{ fontSize: 'var(--text-base)', marginTop: '-6px', color: 'var(--color-muted)' }}>
             Which emails we send you. Everything stays in the app either way, and
             account, security and billing emails are always sent.
@@ -792,7 +797,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         const isClient = profile?.role === 'client'
         const lbl = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
         return (
-          <SectionPanel active={isVisible('details')} id="section-details" title="Your details">
+          <SectionPanel hideTitle={isMobile} active={isVisible('details')} id="section-details" title="Your details">
             <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
               {profile?.role === 'client'
                 ? 'Your coach uses these to set your targets. Keep them accurate.'
@@ -874,7 +879,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       })()}
 
       {profile?.role !== 'coach' && (
-      <SectionPanel active={isVisible('targets')} id="section-targets" title="Daily targets">
+      <SectionPanel hideTitle={isMobile} active={isVisible('targets')} id="section-targets" title="Daily targets">
         <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px' }}>
           {profile?.role === 'client'
             ? 'These targets were set by your coach.'
@@ -1020,13 +1025,13 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       )}
 
       {profile?.role === 'coach' && (
-        <SectionPanel active={isVisible('questionnaire')} id="section-questionnaire" title="Check-in questionnaire">
+        <SectionPanel hideTitle={isMobile} active={isVisible('questionnaire')} id="section-questionnaire" title="Check-in questionnaire">
           <CheckinBuilder coachId={profile.id} />
         </SectionPanel>
       )}
 
       {profile?.role === 'coach' && (
-        <SectionPanel active={isVisible('charts')} id="section-charts" title="Charts">
+        <SectionPanel hideTitle={isMobile} active={isVisible('charts')} id="section-charts" title="Charts">
           <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px', color: 'var(--color-muted)' }}>
             Choose which charts appear on your clients' records. All shown by default.
           </p>
@@ -1042,7 +1047,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       )}
 
       {profile?.role === 'coach' && (
-        <SectionPanel active={isVisible('billing')} id="section-billing" title="Billing">
+        <SectionPanel hideTitle={isMobile} active={isVisible('billing')} id="section-billing" title="Billing">
           {subscription ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
@@ -1080,7 +1085,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           still has a legacy active sub to manage, OR billing is re-enabled.
           When billing is off and there's nothing to manage, no dead paywall. */}
       {profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) && (
-        <SectionPanel active={isVisible('soloBilling')} id="section-soloBilling" title="Solo Premium">
+        <SectionPanel hideTitle={isMobile} active={isVisible('soloBilling')} id="section-soloBilling" title="Solo Premium">
           {soloSubActive ? (
             <div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Status</p>
@@ -1111,7 +1116,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </SectionPanel>
       )}
 
-      <SectionPanel active={isVisible('security')} id="section-security" title="Security">
+      <SectionPanel hideTitle={isMobile} active={isVisible('security')} id="section-security" title="Security">
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
           A password is optional. If you sign in with emailed codes you can carry on doing that —
           setting one here just gives you a second way in.
@@ -1191,7 +1196,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       </SectionPanel>
 
       {/* Data */}
-      <SectionPanel active={isVisible('data')} id="section-data" title="Data">
+      <SectionPanel hideTitle={isMobile} active={isVisible('data')} id="section-data" title="Data">
 
         <SettingRow
           label="Export"
@@ -1274,8 +1279,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </div>
       </SectionPanel>
 
-      {isMobile && (
-        <div style={{ padding: '20px 0 0' }}>
+      {/* The phone's sign-out, on the MENU only. The mobile tab bar has no
+          sign-out (the old hamburger did), so this page carries it — but once
+          every section became its own page it started appearing at the foot of
+          all eight of them, under Billing and under Delete account. Sign out
+          belongs where you choose where to go, not stapled to whatever you
+          happened to open. Desktop keeps it in the top-bar account menu. */}
+      {isMobile && !activeSection && (
+        <div style={{ padding: 'var(--space-20) 0 0' }}>
           <Button onClick={() => supabase.auth.signOut()} variant="muted" fullWidth>
             Sign out
           </Button>
