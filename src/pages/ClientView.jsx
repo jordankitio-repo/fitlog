@@ -185,7 +185,25 @@ const DEFAULT_TREND = 'weightChart'
 // Sent reports load a page at a time, like the client's own archive
 // (Reports.jsx PAGE). A coach writes roughly one a week per client and the row
 // carries the full body, so "all of them" is a list that only ever grows.
-const SENT_PAGE = 20
+//
+// SIX, not twenty. Twenty is the right page size for the client's archive,
+// which is a PAGE whose whole job is that list. Here it is one section of
+// fourteen on a record, and twenty rows at 75px came to 1,612px — a fifth of
+// the entire page, for a list a coach mostly glances at. Six is about six
+// weeks of weekly reports, which is the span that answers "have I been keeping
+// up with this client?"; anything older is a different question and one click
+// away.
+//
+// The list itself is still right here, ungated. That distinction matters: a
+// button that hides the whole list was tried and rejected (see the section
+// below) because it put a fourth tap between a coach and a report. A shorter
+// list with more underneath it costs nothing until you want more.
+const SENT_PAGE = 6
+
+// Older reports arrive in bigger steps than the first page. Someone who clicks
+// "show older" has stopped glancing and started looking, and making them click
+// four more times to cross a quarter is its own kind of tax.
+const SENT_MORE = 12
 
 // How many recent reports ride along in the thread. Matches Coach.jsx so the
 // two sides of one relationship show the same stretch of it.
@@ -1408,7 +1426,7 @@ async function sendMessage(text) {
 
   async function loadOlderSentReports() {
     setLoadingOlderSent(true)
-    await fetchSentReports(Math.max(sentReports.length, SENT_PAGE) + SENT_PAGE)
+    await fetchSentReports(Math.max(sentReports.length, SENT_PAGE) + SENT_MORE)
     setLoadingOlderSent(false)
   }
 
@@ -2345,7 +2363,11 @@ async function sendMessage(text) {
                   disabled={loadingOlderSent}
                 >
                   <Icon name="down" size={14} />
-                  <span>{loadingOlderSent ? 'Loading…' : 'Show older reports'}</span>
+                  <span>
+                    {loadingOlderSent
+                      ? 'Loading…'
+                      : `Show older reports (${sentTotal - sentReports.length} more)`}
+                  </span>
                 </button>
               )}
             </div>
