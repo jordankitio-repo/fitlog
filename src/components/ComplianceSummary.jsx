@@ -71,7 +71,12 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
        floating in the middle of a section read as one object. */
     <div style={{
       display: 'flex',
-      alignItems: 'flex-start',
+      // Centred, and full height, because this sits beside the weekday panel
+      // as a matched pair. One row of five cells is shorter than that panel
+      // will ever be, so the slack goes above and below the numbers rather
+      // than all of it underneath them.
+      alignItems: 'center',
+      height: '100%',
       border: '1px solid var(--color-border)',
       borderRadius: 'var(--radius)',
       padding: 'var(--space-16) var(--space-12)',

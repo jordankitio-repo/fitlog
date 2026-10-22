@@ -130,8 +130,17 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
   }
 
   return (
+    /* A CARD, like the summary strip it sits beside. It used to be a top rule
+       with content hanging under it, so the two halves of this row were two
+       different kinds of object — one boxed, one not, starting at different
+       heights and ending at different ones. No amount of aligning the bars
+       inside fixes a row whose two sides are not the same sort of thing. */
     <div style={{
-      marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius)',
+      padding: 'var(--space-16)',
+      height: '100%',
+      boxSizing: 'border-box',
       display: 'flex', flexDirection: 'column', gap: 12,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>

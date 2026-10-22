@@ -2585,7 +2585,7 @@ async function sendMessage(text) {
                 bottom right; the diverging bars also read better at half width
                 than stretched across 1,066px as two empty rules with a dot in
                 the middle. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-24)', marginTop: 'var(--space-20)', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-24)', marginTop: 'var(--space-20)', alignItems: 'stretch' }}>
               <ComplianceSummary
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
