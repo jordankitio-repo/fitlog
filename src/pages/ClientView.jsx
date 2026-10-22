@@ -10,8 +10,9 @@ import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ReportProse from '../components/ReportProse'
 import Modal from '../components/Modal'
+import Skeleton from '../components/Skeleton'
 import { relativeTime, numericDate } from '../utils/relativeTime'
-import { leadOf } from '../utils/reportFeed'
+import { byMonth, leadOf } from '../utils/reportFeed'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
@@ -186,24 +187,22 @@ const DEFAULT_TREND = 'weightChart'
 // (Reports.jsx PAGE). A coach writes roughly one a week per client and the row
 // carries the full body, so "all of them" is a list that only ever grows.
 //
-// SIX, not twenty. Twenty is the right page size for the client's archive,
+// FIVE, not twenty. Twenty is the right page size for the client's archive,
 // which is a PAGE whose whole job is that list. Here it is one section of
 // fourteen on a record, and twenty rows at 75px came to 1,612px — a fifth of
-// the entire page, for a list a coach mostly glances at. Six is about six
-// weeks of weekly reports, which is the span that answers "have I been keeping
-// up with this client?"; anything older is a different question and one click
-// away.
+// the entire page, for a list a coach mostly glances at.
 //
-// The list itself is still right here, ungated. That distinction matters: a
-// button that hides the whole list was tried and rejected (see the section
-// below) because it put a fourth tap between a coach and a report. A shorter
-// list with more underneath it costs nothing until you want more.
-const SENT_PAGE = 6
-
-// Older reports arrive in bigger steps than the first page. Someone who clicks
-// "show older" has stopped glancing and started looking, and making them click
-// four more times to cross a quarter is its own kind of tax.
-const SENT_MORE = 12
+// Five is the recent run: has a report gone out lately, and has the client
+// read it. The recent few stay RIGHT HERE, ungated — that is why this is five
+// rows and not a button, and a button hiding the whole list was tried and
+// rejected for putting a fourth tap between a coach and a report.
+//
+// What changed is where "all of them" lives. An ever-growing list inside a
+// record is a page that gets longer every week a coach does their job, so the
+// rest moved into an archive over the record: scrollable, sortable, filterable.
+// That is the call Coach.jsx already made for the client's side of the same
+// relationship — "the archive is a destination, not a channel".
+const SENT_PAGE = 5
 
 // How many recent reports ride along in the thread. Matches Coach.jsx so the
 // two sides of one relationship show the same stretch of it.
@@ -362,12 +361,19 @@ function ClientView({ profile }) {
     if (error) console.error(error)
   }
   const [sentReports, setSentReports] = useState([])
+  // The archive over the record: every report, scrollable, sortable. Loaded
+  // only when asked for — the whole point of the five above is that a coach
+  // opening a client record does not pay for a year of reports.
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const [archiveReports, setArchiveReports] = useState(null)   // null = not loaded
+  const [archiveNewestFirst, setArchiveNewestFirst] = useState(true)
+  const [archiveFilter, setArchiveFilter] = useState('all')   // all | unread | read
+  const [openArchiveReport, setOpenArchiveReport] = useState(null)
   // Totals come from the server, NOT from sentReports.length. The list is a
   // window now, so its length is "how many are loaded" — using it for the
   // section's count or its unread badge would quietly report 20 of 60.
   const [sentTotal, setSentTotal] = useState(0)
   const [sentUnread, setSentUnread] = useState(0)
-  const [loadingOlderSent, setLoadingOlderSent] = useState(false)
   const [openReport, setOpenReport] = useState(null)      // report shown in the reader
   // Per-report expansion replaces the per-week collapse map the folder tree
   // needed. Sent reports default closed: the coach wrote them, so the useful
@@ -1399,6 +1405,28 @@ async function sendMessage(text) {
   // forever, all of it loaded each time the coach opened the record. The
   // client's own archive has been paged since it was built; the coach's copy
   // never was.
+  // Every report for this client, fetched once and only when the archive is
+  // opened. The five on the record are deliberately not enough to answer "what
+  // did I send in March", and this is what answers it.
+  //
+  // No paging inside the archive: a coach writes about one a week, so even a
+  // two-year client is ~100 rows, and a scroll container that also paginates
+  // is two mechanisms for one job. If a roster ever produces a client with
+  // thousands, this is the place that needs a range() — not the record.
+  async function openArchive() {
+    setArchiveOpen(true)
+    if (archiveReports) return
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    const { data, error } = await supabase
+      .from('reports')
+      .select('id, content, week_of, created_at, read_at')
+      .eq('coach_id', currentSession.user.id)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+    if (error) { console.error(error); setArchiveReports([]); return }
+    setArchiveReports(data || [])
+  }
+
   async function fetchSentReports(size = SENT_PAGE) {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const { data, error, count } = await supabase
@@ -1424,11 +1452,6 @@ async function sendMessage(text) {
     if (!unreadError) setSentUnread(unread ?? 0)
   }
 
-  async function loadOlderSentReports() {
-    setLoadingOlderSent(true)
-    await fetchSentReports(Math.max(sentReports.length, SENT_PAGE) + SENT_MORE)
-    setLoadingOlderSent(false)
-  }
 
   function goToPrevDay() {
     const d = addDays(parseLocalDateString(selectedDate), -1)
@@ -2354,21 +2377,14 @@ async function sendMessage(text) {
                   </div>
                 )
               })}
-              {sentReports.length < sentTotal && (
-                <button
-                  type="button"
-                  className="ds-disclosure ds-control"
-                  style={{ width: 'auto' }}
-                  onClick={loadOlderSentReports}
-                  disabled={loadingOlderSent}
-                >
-                  <Icon name="down" size={14} />
-                  <span>
-                    {loadingOlderSent
-                      ? 'Loading…'
-                      : `Show older reports (${sentTotal - sentReports.length} more)`}
-                  </span>
-                </button>
+              {/* Names the whole collection, not the remainder. "Show older
+                  (20 more)" invited a coach to keep extending this list until
+                  the record was long again; this hands them a surface built
+                  for the job instead. */}
+              {sentTotal > sentReports.length && (
+                <Button variant="muted" size="sm" onClick={openArchive} style={{ marginTop: 'var(--space-8)' }}>
+                  View all {sentTotal} reports <Icon name="right" size={14} />
+                </Button>
               )}
             </div>
           </SectionHeader>
@@ -3250,6 +3266,101 @@ async function sendMessage(text) {
           state — the very thing the card reports back to the coach. */}
       <Modal open={Boolean(openReport)} title="Report" onClose={() => setOpenReport(null)} maxWidth={560}>
         {openReport && <ReportProse content={openReport.content} />}
+      </Modal>
+
+
+      {/* THE ARCHIVE, over the record.
+          The same call Coach.jsx makes on the client's side of this
+          relationship: the collection is a destination, not a channel. Five
+          rows on the record answer "has a report gone out lately, and did they
+          read it"; this answers "what did I send in March". Those are
+          different enough questions that one surface serving both made the
+          record longer every week a coach did their job.
+
+          Rows expand in place here too, for the reason they do below: opening
+          the client's reader marks the report read, and read_at is the
+          client's state — the very thing this list reports back to the coach. */}
+      <Modal
+        open={archiveOpen}
+        title="All reports"
+        onClose={() => { setArchiveOpen(false); setOpenArchiveReport(null) }}
+        maxWidth={640}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-8)', marginBottom: 'var(--space-12)' }}>
+          {[['all', 'All'], ['unread', 'Unread'], ['read', 'Read']].map(([v, label]) => (
+            <Pill key={v} active={archiveFilter === v} aria-pressed={archiveFilter === v} onClick={() => setArchiveFilter(v)}>
+              {label}
+            </Pill>
+          ))}
+          {/* Semantic, not asc/desc — C3's rule for the roster's direction
+              toggle. "Ascending" means nothing to a reader looking at dates. */}
+          <Pill active={false} onClick={() => setArchiveNewestFirst((v) => !v)} style={{ marginLeft: 'auto' }}>
+            {archiveNewestFirst ? 'Newest first' : 'Oldest first'}{' '}
+            <Icon name={archiveNewestFirst ? 'down' : 'up'} size={12} />
+          </Pill>
+        </div>
+
+        {/* The scroll lives HERE, which is the whole point: the record behind
+            it stays the same length however many reports exist. 60vh rather
+            than a pixel height, so the archive uses the screen it is given —
+            a fixed height is wrong on a laptop and wrong again on a monitor. */}
+        <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+          {archiveReports === null ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+              {[0, 1, 2, 3].map((i) => <Skeleton key={i} height="64px" />)}
+            </div>
+          ) : (() => {
+            const filtered = archiveReports.filter((r) => (
+              archiveFilter === 'all' ? true : archiveFilter === 'unread' ? !r.read_at : Boolean(r.read_at)
+            ))
+            const ordered = archiveNewestFirst ? filtered : [...filtered].reverse()
+            if (!ordered.length) {
+              return (
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 'var(--space-16) 0' }}>
+                  {archiveFilter === 'unread' ? 'Every report has been read.' : 'Nothing here.'}
+                </p>
+              )
+            }
+            // Month separators from the same helper the client's archive uses,
+            // so a date band means the same thing on both sides of this
+            // relationship. byMonth labels by created_at, which is why the
+            // order has to be applied before it rather than after.
+            return byMonth(ordered).map((item) => item.kind === 'label' ? (
+              <p key={`m-${item.key}`} className="rep-month">{item.label}</p>
+            ) : (() => {
+              const r = item.report
+              const open = openArchiveReport === r.id
+              return (
+                <div key={r.id}>
+                  <button
+                    type="button"
+                    className="rep-row rep-row-nosender ds-control"
+                    aria-expanded={open}
+                    onClick={() => setOpenArchiveReport(open ? null : r.id)}
+                  >
+                    <span className="rep-row-body">
+                      <span className="rep-row-head">
+                        <span className="rep-row-when">{relativeTime(r.created_at)}</span>
+                        <span style={{ fontSize: 'var(--text-xs)', color: r.read_at ? 'var(--color-success)' : 'var(--color-muted)' }}>
+                          {r.read_at ? 'Read' : 'Unread'}
+                        </span>
+                      </span>
+                      {!open && <span className="rep-row-lead">{leadOf(r.content)}</span>}
+                    </span>
+                    <span className="ds-chev" style={{ color: 'var(--color-faint)', display: 'inline-flex' }}>
+                      <Icon name={open ? 'up' : 'right'} size={16} />
+                    </span>
+                  </button>
+                  {open && (
+                    <div style={{ padding: 'var(--space-8) 0 var(--space-16)' }}>
+                      <ReportProse content={r.content} />
+                    </div>
+                  )}
+                </div>
+              )
+            })())
+          })()}
+        </div>
       </Modal>
 
     <ChatBubble
