@@ -9,13 +9,27 @@ const numStyle = {
   margin: 0,
   lineHeight: 1.1,
 }
+// Sentence case, not the uppercase this used to carry, and ALLOWED TO WRAP.
+//
+// Uppercase with 0.08em tracking makes "AVG OF TARGET" about 95px wide, and
+// `.ds-statcell` forces nowrap to keep a strip's numerals on one baseline. Put
+// five of those in the ~380px column this sits in between roughly 1000px and
+// 1300px of viewport and the labels do not truncate — they overrun their cells
+// and print on top of each other: "AYS LOGG" "VG OF TARGE" "N-TARGET".
+//
+// Dropping the case and the tracking buys about 25% of the width back, and
+// letting the label take a second line buys the rest. The baseline the nowrap
+// was protecting is held by a two-line box instead, so every value in the strip
+// still starts at the same height whether its label wrapped or not.
+const LABEL_LINES = 2
 const labelStyle = {
   fontSize: 'var(--text-xs)',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
   color: 'var(--color-faint)',
   fontWeight: 'var(--weight-medium)',
   margin: 0,
+  whiteSpace: 'normal',
+  lineHeight: 1.25,
+  minHeight: `${LABEL_LINES * 1.25}em`,
 }
 
 export default function ComplianceSummary({ logsByDate, calorieTarget, variant = 'solo', windowDays = 90 }) {
@@ -44,7 +58,9 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
     // validated for both themes in complianceScale.js, not the metric fill
     // tokens the doc bars from text.
     ...(s.hasTarget ? [
-      { num: s.onTarget, label: 'On-target', color: COMPLIANCE.onTarget },
+      // No hyphen: at the narrowest cell the label takes two lines, and
+      // "On-target" breaks after the hyphen and leaves it hanging.
+      { num: s.onTarget, label: 'On target', color: COMPLIANCE.onTarget },
       { num: s.over, label: 'Over', color: COMPLIANCE.over },
       { num: s.partial + s.under, label: 'Under', color: COMPLIANCE.wellUnder },
     ] : []),
