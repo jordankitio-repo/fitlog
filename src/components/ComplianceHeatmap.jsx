@@ -6,13 +6,11 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const GAP = 2
 const DAY_LABEL_WIDTH = 22
 const DAY_LABEL_GAP = 4
-// No width cap at all. Cells are fluid and the grid always fills its
-// container, so the WINDOW decides the cell size rather than the other way
-// round — which is the only arrangement where switching windows leaves the
-// grid the same length. Every window this is called with is long enough to
-// make that sane (see complianceWindow.js); the 440px cap this replaces, and
-// the per-cell cap that replaced it, both existed to protect short windows
-// that no longer exist.
+// No width cap. Cells are fluid and the grid always fills its container — safe
+// now that the span is fixed (complianceWindow.js), because nothing can change
+// the column count underneath it. The 440px grid cap this replaces, and the
+// per-cell cap that replaced that, both existed to protect spans the control
+// no longer offers.
 
 
 function getColor(calories, target, hasLog) {
@@ -32,8 +30,10 @@ function formatMonth(date) {
   return date.toLocaleDateString('en-US', { month: 'short' })
 }
 
-export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: weekCount = 13 }) {
+export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: weekCount = 13, grain = 'daily' }) {
   const [tooltip, setTooltip] = useState(null)
+  // Which column the pointer is in, so weekly mode can ring the whole week.
+  const [hotWeek, setHotWeek] = useState(null)
   const target = Number(calorieTarget) || 0
 
   const today = new Date()
@@ -73,6 +73,21 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
       previousMonth = month
     }
   })
+
+  // A week reads as a week: how many of its days were logged, and how the
+  // logged ones averaged against target. Not a sum — a client who logged two
+  // days would otherwise read as catastrophically under.
+  function formatWeekTooltip(week) {
+    const past = week.filter((c) => !c.isFuture)
+    if (past.length === 0) return null
+    const logged = past.filter((c) => c.hasLog)
+    const label = `Week of ${past[0].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    if (logged.length === 0) return `${label} - no logs`
+    const pct = target
+      ? Math.round((logged.reduce((sum, c) => sum + c.calories, 0) / (logged.length * target)) * 100)
+      : null
+    return `${label} - ${logged.length}/${past.length} logged${pct !== null ? ` (${pct}% of target)` : ''}`
+  }
 
   function formatTooltip(cell) {
     if (cell.isFuture) return null
@@ -133,17 +148,40 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
           </div>
 
           <div style={{ display: 'flex', gap: GAP, flex: 1 }}>
-            {weeks.map((week, weekIndex) => (
-              <div key={weekIndex} style={{ display: 'flex', flexDirection: 'column', gap: GAP, flex: 1, minWidth: 0 }}>
+            {weeks.map((week, weekIndex) => {
+              // In WEEKLY the column is the target: the pointer anywhere in it
+              // rings the whole week and reads it as one fact. The ring is an
+              // `outline`, which draws outside the box and so cannot nudge a
+              // 26-column grid sideways the way a border would.
+              const weekly = grain === 'weekly'
+              const weekText = weekly ? formatWeekTooltip(week) : null
+              const track = (event) => setTooltip((cur) => cur && { ...cur, x: event.clientX, y: event.clientY })
+              return (
+              <div
+                key={weekIndex}
+                role={weekly ? 'img' : undefined}
+                aria-label={weekly ? (weekText || undefined) : undefined}
+                onMouseEnter={weekly ? (e) => { setHotWeek(weekIndex); if (weekText) setTooltip({ text: weekText, x: e.clientX, y: e.clientY }) } : undefined}
+                onMouseMove={weekly ? track : undefined}
+                onMouseLeave={weekly ? () => { setHotWeek(null); setTooltip(null) } : undefined}
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: GAP, flex: 1, minWidth: 0,
+                  borderRadius: 4,
+                  outline: weekly && hotWeek === weekIndex ? '2px solid var(--color-primary)' : 'none',
+                  outlineOffset: 2,
+                  cursor: weekly && weekText ? 'help' : 'default',
+                }}
+              >
                 {week.map((cell) => {
                   const tooltipText = formatTooltip(cell)
 
                   return (
                     <div
                       key={cell.dateStr}
-                      role="img"
-                      aria-label={tooltipText || cell.dateStr}
-                      onMouseEnter={(event) => {
+                      role={weekly ? undefined : 'img'}
+                      aria-hidden={weekly ? true : undefined}
+                      aria-label={weekly ? undefined : (tooltipText || cell.dateStr)}
+                      onMouseEnter={weekly ? undefined : (event) => {
                         if (tooltipText) {
                           setTooltip({
                             text: tooltipText,
@@ -152,7 +190,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
                           })
                         }
                       }}
-                      onMouseMove={(event) => {
+                      onMouseMove={weekly ? undefined : (event) => {
                         if (tooltipText) {
                           setTooltip((current) => current && {
                             ...current,
@@ -161,7 +199,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
                           })
                         }
                       }}
-                      onMouseLeave={() => setTooltip(null)}
+                      onMouseLeave={weekly ? undefined : () => setTooltip(null)}
                       style={{
                         width: '100%',
                         aspectRatio: '1 / 1',
@@ -171,13 +209,13 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
                           : getColor(cell.calories, target, cell.hasLog),
                         border: cell.isFuture ? '1px solid var(--color-border)' : 'none',
                         opacity: cell.isFuture ? 0.2 : 1,
-                        cursor: tooltipText ? 'help' : 'default',
+                        cursor: weekly ? 'inherit' : (tooltipText ? 'help' : 'default'),
                       }}
                     />
                   )
                 })}
               </div>
-            ))}
+            )})}
           </div>
         </div>
       </div>

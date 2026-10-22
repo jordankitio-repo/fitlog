@@ -23,7 +23,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { bucketHistory, historyWindow, DEFAULT_RANGE } from '../utils/chartRange'
-import { ADHERENCE_WINDOWS, DEFAULT_ADHERENCE, adherenceByKey, weeksFor } from '../utils/complianceWindow'
+import { ADHERENCE_DAYS, ADHERENCE_WEEKS, ADHERENCE_NAME, GRAINS, DEFAULT_GRAIN, isGrain } from '../utils/complianceWindow'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
@@ -286,20 +286,19 @@ function ClientView({ profile }) {
   // (Daily metrics and Measurements are the two tallest sections left) adds a
   // string here rather than another piece of state.
   const [expandedChart, setExpandedChart] = useState(null)
-  // Remembered per viewer, like `gardnr-eb-window`: how far back a coach reads
-  // adherence is about how they work, not about this client.
-  const [adherenceKey, setAdherenceKey] = useState(() => {
+  // Remembered per viewer, like `gardnr-eb-window`: whether a coach reads
+  // adherence a day or a week at a time is about how they work, not about this
+  // client. The SPAN is not a choice (see complianceWindow.js) — only this is.
+  const [grain, setGrain] = useState(() => {
     try {
-      const v = localStorage.getItem('gardnr-cv-adherence')
-      if (ADHERENCE_WINDOWS.some(w => w.key === v)) return v
+      const v = localStorage.getItem('gardnr-cv-grain')
+      if (isGrain(v)) return v
     } catch { /* private mode — the default still works */ }
-    return DEFAULT_ADHERENCE
+    return DEFAULT_GRAIN
   })
-  const adherence = adherenceByKey(adherenceKey)
-  const adherenceWeeks = weeksFor(adherence.days)
-  function changeAdherence(key) {
-    setAdherenceKey(key)
-    try { localStorage.setItem('gardnr-cv-adherence', key) } catch { /* ignore */ }
+  function changeGrain(key) {
+    setGrain(key)
+    try { localStorage.setItem('gardnr-cv-grain', key) } catch { /* ignore */ }
   }
 
   // The window picker and the colour toggle travel together on every bar
@@ -572,11 +571,11 @@ function ClientView({ profile }) {
     fetchDayActivity()
   }, [clientId, selectedDate])
 
-  // Its own effect, beside the page's other two: the adherence window control
-  // must refetch the heatmap and NOT the fifteen queries that load with it.
+  // Its own effect, beside the page's other two, so the heatmap is not tied to
+  // the fifteen queries that load with the page.
   useEffect(() => {
     fetchHeatmapData()
-  }, [clientId, adherence.days])
+  }, [clientId])
 
   async function fetchClientProfile() {
     const { data, error } = await supabase
@@ -1018,10 +1017,10 @@ async function fetchConsistency() {
 
 async function fetchHeatmapData() {
   const start = new Date()
-  // A week of slack past the window so the grid's first column, which starts
-  // on a Sunday rather than exactly N days ago, is never drawn from data that
-  // was never fetched.
-  start.setDate(start.getDate() - (adherence.days + 7))
+  // A week of slack past the span so the grid's first column, which starts on
+  // a Sunday rather than exactly N days ago, is never drawn from data that was
+  // never fetched.
+  start.setDate(start.getDate() - (ADHERENCE_DAYS + 7))
 
   const { data, error } = await supabase
     .from('nutrition_log')
@@ -2552,19 +2551,19 @@ async function sendMessage(text) {
                 fontWeight: 'var(--weight-semibold)',
                 margin: 0,
               }}>
-                Calorie compliance <span style={{ color: 'var(--color-faint)' }}>· {adherence.name.toLowerCase()}</span>
+                Calorie compliance <span style={{ color: 'var(--color-faint)' }}>· {ADHERENCE_NAME}</span>
               </p>
               {/* ui/Pill, same as the energy-balance window and the roster's
                   lenses — a chip that picks what you are looking at. */}
-              <span role="group" aria-label="Adherence window" style={{ display: 'inline-flex', gap: 'var(--space-4)' }}>
-                {ADHERENCE_WINDOWS.map(w => (
+              <span role="group" aria-label="Read adherence by" style={{ display: 'inline-flex', gap: 'var(--space-4)' }}>
+                {GRAINS.map(g => (
                   <Pill
-                    key={w.key}
-                    active={w.key === adherenceKey}
-                    aria-pressed={w.key === adherenceKey}
-                    onClick={() => changeAdherence(w.key)}
+                    key={g.key}
+                    active={g.key === grain}
+                    aria-pressed={g.key === grain}
+                    onClick={() => changeGrain(g.key)}
                   >
-                    {w.label}
+                    {g.label}
                   </Pill>
                 ))}
               </span>
@@ -2577,7 +2576,8 @@ async function sendMessage(text) {
             <ComplianceHeatmap
               logsByDate={heatmapData}
               calorieTarget={clientTargets.calories}
-              weeks={adherenceWeeks}
+              weeks={ADHERENCE_WEEKS}
+              grain={grain}
             />
             {/* The two reads sit under the grid in equal columns. The summary
                 alone took 650px for five numbers while the breakdown ran the
@@ -2590,13 +2590,13 @@ async function sendMessage(text) {
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
                 variant="coach"
-                windowDays={adherence.days}
+                windowDays={ADHERENCE_DAYS}
               />
               <ComplianceBreakdown
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
-                windowDays={adherence.days}
-                windowName={adherence.name.toLowerCase()}
+                windowDays={ADHERENCE_DAYS}
+                windowName={ADHERENCE_NAME}
                 // On a phone targets is a route; on a desktop it is a scroll
                 // target on the same page, so the link resolves to the same
                 // param either way (see the /client/:id/:section route).
