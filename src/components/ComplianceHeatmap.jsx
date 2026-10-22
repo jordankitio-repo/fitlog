@@ -248,7 +248,12 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
           { color: SCALE.over,      label: '>110%' },
           { color: SCALE.under,     label: '60-89%' },
           { color: SCALE.wellUnder, label: '<60%' },
-          { color: 'var(--color-border)', label: 'No log' },
+          // SCALE.noLog, not the token it currently resolves to.
+          // complianceScale.js opens by saying the cells, the legend and the
+          // summary tiles all read it; the legend was the one that did not, so
+          // the day `noLog` changes the legend would have gone on describing
+          // the colour the cells used to be.
+          { color: SCALE.noLog, label: 'No log' },
         ].map(({ color, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: color }} />
@@ -264,29 +269,27 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
           Out here nothing can clip it or move its origin. */}
       {tooltip && createPortal((
         <div
+          className="info-tip-bubble"
           style={{
-            position: 'fixed',
-            // Flip to the LEFT of the pointer near the right edge. The bubble is
-            // nowrap and sat at x+12, so on the last columns — exactly where a
-            // coach looks first, because that is this week — it ran off the
-            // window and the sentence lost its end: "Week of Sep 27 - 6/7 lo".
+            // Positioning only. Everything else — surface, border, radius,
+            // padding, type, shadow, z-index — comes from the class InfoTip
+            // already uses, because this is the same gesture and the app had
+            // two spellings of it: 6px radius against --radius, 4px/10px
+            // padding against 10px/12px, --color-surface-2 against
+            // --color-surface, and no shadow at all against a 22px one.
+            //
+            // Flip to the LEFT of the pointer near the right edge. The bubble
+            // sat at x+12, so on the last columns — exactly where a coach looks
+            // first, because that is this week — it ran off the window and the
+            // sentence lost its end: "Week of Sep 27 - 6/7 lo".
             // translateX(-100%) moves it by its OWN width, so the flip is exact
-            // however long the text is; the estimate below only decides WHEN,
-            // and is deliberately generous so it flips early rather than late.
+            // however long the text is; the estimate only decides WHEN, and is
+            // deliberately generous so it flips early rather than late.
             ...(tooltip.x + TIP_ESTIMATE > window.innerWidth - 8
               ? { left: tooltip.x - 12, transform: 'translateX(-100%)' }
               : { left: tooltip.x + 12 }),
             // And never above the top of the window.
             top: Math.max(8, tooltip.y - 28),
-            background: 'var(--color-surface-2)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 6,
-            padding: '4px 10px',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--color-text)',
-            pointerEvents: 'none',
-            zIndex: 1000,
-            whiteSpace: 'nowrap',
           }}
         >
           {tooltip.text}
