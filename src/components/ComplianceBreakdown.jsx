@@ -12,6 +12,20 @@ import { Link } from 'react-router-dom'
 const GOOD = 'var(--color-success)'
 const WEAK = 'var(--color-warning)'
 const MUTED = 'var(--color-muted)'
+// The row grid, shared by the axis hint and every Row so the three parts line
+// up by construction rather than by two places agreeing on the same numbers.
+//
+// Both columns are FIXED, deliberately. Sizing them to content would let a row
+// reading "on plan" and a row reading "−683 cal" produce tracks of different
+// widths, stacked — and two bars that no longer start at the same x are not a
+// comparison any more.
+//
+// 64px was the old value column and it had no headroom at all: "−649 cal"
+// measured 64px exactly, so the first client to run four digits off target
+// ("−1,250 cal") would have clipped.
+const LABEL_COL = 78
+const VALUE_COL = 80
+
 const MAX_BAR = 46 // each side of the center line spans up to this % of the track
 
 // A day is "near target" within +/- this fraction (matches the day-level band).
@@ -37,7 +51,7 @@ function Row({ label, seg, target }) {
       : `${delta > 0 ? '+' : '−'}${Math.abs(delta)} cal`
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '78px 1fr 64px', alignItems: 'center', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `${LABEL_COL}px 1fr ${VALUE_COL}px`, alignItems: 'center', gap: 10 }}>
       <span style={{ fontSize: 'var(--text-sm)', fontWeight: near ? 500 : 700, color: near ? 'var(--color-text)' : WEAK }}>
         {label}
       </span>
@@ -142,7 +156,7 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
       ) : (
         <>
           {/* axis hint */}
-          <div style={{ display: 'grid', gridTemplateColumns: '78px 1fr 64px', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `${LABEL_COL}px 1fr ${VALUE_COL}px`, alignItems: 'center', gap: 10 }}>
             <span />
             <div style={{ position: 'relative', fontSize: 'var(--text-xs)', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               <span style={{ position: 'absolute', left: 0 }}>under</span>
