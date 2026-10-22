@@ -1020,9 +1020,23 @@ body {
     padding-top: var(--space-12);
     margin-top: var(--space-16);
     margin-bottom: 0 !important;
-    align-items: flex-start !important;
-    gap: var(--space-8) !important;
+    /* STACKED below 900px, not a row.
+       `align-items: flex-start` levelled the "Customize questions" button with
+       the Select's LABEL while the select itself sat on the next line, so the
+       button floated against a caption and lined up with nothing. flex-end
+       would have been no better at this width: the two would still be fighting
+       for a row that cannot hold them.
+       The label-and-control pair is one object, the button is a second, and on
+       a phone they go one above the other — which is also where a secondary
+       action belongs relative to the setting it qualifies. */
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: var(--space-12) !important;
   }
+  /* The button keeps its own width rather than stretching across the card:
+     `align-items: stretch` is for the Select's label+control pair, not for a
+     ghost button that would read as a primary action at full bleed. */
+  .cv-checkin-config > button { align-self: flex-start; }
   /* Claim the row and allow shrinking. As an ordinary flex item the strip sized
      itself to its content and `max-width: 100%` resolved against a parent that
      was content-sized too — so clientWidth equalled scrollWidth at every
