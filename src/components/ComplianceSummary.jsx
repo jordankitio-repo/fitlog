@@ -22,70 +22,50 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
   const s = summarizeCompliance(logsByDate, calorieTarget, windowDays)
   if (s.logged === 0) return null
 
-  // Two kinds of fact, and the 2x2 was mixing them.
+  // ONE strip, one cell shape.
   //
-  // On-target, Over and Under are three COUNTS OF DAYS, and they sum to the
-  // days logged — 27 + 19 + 1 = 47. Avg of target is a percentage. Putting the
-  // percentage in a fourth cell made a tidy square out of three homogeneous
-  // facts and one unrelated one, which is why no amount of restyling made the
-  // block read as organised: the grouping itself was wrong.
+  // This block used to be two blocks: the two summary figures as `value label`
+  // inline and left-aligned, then a rule, then the three counts as
+  // label-above-value in cells that spread. Two different cell shapes and two
+  // different alignments inside one bordered card, which is what made it read
+  // as disorganised however the spacing was tuned — the eye was being asked to
+  // learn two layouts to read five numbers.
   //
-  // So the two SUMMARY figures frame the block, and the three counts below are
-  // a strip of the same kind of thing — the C1 pattern for exactly this,
-  // "several facts about one subject", with a hairline between cells.
-  const counts = s.hasTarget
-    ? [
-        { num: s.onTarget, label: 'On-target', color: COMPLIANCE.onTarget },
-        { num: s.over, label: 'Over', color: COMPLIANCE.over },
-        { num: s.partial + s.under, label: 'Under', color: COMPLIANCE.wellUnder },
-      ]
-    : []
-
-  // A5: size and colour carry the hierarchy, so the figure leads at --text-md
-  // against an --text-xs label and needs no second weight to be read first.
-  const headline = (figure, label, color) => (
-    <p style={{
-      display: 'flex', alignItems: 'baseline', gap: 'var(--space-8)',
-      margin: 0, fontSize: 'var(--text-xs)', letterSpacing: '0.08em',
-      textTransform: 'uppercase', color: 'var(--color-faint)',
-      fontWeight: 'var(--weight-medium)', whiteSpace: 'nowrap',
-    }}>
-      <span className="tnum" style={{
-        fontSize: 'var(--text-md)', letterSpacing: 'normal',
-        fontWeight: 'var(--weight-semibold)', color: color || 'var(--color-text)',
-      }}>{figure}</span>
-      {label}
-    </p>
-  )
+  // They are five facts about one subject, which is exactly what `.ds-statcell`
+  // is for (the roster's strip, the same hairline between cells). The earlier
+  // note here argued the percentage "does not belong beside" the counts; that
+  // reasoning was about a 2x2 GRID WITH A HOLE, and it is the hole that was the
+  // problem. In a row of equal cells, each label says what its own number is
+  // and nothing is stranded.
+  const cells = [
+    { num: `${s.logged}/${s.elapsed}`, label: 'Days logged', color: variant === 'coach' ? null : COMPLIANCE.onTarget },
+    ...(s.hasTarget ? [{ num: `${s.avgOfTarget}%`, label: 'Avg of target', color: null }] : []),
+    // The GRADE stays on the numeral (B1) — the compliance scale's own tokens,
+    // validated for both themes in complianceScale.js, not the metric fill
+    // tokens the doc bars from text.
+    ...(s.hasTarget ? [
+      { num: s.onTarget, label: 'On-target', color: COMPLIANCE.onTarget },
+      { num: s.over, label: 'Over', color: COMPLIANCE.over },
+      { num: s.partial + s.under, label: 'Under', color: COMPLIANCE.wellUnder },
+    ] : []),
+  ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-8) var(--space-20)' }}>
-        {headline(`${s.logged}/${s.elapsed}`, 'days logged', variant === 'coach' ? null : COMPLIANCE.onTarget)}
-        {s.hasTarget && headline(`${s.avgOfTarget}%`, 'avg of target')}
-      </div>
-
-      {counts.length > 0 && (
-        /* One rule above the strip and a hairline between its cells — the
-           .ds-statcell shape the roster already uses. The old grid drew a
-           border on top of every cell, so the column gap cut each rule in half
-           and the block read as a stack of broken lines. */
-        <div style={{
-          display: 'flex', alignItems: 'flex-start',
-          borderTop: '1px solid var(--color-border)',
-          paddingTop: 'var(--space-12)',
-        }}>
-          {counts.map(t => (
-            <span key={t.label} className="ds-statcell" style={{ flex: '1 1 0', minWidth: 0 }}>
-              <span style={labelStyle}>{t.label}</span>
-              {/* The GRADE stays on the numeral (B1) — the compliance scale's
-                  own tokens, validated for both themes in complianceScale.js,
-                  not the metric fill tokens the doc bars from text. */}
-              <span className="tnum" style={{ ...numStyle, color: t.color }}>{t.num}</span>
-            </span>
-          ))}
-        </div>
-      )}
+    /* The strip is a bordered card rather than a bare row, so five numbers
+       floating in the middle of a section read as one object. */
+    <div style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius)',
+      padding: 'var(--space-16) var(--space-12)',
+    }}>
+      {cells.map(c => (
+        <span key={c.label} className="ds-statcell" style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center', alignItems: 'center' }}>
+          <span style={labelStyle}>{c.label}</span>
+          <span className="tnum" style={{ ...numStyle, color: c.color || 'var(--color-text)' }}>{c.num}</span>
+        </span>
+      ))}
     </div>
   )
 }
