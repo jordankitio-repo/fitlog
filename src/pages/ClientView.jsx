@@ -2928,7 +2928,11 @@ async function sendMessage(text) {
           <div className="cv-checkin">
           {/* Check-in config: this client's cadence + a pointer to the shared
               questionnaire (which is per-coach, so it lives on Profile). */}
-          <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
+          {/* Grouped, not spread. `justify-content: space-between` threw the button
+              to the far edge of a 1,000px card, so a control and the action that
+              configures it sat 700px apart with nothing between them — related
+              by nothing except being on the same line. A3: 12px inside a group. */}
+          <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
             {/* A SELECT, not four chips. The capsule means "a control you press
                 repeatedly" — the chart range chips, which a coach flips while
                 reading. A check-in cadence is set once per client and then left
