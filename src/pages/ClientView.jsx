@@ -103,7 +103,7 @@ function computeRollingAverage(data, window = 7) {
 const SECTION_LABELS = {
   stats: 'Stats', consistency: 'Consistency', sentReports: 'Reports', targets: 'Targets',
   nutritionLog: 'Nutrition', checkIn: 'Check-in', privateNotes: 'Notes', correlatedChart: 'Progress',
-  weightChart: 'Weight', calorieChart: 'Calories', cardioChart: 'Cardio', stepsChart: 'Steps',
+  weightChart: 'Weight', dailyMetrics: 'Daily metrics',
   measurements: 'Measurements',
   // Not a REORDERABLE key — it is pinned at the foot of the rail — but it
   // still needs a label, because the phone's destination list reads from here.
@@ -123,9 +123,10 @@ const COLLAPSED_DEFAULTS = {
   privateNotes: false,
   correlatedChart: false,
   weightChart: true,
-  calorieChart: true,
-  cardioChart: true,
-  stepsChart: true,
+  // One card, opened by default. Collapsed, three separate cards cost three
+  // clicks to answer one question; expanded they cost 1,851px — more than two
+  // screens — which is why they were collapsed in the first place.
+  dailyMetrics: false,
   measurements: false,
   groundwork: false,
 }
@@ -174,10 +175,10 @@ const SUMMARY_KEYS = ['groundwork', 'stats', 'consistency', 'checkIn']
 // because everything was the same. They are one destination with a switcher
 // now; the only thing that differed between them was the series, and a series
 // is a control, not a section.
-const TREND_KEYS = ['weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'correlatedChart', 'measurements']
+const TREND_KEYS = ['weightChart', 'dailyMetrics', 'correlatedChart', 'measurements']
 const TREND_LABELS = {
-  weightChart: 'Weight', calorieChart: 'Calories', cardioChart: 'Cardio',
-  stepsChart: 'Steps', correlatedChart: 'Progress', measurements: 'Measurements',
+  weightChart: 'Weight', dailyMetrics: 'Daily metrics',
+  correlatedChart: 'Progress', measurements: 'Measurements',
 }
 const DEFAULT_TREND = 'weightChart'
 
@@ -190,7 +191,7 @@ const SENT_PAGE = 20
 // two sides of one relationship show the same stretch of it.
 const THREAD_REPORTS = 8
 
-const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'calorieChart', 'cardioChart', 'stepsChart', 'measurements']
+const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'dailyMetrics', 'measurements']
 
 // Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
 const MEASUREMENT_SITES = [
@@ -1703,9 +1704,61 @@ async function sendMessage(text) {
   // one swatch restating the title. The target line still needs naming, so it
   // keeps a legend entry of its own where one is drawn.
   const metricChartOptions = baseChartOptions({ singleSeries: true })
-  const calorieChartOptions = metricChartOptions
-  const cardioChartOptions = metricChartOptions
-  const stepsChartOptions = metricChartOptions
+
+  // Options for the three stacked daily metrics.
+  //
+  // `afterFit` pinning the y-axis width is the whole reason they can be
+  // compared. Chart.js sizes that axis to its widest tick, so "11,084" steps
+  // reserves more room than "38" cardio minutes — and the plots would start at
+  // different x positions. Stacked charts whose time axes do not line up are
+  // worse than separate ones: they LOOK aligned, so a reader trusts a
+  // comparison the pixels do not support.
+  //
+  // Only the last plot draws its date labels. Three identical date axes is the
+  // repeated chrome that made these cards tall in the first place, and the
+  // shared window is stated once in the header.
+  const stackedMetricOptions = (showDates) => ({
+    ...metricChartOptions,
+    maintainAspectRatio: false,
+    plugins: { ...metricChartOptions.plugins, legend: { display: false } },
+    scales: {
+      ...metricChartOptions.scales,
+      x: {
+        ...metricChartOptions.scales?.x,
+        ticks: { ...metricChartOptions.scales?.x?.ticks, display: showDates },
+        grid: { display: false },
+      },
+      y: {
+        ...metricChartOptions.scales?.y,
+        afterFit: (axis) => { axis.width = 52 },
+        ticks: { ...metricChartOptions.scales?.y?.ticks, maxTicksLimit: 4 },
+      },
+    },
+  })
+
+  // The three series this card holds. One list, so the render, the visibility
+  // filter and the empty states cannot disagree about what "daily metrics"
+  // means.
+  const METRIC_SERIES = [
+    {
+      key: 'calorieChart', label: 'Calories', unit: 'cal',
+      empty: 'No nutrition logged yet',
+      history: () => bucketHistory(calorieHistory, 'calories', chartRange),
+      data: (h) => calorieChartData(plainCharts.has('dailyMetrics'), h),
+    },
+    {
+      key: 'cardioChart', label: 'Cardio', unit: 'min',
+      empty: 'No cardio logged yet',
+      history: () => bucketHistory(cardioHistory, 'minutes', chartRange),
+      data: (h) => metricBarData({ history: h, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('dailyMetrics') }),
+    },
+    {
+      key: 'stepsChart', label: 'Steps', unit: 'steps',
+      empty: 'No steps logged yet',
+      history: () => bucketHistory(stepsHistory, 'steps', chartRange),
+      data: (h) => metricBarData({ history: h, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('dailyMetrics') }),
+    },
+  ]
 
   // Compact options for the measurement small-multiples (no legend, short).
   const miniChartOptions = {
@@ -2897,32 +2950,59 @@ async function sendMessage(text) {
         </div>
       )}
 
-      {!hiddenCharts.includes('calorieChart') && (
-        <div key="calorieChart" id="section-calorieChart" style={sectionStyle('calorieChart')}>
-          <SectionHeader title="Calories" action={chartControls('calorieChart')} collapsed={isCollapsed('calorieChart')} onToggle={sectionToggle('calorieChart')} animated={false}>
-            {!isCollapsed('calorieChart') && (calorieHistory.length > 0 ? (
-              <Bar data={calorieChartData(plainCharts.has('calorieChart'), bucketHistory(calorieHistory, 'calories', chartRange))} options={calorieChartOptions} />
-            ) : chartEmpty('No nutrition logged yet', 'Your client logs this.'))}
-          </SectionHeader>
-        </div>
-      )}
+      {/* ONE card for the three daily metrics, stacked and sharing an x range.
+          They were three cards of 617px each — 1,851px, more than two screens,
+          to answer one question — and the answer to that question is a
+          COMPARISON: did calories drop the same week the steps did? Three
+          separate cards make that comparison impossible, because you cannot
+          hold two charts in your eye when one is two screens below the other.
 
-      {!hiddenCharts.includes('cardioChart') && (
-        <div key="cardioChart" id="section-cardioChart" style={sectionStyle('cardioChart')}>
-          <SectionHeader title="Cardio" action={chartControls('cardioChart')} collapsed={isCollapsed('cardioChart')} onToggle={sectionToggle('cardioChart')} animated={false}>
-            {!isCollapsed('cardioChart') && (cardioHistory.length > 0 ? (
-              <Bar data={metricBarData({ history: bucketHistory(cardioHistory, 'minutes', chartRange), valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
-            ) : chartEmpty('No cardio logged yet', 'Your client logs this.'))}
-          </SectionHeader>
-        </div>
-      )}
+          Stacked rather than side by side, which is the distinction this file
+          already draws: the measurements small-multiples sit in a GRID because
+          they are six sites in one unit being compared to each other, while
+          Progress overview stacks its two plots because they are different
+          units being correlated over TIME. Aligned x-axes let the reader drop
+          a line through a date. Side by side, they would have to find that
+          date three times.
 
-      {!hiddenCharts.includes('stepsChart') && (
-        <div key="stepsChart" id="section-stepsChart" style={sectionStyle('stepsChart')}>
-          <SectionHeader title="Steps" action={chartControls('stepsChart')} collapsed={isCollapsed('stepsChart')} onToggle={sectionToggle('stepsChart')} animated={false}>
-            {!isCollapsed('stepsChart') && (stepsHistory.length > 0 ? (
-              <Bar data={metricBarData({ history: bucketHistory(stepsHistory, 'steps', chartRange), valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
-            ) : chartEmpty('No steps logged yet', 'Your client logs this.'))}
+          The per-chart visibility toggles (Profile -> Charts) still work, and
+          now choose which SERIES appear in here rather than which cards exist.
+          The four identical range pickers that all set one shared value are
+          down to one. */}
+      {METRIC_SERIES.some(m => !hiddenCharts.includes(m.key)) && (
+        <div key="dailyMetrics" id="section-dailyMetrics" style={sectionStyle('dailyMetrics')}>
+          <SectionHeader
+            title="Daily metrics"
+            action={chartControls('dailyMetrics')}
+            collapsed={isCollapsed('dailyMetrics')}
+            onToggle={sectionToggle('dailyMetrics')}
+            animated={false}
+          >
+            {!isCollapsed('dailyMetrics') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+                {(() => {
+                  const shown = METRIC_SERIES.filter(m => !hiddenCharts.includes(m.key))
+                  return shown.map((m, i) => {
+                  const history = m.history()
+                  const isLast = i === shown.length - 1
+                  return (
+                    <div key={m.key}>
+                      {/* Same label treatment as Progress overview's plots:
+                          the metric, then its unit in the faint tone. */}
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
+                        {m.label} <span style={{ color: 'var(--color-faint)' }}>({m.unit})</span>
+                      </p>
+                      {history.length > 0 ? (
+                        <div style={{ height: '150px' }}>
+                          <Bar data={m.data(history)} options={stackedMetricOptions(isLast)} />
+                        </div>
+                      ) : chartEmpty(m.empty, 'Your client logs this.')}
+                    </div>
+                  )
+                  })
+                })()}
+              </div>
+            )}
           </SectionHeader>
         </div>
       )}
