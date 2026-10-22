@@ -23,7 +23,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { bucketHistory, historyWindow, DEFAULT_RANGE } from '../utils/chartRange'
-import { ADHERENCE_DAYS, ADHERENCE_WEEKS, ADHERENCE_NAME, GRAINS, DEFAULT_GRAIN, isGrain } from '../utils/complianceWindow'
+import { ADHERENCE, ADHERENCE_FETCH_DAYS, GRAINS, DEFAULT_GRAIN, isGrain } from '../utils/complianceWindow'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
@@ -300,6 +300,9 @@ function ClientView({ profile }) {
     setGrain(key)
     try { localStorage.setItem('gardnr-cv-grain', key) } catch { /* ignore */ }
   }
+  // Which adherence window this viewport can draw. 1024 is the rail's own
+  // breakpoint, so the grid widens at the same place the page does.
+  const adherence = hasRail ? ADHERENCE.wide : ADHERENCE.narrow
 
   // The window picker and the colour toggle travel together on every bar
   // chart, so they are declared once rather than spelled out at three call
@@ -1020,7 +1023,10 @@ async function fetchHeatmapData() {
   // A week of slack past the span so the grid's first column, which starts on
   // a Sunday rather than exactly N days ago, is never drawn from data that was
   // never fetched.
-  start.setDate(start.getDate() - (ADHERENCE_DAYS + 7))
+  // The widest tier plus a week of slack, so one fetch serves both and
+  // crossing the breakpoint never goes back to the network. The grid's first
+  // column starts on a Sunday rather than exactly N days ago, hence the slack.
+  start.setDate(start.getDate() - (ADHERENCE_FETCH_DAYS + 7))
 
   const { data, error } = await supabase
     .from('nutrition_log')
@@ -2551,7 +2557,7 @@ async function sendMessage(text) {
                 fontWeight: 'var(--weight-semibold)',
                 margin: 0,
               }}>
-                Calorie compliance <span style={{ color: 'var(--color-faint)' }}>· {ADHERENCE_NAME}</span>
+                Calorie compliance <span style={{ color: 'var(--color-faint)' }}>· {adherence.name}</span>
               </p>
               {/* ui/Pill, same as the energy-balance window and the roster's
                   lenses — a chip that picks what you are looking at. */}
@@ -2576,7 +2582,7 @@ async function sendMessage(text) {
             <ComplianceHeatmap
               logsByDate={heatmapData}
               calorieTarget={clientTargets.calories}
-              weeks={ADHERENCE_WEEKS}
+              weeks={adherence.weeks}
               grain={grain}
             />
             {/* The two reads sit under the grid in equal columns. The summary
@@ -2590,13 +2596,13 @@ async function sendMessage(text) {
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
                 variant="coach"
-                windowDays={ADHERENCE_DAYS}
+                windowDays={adherence.days}
               />
               <ComplianceBreakdown
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
-                windowDays={ADHERENCE_DAYS}
-                windowName={ADHERENCE_NAME}
+                windowDays={adherence.days}
+                windowName={adherence.name}
                 // On a phone targets is a route; on a desktop it is a scroll
                 // target on the same page, so the link resolves to the same
                 // param either way (see the /client/:id/:section route).

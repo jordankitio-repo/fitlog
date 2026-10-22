@@ -17,9 +17,22 @@
 // So: one span, and the control is granularity. Six months is the span because
 // 26 columns fill the card at a cell size you can still hit with a mouse, and
 // because it is long enough to hold a coaching phase.
-export const ADHERENCE_DAYS = 182
-export const ADHERENCE_WEEKS = 26
-export const ADHERENCE_NAME = 'last 6 months'
+// TWO TIERS, because the grid scales to the viewport rather than scrolling in
+// it. Width = weeks x cell size still holds, so on a phone the only way to
+// keep a cell legible without a scroller is to draw fewer weeks: 26 columns
+// inside ~300px is 9px a cell, which is dots, not a calendar.
+//
+// The whole window moves with it, not just the grid — the fetch, the summary's
+// counts, the weekday breakdown and every label that names a span. A phone
+// showing three months of squares above a summary counting six would be the
+// drift this file exists to prevent.
+export const ADHERENCE = {
+  wide: { days: 182, weeks: 26, name: 'last 6 months' },
+  narrow: { days: 91, weeks: 13, name: 'last 3 months' },
+}
+// The longest window any tier asks for, so one fetch serves both and resizing
+// across the breakpoint never has to go back to the network.
+export const ADHERENCE_FETCH_DAYS = 182
 
 // Daily reads a day; weekly reads a week. Both are real coaching questions and
 // the second is the one a weekly review actually asks — "how was that week"

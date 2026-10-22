@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toLocalDateString } from '../utils/dateHelpers'
 import { COMPLIANCE as SCALE } from '../utils/complianceScale'
@@ -12,14 +12,6 @@ const DAY_LABEL_GAP = 4
 // placement), so it is set above the longest string this renders — the weekly
 // line, "Week of Sep 27 - 6/7 logged (96% of target)".
 const TIP_ESTIMATE = 320
-// A cell never goes below this. Twenty-six columns inside a phone's ~340px is
-// 8px a cell — dots, not a calendar, with the month labels printing over each
-// other ("AprMay"). F1's rule is that a layout which stops meaning anything at
-// a width should be REBUILT for it rather than left to squeeze, so below the
-// width where cells stay legible the grid keeps its size and scrolls instead.
-// The span is unchanged, which is the point: the phone reads the same six
-// months as the desktop, it just reaches them by swiping.
-const MIN_CELL = 22
 // No width cap. Cells are fluid and the grid always fills its container — safe
 // now that the span is fixed (complianceWindow.js), because nothing can change
 // the column count underneath it. The 440px grid cap this replaces, and the
@@ -124,19 +116,12 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
     return `${dateLabel} - ${cell.calories} cal${pct !== null ? ` (${pct}%)` : ''}`
   }
 
-  // Open on the RECENT end. The grid is drawn oldest-first, so a scrollable
-  // one lands on last spring unless told otherwise — and the weeks a coach
-  // opens a record to see are the ones at the far right.
-  const scroller = useRef(null)
-  useLayoutEffect(() => {
-    const el = scroller.current
-    if (el) el.scrollLeft = el.scrollWidth
-  }, [weekCount])
-
   return (
     <div>
-      <div ref={scroller} style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-      <div style={{ width: '100%', minWidth: DAY_LABEL_WIDTH + DAY_LABEL_GAP + weekCount * (MIN_CELL + GAP) }}>
+      {/* No scroller and no minimum. The grid always fits the width it is given
+          and the CELL size follows — the caller drops to 13 columns on a phone
+          (complianceWindow.js) so that stays legible. */}
+      <div style={{ width: '100%' }}>
         {/* Month labels — mirrors the grid row (spacer + fluid week columns) */}
         <div style={{ display: 'flex', gap: DAY_LABEL_GAP, marginBottom: 4 }}>
           <div style={{ width: DAY_LABEL_WIDTH, flexShrink: 0 }} />
@@ -150,14 +135,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
         </div>
 
         <div style={{ display: 'flex', gap: DAY_LABEL_GAP }}>
-          {/* Sticky, or scrolling right takes the day letters with it and the
-              rows stop being identifiable. */}
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: GAP,
-            width: DAY_LABEL_WIDTH, flexShrink: 0,
-            position: 'sticky', left: 0, zIndex: 1,
-            background: 'var(--color-surface)',
-          }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, width: DAY_LABEL_WIDTH, flexShrink: 0 }}>
             {DAYS.map((day) => (
               <div
                 key={day}
@@ -262,7 +240,6 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
             )})}
           </div>
         </div>
-      </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginTop: 12, marginLeft: 28, alignItems: 'center', flexWrap: 'wrap' }}>
