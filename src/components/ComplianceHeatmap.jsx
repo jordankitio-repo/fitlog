@@ -32,8 +32,14 @@ function formatMonth(date) {
 
 export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: weekCount = 13, grain = 'daily' }) {
   const [tooltip, setTooltip] = useState(null)
-  // Which column the pointer is in, so weekly mode can ring the whole week.
+  // What the pointer is over. Weekly tracks the column, daily the single cell;
+  // either way the cells themselves darken, which is the only hover mark the
+  // grid can carry without moving. An outline — the first attempt — sat OUTSIDE
+  // a 38px cell and read as a box drawn around the data rather than as the data
+  // being picked out, and at 2px it was heavier than the 2px gutter between
+  // columns, so a ringed week looked like a different kind of object.
   const [hotWeek, setHotWeek] = useState(null)
+  const [hotCell, setHotCell] = useState(null)
   const target = Number(calorieTarget) || 0
 
   const today = new Date()
@@ -166,9 +172,6 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
                 onMouseLeave={weekly ? () => { setHotWeek(null); setTooltip(null) } : undefined}
                 style={{
                   display: 'flex', flexDirection: 'column', gap: GAP, flex: 1, minWidth: 0,
-                  borderRadius: 4,
-                  outline: weekly && hotWeek === weekIndex ? '2px solid var(--color-primary)' : 'none',
-                  outlineOffset: 2,
                   cursor: weekly && weekText ? 'help' : 'default',
                 }}
               >
@@ -182,6 +185,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
                       aria-hidden={weekly ? true : undefined}
                       aria-label={weekly ? undefined : (tooltipText || cell.dateStr)}
                       onMouseEnter={weekly ? undefined : (event) => {
+                        setHotCell(cell.dateStr)
                         if (tooltipText) {
                           setTooltip({
                             text: tooltipText,
@@ -199,7 +203,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
                           })
                         }
                       }}
-                      onMouseLeave={weekly ? undefined : () => setTooltip(null)}
+                      onMouseLeave={weekly ? undefined : () => { setHotCell(null); setTooltip(null) }}
                       style={{
                         width: '100%',
                         aspectRatio: '1 / 1',
@@ -210,6 +214,15 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
                         border: cell.isFuture ? '1px solid var(--color-border)' : 'none',
                         opacity: cell.isFuture ? 0.2 : 1,
                         cursor: weekly ? 'inherit' : (tooltipText ? 'help' : 'default'),
+                        // The hover mark, as a multiplier on the cell's own
+                        // colour so each keeps its hue and a hovered week still
+                        // reads as which of its days were over, under and on
+                        // target — a flat overlay would wash exactly that away.
+                        // The direction is a theme token (--heat-hover): dark
+                        // brightens because darkening a #242424 no-log cell
+                        // moves it eleven steps and nobody can see it.
+                        filter: (weekly ? hotWeek === weekIndex : hotCell === cell.dateStr) ? 'brightness(var(--heat-hover))' : 'none',
+                        transition: 'filter 90ms ease',
                       }}
                     />
                   )

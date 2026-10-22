@@ -6,6 +6,16 @@
 
 :root {
   color-scheme: dark;
+  /* The adherence heatmap's hover mark, as a multiplier on the cell's own
+     colour so each cell keeps its hue and a hovered week still reads as which
+     of its days were over, under and on target.
+     It flips with the theme, and that is not a preference. The mark has to be
+     a CHANGE the eye can see, and "darker" is not available on a near-black
+     cell: a no-log cell here is #242424, so darkening it lands on #191919 —
+     eleven steps, invisible, which is exactly what a hovered empty week looked
+     like. Brightening moves it far enough to register. On the light theme the
+     same reasoning runs the other way, so light darkens. */
+  --heat-hover: 1.5;
   /* Neutral surface/text ramp (themeable). Hardcoded greys across the app were
      tokenized onto these so light mode flips cleanly. */
   --color-bg: #0a0a0a;            /* page background, deepest */
@@ -203,6 +213,8 @@
    with carbs darkened so the pale tan stays legible on white. */
 :root[data-theme="light"] {
   color-scheme: light;
+  /* Darker on light — see --heat-hover on :root. */
+  --heat-hover: 0.78;
   /* A three-step light ramp: page < panel < control. Panels were pure #ffffff,
      which left a raised control nowhere lighter to go — so on a panel it had to
      read as DARKER than its backdrop while on the page it read as lighter, and
