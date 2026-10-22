@@ -11,14 +11,26 @@ import { mergeOrder } from '../utils/cardOrder'
 //
 // Touch: drag starts from the grip handle (SortableCard) with a short press
 // delay, so it never fights page scroll.
-export default function Reorderable({ order, onReorder, enabled, children, gripStyle }) {
+export default function Reorderable({ order, defaultOrder, onReorder, enabled, children, gripStyle }) {
   const items = []
   React.Children.forEach(children, (c) => {
     if (React.isValidElement(c) && c.key != null) items.push(c)
   })
   const byKey = {}
   items.forEach((i) => { byKey[String(i.key)] = i })
-  const keys = mergeOrder(order, items.map((i) => String(i.key)))
+  const present = items.map((i) => String(i.key))
+  // `defaultOrder` is the caller's registry — the same constant it builds its
+  // nav from. Without it the default is whatever order the JSX blocks happen
+  // to be WRITTEN in, which is invisible from the constant and silently
+  // disagrees with it: ClientView's rail read Progress-then-Targets off
+  // REORDERABLE_KEYS while the page below it still rendered Targets first,
+  // because moving a key in the registry moved the nav and nothing else.
+  // Unknown keys are appended rather than dropped, so a section the registry
+  // forgets still renders instead of vanishing.
+  const defaults = Array.isArray(defaultOrder)
+    ? [...defaultOrder.filter(k => present.includes(k)), ...present.filter(k => !defaultOrder.includes(k))]
+    : present
+  const keys = mergeOrder(order, defaults)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),

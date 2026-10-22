@@ -18,8 +18,8 @@ const labelStyle = {
   margin: 0,
 }
 
-export default function ComplianceSummary({ logsByDate, calorieTarget, variant = 'solo' }) {
-  const s = summarizeCompliance(logsByDate, calorieTarget)
+export default function ComplianceSummary({ logsByDate, calorieTarget, variant = 'solo', windowDays = 90 }) {
+  const s = summarizeCompliance(logsByDate, calorieTarget, windowDays)
   if (s.logged === 0) return null
 
   // Two kinds of fact, and the 2x2 was mixing them.

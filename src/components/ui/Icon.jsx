@@ -24,6 +24,12 @@ const PATHS = {
   // the one thing it does not do. Feather's simple can, without the inner
   // strokes — at 1em those two extra lines turn the glyph to mush.
   trash:    <><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
+  // "Open this bigger." Feather's maximize-2 — two corner arrows pointing
+  // out. D4 is one glyph per meaning, and this is the only control in the app
+  // that moves a thing from inline to a dialog, so it gets its own mark rather
+  // than borrowing `right` (which means "go to this thing", a navigation, not
+  // a change of depth).
+  expand:   <><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" /></>,
   grip:     <><circle cx="9" cy="6" r="1.4" /><circle cx="9" cy="12" r="1.4" /><circle cx="9" cy="18" r="1.4" /><circle cx="15" cy="6" r="1.4" /><circle cx="15" cy="12" r="1.4" /><circle cx="15" cy="18" r="1.4" /></>,
   // `right` is THE forward glyph — navigation, CTAs, "go to this thing". There
   // is deliberately no second arrow style: one action, one mark.

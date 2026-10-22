@@ -78,10 +78,13 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
           gap survives a line break. */}
       <div className="ebr-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
         <p style={{ fontSize: 'var(--text-xs)', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
-          Energy balance read
+          {/* "coach-only" was a third item in the control row, sitting between
+              the heading and the window pills — so it read as part of the
+              control it leaned against ("coach-only Window"). It is a fact
+              about the PANEL, so it belongs to the panel's name. */}
+          <InfoTip text="Coach-only: this panel is not shown on the client's dashboard.">Energy balance read</InfoTip>
         </p>
         <div className="ebr-meta" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>coach-only</span>
           {onWindowChange
             ? <WindowSelector windowDays={windowDays} onWindowChange={onWindowChange} />
             : <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>last {r.windowDays} days</span>}

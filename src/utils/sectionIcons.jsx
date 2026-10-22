@@ -18,6 +18,10 @@ export const SECTION_ICONS = {
   privateNotes: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></>,
   correlatedChart: <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></>,
   weightChart: <><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" /></>,
+  // Daily metrics — calories, cardio and steps stacked in one card. A bar
+  // chart, because that is what the card draws; the three single-metric
+  // glyphs below it date from when each had a section of its own.
+  dailyMetrics: <><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></>,
   calorieChart: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
   cardioChart: <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />,
   stepsChart: <polyline points="4 20 8 20 8 15 12 15 12 10 16 10 16 5 20 5" />,

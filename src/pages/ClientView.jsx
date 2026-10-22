@@ -23,6 +23,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { bucketHistory, historyWindow, DEFAULT_RANGE } from '../utils/chartRange'
+import { ADHERENCE_WINDOWS, DEFAULT_ADHERENCE, adherenceByKey, weeksFor, WIDE_FROM_WEEKS } from '../utils/complianceWindow'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
@@ -102,9 +103,9 @@ function computeRollingAverage(data, window = 7) {
 // the drag-reorderable sections (stats is pinned above them) — used to resolve
 // the live order via mergeOrder(savedOrder, presentKeys), same as Reorderable.
 const SECTION_LABELS = {
-  stats: 'Stats', consistency: 'Consistency', sentReports: 'Reports', targets: 'Targets',
+  stats: 'Stats', consistency: 'Adherence', sentReports: 'Reports', targets: 'Targets',
   nutritionLog: 'Nutrition', checkIn: 'Check-in', privateNotes: 'Notes', correlatedChart: 'Progress',
-  weightChart: 'Weight', dailyMetrics: 'Daily metrics',
+  dailyMetrics: 'Daily metrics',
   measurements: 'Measurements',
   // Not a REORDERABLE key — it is pinned at the foot of the rail — but it
   // still needs a label, because the phone's destination list reads from here.
@@ -123,7 +124,6 @@ const COLLAPSED_DEFAULTS = {
   checkIn: false,
   privateNotes: false,
   correlatedChart: false,
-  weightChart: true,
   // One card, opened by default. Collapsed, three separate cards cost three
   // clicks to answer one question; expanded they cost 1,851px — more than two
   // screens — which is why they were collapsed in the first place.
@@ -176,12 +176,15 @@ const SUMMARY_KEYS = ['groundwork', 'stats', 'consistency', 'checkIn']
 // because everything was the same. They are one destination with a switcher
 // now; the only thing that differed between them was the series, and a series
 // is a control, not a section.
-const TREND_KEYS = ['weightChart', 'dailyMetrics', 'correlatedChart', 'measurements']
+const TREND_KEYS = ['correlatedChart', 'dailyMetrics', 'measurements']
 const TREND_LABELS = {
-  weightChart: 'Weight', dailyMetrics: 'Daily metrics',
-  correlatedChart: 'Progress', measurements: 'Measurements',
+  correlatedChart: 'Progress', dailyMetrics: 'Daily metrics',
+  measurements: 'Measurements',
 }
-const DEFAULT_TREND = 'weightChart'
+// Progress, now that Weight is a dialog opened from inside it rather than a
+// destination of its own. It was the default because it answered the first
+// question; the card that carries it answers the same one and the next.
+const DEFAULT_TREND = 'correlatedChart'
 
 // Sent reports load a page at a time, like the client's own archive
 // (Reports.jsx PAGE). A coach writes roughly one a week per client and the row
@@ -208,7 +211,16 @@ const SENT_PAGE = 5
 // two sides of one relationship show the same stretch of it.
 const THREAD_REPORTS = 8
 
-const REORDERABLE_KEYS = ['consistency', 'sentReports', 'targets', 'nutritionLog', 'checkIn', 'privateNotes', 'correlatedChart', 'weightChart', 'dailyMetrics', 'measurements']
+// The DEFAULT order only — a coach who has dragged anything keeps their own
+// layout forever (mergeOrder preserves every saved key and only appends ones
+// they have never seen).
+//
+// It used to end with the four charts, which put the whole question a coach
+// opens a record to ask — is the weight actually moving — at 4,422px, below a
+// 638px targets FORM and a notes box. Adherence stays near the top because it
+// earns it (the heatmap and the breakdown are analysis, not bookkeeping), but
+// configuration belongs under the outcome it configures, not over it.
+const REORDERABLE_KEYS = ['consistency', 'sentReports', 'nutritionLog', 'checkIn', 'correlatedChart', 'dailyMetrics', 'measurements', 'targets', 'privateNotes']
 
 // Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
 const MEASUREMENT_SITES = [
@@ -269,6 +281,26 @@ function ClientView({ profile }) {
   // compare a year of weight with a week of steps and see a relationship that
   // is not there.
   const [chartRange, setChartRange] = useState(DEFAULT_RANGE)
+  // Which chart, if any, is open in a dialog. One value rather than a boolean
+  // per chart: only one can be open, and the next chart to earn an expand
+  // (Daily metrics and Measurements are the two tallest sections left) adds a
+  // string here rather than another piece of state.
+  const [expandedChart, setExpandedChart] = useState(null)
+  // Remembered per viewer, like `gardnr-eb-window`: how far back a coach reads
+  // adherence is about how they work, not about this client.
+  const [adherenceKey, setAdherenceKey] = useState(() => {
+    try {
+      const v = localStorage.getItem('gardnr-cv-adherence')
+      if (ADHERENCE_WINDOWS.some(w => w.key === v)) return v
+    } catch { /* private mode — the default still works */ }
+    return DEFAULT_ADHERENCE
+  })
+  const adherence = adherenceByKey(adherenceKey)
+  const adherenceWeeks = weeksFor(adherence.days)
+  function changeAdherence(key) {
+    setAdherenceKey(key)
+    try { localStorage.setItem('gardnr-cv-adherence', key) } catch { /* ignore */ }
+  }
 
   // The window picker and the colour toggle travel together on every bar
   // chart, so they are declared once rather than spelled out at three call
@@ -527,7 +559,6 @@ function ClientView({ profile }) {
   fetchLockState()
   fetchCoachNotes()
   fetchConsistency()
-  fetchHeatmapData()
   fetchEnergyBalance()
   fetchSentReports()
   fetchMessages()
@@ -540,6 +571,12 @@ function ClientView({ profile }) {
     fetchWeight()
     fetchDayActivity()
   }, [clientId, selectedDate])
+
+  // Its own effect, beside the page's other two: the adherence window control
+  // must refetch the heatmap and NOT the fifteen queries that load with it.
+  useEffect(() => {
+    fetchHeatmapData()
+  }, [clientId, adherence.days])
 
   async function fetchClientProfile() {
     const { data, error } = await supabase
@@ -981,7 +1018,10 @@ async function fetchConsistency() {
 
 async function fetchHeatmapData() {
   const start = new Date()
-  start.setDate(start.getDate() - 97)
+  // A week of slack past the window so the grid's first column, which starts
+  // on a Sunday rather than exactly N days ago, is never drawn from data that
+  // was never fetched.
+  start.setDate(start.getDate() - (adherence.days + 7))
 
   const { data, error } = await supabase
     .from('nutrition_log')
@@ -1465,6 +1505,38 @@ async function sendMessage(text) {
 
   const isToday = selectedDate === toLocalDateString(new Date())
 
+  // Both of these are Dashboard's, deliberately: the client's own day panel
+  // already solved the same two problems on the same six facts, and a second
+  // spelling of a solved problem is how two surfaces drift apart.
+  //
+  // The heading must not say "Today" when the stepper has moved off today —
+  // Dashboard's words, and this panel was the one still doing it, printing a
+  // past day's numbers under a caption contradicting the date control directly
+  // above. Same locale and same format there as here, so one client's Monday
+  // reads identically on both sides of the relationship.
+  const statsTitle = isToday
+    ? "Today's stats"
+    : `Stats \u00b7 ${parseLocalDateString(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`
+
+  // And the numbers are read AGAINST the targets, which lived only in the
+  // rail's footer — a thousand pixels away, leaving the coach to hold six
+  // numbers in their head and subtract. The client saw richer information
+  // about their own day than their coach did, which is backwards.
+  //
+  // Copy is Dashboard's `targetSub` verbatim, percentage included, down to
+  // F3's "No target set": every cell in a column of values carries a value,
+  // and the absence of a target is a fact about the day too.
+  // Dashboard's `num`. The value sat unformatted while the target under it was
+  // grouped, so a card read "1609" over "of 1,850 cal" — two spellings of the
+  // same kind of number, one above the other, inside one card.
+  const num = (n) => Number(n || 0).toLocaleString()
+
+  const dayTarget = (actual, target, unit = '') => {
+    const t = Number(target)
+    if (!Number.isFinite(t) || t <= 0) return 'No target set'
+    return `of ${t.toLocaleString()}${unit} \u00b7 ${Math.round((Number(actual) || 0) / t * 100)}%`
+  }
+
   // Weight axes across this view render in the goal's unit (falling back to the
   // latest logged unit) so every weight chart agrees; mirrors the weight-trend
   // chart's display-unit rule.
@@ -1508,6 +1580,25 @@ async function sendMessage(text) {
         borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.15)',
         tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 5,
         borderWidth: MARK.lineWidth, spanGaps: true,
+      })
+      // The goal, and only the goal. The 7-day average, the reached marker and
+      // the caption live in the expanded chart: at 140px a second trace and a
+      // 7px dot crowd the line they are meant to explain, while a flat dashed
+      // rule reads at any height and answers "heading for it?" on its own.
+      const goalRef = computeWeightTarget({
+        weightHistory: weightHistory.map(d => ({
+          ...d,
+          unit: weightDisplayUnit,
+          weight: Math.round(convertWeight(d.weight, normUnit(d.unit || weightDisplayUnit), weightDisplayUnit) * 10) / 10,
+        })),
+        weightGoal: clientTargets.weight_goal,
+        weightGoalUnit: clientTargets.weight_goal_unit,
+      })
+      if (goalRef) datasets.push({
+        type: 'line', label: `Goal (${goalRef.goal} ${goalRef.displayUnit})`,
+        data: allDates.map(() => goalRef.goal),
+        borderColor: CHART.targetLine, borderDash: [6, 4],
+        borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0,
       })
     }
 
@@ -1918,6 +2009,159 @@ async function sendMessage(text) {
     />
   )
 
+  // The weight chart in full, shown in a dialog rather than as a section.
+  //
+  // It is the same fact as Progress overview's top plot, so as a section it was
+  // this page's own C6 violation: the richer drawing of the trend sat 650px
+  // below the plainer one, collapsed by default, and opening it put the same
+  // line on screen twice and the record at 7,520px. Behind a click it is not a
+  // second surface — it is the first one at the depth a coach asks for, which
+  // is the trade the sent-report archive on this page already makes.
+  //
+  // Nothing in here is new: the unit that follows the goal, the 7-day average
+  // and its year-view caveat, the reached-goal marker and its caption all came
+  // across verbatim. The inline plot keeps only the goal line, the one overlay
+  // that still reads at 140px.
+  const weightChartFull = () => (weightHistory.length > 1 ? (() => {
+          // The chart follows the weight-GOAL unit when a goal is set (so the
+          // coach's unit choice drives the axis live), else the unit the
+          // weigh-ins were logged in. Every weigh-in is converted into that
+          // display unit — the axis, line, 7-day avg, goal line and marker all
+          // share it — so the chart is never "stuck" in whatever unit the raw
+          // rows happen to use.
+          const displayUnit = clientTargets.weight_goal
+            ? normUnit(clientTargets.weight_goal_unit)
+            : normUnit(weightHistory[weightHistory.length - 1]?.unit)
+          const round1 = (n) => Math.round(n * 10) / 10
+          // Convert FIRST, then bucket, so the year view averages weigh-ins
+          // that are already in one unit — averaging kg and lb together
+          // would produce a number that is neither.
+          const converted = weightHistory.map(d => ({
+            ...d,
+            unit: displayUnit,
+            weight: round1(convertWeight(d.weight, normUnit(d.unit || displayUnit), displayUnit)),
+          }))
+          const dispHistory = bucketHistory(converted, 'weight', chartRange)
+          // Goal reference line + the first weigh-in that reached it, computed
+          // in the same display unit (weightTarget.js converts the goal in).
+          //
+          // TWO reads of the same goal, and the split is the point. The LINE
+          // and the marker belong to the window on screen, so they come off the
+          // plotted points. How far there is left to go does NOT: that is a
+          // fact about the client today, and reading it off the bucketed series
+          // made it move when the range moved — the Y view averages each month,
+          // so its last point is a month's mean rather than the latest weigh-in,
+          // and one client read "2.5 kg to lose" on W and "3.2 kg to lose" on Y.
+          // Both cannot be true, and the caption names no window, so neither was
+          // defensible.
+          const wt = computeWeightTarget({
+            weightHistory: dispHistory,
+            weightGoal: clientTargets.weight_goal,
+            weightGoalUnit: clientTargets.weight_goal_unit,
+          })
+          const wtNow = computeWeightTarget({
+            weightHistory: converted,
+            weightGoal: clientTargets.weight_goal,
+            weightGoalUnit: clientTargets.weight_goal_unit,
+          })
+          const rIdx = wt?.reached ? wt.reachedIndex : -1
+          const isMark = (i) => i === rIdx
+          const datasets = [
+            {
+              label: 'Weight',
+              data: dispHistory.map(d => d.weight),
+              // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
+              borderColor: '#34d399',
+              // A ~10% wash, not a saturated block — and a 2px line, which
+              // is the app's one line weight.
+              backgroundColor: `rgba(52, 211, 153, ${MARK.areaAlpha})`,
+              borderWidth: MARK.lineWidth,
+              // Reached-goal marker: on-brand green (NOT gold — gold is the
+              // product's warning color), a clean dot not a generic star; the
+              // growth-motif leaf lives in the caption below. Theme-agnostic
+              // pop on both cards: a deep-green fill (#15803d) carries contrast
+              // on the light card, a white ring carries it on the dark card —
+              // each does its job on the theme where the other washes out.
+              pointRadius: dispHistory.map((_, i) => (isMark(i) ? 7 : 0)),
+              pointHoverRadius: 5,
+              pointStyle: 'circle',
+              pointBackgroundColor: dispHistory.map((_, i) => (isMark(i) ? '#15803d' : '#34d399')),
+              pointBorderColor: dispHistory.map((_, i) => (isMark(i) ? '#ffffff' : '#34d399')),
+              pointBorderWidth: dispHistory.map((_, i) => (isMark(i) ? 2.5 : 1)),
+              tension: 0.3,
+              fill: true,
+            },
+          ]
+          // The 7-day average is dropped on the YEAR view. Those points are
+          // already monthly means, so a 7-point rolling mean over them
+          // smooths seven MONTHS and draws a near-flat line labelled
+          // "7-day avg" — a chart saying something untrue about its own
+          // window.
+          if (chartRange !== 'Y') datasets.push({
+            label: '7-day avg',
+            data: computeRollingAverage(dispHistory),
+            borderColor: 'rgba(52, 211, 153, 0.45)',
+            backgroundColor: 'transparent',
+            borderWidth: MARK.lineWidth,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false,
+          })
+          if (wt) datasets.push({
+            label: `Goal (${wt.goal} ${wt.displayUnit})`,
+            data: dispHistory.map(() => wt.goal),
+            borderColor: CHART.targetLine,
+            backgroundColor: 'transparent',
+            borderDash: [6, 4],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            tension: 0,
+            fill: false,
+          })
+          // Weight-specific tooltip so hovered points carry the unit.
+          const weightChartOptions = {
+            ...chartOptions,
+            plugins: {
+              ...chartOptions.plugins,
+              tooltip: {
+                ...chartOptions.plugins.tooltip,
+                callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${displayUnit}` },
+              },
+            },
+            scales: {
+              ...chartOptions.scales,
+              y: { ...chartOptions.scales.y, title: { display: true, text: `Weight (${displayUnit})`, color: CHART.tick } },
+            },
+          }
+          return (
+            <>
+              <Line data={{ labels: dispHistory.map(d => d.date), datasets }} options={weightChartOptions} />
+              {wtNow && (
+                <p style={{ fontSize: 'var(--text-sm)', margin: 'var(--space-10) var(--space-2) 0', color: 'var(--color-muted)' }}>
+                  {wtNow.reached ? (
+                    <>
+                      <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-4)' }}>
+                          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+                          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+                        </svg>
+                        Reached goal
+                      </span>
+                      {wtNow.direction === 'maintain'
+                        ? <>. Holding at {wtNow.goal} {wtNow.displayUnit}</>
+                        : <>. First hit {wtNow.goal} {wtNow.displayUnit} on {new Date(wtNow.reachedIso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</>}
+                    </>
+                  ) : (
+                    <><strong style={{ color: 'var(--color-text)', fontWeight: 'var(--weight-semibold)' }}>{wtNow.remainingAbs} {wtNow.displayUnit}</strong> {wtNow.direction === 'up' ? 'to gain' : 'to lose'} to reach the {wtNow.goal} {wtNow.displayUnit} goal</>
+                  )}
+                </p>
+              )}
+            </>
+          )
+        })() : chartEmpty('No weight logged yet', 'Your client logs this.'))
+
   return (
     <>
     {/* The rail owns column 1 for the WHOLE page, header included, so it starts
@@ -2158,7 +2402,7 @@ async function sendMessage(text) {
       </div>
 
       <div id="section-stats" style={sectionStyle('stats')}>
-        <SectionHeader title="Today's stats" collapsed={isCollapsed('stats')} onToggle={sectionToggle('stats')}>
+        <SectionHeader title={statsTitle} collapsed={isCollapsed('stats')} onToggle={sectionToggle('stats')}>
           {/* Two groups, because these are two kinds of fact — and seven cells
               in a two-column grid could only ever leave one of them stranded
               beside an empty cell.
@@ -2169,19 +2413,26 @@ async function sendMessage(text) {
               which is what this system uses for several facts about one
               subject. Neither group has a hole in it. */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-16)' }}>
-              <StatCard label="Calories" value={totals.calories} color="var(--color-calories)" />
-              <StatCard label="Protein" value={`${totals.protein}g`} color="var(--color-protein)" />
-              <StatCard label="Carbs" value={`${totals.carbs}g`} color="var(--color-carbs)" />
-              <StatCard label="Fat" value={`${totals.fat}g`} color="var(--color-fat)" />
+            {/* auto-fit, not a fixed count. At 1,116px (the desktop content
+                column) four 160px tracks fit, so the macros sit on ONE row of
+                ~270px cells instead of a 2x2 of 525px cells each holding a
+                three-line label and 400px of nothing. On a phone the same rule
+                yields two tracks, which is the 2x2 F2 asked for — the shape
+                was right there and wrong on a desktop, so it is a breakpoint
+                rather than a layout. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-16)' }}>
+              <StatCard label="Calories" value={num(totals.calories)} sub={dayTarget(totals.calories, clientTargets.calories, ' cal')} color="var(--color-calories)" />
+              <StatCard label="Protein" value={`${num(totals.protein)}g`} sub={dayTarget(totals.protein, clientTargets.protein, 'g')} color="var(--color-protein)" />
+              <StatCard label="Carbs" value={`${num(totals.carbs)}g`} sub={dayTarget(totals.carbs, clientTargets.carbs, 'g')} color="var(--color-carbs)" />
+              <StatCard label="Fat" value={`${num(totals.fat)}g`} sub={dayTarget(totals.fat, clientTargets.fat, 'g')} color="var(--color-fat)" />
             </div>
             {/* Cardio and Steps were never on this panel, though the coach sets a
                 target for both and the page carries a chart for each — so the
                 client's own Dashboard showed seven metrics for a day while the
                 coach's view of the same day showed five. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-16)' }}>
-              <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} color="var(--color-cardio)" />
-              <StatCard label="Steps" value={daySteps ? daySteps.toLocaleString() : '—'} color="var(--color-steps)" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-16)' }}>
+              <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} sub={dayTarget(dayCardio, clientTargets.cardio_minutes, ' min')} color="var(--color-cardio)" />
+              <StatCard label="Steps" value={daySteps ? num(daySteps) : '—'} sub={dayTarget(daySteps, clientTargets.steps)} color="var(--color-steps)" />
               <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
             </div>
           </div>
@@ -2194,10 +2445,15 @@ async function sendMessage(text) {
           with the sections hidden by style the grips survived them: a column of
           stray ⠿ handles floating between the summary's panels, each one the
           ghost of a section that is not there. */}
-      <Reorderable order={cardOrder} onReorder={saveCardOrder} enabled={canReorder && hasRail}>
+      <Reorderable order={cardOrder} defaultOrder={REORDERABLE_KEYS} onReorder={saveCardOrder} enabled={canReorder && hasRail}>
 
       <div key="consistency" id="section-consistency" style={sectionStyle('consistency')}>
-        <SectionHeader title="Logging consistency" collapsed={isCollapsed('consistency')} onToggle={sectionToggle('consistency')}>
+        {/* E1: the rail said "Consistency" and the heading said "Logging
+            consistency", and neither named what is actually in here — streaks,
+            a 13-week calories-against-target heatmap, and a weekday/weekend
+            breakdown of where the plan is slipping. That is adherence. The
+            heading and the rail now say the same word, which is the rule. */}
+        <SectionHeader title="Adherence" collapsed={isCollapsed('consistency')} onToggle={sectionToggle('consistency')}>
           <div className="cv-consist-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-12)' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.streak}>{compact ? 'Streak' : 'Current streak'}</InfoTip></p>
@@ -2283,41 +2539,101 @@ async function sendMessage(text) {
             paddingTop: 'var(--space-16)',
             marginTop: 'var(--space-16)',
           }}>
-            <p style={{
-              fontSize: 'var(--text-xs)',
-              color: 'var(--color-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              fontWeight: 'var(--weight-semibold)',
-              marginBottom: 'var(--space-16)',
-              marginTop: 0,
-            }}>
-              Calorie compliance, last 90 days
-            </p>
-            <div style={{ display: 'flex', gap: 'var(--space-24)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <div style={{ flex: '1 1 300px', minWidth: 0, maxWidth: 440 }}>
+            {/* The label names the span and the control sets it, so the
+                heading can never disagree with the picture under it — which is
+                what "last 90 days" printed over a fetch of 97 and a grid of 13
+                weeks was quietly doing. */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)', flexWrap: 'wrap', marginBottom: 'var(--space-16)' }}>
+              <p style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--color-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                fontWeight: 'var(--weight-semibold)',
+                margin: 0,
+              }}>
+                Calorie compliance <span style={{ color: 'var(--color-faint)' }}>· {adherence.name.toLowerCase()}</span>
+              </p>
+              {/* ui/Pill, same as the energy-balance window and the roster's
+                  lenses — a chip that picks what you are looking at. */}
+              <span role="group" aria-label="Adherence window" style={{ display: 'inline-flex', gap: 'var(--space-4)' }}>
+                {ADHERENCE_WINDOWS.map(w => (
+                  <Pill
+                    key={w.key}
+                    active={w.key === adherenceKey}
+                    aria-pressed={w.key === adherenceKey}
+                    onClick={() => changeAdherence(w.key)}
+                  >
+                    {w.label}
+                  </Pill>
+                ))}
+              </span>
+            </div>
+            {/* The grid fills the card when the window is long enough to do
+                it honestly, and keeps the summary beside it when it is not.
+                13 weeks across a 1,066px card would be 80px squares; 26 and 52
+                are the numbers that make a heatmap look like one. */}
+            {adherenceWeeks >= WIDE_FROM_WEEKS ? (
+              <>
                 <ComplianceHeatmap
                   logsByDate={heatmapData}
                   calorieTarget={clientTargets.calories}
+                  weeks={adherenceWeeks}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-24)', marginTop: 'var(--space-20)' }}>
+                  <ComplianceSummary
+                    logsByDate={heatmapData}
+                    calorieTarget={clientTargets.calories}
+                    variant="coach"
+                    windowDays={adherence.days}
+                  />
+                  <ComplianceBreakdown
+                    logsByDate={heatmapData}
+                    calorieTarget={clientTargets.calories}
+                    windowDays={adherence.days}
+                    windowName={adherence.name.toLowerCase()}
+                    targetHref={`/client/${clientId}/targets`}
+                  />
+                </div>
+              </>
+            ) : (
+            <div style={{ display: 'flex', gap: 'var(--space-24)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+                <ComplianceHeatmap
+                  logsByDate={heatmapData}
+                  calorieTarget={clientTargets.calories}
+                  weeks={adherenceWeeks}
                 />
               </div>
-              <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+              {/* The summary and the breakdown share the column beside the
+                  heatmap instead of the summary taking 650px for five numbers
+                  and the breakdown running the full width underneath it. The
+                  heatmap is the tall element in this row; everything else was
+                  stacked under it, so the row had a 600x400 hole at the
+                  bottom-right and the section paid ~200px for the privilege.
+                  The diverging bars read BETTER at half the width — stretched
+                  across 1,066px they were two long empty rules with a dot in
+                  the middle. */}
+              <div style={{ flex: '1 1 320px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-20)' }}>
                 <ComplianceSummary
                   logsByDate={heatmapData}
                   calorieTarget={clientTargets.calories}
                   variant="coach"
+                  windowDays={adherence.days}
+                />
+                <ComplianceBreakdown
+                  logsByDate={heatmapData}
+                  calorieTarget={clientTargets.calories}
+                  windowDays={adherence.days}
+                  windowName={adherence.name.toLowerCase()}
+                  // On a phone targets is a route; on a desktop it is a scroll
+                  // target on the same page, so the link resolves to the same
+                  // param either way (see the /client/:id/:section route).
+                  targetHref={`/client/${clientId}/targets`}
                 />
               </div>
             </div>
-            {/* Full-width strip under the heatmap+summary row */}
-            <ComplianceBreakdown
-              logsByDate={heatmapData}
-              calorieTarget={clientTargets.calories}
-              // On a phone targets is a route; on a desktop it is a scroll
-              // target on the same page, so the link resolves to the same
-              // param either way (see the /client/:id/:section route).
-              targetHref={`/client/${clientId}/targets`}
-            />
+            )}
           </div>
         </SectionHeader>
       </div>
@@ -2820,11 +3136,24 @@ async function sendMessage(text) {
                 <div style={{ paddingTop: 'var(--space-8)' }}>
                   {/* Two stacked plots sharing one x range — see
                       getCorrelatedChartData for why this is not one chart. */}
-                  {weightHistory.length > 0 && (
+                  {weightHistory.length > 0 && !hiddenCharts.includes('weightChart') && (
                     <div>
-                      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
-                        Weight <span style={{ color: 'var(--color-faint)' }}>({weightDisplayUnit})</span>
-                      </p>
+                      {/* The expand sits ON the plot's own label rather than in
+                          the section header, because the header belongs to the
+                          whole card and this opens one of its two plots. It is
+                          a persistent control, not a hover reveal: a reveal is
+                          invisible on a touch screen, and this is the only way
+                          to the full chart now. */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-8)', margin: '0 0 var(--space-4)' }}>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>
+                          Weight <span style={{ color: 'var(--color-faint)' }}>({weightDisplayUnit})</span>
+                        </p>
+                        {weightHistory.length > 1 && (
+                          <Button variant="muted" size="sm" onClick={() => setExpandedChart('weight')} ariaLabel="Expand weight chart">
+                            <Icon name="expand" size={13} />
+                          </Button>
+                        )}
+                      </div>
                       <div style={{ height: '140px' }}>
                         <Line data={getCorrelatedChartData('weight')} options={{ ...weightPlotOptions, maintainAspectRatio: false }} />
                       </div>
@@ -2854,139 +3183,6 @@ async function sendMessage(text) {
         </div>
       )}
 
-      {!hiddenCharts.includes('weightChart') && (
-        <div key="weightChart" id="section-weightChart" style={sectionStyle('weightChart')}>
-          <SectionHeader title="Weight" action={<RangePicker value={chartRange} onChange={setChartRange} />} collapsed={isCollapsed('weightChart')} onToggle={sectionToggle('weightChart')} animated={false}>
-            {!isCollapsed('weightChart') && (weightHistory.length > 1 ? (() => {
-              // The chart follows the weight-GOAL unit when a goal is set (so the
-              // coach's unit choice drives the axis live), else the unit the
-              // weigh-ins were logged in. Every weigh-in is converted into that
-              // display unit — the axis, line, 7-day avg, goal line and marker all
-              // share it — so the chart is never "stuck" in whatever unit the raw
-              // rows happen to use.
-              const displayUnit = clientTargets.weight_goal
-                ? normUnit(clientTargets.weight_goal_unit)
-                : normUnit(weightHistory[weightHistory.length - 1]?.unit)
-              const round1 = (n) => Math.round(n * 10) / 10
-              // Convert FIRST, then bucket, so the year view averages weigh-ins
-              // that are already in one unit — averaging kg and lb together
-              // would produce a number that is neither.
-              const dispHistory = bucketHistory(
-                weightHistory.map(d => ({
-                  ...d,
-                  unit: displayUnit,
-                  weight: round1(convertWeight(d.weight, normUnit(d.unit || displayUnit), displayUnit)),
-                })),
-                'weight',
-                chartRange,
-              )
-              // Goal reference line + the first weigh-in that reached it, computed
-              // in the same display unit (weightTarget.js converts the goal in).
-              const wt = computeWeightTarget({
-                weightHistory: dispHistory,
-                weightGoal: clientTargets.weight_goal,
-                weightGoalUnit: clientTargets.weight_goal_unit,
-              })
-              const rIdx = wt?.reached ? wt.reachedIndex : -1
-              const isMark = (i) => i === rIdx
-              const datasets = [
-                {
-                  label: 'Weight',
-                  data: dispHistory.map(d => d.weight),
-                  // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
-                  borderColor: '#34d399',
-                  // A ~10% wash, not a saturated block — and a 2px line, which
-                  // is the app's one line weight.
-                  backgroundColor: `rgba(52, 211, 153, ${MARK.areaAlpha})`,
-                  borderWidth: MARK.lineWidth,
-                  // Reached-goal marker: on-brand green (NOT gold — gold is the
-                  // product's warning color), a clean dot not a generic star; the
-                  // growth-motif leaf lives in the caption below. Theme-agnostic
-                  // pop on both cards: a deep-green fill (#15803d) carries contrast
-                  // on the light card, a white ring carries it on the dark card —
-                  // each does its job on the theme where the other washes out.
-                  pointRadius: dispHistory.map((_, i) => (isMark(i) ? 7 : 0)),
-                  pointHoverRadius: 5,
-                  pointStyle: 'circle',
-                  pointBackgroundColor: dispHistory.map((_, i) => (isMark(i) ? '#15803d' : '#34d399')),
-                  pointBorderColor: dispHistory.map((_, i) => (isMark(i) ? '#ffffff' : '#34d399')),
-                  pointBorderWidth: dispHistory.map((_, i) => (isMark(i) ? 2.5 : 1)),
-                  tension: 0.3,
-                  fill: true,
-                },
-              ]
-              // The 7-day average is dropped on the YEAR view. Those points are
-              // already monthly means, so a 7-point rolling mean over them
-              // smooths seven MONTHS and draws a near-flat line labelled
-              // "7-day avg" — a chart saying something untrue about its own
-              // window.
-              if (chartRange !== 'Y') datasets.push({
-                label: '7-day avg',
-                data: computeRollingAverage(dispHistory),
-                borderColor: 'rgba(52, 211, 153, 0.45)',
-                backgroundColor: 'transparent',
-                borderWidth: MARK.lineWidth,
-                borderDash: [4, 4],
-                pointRadius: 0,
-                tension: 0.3,
-                fill: false,
-              })
-              if (wt) datasets.push({
-                label: `Goal (${wt.goal} ${wt.displayUnit})`,
-                data: dispHistory.map(() => wt.goal),
-                borderColor: CHART.targetLine,
-                backgroundColor: 'transparent',
-                borderDash: [6, 4],
-                borderWidth: 1.5,
-                pointRadius: 0,
-                pointHoverRadius: 0,
-                tension: 0,
-                fill: false,
-              })
-              // Weight-specific tooltip so hovered points carry the unit.
-              const weightChartOptions = {
-                ...chartOptions,
-                plugins: {
-                  ...chartOptions.plugins,
-                  tooltip: {
-                    ...chartOptions.plugins.tooltip,
-                    callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${displayUnit}` },
-                  },
-                },
-                scales: {
-                  ...chartOptions.scales,
-                  y: { ...chartOptions.scales.y, title: { display: true, text: `Weight (${displayUnit})`, color: CHART.tick } },
-                },
-              }
-              return (
-                <>
-                  <Line data={{ labels: dispHistory.map(d => d.date), datasets }} options={weightChartOptions} />
-                  {wt && (
-                    <p style={{ fontSize: 'var(--text-sm)', margin: 'var(--space-10) var(--space-2) 0', color: 'var(--color-muted)' }}>
-                      {wt.reached ? (
-                        <>
-                          <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)' }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 'var(--space-4)' }}>
-                              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
-                              <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
-                            </svg>
-                            Reached goal
-                          </span>
-                          {wt.direction === 'maintain'
-                            ? <>. Holding at {wt.goal} {wt.displayUnit}</>
-                            : <>. First hit {wt.goal} {wt.displayUnit} on {new Date(wt.reachedIso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</>}
-                        </>
-                      ) : (
-                        <><strong style={{ color: 'var(--color-text)', fontWeight: 'var(--weight-semibold)' }}>{wt.remainingAbs} {wt.displayUnit}</strong> {wt.direction === 'up' ? 'to gain' : 'to lose'} to reach the {wt.goal} {wt.displayUnit} goal</>
-                      )}
-                    </p>
-                  )}
-                </>
-              )
-            })() : chartEmpty('No weight logged yet', 'Your client logs this.'))}
-          </SectionHeader>
-        </div>
-      )}
 
       {/* ONE card for the three daily metrics, stacked and sharing an x range.
           They were three cards of 617px each — 1,851px, more than two screens,
@@ -3348,7 +3544,16 @@ async function sendMessage(text) {
                       {!open && <span className="rep-row-lead">{leadOf(r.content)}</span>}
                     </span>
                     <span className="ds-chev" style={{ color: 'var(--color-faint)', display: 'inline-flex' }}>
-                      <Icon name={open ? 'up' : 'right'} size={16} />
+                      {/* The page's one disclosure mark, rotated — the same
+                          `right` chevron SectionHeader turns 90deg when its
+                          section opens. This row drew `up`, so a report opened
+                          on a page where every other expanded thing points
+                          down. */}
+                      <Icon
+                        name="right"
+                        size={16}
+                        style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 180ms ease' }}
+                      />
                     </span>
                   </button>
                   {open && (
@@ -3361,6 +3566,23 @@ async function sendMessage(text) {
             })())
           })()}
         </div>
+      </Modal>
+
+      {/* Weight, at the size it was drawn for. The range picker comes with
+          it: `chartRange` is one shared value on purpose (mixed windows would
+          let a coach compare a year of weight with a week of steps), so
+          changing it here changes Daily metrics too — which is the behaviour
+          the section had when it owned a picker of its own. */}
+      <Modal
+        open={expandedChart === 'weight'}
+        title="Weight"
+        onClose={() => setExpandedChart(null)}
+        maxWidth={860}
+      >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-12)' }}>
+          <RangePicker value={chartRange} onChange={setChartRange} />
+        </div>
+        {weightChartFull()}
       </Modal>
 
     <ChatBubble

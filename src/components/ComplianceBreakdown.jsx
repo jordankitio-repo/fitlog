@@ -78,8 +78,8 @@ function Row({ label, seg, target }) {
 // last 90 days", which spent a line restating a figure the Targets panel owns
 // — and gave the reader no way to act on it. Optional: without it the label
 // stays plain text, so a caller with nowhere to point still renders.
-export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetHref }) {
-  const b = complianceBreakdown(logsByDate, calorieTarget)
+export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetHref, windowDays = 90, windowName = 'last 90 days' }) {
+  const b = complianceBreakdown(logsByDate, calorieTarget, windowDays)
   if (!b.hasTarget) return null
 
   const target = Number(calorieTarget)
@@ -131,7 +131,7 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
         <p style={{ fontSize: 'var(--text-xs)', color: MUTED, margin: 0 }}>
           vs {targetHref
             ? <Link to={targetHref} className="cb-targetlink ds-control" aria-label={`Calorie target, ${targetLabel} — open targets`}>Target</Link>
-            : 'Target'} · last 90 days
+            : 'Target'} · {windowName}
         </p>
       </div>
 

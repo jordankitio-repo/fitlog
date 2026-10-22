@@ -3,13 +3,17 @@ import { toLocalDateString } from '../utils/dateHelpers'
 import { COMPLIANCE as SCALE } from '../utils/complianceScale'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const WEEKS = 13
 const GAP = 2
 const DAY_LABEL_WIDTH = 22
 const DAY_LABEL_GAP = 4
-// Cells are fluid (fill the container width); cap the whole grid so it fills a
-// phone but doesn't blow up into giant cells on a wide desktop card.
-const MAX_WIDTH = 440
+// Cells are fluid (they fill the container); the CAP is per cell, not on the
+// grid. A flat 440px cap was right for the 13 weeks this always drew and wrong
+// for every other number — at 26 weeks it halved the cells, at 52 it made them
+// unreadable. Capping the cell instead lets the grid be exactly as wide as the
+// window it is drawing, which is what makes a year fill a desktop card and a
+// quarter decline to pretend it can.
+const MAX_CELL = 34
+const gridCap = (weeks) => DAY_LABEL_WIDTH + DAY_LABEL_GAP + weeks * (MAX_CELL + GAP)
 
 
 function getColor(calories, target, hasLog) {
@@ -29,7 +33,7 @@ function formatMonth(date) {
   return date.toLocaleDateString('en-US', { month: 'short' })
 }
 
-export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
+export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: weekCount = 13 }) {
   const [tooltip, setTooltip] = useState(null)
   const target = Number(calorieTarget) || 0
 
@@ -40,10 +44,10 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
   gridEnd.setDate(today.getDate() + (6 - today.getDay()))
 
   const gridStart = new Date(gridEnd)
-  gridStart.setDate(gridEnd.getDate() - (WEEKS * 7 - 1))
+  gridStart.setDate(gridEnd.getDate() - (weekCount * 7 - 1))
 
   const cells = []
-  for (let i = 0; i < WEEKS * 7; i++) {
+  for (let i = 0; i < weekCount * 7; i++) {
     const date = new Date(gridStart)
     date.setDate(gridStart.getDate() + i)
     date.setHours(0, 0, 0, 0)
@@ -57,7 +61,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
     cells.push({ date, dateStr, isFuture, hasLog, calories })
   }
 
-  const weeks = Array.from({ length: WEEKS }, (_, weekIndex) =>
+  const weeks = Array.from({ length: weekCount }, (_, weekIndex) =>
     cells.slice(weekIndex * 7, weekIndex * 7 + 7)
   )
 
@@ -88,7 +92,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget }) {
 
   return (
     <div>
-      <div style={{ width: '100%', maxWidth: MAX_WIDTH }}>
+      <div style={{ width: '100%', maxWidth: gridCap(weekCount) }}>
         {/* Month labels — mirrors the grid row (spacer + fluid week columns) */}
         <div style={{ display: 'flex', gap: DAY_LABEL_GAP, marginBottom: 4 }}>
           <div style={{ width: DAY_LABEL_WIDTH, flexShrink: 0 }} />

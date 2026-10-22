@@ -26,3 +26,37 @@ describe('mergeOrder', () => {
     expect(mergeOrder(['d', 'c', 'b', 'a'], [...defaults, 'e'])).toEqual(['d', 'c', 'b', 'a', 'e'])
   })
 })
+
+// Reorderable's default order: the registry wins over JSX source order.
+//
+// Regression. REORDERABLE_KEYS was reordered to lift the charts above the
+// targets form; the rail (built from that constant) moved, and the page did
+// not, because Reorderable defaulted to the order its children were written
+// in. The two lists have to be the same list.
+describe('mergeOrder as Reorderable resolves defaults', () => {
+  const resolve = (saved, registry, present) => {
+    const defaults = Array.isArray(registry)
+      ? [...registry.filter(k => present.includes(k)), ...present.filter(k => !registry.includes(k))]
+      : present
+    return mergeOrder(saved, defaults)
+  }
+  const JSX = ['consistency', 'targets', 'privateNotes', 'weightChart']
+  const REGISTRY = ['consistency', 'weightChart', 'targets', 'privateNotes']
+
+  it('uses the registry order, not the order the children are written in', () => {
+    expect(resolve([], REGISTRY, JSX)).toEqual(REGISTRY)
+  })
+
+  it('still renders a section the registry forgot, rather than dropping it', () => {
+    expect(resolve([], ['consistency'], JSX)).toEqual(['consistency', 'targets', 'privateNotes', 'weightChart'])
+  })
+
+  it('leaves a coach who has dragged their own layout alone', () => {
+    const saved = ['privateNotes', 'consistency', 'targets', 'weightChart']
+    expect(resolve(saved, REGISTRY, JSX)).toEqual(saved)
+  })
+
+  it('ignores registry keys that are not on the page', () => {
+    expect(resolve([], ['sentReports', ...REGISTRY], JSX)).toEqual(REGISTRY)
+  })
+})
