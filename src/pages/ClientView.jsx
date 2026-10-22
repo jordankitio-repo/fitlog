@@ -2949,8 +2949,16 @@ async function sendMessage(text) {
                 "Customize questions", and two controls on one row disagreeing
                 by 9px is the kind of thing that reads as sloppy without being
                 obviously wrong. */}
+            {/* `compact` labels, the same trick the consistency cells use
+                ("Streak" for "Current streak"). At 390px this row has 308px
+                and the full strings need 342 — the select alone is 157,
+                because a <select> sizes to its widest OPTION ("Every 4 weeks"),
+                and the button is 177. Shortening both puts them side by side
+                down to 360px; the section is already titled "This week's
+                check-in", so neither word is doing work the heading has not
+                already done. */}
             <Select
-              label="Check-in frequency"
+              label={compact ? 'Frequency' : 'Check-in frequency'}
               value={checkinInterval}
               disabled={savingCadence}
               onChange={(e) => updateCadence(Number(e.target.value))}
@@ -2978,7 +2986,7 @@ async function sendMessage(text) {
               variant="ghost"
               size="sm"
             >
-              Customize questions <Icon name="right" />
+              {compact ? 'Questions' : 'Customize questions'} <Icon name="right" />
             </Button>
           </div>
           {!clientCheckIn ? (
