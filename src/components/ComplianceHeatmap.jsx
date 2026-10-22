@@ -6,14 +6,13 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const GAP = 2
 const DAY_LABEL_WIDTH = 22
 const DAY_LABEL_GAP = 4
-// Cells are fluid (they fill the container); the CAP is per cell, not on the
-// grid. A flat 440px cap was right for the 13 weeks this always drew and wrong
-// for every other number — at 26 weeks it halved the cells, at 52 it made them
-// unreadable. Capping the cell instead lets the grid be exactly as wide as the
-// window it is drawing, which is what makes a year fill a desktop card and a
-// quarter decline to pretend it can.
-const MAX_CELL = 34
-const gridCap = (weeks) => DAY_LABEL_WIDTH + DAY_LABEL_GAP + weeks * (MAX_CELL + GAP)
+// No width cap at all. Cells are fluid and the grid always fills its
+// container, so the WINDOW decides the cell size rather than the other way
+// round — which is the only arrangement where switching windows leaves the
+// grid the same length. Every window this is called with is long enough to
+// make that sane (see complianceWindow.js); the 440px cap this replaces, and
+// the per-cell cap that replaced it, both existed to protect short windows
+// that no longer exist.
 
 
 function getColor(calories, target, hasLog) {
@@ -92,7 +91,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
 
   return (
     <div>
-      <div style={{ width: '100%', maxWidth: gridCap(weekCount) }}>
+      <div style={{ width: '100%' }}>
         {/* Month labels — mirrors the grid row (spacer + fluid week columns) */}
         <div style={{ display: 'flex', gap: DAY_LABEL_GAP, marginBottom: 4 }}>
           <div style={{ width: DAY_LABEL_WIDTH, flexShrink: 0 }} />

@@ -23,7 +23,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { bucketHistory, historyWindow, DEFAULT_RANGE } from '../utils/chartRange'
-import { ADHERENCE_WINDOWS, DEFAULT_ADHERENCE, adherenceByKey, weeksFor, WIDE_FROM_WEEKS } from '../utils/complianceWindow'
+import { ADHERENCE_WINDOWS, DEFAULT_ADHERENCE, adherenceByKey, weeksFor } from '../utils/complianceWindow'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
@@ -2569,71 +2569,40 @@ async function sendMessage(text) {
                 ))}
               </span>
             </div>
-            {/* The grid fills the card when the window is long enough to do
-                it honestly, and keeps the summary beside it when it is not.
-                13 weeks across a 1,066px card would be 80px squares; 26 and 52
-                are the numbers that make a heatmap look like one. */}
-            {adherenceWeeks >= WIDE_FROM_WEEKS ? (
-              <>
-                <ComplianceHeatmap
-                  logsByDate={heatmapData}
-                  calorieTarget={clientTargets.calories}
-                  weeks={adherenceWeeks}
-                />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-24)', marginTop: 'var(--space-20)' }}>
-                  <ComplianceSummary
-                    logsByDate={heatmapData}
-                    calorieTarget={clientTargets.calories}
-                    variant="coach"
-                    windowDays={adherence.days}
-                  />
-                  <ComplianceBreakdown
-                    logsByDate={heatmapData}
-                    calorieTarget={clientTargets.calories}
-                    windowDays={adherence.days}
-                    windowName={adherence.name.toLowerCase()}
-                    targetHref={`/client/${clientId}/targets`}
-                  />
-                </div>
-              </>
-            ) : (
-            <div style={{ display: 'flex', gap: 'var(--space-24)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <div style={{ flex: '1 1 300px', minWidth: 0 }}>
-                <ComplianceHeatmap
-                  logsByDate={heatmapData}
-                  calorieTarget={clientTargets.calories}
-                  weeks={adherenceWeeks}
-                />
-              </div>
-              {/* The summary and the breakdown share the column beside the
-                  heatmap instead of the summary taking 650px for five numbers
-                  and the breakdown running the full width underneath it. The
-                  heatmap is the tall element in this row; everything else was
-                  stacked under it, so the row had a 600x400 hole at the
-                  bottom-right and the section paid ~200px for the privilege.
-                  The diverging bars read BETTER at half the width — stretched
-                  across 1,066px they were two long empty rules with a dot in
-                  the middle. */}
-              <div style={{ flex: '1 1 320px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-20)' }}>
-                <ComplianceSummary
-                  logsByDate={heatmapData}
-                  calorieTarget={clientTargets.calories}
-                  variant="coach"
-                  windowDays={adherence.days}
-                />
-                <ComplianceBreakdown
-                  logsByDate={heatmapData}
-                  calorieTarget={clientTargets.calories}
-                  windowDays={adherence.days}
-                  windowName={adherence.name.toLowerCase()}
-                  // On a phone targets is a route; on a desktop it is a scroll
-                  // target on the same page, so the link resolves to the same
-                  // param either way (see the /client/:id/:section route).
-                  targetHref={`/client/${clientId}/targets`}
-                />
-              </div>
+            {/* ONE shape, every window. The grid always fills the card and
+                the cell size follows the window, so toggling changes the
+                density and nothing else — no second layout, no fallback, and
+                no jump between widths as you move across the three.
+                See complianceWindow.js for why none of them is short. */}
+            <ComplianceHeatmap
+              logsByDate={heatmapData}
+              calorieTarget={clientTargets.calories}
+              weeks={adherenceWeeks}
+            />
+            {/* The two reads sit under the grid in equal columns. The summary
+                alone took 650px for five numbers while the breakdown ran the
+                full width beneath it, which left the row a 600x400 hole at the
+                bottom right; the diverging bars also read better at half width
+                than stretched across 1,066px as two empty rules with a dot in
+                the middle. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-24)', marginTop: 'var(--space-20)' }}>
+              <ComplianceSummary
+                logsByDate={heatmapData}
+                calorieTarget={clientTargets.calories}
+                variant="coach"
+                windowDays={adherence.days}
+              />
+              <ComplianceBreakdown
+                logsByDate={heatmapData}
+                calorieTarget={clientTargets.calories}
+                windowDays={adherence.days}
+                windowName={adherence.name.toLowerCase()}
+                // On a phone targets is a route; on a desktop it is a scroll
+                // target on the same page, so the link resolves to the same
+                // param either way (see the /client/:id/:section route).
+                targetHref={`/client/${clientId}/targets`}
+              />
             </div>
-            )}
           </div>
         </SectionHeader>
       </div>

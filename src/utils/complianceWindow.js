@@ -10,9 +10,27 @@
 // breakdown AND every label that names a span, so the picture and the sentence
 // describe the same days by construction rather than by three constants being
 // kept in step by hand.
+// WHY THESE THREE, AND WHY NONE OF THEM IS SHORT
+//
+// The grid is seven rows of square cells, so its width is weeks x cell size.
+// Fix the width to the card and the cell size falls out of the window — which
+// means a short window cannot fill a desktop card at all. At the 1,066px
+// content column a month is five 266px squares and a grid 1,862px tall; a
+// quarter is 82px squares and 574px tall. Both are absurd, which is why the
+// first cut of this capped the cell and let the GRID shrink instead — and that
+// is what made the three views jump between widths as you toggled them.
+//
+// So every window here is long enough to fill the card. The grid is the same
+// length in all three; only the cell size changes (41px, 27px, 20px). Nothing
+// reflows, nothing falls back to a narrower layout, and there is no dead space
+// to the right of a short one.
+//
+// The cost is honest: there is no 3m any more, and a quarter is a real
+// coaching review cycle. It is not recoverable at this width without bringing
+// the jumping back.
 export const ADHERENCE_WINDOWS = [
-  { key: '3m', label: '3m', days: 90, name: 'Last 3 months' },
   { key: '6m', label: '6m', days: 182, name: 'Last 6 months' },
+  { key: '9m', label: '9m', days: 273, name: 'Last 9 months' },
   { key: '1y', label: '1y', days: 364, name: 'Last 12 months' },
 ]
 
@@ -27,9 +45,3 @@ export function adherenceByKey(key) {
 // the left edge would mislabel its month.
 export const weeksFor = (days) => Math.round(days / 7)
 
-// Below this the grid cannot fill a desktop card without cells growing into
-// squares you could read from across the room, so the card keeps the summary
-// BESIDE it; at or above it the grid takes the full width and the summary
-// moves underneath. The threshold is a layout fact about the cap in
-// ComplianceHeatmap, not a taste.
-export const WIDE_FROM_WEEKS = 26
