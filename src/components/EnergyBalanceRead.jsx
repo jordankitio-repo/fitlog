@@ -50,6 +50,19 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
     maintNote = <span style={{ color: MUTED }}>estimate</span>
   }
 
+  // The read works in POUNDS throughout, and should: the 3,500 cal/lb figure
+  // the maintenance estimate rests on is a pound heuristic, so converting the
+  // arithmetic would only move the rounding around. What was wrong was printing
+  // the working unit. A kg client's card said "down 0.9 lb/wk" directly under an
+  // axis labelled "Weight (kg)" — the number honest, the card contradicting
+  // itself.
+  //
+  // So only the DISPLAY converts, and every threshold below stays in lb: a rate
+  // is flat at the same slope whatever unit names it.
+  const kg = String(weightGoalUnit || '').toLowerCase().startsWith('kg')
+  const rateUnit = kg ? ' kg/wk' : ' lb/wk'
+  const inUnit = (lb) => (kg ? lb / 2.20462 : lb)
+
   // Weight trend: glyph colored relative to the coach's goal (toward/away).
   const rate = r.hasData ? r.rateLbPerWk : 0
   const flat = Math.abs(rate) < 0.05
@@ -58,7 +71,7 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
     : (
       <>
         <span style={{ color: toneColor(r.rateTone), fontWeight: 700 }}>{rate < 0 ? '↓' : '↑'}</span>
-        {' '}{Math.abs(rate).toFixed(1)} lb/wk
+        {' '}{inUnit(Math.abs(rate)).toFixed(1)}{rateUnit}
       </>
     )
 
@@ -115,7 +128,7 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
           {r.trajectory && (
             <Row
               label="Trajectory"
-              value={<TrajectoryDeltas r={r} num={num} />}
+              value={<TrajectoryDeltas r={r} num={num} inUnit={inUnit} rateUnit={rateUnit} />}
               tip="How this 21-day window compares with the one before it — is the maintenance estimate and the weight-change rate drifting? Direction only; small moves are usually just logging noise."
             />
           )}
@@ -158,7 +171,7 @@ function WindowSelector({ windowDays, onWindowChange }) {
 // Trajectory as two glanceable deltas (vs the prior 21-day window): an arrow +
 // magnitude for the maintenance estimate and the weight-change rate, so the
 // direction reads at a glance instead of parsing a "was → now" sentence.
-function TrajectoryDeltas({ r, num }) {
+function TrajectoryDeltas({ r, num, inUnit = (v) => v, rateUnit = ' lb/wk' }) {
   // Diff the values as they're rounded for display (maintenance to 25 cal, rate
   // to 0.1 lb/wk), so the delta a coach sees equals the one they'd compute by eye.
   const r1 = (n) => Math.round(n * 10) / 10
@@ -173,7 +186,7 @@ function TrajectoryDeltas({ r, num }) {
     <span style={{ fontWeight: 400 }}>
       <span style={lbl}>Maint. </span>{delta(dMaint, 25, (v) => num(Math.round(v / 25) * 25), ' cal')}
       <span style={{ ...lbl, margin: '0 7px' }}>·</span>
-      <span style={lbl}>Rate </span>{delta(dRate, 0.05, (v) => v.toFixed(1), ' lb/wk')}
+      <span style={lbl}>Rate </span>{delta(dRate, 0.05, (v) => inUnit(v).toFixed(1), rateUnit)}
     </span>
   )
 }

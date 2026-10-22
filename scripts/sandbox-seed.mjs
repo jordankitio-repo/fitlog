@@ -88,13 +88,26 @@ async function makeUser(email, full_name, role, extra = {}) {
 const run = (from, span, skip = []) =>
   Array.from({ length: span - from + 1 }, (_, i) => from + i).filter((d) => !skip.includes(d))
 
+// Weight goals, and why each one is the number it is.
+//
+// Every seeded client had `weight_goal: null`, so three shipped features — the
+// dashed goal line, the reached-goal marker and the "x to lose / Reached goal"
+// caption — were invisible in the demo. A coach being walked through the
+// product never saw them, which is the same as not having built them.
+//
+// The three are chosen against each client's ACTUAL seeded trace (Maya falls
+// 73.7 -> 70.5, Marcus rises 80.4 -> 81.6, Sam 77.4 -> 78.5) so the roster
+// shows all three states the chart can be in rather than three of the same:
+// a goal still ahead, a goal in the other direction, and one already reached
+// — the last being the only way the marker and its date ever render.
 const CLIENTS = [
   {
     email: 'maya@gardnr.demo',
     name: 'Maya Chen',
     goal: 'Cut phase',
     sex: 'female', height: 168, startWeight: 71.4, perDay: -0.055,
-    targets: { calories: 1850, protein: 140, carbs: 165, fat: 60, cardio_minutes: 35, steps: 9000 },
+    // 1.0 kg still to go: the goal line sits just under the trace.
+    targets: { calories: 1850, protein: 140, carbs: 165, fat: 60, cardio_minutes: 35, steps: 9000, weight_goal: 69.5, weight_goal_unit: 'kg' },
     // GREEN. Logged today, checked in, and every metric clears 3/7 — including
     // cardio, which needs 4+ sessions inside the 7-day window to get there.
     // Near-perfect adherence over eight weeks, so the heatmap and the energy
@@ -112,7 +125,9 @@ const CLIENTS = [
     name: 'Marcus Webb',
     goal: 'Reverse diet',
     sex: 'male', height: 179, startWeight: 80.9, perDay: 0.012,
-    targets: { calories: 2600, protein: 175, carbs: 280, fat: 80, cardio_minutes: 30, steps: 10000 },
+    // A reverse diet gains: the goal line sits ABOVE the trace, and the
+    // caption reads "to gain" — the direction that never appeared otherwise.
+    targets: { calories: 2600, protein: 175, carbs: 280, fat: 80, cardio_minutes: 30, steps: 10000, weight_goal: 83, weight_goal_unit: 'kg' },
     // YELLOW. Weight holding flat, which is what a reverse should do, and he has
     // checked in — but his cardio and steps have quietly stopped. Exactly the
     // drift a spreadsheet hides and the pills surface.
@@ -125,7 +140,9 @@ const CLIENTS = [
     name: 'Sam Rivera',
     goal: 'Maintenance',
     sex: 'male', height: 175, startWeight: 78.2, perDay: 0.02,
-    targets: { calories: 2400, protein: 160, carbs: 250, fat: 80, cardio_minutes: 30, steps: 8000 },
+    // Crossed on the way up, so this is the one client whose chart carries
+    // the reached-goal marker and "First hit 78 kg on ...".
+    targets: { calories: 2400, protein: 160, carbs: 250, fat: 80, cardio_minutes: 30, steps: 8000, weight_goal: 78, weight_goal_unit: 'kg' },
     // RED. Went quiet five days ago — past the 4-day threshold — and never
     // checked in. The client the dashboard exists to catch, and the one a
     // spreadsheet lets you forget about until the call.
@@ -148,7 +165,9 @@ const SOLO = {
   name: 'Jamie Okafor',
   goal: 'Recomp',
   sex: 'female', height: 171, startWeight: 68.3, perDay: -0.02,
-  targets: { calories: 2100, protein: 150, carbs: 200, fat: 70, cardio_minutes: 30, steps: 8500 },
+  // Just short (the trace bottoms at 67.9), so the solo dashboard shows a
+  // goal line with a little left to run rather than a finished one.
+  targets: { calories: 2100, protein: 150, carbs: 200, fat: 70, cardio_minutes: 30, steps: 8500, weight_goal: 67.5, weight_goal_unit: 'kg' },
   // Weekends are the gap: every Saturday/Sunday offset from a Sunday-anchored
   // TODAY is dropped roughly every other week, which is what makes the
   // weekday-vs-weekend cells differ.

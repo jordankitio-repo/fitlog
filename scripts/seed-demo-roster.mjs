@@ -142,16 +142,16 @@ function dayOfMeals(userId, date, dayCalories) {
 //   gap       days since their last log (0 = logged today)
 //   hits      do their days land near target, or well under
 const SPECS = [
-  { first: 'ava',   name: 'Ava Lindqvist',  email: 'ava.lindqvist@gmail.com',   density: 0.93, gap: 0, hits: true,  targets: true,  checkIns: 4, adh: 9, nrg: 8, reviewed: true,  weight: [68.4, 66.9] },
-  { first: 'ben',   name: 'Ben Osei',       email: 'b.osei@outlook.com',        density: 0.88, gap: 0, hits: true,  targets: true,  checkIns: 4, adh: 8, nrg: 7, reviewed: true,  weight: [91.2, 88.1] },
-  { first: 'cara',  name: 'Cara Whitfield', email: 'cara.whitfield@gmail.com',  density: 0.85, gap: 0, hits: true,  targets: true,  checkIns: 3, adh: 8, nrg: 6, reviewed: true,  weight: [74.0, 72.6] },
-  { first: 'priya', name: 'Priya Raman',    email: 'priya.raman@proton.me',     density: 0.90, gap: 0, hits: true,  targets: true,  checkIns: 4, adh: 9, nrg: 9, reviewed: true,  weight: [59.8, 59.1] },
-  { first: 'tom',   name: 'Tom Byrne',      email: 'tom.byrne88@gmail.com',     density: 0.80, gap: 1, hits: true,  targets: true,  checkIns: 3, adh: 7, nrg: 7, reviewed: true,  weight: [84.5, 83.2] },
+  { first: 'ava',   name: 'Ava Lindqvist',  email: 'ava.lindqvist@gmail.com',   density: 0.93, gap: 0, hits: true,  targets: true,  checkIns: 4, adh: 9, nrg: 8, reviewed: true,  weight: [68.4, 66.9], weight_goal: 66, weight_goal_unit: 'kg' },
+  { first: 'ben',   name: 'Ben Osei',       email: 'b.osei@outlook.com',        density: 0.88, gap: 0, hits: true,  targets: true,  checkIns: 4, adh: 8, nrg: 7, reviewed: true,  weight: [91.2, 88.1], weight_goal: 88.5, weight_goal_unit: 'kg' },
+  { first: 'cara',  name: 'Cara Whitfield', email: 'cara.whitfield@gmail.com',  density: 0.85, gap: 0, hits: true,  targets: true,  checkIns: 3, adh: 8, nrg: 6, reviewed: true,  weight: [74.0, 72.6], weight_goal: 71.5, weight_goal_unit: 'kg' },
+  { first: 'priya', name: 'Priya Raman',    email: 'priya.raman@proton.me',     density: 0.90, gap: 0, hits: true,  targets: true,  checkIns: 4, adh: 9, nrg: 9, reviewed: true,  weight: [59.8, 59.1], weight_goal: 58.5, weight_goal_unit: 'kg' },
+  { first: 'tom',   name: 'Tom Byrne',      email: 'tom.byrne88@gmail.com',     density: 0.80, gap: 1, hits: true,  targets: true,  checkIns: 3, adh: 7, nrg: 7, reviewed: true,  weight: [84.5, 83.2], weight_goal: 82, weight_goal_unit: 'kg' },
   // Drifting: logs most days but well under target, and a check-in waiting.
-  { first: 'dan',   name: 'Dan Moreau',     email: 'dan.moreau@gmail.com',      density: 0.75, gap: 0, hits: false, targets: true,  checkIns: 3, adh: 4, nrg: 4, weight: [86.3, 86.1] },  // plateau despite logging — a real coaching problem
-  { first: 'gia',   name: 'Gia Ferrante',   email: 'gia.ferrante@icloud.com',   density: 0.55, gap: 3, hits: true,  targets: true,  checkIns: 2, adh: 5, nrg: 4, weight: [70.2, 71.4] },  // creeping up while logging tails off
+  { first: 'dan',   name: 'Dan Moreau',     email: 'dan.moreau@gmail.com',      density: 0.75, gap: 0, hits: false, targets: true,  checkIns: 3, adh: 4, nrg: 4, weight: [86.3, 86.1], weight_goal: 83, weight_goal_unit: 'kg' },  // plateau despite logging — a real coaching problem
+  { first: 'gia',   name: 'Gia Ferrante',   email: 'gia.ferrante@icloud.com',   density: 0.55, gap: 3, hits: true,  targets: true,  checkIns: 2, adh: 5, nrg: 4, weight: [70.2, 71.4], weight_goal: 68, weight_goal_unit: 'kg' },  // creeping up while logging tails off
   // Needs attention.
-  { first: 'hugo',  name: 'Hugo Bennett',   email: 'hugo.bennett@gmail.com',    density: 0.35, gap: 6, hits: false, targets: true,  checkIns: 1, adh: 4, nrg: 3, weight: [102.5, 101.9] },
+  { first: 'hugo',  name: 'Hugo Bennett',   email: 'hugo.bennett@gmail.com',    density: 0.35, gap: 6, hits: false, targets: true,  checkIns: 1, adh: 4, nrg: 3, weight: [102.5, 101.9], weight_goal: 96, weight_goal_unit: 'kg' },
   // Genuinely new: connected three days ago and has not started. A real state,
   // and the one empty record worth having on screen.
   { first: 'iris',  name: 'Iris Calder',    email: 'iris.calder@gmail.com',     density: 0,    gap: null, hits: true, targets: false, checkIns: 0, joinedDaysAgo: 3 },
@@ -187,6 +187,16 @@ for (const s of SPECS) {
     await admin.from('targets').insert({
       user_id: clientId, calories: 2000, protein: 150, carbs: 200, fat: 67,
       cardio_minutes: 120, steps: 10000,
+      // Every client here had a null weight goal, which left the chart's goal
+      // line, its reached-goal marker and the "x to lose" caption unrendered
+      // across the whole roster — three shipped features a coach being walked
+      // through the demo never saw. Each goal is set against that client's own
+      // `weight: [start, end]` above, so the roster carries a client still
+      // working toward one, one drifting AWAY from one (Gia), a plateau short
+      // of one (Dan), and one who crosses it (Ben) — the last being the only
+      // way the marker and its date ever appear.
+      weight_goal: s.weight_goal ?? null,
+      weight_goal_unit: s.weight_goal_unit ?? 'kg',
     })
   }
 
