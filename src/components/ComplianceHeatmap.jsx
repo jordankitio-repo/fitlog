@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { toLocalDateString } from '../utils/dateHelpers'
 import { COMPLIANCE as SCALE } from '../utils/complianceScale'
 
@@ -6,6 +7,11 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const GAP = 2
 const DAY_LABEL_WIDTH = 22
 const DAY_LABEL_GAP = 4
+// Width to assume for the hover bubble when deciding which side of the pointer
+// it goes. Only the SIDE depends on this (translateX(-100%) does the exact
+// placement), so it is set above the longest string this renders — the weekly
+// line, "Week of Sep 27 - 6/7 logged (96% of target)".
+const TIP_ESTIMATE = 320
 // No width cap. Cells are fluid and the grid always fills its container — safe
 // now that the span is fixed (complianceWindow.js), because nothing can change
 // the column count underneath it. The 440px grid cap this replaces, and the
@@ -248,12 +254,27 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
         ))}
       </div>
 
-      {tooltip && (
+      {/* PORTALED to <body>, like InfoTip's bubble and Toast. `position: fixed`
+          resolves against the nearest ancestor carrying a transform or filter,
+          and this grid lives inside a drag-sortable section — so mid-drag the
+          tooltip would start measuring from the card instead of the viewport.
+          Out here nothing can clip it or move its origin. */}
+      {tooltip && createPortal((
         <div
           style={{
             position: 'fixed',
-            left: tooltip.x + 12,
-            top: tooltip.y - 28,
+            // Flip to the LEFT of the pointer near the right edge. The bubble is
+            // nowrap and sat at x+12, so on the last columns — exactly where a
+            // coach looks first, because that is this week — it ran off the
+            // window and the sentence lost its end: "Week of Sep 27 - 6/7 lo".
+            // translateX(-100%) moves it by its OWN width, so the flip is exact
+            // however long the text is; the estimate below only decides WHEN,
+            // and is deliberately generous so it flips early rather than late.
+            ...(tooltip.x + TIP_ESTIMATE > window.innerWidth - 8
+              ? { left: tooltip.x - 12, transform: 'translateX(-100%)' }
+              : { left: tooltip.x + 12 }),
+            // And never above the top of the window.
+            top: Math.max(8, tooltip.y - 28),
             background: 'var(--color-surface-2)',
             border: '1px solid var(--color-border)',
             borderRadius: 6,
@@ -267,7 +288,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
         >
           {tooltip.text}
         </div>
-      )}
+      ), document.body)}
     </div>
   )
 }
