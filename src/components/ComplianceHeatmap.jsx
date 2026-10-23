@@ -240,7 +240,10 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 12, marginLeft: 28, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Five keys. They fit one line on a desktop and wrap 4+1 on a phone,
+          which leaves "No log" stranded on a row of its own — so narrow gets an
+          even 3+2 grid instead (see .heat-legend). */}
+      <div className="heat-legend" style={{ display: 'flex', gap: 12, marginTop: 12, marginLeft: 28, alignItems: 'center', flexWrap: 'wrap' }}>
         {[
           { color: SCALE.onTarget,  label: '90-110%' },
           { color: SCALE.over,      label: '>110%' },

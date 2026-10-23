@@ -52,7 +52,7 @@ function Row({ label, seg, target }) {
       : `${delta > 0 ? '+' : '−'}${Math.abs(delta)} cal`
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `${LABEL_COL}px 1fr ${VALUE_COL}px`, alignItems: 'center', gap: 10 }}>
+    <div className="cb-row" style={{ display: 'grid', gridTemplateColumns: `${LABEL_COL}px 1fr ${VALUE_COL}px`, alignItems: 'center', gap: 10 }}>
       <span style={{ fontSize: 'var(--text-sm)', fontWeight: near ? 500 : 700, color: near ? 'var(--color-text)' : WEAK }}>
         {label}
       </span>
@@ -171,7 +171,7 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
       ) : (
         <>
           {/* axis hint */}
-          <div style={{ display: 'grid', gridTemplateColumns: `${LABEL_COL}px 1fr ${VALUE_COL}px`, alignItems: 'center', gap: 10 }}>
+          <div className="cb-axis" style={{ display: 'grid', gridTemplateColumns: `${LABEL_COL}px 1fr ${VALUE_COL}px`, alignItems: 'center', gap: 10 }}>
             <span />
             <div style={{ position: 'relative', fontSize: 'var(--text-xs)', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               <span style={{ position: 'absolute', left: 0 }}>under</span>
