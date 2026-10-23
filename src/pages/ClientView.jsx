@@ -6,7 +6,7 @@ import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
-import ComplianceHeatmap, { gridCap } from '../components/ComplianceHeatmap'
+import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ReportProse from '../components/ReportProse'
 import Modal from '../components/Modal'
@@ -23,7 +23,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { bucketHistory, historyWindow, DEFAULT_RANGE } from '../utils/chartRange'
-import { ADHERENCE_DAYS, ADHERENCE_WEEKS, ADHERENCE_NAME, ADHERENCE_FETCH_DAYS, GRAINS, DEFAULT_GRAIN, isGrain } from '../utils/complianceWindow'
+import { ADHERENCE_DAYS, ADHERENCE_WEEKS, ADHERENCE_NAME, ADHERENCE_FETCH_DAYS, GRAINS, DEFAULT_GRAIN, isGrain, heatmapCap } from '../utils/complianceWindow'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
@@ -2610,11 +2610,12 @@ async function sendMessage(text) {
                 density and nothing else — no second layout, no fallback, and
                 no jump between widths as you move across the three.
                 See complianceWindow.js for why none of them is short. */}
-            {/* The grid's column is reserved at its capped width rather than
-                left to `auto`, which shrank it to 345px against the reads'
-                minmax and undid the cap. The value comes from the heatmap
-                itself so there is one copy of it. */}
-            <div className="cv-adherence-row" style={{ '--adherence-grid': `${gridCap(ADHERENCE_WEEKS)}px` }}>
+            {/* ONE custom property, and the stylesheet derives the grid's cap
+                from it — an inline `--heat-cap` would beat the media query that
+                has to switch it off when the layout stacks, since inline wins
+                over a rule for custom properties too. */}
+            <div className="cv-adherence-cq">
+            <div className="cv-adherence-row" style={{ '--adherence-grid': `${heatmapCap(ADHERENCE_WEEKS)}px` }}>
               <ComplianceHeatmap
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
@@ -2645,6 +2646,7 @@ async function sendMessage(text) {
                 targetHref={`/client/${clientId}/targets`}
               />
               </div>
+            </div>
             </div>
           </div>
         </SectionHeader>

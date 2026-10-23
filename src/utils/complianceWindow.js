@@ -49,3 +49,16 @@ export const GRAINS = [
 ]
 export const DEFAULT_GRAIN = 'daily'
 export const isGrain = (v) => GRAINS.some(g => g.key === v)
+
+// The grid's own measurements, here rather than in the component, because the
+// layout AROUND the grid has to reserve exactly what the grid will take and a
+// second copy of this arithmetic is a constant waiting to drift. (It also kept
+// a non-component export out of a .jsx, which react-refresh rightly objects
+// to.)
+export const HEATMAP = { gap: 2, dayLabelWidth: 22, dayLabelGap: 4, maxCell: 34 }
+
+// What the grid settles at once the per-cell cap binds — about 494px at 13
+// columns. Only meaningful where something sits BESIDE the grid; stacked, the
+// grid takes the width it is given and the cap is switched off (--heat-cap).
+export const heatmapCap = (weeks) =>
+  HEATMAP.dayLabelWidth + HEATMAP.dayLabelGap + weeks * (HEATMAP.maxCell + HEATMAP.gap)

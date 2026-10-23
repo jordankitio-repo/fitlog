@@ -850,9 +850,19 @@ body {
    reads take whatever is left.
    Below the rail's own breakpoint there is no second column to give them, so
    everything stacks and the grid spans the width it is handed. */
+/* The SECTION is the container, so the row below can ask how much width it
+   actually has rather than guess from the viewport. That guess was wrong in
+   both directions: at 1024 the rail takes ~280px, so a "desktop" card is
+   narrower than a 900px phone-layout one, and side-by-side was being forced
+   into 726px when it needs 818. */
+.cv-adherence-cq { container-type: inline-size; }
+
 .cv-adherence-row {
   display: grid;
   grid-template-columns: var(--adherence-grid, 494px) minmax(300px, 1fr);
+  /* The grid honours the same reservation the column makes. Derived here, not
+     inline, so the media query below can lift it. */
+  --heat-cap: var(--adherence-grid, 494px);
   gap: var(--space-24);
   align-items: stretch;
 }
@@ -862,8 +872,17 @@ body {
   gap: var(--space-20);
   min-width: 0;
 }
-@media (max-width: 1023px) {
-  .cv-adherence-row { grid-template-columns: 1fr; }
+/* 820 = the grid's 494 + a 24 gap + the reads' 300 minimum. Measured on the
+   CARD, so it holds whether the width went to a rail, a narrow window, or
+   both. Below it there is nothing to put beside the grid, so the cap comes off
+   and the grid takes the card — capped here it sat at 494 in a 780px card and
+   left the rest empty. */
+@container (max-width: 820px) {
+  /* Stacked, so there is nothing beside the grid to reserve width from — the
+     cap comes OFF and the grid takes the card. Capped here it sat at 494px in
+     a 780px card and left the remainder empty, which is the one thing this
+     layout is not allowed to do. */
+  .cv-adherence-row { grid-template-columns: 1fr; --heat-cap: none; }
 }
 
 /* The adherence strip, narrow.

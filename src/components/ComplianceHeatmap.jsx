@@ -2,24 +2,19 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toLocalDateString } from '../utils/dateHelpers'
 import { COMPLIANCE as SCALE } from '../utils/complianceScale'
+import { HEATMAP } from '../utils/complianceWindow'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const GAP = 2
-const DAY_LABEL_WIDTH = 22
-const DAY_LABEL_GAP = 4
+const { gap: GAP, dayLabelWidth: DAY_LABEL_WIDTH, dayLabelGap: DAY_LABEL_GAP } = HEATMAP
 // Width to assume for the hover bubble when deciding which side of the pointer
-// it goes. Only the SIDE depends on this (translateX(-100%) does the exact
-// placement), so it is set above the longest string this renders — the weekly
-// line, "Week of Sep 27 - 6/7 logged (96% of target)".
+// it goes. Only the SIDE depends on this — translateX(-100%) does the exact
+// placement — so it is set above the longest string this renders.
 const TIP_ESTIMATE = 320
-// Cells are fluid, capped per CELL rather than on the grid. 13 columns across
-// a 1,066px card would be 80px squares in a grid 560px tall; the cap holds it
-// at about 494px, which is the width the layout beside it is built around
-// (.cv-adherence-row).
-const MAX_CELL = 34
-// Exported, because the layout beside the grid has to reserve exactly this —
-// a second copy of the arithmetic in CSS is a constant waiting to drift.
-export const gridCap = (weeks) => DAY_LABEL_WIDTH + DAY_LABEL_GAP + weeks * (MAX_CELL + GAP)
+// Cells are fluid. The CAP is a theme variable the layout sets, not a constant
+// here, because whether it applies is a layout question: with the summary
+// sitting beside the grid the column has to be reserved, and stacked there is
+// nothing to reserve it from — so the grid should take the whole width rather
+// than leave it empty. Unset (the client's own dashboard) means no cap.
 
 
 function getColor(calories, target, hasLog) {
@@ -124,7 +119,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
       {/* No scroller and no minimum. The grid always fits the width it is given
           and the CELL size follows — the caller drops to 13 columns on a phone
           (complianceWindow.js) so that stays legible. */}
-      <div style={{ width: '100%', maxWidth: gridCap(weekCount) }}>
+      <div style={{ width: '100%', maxWidth: 'var(--heat-cap, none)' }}>
         {/* Month labels — mirrors the grid row (spacer + fluid week columns) */}
         <div style={{ display: 'flex', gap: DAY_LABEL_GAP, marginBottom: 4 }}>
           <div style={{ width: DAY_LABEL_WIDTH, flexShrink: 0 }} />
