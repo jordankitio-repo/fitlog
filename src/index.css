@@ -915,15 +915,9 @@ body {
      a nowrap label sets the min-content width, 1fr stops being a third, and
      the last cell hangs off the edge of the card. */
   .cv-consist-3 > div { padding: var(--space-10) var(--space-6) !important; min-width: 0; }
-  .cv-consist-3 p:first-child,
-  .cv-bestweek p:first-child {
+  .cv-consist-3 p:first-child {
     white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-4);
   }
-  /* The value used to sit hard right, directly under the chat launcher, which
-     is fixed to that corner — the count was covered by the button. Stacked and
-     left-aligned, nothing lives where the FAB lands. */
-  .cv-bestweek { flex-direction: column; align-items: flex-start !important; gap: var(--space-8); }
-  .cv-bestweek > div:last-child { text-align: left !important; }
 
   /* Energy balance header: eyebrow on its own line, then the meta row. Baseline
      alignment across a wrapped flex row put "coach-only" and the chips on

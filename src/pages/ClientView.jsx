@@ -2459,86 +2459,92 @@ async function sendMessage(text) {
             breakdown of where the plan is slipping. That is adherence. The
             heading and the rail now say the same word, which is the rule. */}
         <SectionHeader title="Adherence" collapsed={isCollapsed('consistency')} onToggle={sectionToggle('consistency')}>
-          <div className="cv-consist-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-12)' }}>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.streak}>{compact ? 'Streak' : 'Current streak'}</InfoTip></p>
-              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.streak > 0 ? 'var(--color-success)' : 'var(--color-muted)' }}>
-                {consistency.streak}
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}> days</span>
-              </p>
-            </div>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.last7}>{compact ? '7 days' : 'Last 7 days'}</InfoTip></p>
-              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)' }}>
-                {consistency.days7}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/7</span>
-              </p>
-            </div>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.last30}>{compact ? '30 days' : 'Last 30 days'}</InfoTip></p>
-              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)' }}>
-                {consistency.days30}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/30</span>
-              </p>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)', marginTop: 'var(--space-12)' }}>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.weekdays}>{compact ? 'Weekdays' : 'Weekdays (Mon-Fri)'}</InfoTip></p>
-              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
-                {consistency.weekdayLogged}
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/{consistency.weekdayTotal}</span>
-              </p>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 'var(--space-2)' }}>
-                {consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}%
-              </p>
-            </div>
-            <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}><InfoTip text={CONSISTENCY_TIPS.weekends}>{compact ? 'Weekends' : 'Weekends (Sat-Sun)'}</InfoTip></p>
-              <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)' }}>
-                {consistency.weekendLogged}
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/{consistency.weekendTotal}</span>
-              </p>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 'var(--space-2)' }}>
-                {consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}%
-              </p>
-            </div>
-          </div>
-          {consistency.bestWeekStart && (
-            <div style={{
-              backgroundColor: 'var(--color-bg)',
-              borderRadius: 'var(--radius)',
-              padding: 'var(--space-12) var(--space-16)',
-              marginTop: 'var(--space-12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }} className="cv-bestweek">
-              <div>
+          {/* SIX CELLS, ONE SHAPE, AND A GRID THAT DIVIDES.
+              These were three rows — three streak figures, two weekday splits,
+              then Best week alone across the full width as a label-left /
+              value-right bar. Three different cell shapes and a 3/2/1 stack,
+              so the block read as three unrelated things rather than six facts
+              about one client's logging.
+              Six divides by two and by three, so neither breakpoint leaves a
+              ragged last row. Best week normalises into the same shape by
+              reading its date range as the SUB and its count as the value —
+              which is also the better reading: the fact is "6 of 7", and the
+              week it happened in qualifies it.
+              The sub line is reserved on every cell, so the three without one
+              still share a height with the three that have one. */}
+          <div className="cv-consist-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${compact ? 2 : 3}, minmax(0, 1fr))`, gap: 'var(--space-12)' }}>
+            {[
+              {
+                key: 'streak',
+                label: compact ? 'Streak' : 'Current streak',
+                tip: CONSISTENCY_TIPS.streak,
+                value: consistency.streak,
+                unit: ' days',
+                color: consistency.streak > 0 ? 'var(--color-success)' : 'var(--color-muted)',
+              },
+              {
+                key: 'last7',
+                label: compact ? '7 days' : 'Last 7 days',
+                tip: CONSISTENCY_TIPS.last7,
+                value: consistency.days7,
+                unit: '/7',
+                color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)',
+              },
+              {
+                key: 'last30',
+                label: compact ? '30 days' : 'Last 30 days',
+                tip: CONSISTENCY_TIPS.last30,
+                value: consistency.days30,
+                unit: '/30',
+                color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)',
+              },
+              {
+                key: 'weekdays',
+                label: compact ? 'Weekdays' : 'Weekdays (Mon-Fri)',
+                tip: CONSISTENCY_TIPS.weekdays,
+                value: consistency.weekdayLogged,
+                unit: `/${consistency.weekdayTotal}`,
+                sub: `${consistency.weekdayTotal > 0 ? Math.round((consistency.weekdayLogged / consistency.weekdayTotal) * 100) : 0}%`,
+                color: consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekdayLogged / (consistency.weekdayTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)',
+              },
+              {
+                key: 'weekends',
+                label: compact ? 'Weekends' : 'Weekends (Sat-Sun)',
+                tip: CONSISTENCY_TIPS.weekends,
+                value: consistency.weekendLogged,
+                unit: `/${consistency.weekendTotal}`,
+                sub: `${consistency.weekendTotal > 0 ? Math.round((consistency.weekendLogged / consistency.weekendTotal) * 100) : 0}%`,
+                color: consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.8 ? 'var(--color-success)' : consistency.weekendLogged / (consistency.weekendTotal || 1) >= 0.5 ? 'var(--color-warning)' : 'var(--color-error)',
+              },
+              ...(consistency.bestWeekStart ? [{
+                key: 'bestWeek',
+                label: compact ? 'Best week' : 'Best week (last 90 days)',
+                tip: CONSISTENCY_TIPS.bestWeek,
+                value: consistency.bestWeekCount,
+                unit: '/7',
+                sub: `${consistency.bestWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${consistency.bestWeekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                color: consistency.bestWeekCount === 7 ? 'var(--color-success)' : consistency.bestWeekCount >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
+              }] : []),
+            ].map(c => (
+              <div key={c.key} style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)', textAlign: 'center', minWidth: 0 }}>
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>
-                  <InfoTip text={CONSISTENCY_TIPS.bestWeek}>{compact ? 'Best week' : 'Best week (last 90 days)'}</InfoTip>
+                  <InfoTip text={c.tip}>{c.label}</InfoTip>
                 </p>
-                <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', margin: 0 }}>
-                  {consistency.bestWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  {' – '}
-                  {consistency.bestWeekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: c.color, margin: 0, lineHeight: 1.1 }}>
+                  {c.value}
+                  <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>{c.unit}</span>
                 </p>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <p className="tnum" style={{
-                  fontWeight: 'var(--weight-bold)',
-                  fontSize: 'var(--text-title)',
-                  color: consistency.bestWeekCount === 7 ? 'var(--color-success)' : consistency.bestWeekCount >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
-                  margin: 0,
-                  lineHeight: 1,
-                }}>
-                  {consistency.bestWeekCount}
-                  <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>/7</span>
-                </p>
+                {/* Reserved whether or not this cell has one — a non-breaking
+                    space, not an empty string and not a min-height: both of
+                    those leave the empty cells a pixel short of the filled
+                    ones, because an empty line box is not the same height as
+                    one with a glyph in it. */}
                 <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 'var(--space-2)' }}>
-                  days logged
+                  {c.sub || '\u00a0'}
                 </p>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
           <div style={{
             borderTop: '1px solid var(--color-border)',
             paddingTop: 'var(--space-16)',
