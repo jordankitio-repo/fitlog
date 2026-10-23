@@ -68,7 +68,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { Icon, Pill, Field, Select, Textarea } from '../components/ui'
+import { Icon, Pill, Field, Select, Textarea, Notice } from '../components/ui'
 import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
@@ -286,6 +286,14 @@ function ClientView({ profile }) {
   // (Daily metrics and Measurements are the two tallest sections left) adds a
   // string here rather than another piece of state.
   const [expandedChart, setExpandedChart] = useState(null)
+  // A cadence the coach has PICKED but not committed. null = nothing staged.
+  //
+  // Changing the select used to write immediately, and that one gesture did
+  // three things with no confirmation and no feedback on success: it wrote to
+  // coach_clients, it fired the trigger that tells the client their schedule
+  // moved, and it swapped the check-in this card displays. A dropdown that
+  // emails somebody should not be a dropdown.
+  const [pendingInterval, setPendingInterval] = useState(null)
   // Remembered per viewer, like `gardnr-eb-window`: whether a coach reads
   // adherence a day or a week at a time is about how they work, not about this
   // client. The SPAN is not a choice (see complianceWindow.js) — only this is.
@@ -325,6 +333,9 @@ function ClientView({ profile }) {
   // lines and dumped its InfoTip in the middle of the wrap, which is what made
   // those bubbles look scattered. The tip was never the problem; the label was.
   const compact = useMediaQuery('(max-width: 600px)')
+  // The name to use when telling the coach what an action will do to someone.
+  const clientFirstName = clientProfile?.full_name?.split(' ')[0] || 'Your client'
+  const cadenceLabel = (weeks) => CADENCE_OPTIONS.find(o => o.weeks === weeks)?.label || `${weeks} weeks`
   const measViewMid = useMediaQuery('(min-width: 640px)')
   const measColsMax = measViewWide ? 3 : measViewMid ? 2 : 1
   const [calorieHistory, setCalorieHistory] = useState([])
@@ -889,7 +900,12 @@ async function fetchStepsHistory() {
       setCheckinInterval(prev)
       showToast('Could not update check-in cadence. Try again.', 'error')
     } else {
+      setPendingInterval(null)
       fetchClientCheckIn(weeks) // period changed → reload the relevant check-in
+      // Success was silent before — only the failure path said anything, so a
+      // coach had no way to tell a saved change from one that never left the
+      // page, on an action that notifies their client.
+      showToast(`Check-in schedule updated. ${clientFirstName} has been told.`)
     }
   }
 
@@ -2969,9 +2985,12 @@ async function sendMessage(text) {
                 already done. */}
             <Select
               label={compact ? 'Frequency' : 'Check-in frequency'}
-              value={checkinInterval}
+              value={pendingInterval ?? checkinInterval}
               disabled={savingCadence}
-              onChange={(e) => updateCadence(Number(e.target.value))}
+              onChange={(e) => {
+                const next = Number(e.target.value)
+                setPendingInterval(next === checkinInterval ? null : next)
+              }}
               style={{ width: 'auto', cursor: 'pointer', padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px' }}
             >
               {CADENCE_OPTIONS.map(opt => (
@@ -2999,6 +3018,34 @@ async function sendMessage(text) {
               {compact ? 'Questions' : 'Customize questions'} <Icon name="right" />
             </Button>
           </div>
+
+          {/* Staged, not applied. The copy names all three consequences,
+              because all three are invisible otherwise: the schedule moves,
+              the client is told, and the check-in this card shows follows the
+              new period — which is why the ratings appear to change when the
+              cadence does. */}
+          {pendingInterval != null && (
+            <div style={{ marginBottom: 'var(--space-12)' }}>
+              <Notice
+                tone="warning"
+                icon={<><circle cx="12" cy="12" r="10" /><path d="M12 8v4l2.5 2.5" /></>}
+                action={(
+                  <span style={{ display: 'inline-flex', gap: 'var(--space-8)', flexShrink: 0 }}>
+                    <Button onClick={() => updateCadence(pendingInterval)} variant="primary" size="sm" disabled={savingCadence}>
+                      {savingCadence ? 'Saving…' : 'Update'}
+                    </Button>
+                    <Button onClick={() => setPendingInterval(null)} variant="ghost" size="sm" disabled={savingCadence}>
+                      Cancel
+                    </Button>
+                  </span>
+                )}
+              >
+                Check-ins move from <strong>{cadenceLabel(checkinInterval)}</strong> to{' '}
+                <strong>{cadenceLabel(pendingInterval)}</strong>. {clientFirstName} will be told,
+                and the check-in shown here follows the new period.
+              </Notice>
+            </div>
+          )}
           {!clientCheckIn ? (
             <div style={{ paddingTop: 'var(--space-8)' }}>
               <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'}.</p>
