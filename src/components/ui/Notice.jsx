@@ -26,7 +26,7 @@ export default function Notice({ tone = 'primary', icon, children, action, onDis
   const accent = tone === 'warning' ? 'var(--color-warning)' : 'var(--color-primary)'
   const tint = tone === 'warning' ? 'var(--color-warning-dim)' : 'var(--color-primary-dim)'
   return (
-    <div style={{
+    <div className="ds-notice" style={{
       ...cardStyle,
       backgroundColor: tint,
       padding: 'var(--space-12) var(--space-16)',

@@ -286,9 +286,17 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
             // translateX(-100%) moves it by its OWN width, so the flip is exact
             // however long the text is; the estimate only decides WHEN, and is
             // deliberately generous so it flips early rather than late.
-            ...(tooltip.x + TIP_ESTIMATE > window.innerWidth - 8
-              ? { left: tooltip.x - 12, transform: 'translateX(-100%)' }
-              : { left: tooltip.x + 12 }),
+            // On a NARROW screen there is no side to put it on: at 375px the
+            // flip triggers for nearly every cell (x + 320 > 367 is true from
+            // x=48), and the bubble then runs off the LEFT instead — measured
+            // at -66, -69, -32 on cells in the first third of the grid. So
+            // below 560 it spans the viewport with a margin and only its Y
+            // tracks the pointer, which cannot clip on either side.
+            ...(window.innerWidth < 560
+              ? { left: 8, right: 8, width: 'auto', maxWidth: 'none', transform: 'none' }
+              : (tooltip.x + TIP_ESTIMATE > window.innerWidth - 8
+                ? { left: tooltip.x - 12, transform: 'translateX(-100%)' }
+                : { left: tooltip.x + 12 })),
             // And never above the top of the window.
             top: Math.max(8, tooltip.y - 28),
           }}

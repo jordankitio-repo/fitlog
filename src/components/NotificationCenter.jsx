@@ -242,7 +242,7 @@ export default function NotificationCenter({ profile }) {
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 110 }} />
-          <div style={{
+          <div className="notif-panel" style={{
             position: 'absolute', right: 0, top: 'calc(100% + 10px)', width: 360, maxWidth: '92vw',
             // 360, not 320: the reason strings are the same --text-sm the roster
             // uses for status, and at 320 the longer ones wrapped to two lines and

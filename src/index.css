@@ -885,6 +885,32 @@ body {
   .cv-adherence-row { grid-template-columns: 1fr; --heat-cap: none; }
 }
 
+/* Three things that only break on a phone, all the same shape of fault: a box
+   anchored to something narrower than the box. */
+@media (max-width: 560px) {
+  /* A Notice is icon | text | buttons on one row. At 375px the buttons take
+     ~190 of it, which left the text about 100px and one word per line — a
+     confirmation 1,278px TALL. The buttons take their own row here, and the
+     icon keeps the text company above it. */
+  .ds-notice { flex-wrap: wrap; align-items: flex-start !important; }
+  .ds-notice > p { flex: 1 1 0; min-width: 0; }
+  .ds-notice > p ~ * { flex: 1 1 100%; }
+  .ds-notice > p ~ * > span { justify-content: flex-start; }
+
+  /* Anchored `right: 0` to the bell, which sits ~310px in with the avatar to
+     its right, a 92vw panel started at -35. Pinned to the viewport instead:
+     there is no room on a phone for a panel that is narrower than the screen
+     but wider than the space left of its trigger. */
+  .notif-panel {
+    position: fixed !important;
+    left: var(--space-8) !important;
+    right: var(--space-8) !important;
+    width: auto !important;
+    max-width: none !important;
+    top: 60px !important;
+  }
+}
+
 /* The weekday/weekend rows, narrow.
    The row is label | track | value at 78 + 1fr + 80, which on a phone leaves
    the track 66px at 360 — and the axis keys above it (UNDER / TARGET / OVER)
