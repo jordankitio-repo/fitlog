@@ -69,13 +69,15 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
   return (
     /* The strip is a bordered card rather than a bare row, so five numbers
        floating in the middle of a section read as one object. */
-    <div style={{
-      display: 'flex',
+    <div className="cs-strip" style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`,
       // Centred, and full height, because this sits beside the weekday panel
       // as a matched pair. One row of five cells is shorter than that panel
       // will ever be, so the slack goes above and below the numbers rather
       // than all of it underneath them.
       alignItems: 'center',
+      justifyItems: 'stretch',
       height: '100%',
       border: '1px solid var(--color-border)',
       borderRadius: 'var(--radius)',

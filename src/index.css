@@ -842,6 +842,29 @@ body {
    strip only at the phone breakpoint. */
 .rost-chips { display: contents; }
 
+/* The adherence strip, narrow.
+   Five cells do not tile a phone. At 390px each one is 48px wide while the
+   widest value, "51/60", needs 59 — so the numerals did not shrink, they
+   printed over their neighbours, the same way the labels did before they were
+   allowed to wrap. Smaller type cannot save it either: a cell is 48px of
+   border-box with 24 of that spent on padding.
+   So the strip splits on its own seam. The two summary figures take a row,
+   the three counts take the next — which is the grouping the numbers already
+   had (one is a tally, the other three are days that SUM to it), so the break
+   lands where the meaning does rather than wherever five items happen to run
+   out of room. A six-column grid gets both rows even: 3+3 above, 2+2+2 below.
+   The hairline comes off the first cell of the second row; a divider at the
+   start of a row separates it from the edge of the card. */
+@media (max-width: 600px) {
+  .cs-strip {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    row-gap: var(--space-12);
+  }
+  .cs-strip > :nth-child(-n+2) { grid-column: span 3; }
+  .cs-strip > :nth-child(n+3) { grid-column: span 2; }
+  .cs-strip > :nth-child(3) { border-left: none; padding-left: 0; }
+}
+
 @media (max-width: 900px) {
   /* Scoped away from `.rost-m`: those rows are rebuilt for this width rather
      than re-flowed, and a reflow rule aimed at four cells would push their
