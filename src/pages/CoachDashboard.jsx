@@ -360,30 +360,23 @@ function CoachDashboard({ profile }) {
             header it explains is itself a sort BUTTON, which cannot host a tip
             without nesting a tab stop inside a role="note". The page title is
             the one non-interactive word on the screen that names the thing the
-            help is about, and below 600px the mark drops entirely. */}
+            help is about, and below 600px the mark drops entirely.
+
+            This was a laid-out table of examples against their meanings, in
+            aligned columns. It never rendered as one: `.info-tip-bubble` sets
+            `white-space: pre-line`, which keeps newlines and COLLAPSES runs of
+            spaces, so every column landed one space after its label. The
+            examples are inline prose now, which is what it was displaying
+            anyway, at half the height. */}
         <h1><InfoTip text={`How to read a row
 
-NEEDS ATTENTION is not one measurement — it is the single most pressing
-thing about that client, whichever kind that happens to be:
+ATTENTION is the single most pressing thing about that client, whichever kind it is: "5 days no log", "No check-in", "Calories 2/7 days", "No targets set", or "Logged today" when nothing needs you.
 
-  "5 days no log"      how recently they logged
-  "No check-in"        they haven't submitted this period's check-in
-  "Calories 2/7 days"  days on target in the last week
-  "No targets set"     you haven't set what to measure against
-  "Logged today"       nothing needs you
+Read DOWN that column for who needs you, not across to compare clients.
 
-So read DOWN the column for who needs you, not to compare clients on the
-same metric. Sorting by Attention puts the most pressing at the top.
+COLOUR IS A GRADE: red intervene now, amber watch, green on track. Grey means no targets set, so nothing to grade.
 
-COLOUR IS A GRADE, GREY MEANS NO GRADE EXISTS:
-
-  RED     Intervene now.
-  AMBER   Watch.
-  GREEN   On track.
-  GREY    Nothing to grade yet — no targets set.
-
-CHECK-IN shows their latest self-ratings, adherence and energy, out of 10.
-A dash means none submitted this period.`}>Clients</InfoTip></h1>
+CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients</InfoTip></h1>
         <p style={{ marginTop: 'var(--space-4)', color: 'var(--color-muted)' }}>Welcome, {profile.full_name}</p>
       </div>
 

@@ -149,7 +149,7 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
             from a centre line is not a convention a coach has necessarily met,
             and nothing on the card said what ±10% or the window were. */}
         <p style={{ fontSize: 'var(--text-xs)', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
-          <InfoTip text={`Each bar is that segment's AVERAGE logged day against the calorie target, measured from the centre line: left of it is under target, right is over, and longer is further away. A full-length bar means 50% off target or more.\n\nWeekdays and weekends are scored separately and on their own merit, so a client who under-eats in the week and over-eats at the weekend shows two bars pointing opposite ways — which is the pattern the card exists to surface. Within 10% of target counts as on plan and draws a dot instead of a bar.\n\nIt reads the same days as the grid above, and says so on the right. That window follows the width of this card, because the grid draws one column per week and only so many columns fit: six months on a wide screen, three on a narrow one.`}>
+          <InfoTip text={`Each bar is that segment's average logged day against the calorie target. Left of centre is under, right is over, longer is further off; a dot means within 10%.\n\nWeekdays and weekends are scored separately, so they can point opposite ways.\n\nIt reads the same days as the grid above — six months on a wide card, three on a narrow one.`}>
             Weekday vs weekend
           </InfoTip>
         </p>

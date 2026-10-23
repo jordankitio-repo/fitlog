@@ -112,24 +112,24 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
             label="Est. maintenance"
             value={`~${num(r.maintenance.low)}–${num(r.maintenance.high)} cal`}
             note={maintNote}
-            tip="Calories where weight would hold steady, inferred from logged intake and the weight trend this window. A range — it narrows as logging gets more consistent."
+            tip="Calories where weight would hold steady, from logged intake and the weight trend. The range narrows as logging gets consistent."
           />
           <Row
             label="Weight trend"
             value={weightValue}
-            tip="Rate of weight change over the window, from a line fit across all weigh-ins (not just first vs last). The arrow shows toward (green) or away from (amber) the goal."
+            tip="Weight change per week, fitted across every weigh-in. Green is toward the goal, amber away."
           />
           <Row
             label="Logged vs target"
             value={`${num(r.avgIntake)} / ${num(r.target)}`}
             note={gapNote}
-            tip="Average logged calories vs the set target, and the gap. Green within ±10% of target, amber when off it."
+            tip="Average logged calories against target, and the gap. Green within 10%, amber outside."
           />
           {r.trajectory && (
             <Row
               label="Trajectory"
               value={<TrajectoryDeltas r={r} num={num} inUnit={inUnit} rateUnit={rateUnit} />}
-              tip="How this 21-day window compares with the one before it — is the maintenance estimate and the weight-change rate drifting? Direction only; small moves are usually just logging noise."
+              tip="This window against the one before it. Direction only — small moves are usually logging noise."
             />
           )}
         </div>
@@ -145,7 +145,7 @@ function WindowSelector({ windowDays, onWindowChange }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>
-<InfoTip text="How far back to read. Shorter = more recent but noisier (the band widens); longer = steadier but reflects older behavior. 21 days is the default — long enough that daily water swings don't dominate the weight trend, short enough to track the current phase.">Window</InfoTip>
+<InfoTip text="How far back to read. Shorter is more recent but noisier; longer is steadier but older. 21 days is the default.">Window</InfoTip>
       </span>
       <span role="group" aria-label="Energy balance window" style={{ display: 'inline-flex', gap: 4 }}>
         {/* These are filter chips, so they are the app's filter chip — ui/Pill,

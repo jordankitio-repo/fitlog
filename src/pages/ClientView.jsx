@@ -3311,7 +3311,7 @@ async function sendMessage(text) {
             title="Body measurements"
             collapsed={isCollapsed('measurements')}
             onToggle={sectionToggle('measurements')}
-            info="Recommended re-measure cadence: about every 2 weeks while cutting, every 4 weeks otherwise (industry standard; circumference moves slowly and tape error is ~1–1.5 cm). Flags when the client's tape data is overdue."
+            info="Flags when tape data is overdue: every 2 weeks while cutting, every 4 weeks otherwise. Request asks for it off-schedule."
             /* The cadence keeps the routine; this button is the exception to
                it. measurementCadence.js will not go tighter than 14 days on
                purpose (tape error is ~1-1.5cm, so asking more often is noise),
