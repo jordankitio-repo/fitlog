@@ -12,11 +12,14 @@ const DAY_LABEL_GAP = 4
 // placement), so it is set above the longest string this renders — the weekly
 // line, "Week of Sep 27 - 6/7 logged (96% of target)".
 const TIP_ESTIMATE = 320
-// No width cap. Cells are fluid and the grid always fills its container — safe
-// now that the span is fixed (complianceWindow.js), because nothing can change
-// the column count underneath it. The 440px grid cap this replaces, and the
-// per-cell cap that replaced that, both existed to protect spans the control
-// no longer offers.
+// Cells are fluid, capped per CELL rather than on the grid. 13 columns across
+// a 1,066px card would be 80px squares in a grid 560px tall; the cap holds it
+// at about 494px, which is the width the layout beside it is built around
+// (.cv-adherence-row).
+const MAX_CELL = 34
+// Exported, because the layout beside the grid has to reserve exactly this —
+// a second copy of the arithmetic in CSS is a constant waiting to drift.
+export const gridCap = (weeks) => DAY_LABEL_WIDTH + DAY_LABEL_GAP + weeks * (MAX_CELL + GAP)
 
 
 function getColor(calories, target, hasLog) {
@@ -121,7 +124,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
       {/* No scroller and no minimum. The grid always fits the width it is given
           and the CELL size follows — the caller drops to 13 columns on a phone
           (complianceWindow.js) so that stays legible. */}
-      <div style={{ width: '100%' }}>
+      <div style={{ width: '100%', maxWidth: gridCap(weekCount) }}>
         {/* Month labels — mirrors the grid row (spacer + fluid week columns) */}
         <div style={{ display: 'flex', gap: DAY_LABEL_GAP, marginBottom: 4 }}>
           <div style={{ width: DAY_LABEL_WIDTH, flexShrink: 0 }} />

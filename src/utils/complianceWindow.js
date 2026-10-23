@@ -17,22 +17,28 @@
 // So: one span, and the control is granularity. Six months is the span because
 // 26 columns fill the card at a cell size you can still hit with a mouse, and
 // because it is long enough to hold a coaching phase.
-// TWO TIERS, because the grid scales to the viewport rather than scrolling in
-// it. Width = weeks x cell size still holds, so on a phone the only way to
-// keep a cell legible without a scroller is to draw fewer weeks: 26 columns
-// inside ~300px is 9px a cell, which is dots, not a calendar.
+// ONE WINDOW, AT EVERY WIDTH.
 //
-// The whole window moves with it, not just the grid — the fetch, the summary's
-// counts, the weekday breakdown and every label that names a span. A phone
-// showing three months of squares above a summary counting six would be the
-// drift this file exists to prevent.
-export const ADHERENCE = {
-  wide: { days: 182, weeks: 26, name: 'last 6 months' },
-  narrow: { days: 91, weeks: 13, name: 'last 3 months' },
-}
-// The longest window any tier asks for, so one fetch serves both and resizing
-// across the breakpoint never has to go back to the network.
-export const ADHERENCE_FETCH_DAYS = 182
+// This was two tiers — six months on a wide screen, three on a narrow one —
+// because the grid is seven rows of square cells, so its width is weeks x cell
+// size and a long window cannot stay legible on a phone. The cost was a card
+// that quoted a different span depending on how wide the browser happened to
+// be: a data window moving for a reason that has nothing to do with the data.
+//
+// Three months, chosen at the narrow end where the constraint actually bites:
+// 13 columns is 18px cells at 360px, and 34px capped on a desktop. It also
+// agrees with "Best week (last 90 days)" in the same section, so the card
+// stops naming two different spans.
+//
+// The cap leaves the grid about 494px on a desktop. The summary and the
+// weekday breakdown sit in that space rather than under it (.cv-adherence-row),
+// so a short window costs no width.
+export const ADHERENCE_DAYS = 91
+export const ADHERENCE_WEEKS = 13
+export const ADHERENCE_NAME = 'last 3 months'
+// One fetch, a week of slack past the window: the grid's first column starts on
+// a Sunday rather than exactly N days ago.
+export const ADHERENCE_FETCH_DAYS = 91
 
 // Daily reads a day; weekly reads a week. Both are real coaching questions and
 // the second is the one a weekly review actually asks — "how was that week"

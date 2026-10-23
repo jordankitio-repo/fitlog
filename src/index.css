@@ -842,6 +842,30 @@ body {
    strip only at the phone breakpoint. */
 .rost-chips { display: contents; }
 
+/* The adherence block: grid beside its reads on a desktop, stacked below one.
+   The grid is a fixed 13 columns capped at 34px a cell, so it settles around
+   494px and no longer fills a wide card on its own. Rather than leave that to
+   the right of it empty, the summary strip and the weekday breakdown take the
+   column — `auto` for the grid so it keeps its natural capped width, and the
+   reads take whatever is left.
+   Below the rail's own breakpoint there is no second column to give them, so
+   everything stacks and the grid spans the width it is handed. */
+.cv-adherence-row {
+  display: grid;
+  grid-template-columns: var(--adherence-grid, 494px) minmax(300px, 1fr);
+  gap: var(--space-24);
+  align-items: stretch;
+}
+.cv-adherence-reads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  min-width: 0;
+}
+@media (max-width: 1023px) {
+  .cv-adherence-row { grid-template-columns: 1fr; }
+}
+
 /* The adherence strip, narrow.
    Five cells do not tile a phone. At 390px each one is 48px wide while the
    widest value, "51/60", needs 59 — so the numerals did not shrink, they

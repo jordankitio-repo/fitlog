@@ -6,7 +6,7 @@ import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
-import ComplianceHeatmap from '../components/ComplianceHeatmap'
+import ComplianceHeatmap, { gridCap } from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ReportProse from '../components/ReportProse'
 import Modal from '../components/Modal'
@@ -23,7 +23,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { bucketHistory, historyWindow, DEFAULT_RANGE } from '../utils/chartRange'
-import { ADHERENCE, ADHERENCE_FETCH_DAYS, GRAINS, DEFAULT_GRAIN, isGrain } from '../utils/complianceWindow'
+import { ADHERENCE_DAYS, ADHERENCE_WEEKS, ADHERENCE_NAME, ADHERENCE_FETCH_DAYS, GRAINS, DEFAULT_GRAIN, isGrain } from '../utils/complianceWindow'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
@@ -309,9 +309,6 @@ function ClientView({ profile }) {
     setGrain(key)
     try { localStorage.setItem('gardnr-cv-grain', key) } catch { /* ignore */ }
   }
-  // Which adherence window this viewport can draw. 1024 is the rail's own
-  // breakpoint, so the grid widens at the same place the page does.
-  const adherence = hasRail ? ADHERENCE.wide : ADHERENCE.narrow
 
   // The window picker and the colour toggle travel together on every bar
   // chart, so they are declared once rather than spelled out at three call
@@ -2591,7 +2588,7 @@ async function sendMessage(text) {
                 fontWeight: 'var(--weight-semibold)',
                 margin: 0,
               }}>
-                Calorie compliance <span style={{ color: 'var(--color-faint)' }}>· {adherence.name}</span>
+                Calorie compliance <span style={{ color: 'var(--color-faint)' }}>· {ADHERENCE_NAME}</span>
               </p>
               {/* ui/Pill, same as the energy-balance window and the roster's
                   lenses — a chip that picks what you are looking at. */}
@@ -2613,35 +2610,41 @@ async function sendMessage(text) {
                 density and nothing else — no second layout, no fallback, and
                 no jump between widths as you move across the three.
                 See complianceWindow.js for why none of them is short. */}
-            <ComplianceHeatmap
-              logsByDate={heatmapData}
-              calorieTarget={clientTargets.calories}
-              weeks={adherence.weeks}
-              grain={grain}
-            />
+            {/* The grid's column is reserved at its capped width rather than
+                left to `auto`, which shrank it to 345px against the reads'
+                minmax and undid the cap. The value comes from the heatmap
+                itself so there is one copy of it. */}
+            <div className="cv-adherence-row" style={{ '--adherence-grid': `${gridCap(ADHERENCE_WEEKS)}px` }}>
+              <ComplianceHeatmap
+                logsByDate={heatmapData}
+                calorieTarget={clientTargets.calories}
+                weeks={ADHERENCE_WEEKS}
+                grain={grain}
+              />
             {/* The two reads sit under the grid in equal columns. The summary
                 alone took 650px for five numbers while the breakdown ran the
                 full width beneath it, which left the row a 600x400 hole at the
                 bottom right; the diverging bars also read better at half width
                 than stretched across 1,066px as two empty rules with a dot in
                 the middle. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-24)', marginTop: 'var(--space-20)', alignItems: 'stretch' }}>
+              <div className="cv-adherence-reads">
               <ComplianceSummary
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
                 variant="coach"
-                windowDays={adherence.days}
+                windowDays={ADHERENCE_DAYS}
               />
               <ComplianceBreakdown
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
-                windowDays={adherence.days}
-                windowName={adherence.name}
+                windowDays={ADHERENCE_DAYS}
+                windowName={ADHERENCE_NAME}
                 // On a phone targets is a route; on a desktop it is a scroll
                 // target on the same page, so the link resolves to the same
                 // param either way (see the /client/:id/:section route).
                 targetHref={`/client/${clientId}/targets`}
               />
+              </div>
             </div>
           </div>
         </SectionHeader>
