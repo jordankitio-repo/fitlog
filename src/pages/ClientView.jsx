@@ -3312,14 +3312,33 @@ async function sendMessage(text) {
             collapsed={isCollapsed('measurements')}
             onToggle={sectionToggle('measurements')}
             info="Recommended re-measure cadence: about every 2 weeks while cutting, every 4 weeks otherwise (industry standard; circumference moves slowly and tape error is ~1–1.5 cm). Flags when the client's tape data is overdue."
-            action={measStatus?.due ? (
-              /* C1: status is plain coloured text. This was the last tinted
-                 pill with a dot in the app — the decision that introduced it
-                 (Jul 19, measurement cadence) predates the ban. */
-              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-warning)' }}>
-                Re-measure due · {measStatus.daysSince}d
+            /* The cadence keeps the routine; this button is the exception to
+               it. measurementCadence.js will not go tighter than 14 days on
+               purpose (tape error is ~1-1.5cm, so asking more often is noise),
+               which left a coach who needs numbers BEFORE a call, or right
+               after a phase change, with no way to ask at all. Always
+               available, cadence or no cadence — the 48-hour cooldown in
+               nudge-client is what stops it becoming nagging. */
+            action={(
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+                {measStatus?.due && (
+                  /* C1: status is plain coloured text. This was the last tinted
+                     pill with a dot in the app — the decision that introduced it
+                     (Jul 19, measurement cadence) predates the ban. */
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-warning)' }}>
+                    Re-measure due · {measStatus.daysSince}d
+                  </span>
+                )}
+                <Button
+                  onClick={() => nudgeClient({ key: 'measurements' })}
+                  variant="muted"
+                  size="sm"
+                  disabled={nudging}
+                >
+                  {nudging ? 'Sending…' : 'Request'}
+                </Button>
               </span>
-            ) : null}
+            )}
           >
             {!isCollapsed('measurements') && (measHistory.length === 0
               ? chartEmpty("No measurements yet", "Your client adds these.")

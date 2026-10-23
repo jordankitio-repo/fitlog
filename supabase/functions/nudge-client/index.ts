@@ -104,6 +104,22 @@ Deno.serve(async (req) => {
       body = `${safeCoachName} is waiting on this week's check-in. It takes two minutes and helps them tune your plan.`
       ctaLabel = 'Check in'
       ctaHref = 'https://www.gardnr.fit/'
+    } else if (reason === 'measurements') {
+      // Asked ON DEMAND, outside the tape cadence. measurementCadence.js keeps
+      // the routine (14 days cutting, 28 otherwise) and deliberately refuses to
+      // go tighter, because tape error is ~1-1.5cm and asking more often is
+      // noise. This is the exception to that: a coach who needs numbers before
+      // a call, or after a phase change, should not have to wait out a cadence
+      // built for the steady case.
+      //
+      // No day count — "you haven't measured in 9 days" would be nagging about
+      // a schedule the client is not behind on. The coach asked; that is the
+      // whole reason.
+      subject = 'Your coach asked for body measurements'
+      heading = 'Time for a tape check'
+      body = `${safeCoachName} would like your latest body measurements. Grab a tape measure when you get a moment — it takes a couple of minutes, and it shows the progress the scale misses.`
+      ctaLabel = 'Add measurements'
+      ctaHref = 'https://www.gardnr.fit/log'
     } else {
       // 'log' (default): re-engage a client who's gone quiet.
       subject = 'Time to log your day'
