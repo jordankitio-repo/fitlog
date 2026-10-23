@@ -40,6 +40,7 @@ import { ageFromBirthDate } from '../utils/biometrics'
 import Avatar from '../components/Avatar'
 import { energyBalanceRead, WINDOW_OPTIONS, WINDOW_DATA_DAYS } from '../utils/energyBalanceRead'
 import { computeClientStats } from '../utils/clientStats'
+import { latestCheckIn, coversPeriod } from '../utils/checkinLookup'
 import { attentionLevel } from '../utils/attentionLevel'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
@@ -354,6 +355,7 @@ function ClientView({ profile }) {
   const [targetsSaved, setTargetsSaved] = useState(false)
   const [showTargetCalc, setShowTargetCalc] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
+
   const [reviewComment, setReviewComment] = useState('')
   const [reviewing, setReviewing] = useState(false)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
@@ -363,6 +365,11 @@ function ClientView({ profile }) {
   // Coach-owned now: the client renders this read-only on their Profile.
   const [clientGoal, setClientGoal] = useState('')
   const [checkinInterval, setCheckinInterval] = useState(1)
+  // Shown vs owed are different questions (checkinLookup.js). `clientCheckIn`
+  // is whatever they filed last; this says whether it lands inside the period
+  // we are in now, which is what "due" and the nudge actually mean.
+  const checkinCurrent = coversPeriod(clientCheckIn, checkinPeriod(checkinInterval))
+
   const [savingCadence, setSavingCadence] = useState(false)
   const [coachNotes, setCoachNotes] = useState('')
   const [notesUpdatedAt, setNotesUpdatedAt] = useState(null)
@@ -639,7 +646,7 @@ function ClientView({ profile }) {
 
     const interval = relationship.checkin_interval_weeks || 1
     setCheckinInterval(interval)
-    fetchClientCheckIn(interval) // resolve the right period once cadence is known
+    fetchClientCheckIn()
 
     setDaysSinceLog(latestLog?.logged_date
       ? Math.floor((new Date() - new Date(`${latestLog.logged_date}T00:00:00`)) / 86400000)
@@ -868,16 +875,18 @@ async function fetchStepsHistory() {
   })).sort((a, b) => a.iso.localeCompare(b.iso)))
 }
 
-  async function fetchClientCheckIn(interval = checkinInterval) {
-  const weekOf = checkinPeriod(interval).weekOf
+  // The LATEST one, not one keyed to the current period. See checkinLookup.js:
+  // keying by period made the cadence setting a retroactive index, so changing
+  // it orphaned check-ins the client had already filed.
+  async function fetchClientCheckIn() {
   const { data, error } = await supabase
     .from('check_ins')
     .select('*')
     .eq('client_id', clientId)
-    .eq('week_of', weekOf)
-    .maybeSingle()
+    .order('week_of', { ascending: false })
+    .limit(1)
   if (error) console.error(error)
-  else setClientCheckIn(data)
+  else setClientCheckIn(latestCheckIn(data || []))
 }
 
   async function updateCadence(weeks) {
@@ -901,7 +910,6 @@ async function fetchStepsHistory() {
       showToast('Could not update check-in cadence. Try again.', 'error')
     } else {
       setPendingInterval(null)
-      fetchClientCheckIn(weeks) // period changed → reload the relevant check-in
       // Success was silent before — only the failure path said anything, so a
       // coach had no way to tell a saved change from one that never left the
       // page, on an action that notifies their client.
@@ -1782,7 +1790,7 @@ async function sendMessage(text) {
         if (!coachNotes?.trim()) return { text: 'None' }
         return notesUpdatedAt ? { text: numericDate(notesUpdatedAt) } : null
       case 'sentReports': return { text: sentTotal ? `${sentTotal}` : 'None' }
-      case 'checkIn': return clientCheckIn ? null : { text: 'None this period' }
+      case 'checkIn': return checkinCurrent ? null : { text: clientCheckIn ? 'None this period' : 'None yet' }
       default: return null
     }
   }
@@ -1954,7 +1962,11 @@ async function sendMessage(text) {
   const unreadFromClient = messages.filter(m => !m.read_at && m.sender_id === clientId).length
   const railMeta = {
     messages: unreadFromClient > 0 ? { meta: unreadFromClient, metaTone: 'warning' } : null,
-    checkIn: !clientCheckIn ? { meta: 'Due', metaTone: 'warning' } : (!clientCheckIn.reviewed_at ? { meta: 'New', metaTone: 'success' } : null),
+    // Unreviewed outranks overdue: an unread check-in is work sitting on the
+    // coach's desk, and saying "Due" over it would bury it.
+    checkIn: clientCheckIn && !clientCheckIn.reviewed_at
+      ? { meta: 'New', metaTone: 'success' }
+      : (!checkinCurrent ? { meta: 'Due', metaTone: 'warning' } : null),
     nutritionLog: daysSinceLog != null && daysSinceLog >= 3
       ? { meta: `${daysSinceLog}d`, metaTone: daysSinceLog >= 4 ? 'error' : 'warning' }
       : null,
@@ -2207,7 +2219,7 @@ async function sendMessage(text) {
         const reasons = status ? status.reasons.filter(r => r !== 'Locked') : []
         const showStatus = status && !(status.level !== 'green' && reasons.length === 0)
         const tone = status && (status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)')
-        const nudge = nudgeReason({ daysSinceLog, hasCheckIn: !!clientCheckIn, checkinDue: checkinPeriod(checkinInterval).dueWindow })
+        const nudge = nudgeReason({ daysSinceLog, hasCheckIn: checkinCurrent, checkinDue: checkinPeriod(checkinInterval).dueWindow })
         const nudgeLabel = nudge && (nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log')
 
         /* C1: status is plain coloured text — no container, no border, no dot.
@@ -2935,7 +2947,12 @@ async function sendMessage(text) {
             Badge's own docs name for SectionHeader. "New" is an item waiting
             rather than a demand, so it stays tinted. */}
         <SectionHeader
-          title={checkinInterval > 1 ? "This period's check-in" : "This week's check-in"}
+          // "Latest" when the newest check-in predates the current period —
+          // the card shows it either way, and saying "this week's" over a
+          // three-week-old answer is the lie the key-matching used to tell.
+          title={checkinCurrent
+            ? (checkinInterval > 1 ? "This period's check-in" : "This week's check-in")
+            : 'Latest check-in'}
           info="These questions are shared by every client. Editing them changes all check-ins."
           collapsed={isCollapsed('checkIn')}
           onToggle={sectionToggle('checkIn')}
@@ -3048,10 +3065,17 @@ async function sendMessage(text) {
           )}
           {!clientCheckIn ? (
             <div style={{ paddingTop: 'var(--space-8)' }}>
-              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted {checkinInterval > 1 ? 'this period' : 'this week'}.</p>
+              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted yet.</p>
             </div>
           ) : (
             <>
+              {/* ALWAYS name the week it covers. The heading says how recent it
+                  is; this says exactly which one, so a coach is never reading
+                  ratings without knowing what they are ratings OF. */}
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-10)' }}>
+                Week of {parseLocalDateString(clientCheckIn.week_of).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                {!checkinCurrent && <> · <span style={{ color: 'var(--color-warning)' }}>none since</span></>}
+              </p>
               {Array.isArray(clientCheckIn.answers) && clientCheckIn.answers.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
                   {clientCheckIn.answers.map((a, i) => (

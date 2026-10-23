@@ -497,7 +497,7 @@ A dash means none submitted this period.`}>Clients</InfoTip></h1>
               {sortedClients.map((c) => {
                 const s = clientStats[c.client_id]
                 const status = rosterStatus(sortBy, s)
-                const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkIn, checkinDue: s?.checkinDue })
+                const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkInCurrent, checkinDue: s?.checkinDue })
                 return (
                   compact ? (
                   <Row key={c.id} className="roster-row rost-m" cols="minmax(0, 1fr) auto">
