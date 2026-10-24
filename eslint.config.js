@@ -5,7 +5,11 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `ios` holds the native project, and inside it two piles of build output:
+  // App/App/public (the Vite build, copied in by `cap sync`) and DerivedData
+  // (Xcode's). Both are generated, both are gitignored, and linting them buries
+  // the real findings under ~1300 errors from minified bundles.
+  globalIgnores(['dist', 'ios', 'android']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
