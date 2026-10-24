@@ -5,6 +5,7 @@ import { computeClientStats, computeClientAlerts } from '../utils/clientStats'
 import { attentionLevel } from '../utils/attentionLevel'
 import { NOTIF_REFRESH } from '../utils/notifyRefresh'
 import Avatar from './Avatar'
+import { CountBadge } from './ui'
 
 // Notification bell + dropdown. Two kinds of entry, deliberately handled
 // differently:
@@ -138,16 +139,19 @@ export default function NotificationCenter({ profile }) {
       }
 
       // Events
+      //
+      // NO messages and NO reports. Both live on /coach, and that tab now
+      // carries its own unread badge (hooks/useCoachUnread). Counting them
+      // here too would be one thing announced twice, in two widgets, cleared
+      // by two different gestures: open the thread and the tab badge zeroes
+      // while the bell still claims three. What stays is what has nowhere
+      // else to point.
       const floor = eventFloor()
-      const [rep, msg, rev] = await Promise.all([
-        supabase.from('reports').select('id, created_at').eq('client_id', uid).gte('created_at', floor).order('created_at', { ascending: false }).limit(15),
-        supabase.from('messages').select('id, content, created_at').eq('client_id', uid).neq('sender_id', uid).gte('created_at', floor).order('created_at', { ascending: false }).limit(15),
+      const [rev] = await Promise.all([
         // Filtered on reviewed_at, not created_at: the event is the review, and
         // a coach catching up on a month-old check-in IS news to the client.
         supabase.from('check_ins').select('id, coach_comment, reviewed_at').eq('client_id', uid).not('reviewed_at', 'is', null).gte('reviewed_at', floor).order('reviewed_at', { ascending: false }).limit(15),
       ])
-      ;(rep.data || []).forEach((r) => ev.push({ id: 'r' + r.id, kind: 'report', title: 'New weekly report', sub: 'From your coach', time: +new Date(r.created_at), href: `/reports/${r.id}`, avatarUrl: coachAvatar, avatarName: coachName }))
-      ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: 'Message from your coach', sub: trim(m.content), time: +new Date(m.created_at), href: '/coach', avatarUrl: coachAvatar, avatarName: coachName }))
       ;(rev.data || []).forEach((c) => ev.push({ id: 'rev' + c.id, kind: 'review', title: 'Your coach reviewed your check-in', sub: c.coach_comment ? trim(c.coach_comment) : 'From your coach', time: +new Date(c.reviewed_at), href: '/?focus=checkin', avatarUrl: coachAvatar, avatarName: coachName }))
 
       // Alerts — the client's own action-items (lock, due check-in, coach nudge).
@@ -285,21 +289,7 @@ export default function NotificationCenter({ profile }) {
           so the glyph read as clipped rather than badged. Out here it can sit
           past the corner and overlap nothing. aria-hidden because the button's
           aria-label already announces the count. */}
-      {unread > 0 && (
-        <span
-          aria-hidden="true"
-          style={{
-            position: 'absolute', top: '-2px', right: '-2px',
-            minWidth: 16, height: 16, padding: '0 var(--space-4)', boxSizing: 'border-box',
-            borderRadius: '999px', background: 'var(--color-error)', color: 'var(--color-on-accent)',
-            fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', lineHeight: 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            /* Reads as a separate object sitting on the bar, not part of the bell. */
-            border: '2px solid var(--color-surface)',
-            pointerEvents: 'none',
-          }}
-        >{unread > 9 ? '9+' : unread}</span>
-      )}
+      <CountBadge count={unread} />
 
       {open && (
         <>

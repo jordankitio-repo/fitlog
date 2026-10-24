@@ -660,7 +660,17 @@ body {
 }
 .coach-report-head { display: flex; align-items: baseline; gap: var(--space-8); }
 .coach-report-title { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
-.coach-report-unread { font-size: var(--text-xs); color: var(--color-muted); }
+/* Green, not grey. B1 grades grey as "nothing to grade against", and this was
+   read that way -- an unread report is not good or bad, just unopened. But grey
+   put it at --color-muted, the same token as the eyebrow beside it and the lead
+   beneath it, so it stopped reading as a STATE and became more eyebrow. On a
+   phone it vanished outright.
+   B3 has the tone that actually fits: primary green = routine, it piles up.
+   Which is exactly what an unread report is. Not amber (nothing is blocked) and
+   never red (red means a CLIENT is in trouble, and an unopened letter is not).
+   Weight stays normal per C1 -- semibold is reserved for red/amber. Hue alone
+   separates it from the grey it sits next to, which is the whole job. */
+.coach-report-unread { font-size: var(--text-xs); color: var(--color-primary); }
 /* Two lines, because a wide card can afford them and one line of a report's
    opening paragraph is a teaser. Clamped, never a fixed height under a
    gradient: that gradient has to know its backdrop's exact colour, and a card
@@ -826,7 +836,10 @@ body {
    date takes the slot so the row never loses its lead element. */
 .rep-row-title { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text); }
 .rep-row-when { font-size: var(--text-sm); color: var(--color-muted); }
-.rep-row-unread { font-size: var(--text-xs); color: var(--color-muted); }
+/* Same fact, same treatment as .coach-report-unread above -- see that comment.
+   The archive row and the thread card must not disagree about what unread
+   looks like. */
+.rep-row-unread { font-size: var(--text-xs); color: var(--color-primary); }
 /* One line. The lead IS the summary, so it is cut at the column edge rather
    than at a character count that would land mid-word. */
 .rep-row-lead {
@@ -1670,6 +1683,8 @@ nav a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Anchors ui/CountBadge, which is absolute and overlaps the pill's corner. */
+  position: relative;
   width: 56px;
   height: 30px;
   border-radius: 999px;

@@ -7,6 +7,7 @@ import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
 import { Icon, Textarea } from '../components/ui'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { refreshNotifications } from '../utils/notifyRefresh'
 import ReportReader, { ReportArchive } from './Reports'
 import { leadOf } from '../utils/reportFeed'
 import { threadRows } from '../utils/coachThread'
@@ -69,8 +70,10 @@ function ThreadReport({ report, onOpen }) {
             column, which is a phone card wearing a desktop's space. */}
         <span className="coach-report-head">
           <span className="coach-report-kind">Weekly report</span>
-          {/* C1 plain text, and B1 grades it grey: an unread report is not a
-              state to escalate, it is one you have not opened. */}
+          {/* C1 plain text. Green per B3's "routine, it piles up", NOT grey:
+              grey shared --color-muted with the eyebrow beside it, so it read
+              as part of the label rather than as a state. See
+              .coach-report-unread in index.css. */}
           {!report.read_at && <span className="coach-report-unread">Unread</span>}
         </span>
         {/* The subject, when there is one. A report written before subjects
@@ -148,11 +151,20 @@ export default function Coach({ profile, archiveOpen = false }) {
     // anything older would stay unread for good — the badge would never zero
     // out. One indexed update covers the whole thread and no-ops when there is
     // nothing unread.
-    await supabase.from('messages')
+    const { error } = await supabase.from('messages')
       .update({ read_at: new Date().toISOString() })
       .eq('client_id', session.user.id)
       .neq('sender_id', session.user.id)
       .is('read_at', null)
+
+    // Tell the tab badge (hooks/useCoachUnread) that read_at moved. It
+    // otherwise only recomputes on refocus and on this event, so opening the
+    // thread cleared the rows but left the number sitting there -- the badge
+    // claiming unread mail the reader is looking at.
+    //
+    // Only on success: announcing a refresh after a failed update would just
+    // make the badge re-read the same unread rows and flicker.
+    if (!error) refreshNotifications()
   }, [reportId])
 
   useEffect(() => {
