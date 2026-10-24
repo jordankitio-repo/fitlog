@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabase'
+import { refreshNotifications } from '../utils/notifyRefresh'
 import Modal from '../components/Modal'
 import CheckinReview from '../components/CheckinReview'
 import Avatar from '../components/Avatar'
@@ -118,6 +119,8 @@ export default function CheckinQueue({ profile }) {
     if (error) console.error('Error reviewing check-in:', error)
     else {
       setReviewed(r => ({ ...r, [open.id]: { reviewed_at: new Date().toISOString(), coach_comment: comment } }))
+      // Clears this coach's live "no check-in" alert, same as the record does.
+      refreshNotifications()
       // Same notification the client record sends — their bell derives the
       // event from check_ins, the email is the part that needs asking for.
       const { data: { session } } = await supabase.auth.getSession()

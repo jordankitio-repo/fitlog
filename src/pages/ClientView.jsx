@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
+import { refreshNotifications } from '../utils/notifyRefresh'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
@@ -922,6 +923,11 @@ async function fetchStepsHistory() {
     if (error) console.error('Error reviewing check-in:', error)
     else {
       fetchClientCheckIn()
+      // The coach's own bell carries a live "no check-in" alert for this
+      // client, and reviewing clears the condition behind it. Without this the
+      // alert sits there until a navigation or a tab refocus. The RECEIPT
+      // ("Dan checked in") deliberately stays — see NotificationCenter.
+      refreshNotifications()
       // Notify the client by email; their bell derives the event from check_ins.
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {

@@ -7,17 +7,34 @@ import { NOTIF_REFRESH } from '../utils/notifyRefresh'
 import Avatar from './Avatar'
 
 // Notification bell + dropdown. Two kinds of entry, deliberately handled
-// differently (see the day/night-mode-era decision to mirror PagerDuty/Linear):
+// differently:
 //   • EVENTS — one-off things that happened (a message, a check-in, a report).
-//     Tracked by a last-seen timestamp; they drop off the list once seen.
+//     RECEIPTS, in the phone sense: each one stands until the reader opens it,
+//     and dealing with the underlying work by another route leaves it standing.
+//     Opening it navigates to the section, which renders live state and so
+//     shows the work already done — which is all the reader needed to see.
 //   • ALERTS — ongoing conditions (a client gone quiet, a missing check-in, a
 //     locked account). Derived live from the same facts the dashboards use, so
-//     they persist until the condition clears. The red badge pings when a NEW
-//     alert appears and clears on open, but the alert stays listed.
-// All derived from existing tables — no new schema.
-
-const SEEN_KEY = 'gardnr-notif-seen'
+//     they persist until the condition clears, with no tap required. The red
+//     badge pings when a NEW alert appears and clears on open, but the alert
+//     stays listed.
+//
+// Events used to be tracked by a single last-seen timestamp, which cleared the
+// list when you LOOKED at it rather than when you dealt with anything: twenty
+// items, one glance, fifteen gone unhandled. Acknowledgement is now per item
+// and server-side (notification_dismissals — see that migration for why a
+// receipt rather than a derived to-do).
 const SEEN_ALERTS_KEY = 'gardnr-notif-seen-alerts'
+
+// How far back an EVENT counts as news. Server pushes were always read inside
+// this window; the derived events had no floor at all, and took "the latest 15"
+// however old they were. That was survivable only because a glance used to wipe
+// the list: a coach with a quiet roster now accumulates every check-in they
+// never clicked, and six-week-old ones queue up behind today's reading as if
+// they had just happened. A notice that old is not a notice. The live-alert
+// half is unaffected — a condition is true now or it isn't, so it has no window.
+const EVENT_WINDOW_DAYS = 30
+const eventFloor = () => new Date(Date.now() - EVENT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString()
 const LEVEL_RANK = { red: 0, yellow: 1 }
 // Tokens, not hex. These slipped past the lint rule because it only matches a
 // property literally named `color`, and here the keys are the levels.
@@ -55,8 +72,9 @@ export default function NotificationCenter({ profile }) {
   const [open, setOpen] = useState(false)
   const [events, setEvents] = useState([])
   const [alerts, setAlerts] = useState([])
-  const [lastSeen, setLastSeen] = useState(() => Number(localStorage.getItem(SEEN_KEY)) || 0)
-  const [seenSnapshot, setSeenSnapshot] = useState(0)
+  // Keys of events this reader has opened or cleared. Server-side, so the
+  // phone and the laptop agree about what has been dealt with.
+  const [dismissed, setDismissed] = useState(() => new Set())
   const [seenAlerts, setSeenAlerts] = useState(readSeenAlerts)
 
   const load = useCallback(async () => {
@@ -81,11 +99,12 @@ export default function NotificationCenter({ profile }) {
       // Events. check_ins is keyed by client_id (no coach_id column), so scope
       // to this coach's clients — filtering by coach_id 400s and silently drops
       // every "client checked in" event from the bell.
+      const floor = eventFloor()
       const [ci, msg] = await Promise.all([
         ids.length
-          ? supabase.from('check_ins').select('id, client_id, created_at').in('client_id', ids).order('created_at', { ascending: false }).limit(15)
+          ? supabase.from('check_ins').select('id, client_id, created_at').in('client_id', ids).gte('created_at', floor).order('created_at', { ascending: false }).limit(15)
           : Promise.resolve({ data: [] }),
-        supabase.from('messages').select('id, client_id, content, created_at').eq('coach_id', uid).neq('sender_id', uid).order('created_at', { ascending: false }).limit(15),
+        supabase.from('messages').select('id, client_id, content, created_at').eq('coach_id', uid).neq('sender_id', uid).gte('created_at', floor).order('created_at', { ascending: false }).limit(15),
       ])
       ;(ci.data || []).forEach((c) => ev.push({ id: 'ci' + c.id, kind: 'checkin', title: `${names[c.client_id] || 'A client'} checked in`, time: +new Date(c.created_at), href: `/client/${c.client_id}?focus=checkIn`, avatarUrl: avatars[c.client_id], avatarName: names[c.client_id] }))
       ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: `${names[m.client_id] || 'A client'} messaged you`, sub: trim(m.content), time: +new Date(m.created_at), href: `/client/${m.client_id}?focus=chat`, avatarUrl: avatars[m.client_id], avatarName: names[m.client_id] }))
@@ -119,10 +138,13 @@ export default function NotificationCenter({ profile }) {
       }
 
       // Events
+      const floor = eventFloor()
       const [rep, msg, rev] = await Promise.all([
-        supabase.from('reports').select('id, created_at').eq('client_id', uid).order('created_at', { ascending: false }).limit(15),
-        supabase.from('messages').select('id, content, created_at').eq('client_id', uid).neq('sender_id', uid).order('created_at', { ascending: false }).limit(15),
-        supabase.from('check_ins').select('id, coach_comment, reviewed_at').eq('client_id', uid).not('reviewed_at', 'is', null).order('reviewed_at', { ascending: false }).limit(15),
+        supabase.from('reports').select('id, created_at').eq('client_id', uid).gte('created_at', floor).order('created_at', { ascending: false }).limit(15),
+        supabase.from('messages').select('id, content, created_at').eq('client_id', uid).neq('sender_id', uid).gte('created_at', floor).order('created_at', { ascending: false }).limit(15),
+        // Filtered on reviewed_at, not created_at: the event is the review, and
+        // a coach catching up on a month-old check-in IS news to the client.
+        supabase.from('check_ins').select('id, coach_comment, reviewed_at').eq('client_id', uid).not('reviewed_at', 'is', null).gte('reviewed_at', floor).order('reviewed_at', { ascending: false }).limit(15),
       ])
       ;(rep.data || []).forEach((r) => ev.push({ id: 'r' + r.id, kind: 'report', title: 'New weekly report', sub: 'From your coach', time: +new Date(r.created_at), href: `/reports/${r.id}`, avatarUrl: coachAvatar, avatarName: coachName }))
       ;(msg.data || []).forEach((m) => ev.push({ id: 'm' + m.id, kind: 'message', title: 'Message from your coach', sub: trim(m.content), time: +new Date(m.created_at), href: '/coach', avatarUrl: coachAvatar, avatarName: coachName }))
@@ -147,12 +169,20 @@ export default function NotificationCenter({ profile }) {
     // Server-pushed notifications (role-agnostic) — events that leave no other
     // readable trace, e.g. a client leaving (the coach loses RLS access to the
     // departed client's profile, so the name is snapshotted server-side).
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const { data: notifs } = await supabase.from('notifications')
-      .select('id, title, body, href, created_at')
-      .eq('user_id', uid).gte('created_at', since)
-      .order('created_at', { ascending: false }).limit(15)
+    // These carry their own read_at, so they are acknowledged in place rather
+    // than through the dismissals table — the column exists for exactly this.
+    const [{ data: notifs }, { data: dis }] = await Promise.all([
+      supabase.from('notifications')
+        .select('id, title, body, href, created_at')
+        .eq('user_id', uid).is('read_at', null).gte('created_at', eventFloor())
+        .order('created_at', { ascending: false }).limit(15),
+      supabase.from('notification_dismissals').select('key').eq('user_id', uid),
+    ])
     ;(notifs || []).forEach((n) => ev.push({ id: 'n' + n.id, kind: 'notif', title: n.title, sub: n.body, time: +new Date(n.created_at), href: n.href || '/' }))
+
+    // Set before the events, in the same tick, so React batches them and no
+    // already-acknowledged row gets a frame on screen.
+    setDismissed(new Set((dis || []).map((d) => d.key)))
 
     ev.sort((a, b) => b.time - a.time)
     setEvents(ev.slice(0, 20))
@@ -174,17 +204,18 @@ export default function NotificationCenter({ profile }) {
 
   if (profile?.role !== 'coach' && profile?.role !== 'client') return null
 
-  const newEvents = events.filter((e) => e.time > lastSeen).length
+  // Events drop off only when acknowledged; alerts when their condition
+  // clears. So the badge keeps counting an unopened event however many times
+  // the bell has been looked at — which is the point.
+  const visibleEvents = events.filter((e) => !dismissed.has(e.id))
   const newAlerts = alerts.filter((a) => !seenAlerts.has(a.id)).length
-  const unread = newEvents + newAlerts
+  const unread = visibleEvents.length + newAlerts
 
   function toggle() {
     const next = !open
     if (next) {
-      setSeenSnapshot(lastSeen) // freeze so newly-arrived events stay listed while open
-      const now = Date.now()
-      setLastSeen(now)
-      try { localStorage.setItem(SEEN_KEY, String(now)) } catch { /* ignore */ }
+      // Opening acknowledges the alert PING only. It deliberately does nothing
+      // to the events: looking at a list is not doing the things on it.
       // Acknowledge every alert currently showing — replacing the set also prunes
       // ones that have since resolved, so a re-trigger later pings again.
       const ids = alerts.map((a) => a.id)
@@ -194,13 +225,44 @@ export default function NotificationCenter({ profile }) {
     setOpen(next)
   }
 
-  function go(href) {
+  // Write the acknowledgement for one event. Optimistic: the row has to leave
+  // the list on the same frame the reader clicks it, because the next thing
+  // that happens is a navigation away from here.
+  async function acknowledge(items) {
+    if (!items.length) return
+    setDismissed((prev) => { const n = new Set(prev); items.forEach((i) => n.add(i.id)); return n })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    // Server pushes own their read_at; everything else is a derived event whose
+    // id exists only in this component, so it goes in the dismissals table.
+    const pushed = items.filter((i) => i.kind === 'notif').map((i) => i.id.slice(1))
+    const derived = items.filter((i) => i.kind !== 'notif').map((i) => ({ user_id: session.user.id, key: i.id }))
+    await Promise.all([
+      // ignoreDuplicates, i.e. ON CONFLICT DO NOTHING: clicking a row twice
+      // before the panel closes, or clearing a list that holds something
+      // already acknowledged on another device, must not 409. Deliberately NOT
+      // a DO UPDATE upsert — that needs an UPDATE policy on a table whose rows
+      // have no field worth changing, and the table is write-once by design.
+      derived.length
+        ? supabase.from('notification_dismissals').upsert(derived, { onConflict: 'user_id,key', ignoreDuplicates: true })
+        : null,
+      pushed.length ? supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', pushed) : null,
+    ].filter(Boolean))
+  }
+
+  function openEvent(item) {
+    setOpen(false)
+    acknowledge([item])
+    navigate(item.href)
+  }
+
+  // Alerts are NOT acknowledged on click — the condition is still true until
+  // the work is done, and the roster grades the same client at the same moment.
+  function openAlert(href) {
     setOpen(false)
     navigate(href)
   }
 
-  // Events drop off once seen; alerts persist until their condition clears.
-  const visibleEvents = events.filter((e) => e.time > seenSnapshot)
   const empty = alerts.length === 0 && visibleEvents.length === 0
 
   return (
@@ -252,8 +314,23 @@ export default function NotificationCenter({ profile }) {
             background: 'var(--color-surface)', border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',
           }}>
-            <div style={{ padding: 'var(--space-12) var(--space-16)', borderBottom: '1px solid var(--color-border)', fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-body)' }}>
-              Notifications
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-8)',
+              padding: 'var(--space-12) var(--space-16)', borderBottom: '1px solid var(--color-border)',
+              fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-body)',
+            }}>
+              <span>Notifications</span>
+              {/* The escape hatch that per-item acknowledgement requires. The
+                  list caps at twenty; without this, a week away from the bell
+                  costs twenty clicks, and the old glance-clears-everything
+                  behaviour would start looking like a feature. Named for what
+                  it does to the group it sits above — the alerts below are not
+                  clearable and are deliberately untouched. */}
+              {visibleEvents.length > 1 && (
+                <button type="button" className="notif-clear ds-control" onClick={() => acknowledge(visibleEvents)}>
+                  Clear {visibleEvents.length}
+                </button>
+              )}
             </div>
 
             {empty ? (
@@ -270,7 +347,7 @@ export default function NotificationCenter({ profile }) {
                       return (
                         <button
                           key={a.id}
-                          onClick={() => go(a.href)}
+                          onClick={() => openAlert(a.href)}
                           style={{
                             width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-8)',
                             padding: 'var(--space-12) var(--space-16)', background: isNew ? 'var(--color-primary-dim)' : 'transparent',
@@ -301,7 +378,7 @@ export default function NotificationCenter({ profile }) {
                     {visibleEvents.map((i) => (
                       <button
                         key={i.id}
-                        onClick={() => go(i.href)}
+                        onClick={() => openEvent(i)}
                         style={{
                           width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-8)',
                           padding: 'var(--space-12) var(--space-16)', background: 'transparent',
