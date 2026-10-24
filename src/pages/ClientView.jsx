@@ -41,6 +41,7 @@ import Avatar from '../components/Avatar'
 import { energyBalanceRead, WINDOW_OPTIONS, WINDOW_DATA_DAYS } from '../utils/energyBalanceRead'
 import { computeClientStats } from '../utils/clientStats'
 import { latestCheckIn, coversPeriod } from '../utils/checkinLookup'
+import { waitingFrom, latestPerClient } from '../utils/reviewQueue'
 import { attentionLevel } from '../utils/attentionLevel'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
@@ -295,6 +296,12 @@ function ClientView({ profile }) {
   // moved, and it swapped the check-in this card displays. A dropdown that
   // emails somebody should not be a dropdown.
   const [pendingInterval, setPendingInterval] = useState(null)
+  // The rest of the queue, asked for only after a review lands here. The roster
+  // sends a coach to the oldest waiting check-in and then abandons them: review
+  // it and you are stranded on a client record, and the next one costs a trip
+  // back to the roster and another click. At nine clients that is eighteen
+  // navigations to drain three check-ins.
+  const [nextWaiting, setNextWaiting] = useState(null)
   // Remembered per viewer, like `gardnr-eb-window`: whether a coach reads
   // adherence a day or a week at a time is about how they work, not about this
   // client. The SPAN is not a choice (see complianceWindow.js) — only this is.
@@ -914,6 +921,32 @@ async function fetchStepsHistory() {
     }
   }
 
+  // Who is next, excluding this client. Deliberately asked AFTER the review
+  // rather than on load: a coach opening a record for any other reason does not
+  // need to be told there is work elsewhere, and the roster already says so.
+  async function loadNextWaiting() {
+    if (!profile?.id) return
+    const { data: links } = await supabase
+      .from('coach_clients')
+      .select('client_id')
+      .eq('coach_id', profile.id)
+    const others = (links || []).map(l => l.client_id).filter(id => id !== clientId)
+    if (!others.length) { setNextWaiting(null); return }
+    // Eight weeks is the same window clientStats reads, so the two cannot
+    // disagree about who is waiting.
+    const since = toLocalDateString(addDays(new Date(), -8 * 7))
+    const { data: rows } = await supabase
+      .from('check_ins')
+      .select('client_id, week_of, reviewed_at, created_at')
+      .in('client_id', others)
+      .gte('week_of', since)
+    const queue = waitingFrom(latestPerClient(rows || []))
+    if (!queue.length) { setNextWaiting(null); return }
+    const { data: who } = await supabase
+      .from('profiles').select('full_name').eq('id', queue[0]).maybeSingle()
+    setNextWaiting({ id: queue[0], name: who?.full_name || 'the next client', remaining: queue.length })
+  }
+
   async function reviewCheckIn() {
     if (!clientCheckIn?.id) return
     setReviewing(true)
@@ -921,7 +954,7 @@ async function fetchStepsHistory() {
     const { error } = await supabase.rpc('review_checkin', { p_id: clientCheckIn.id, p_comment: comment })
     if (error) console.error('Error reviewing check-in:', error)
     else {
-      setReviewComment(''); fetchClientCheckIn()
+      setReviewComment(''); fetchClientCheckIn(); loadNextWaiting()
       // Notify the client by email; their bell derives the event from check_ins.
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {
@@ -3136,6 +3169,26 @@ async function sendMessage(text) {
                     <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}><Icon name="check" /> Reviewed</p>
                     {clientCheckIn.coach_comment && (
                       <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6', marginTop: 'var(--space-6)' }}>{clientCheckIn.coach_comment}</p>
+                    )}
+                    {/* THE QUEUE ADVANCES. Only after a review done on this
+                        visit — `nextWaiting` is null until loadNextWaiting runs,
+                        which only reviewCheckIn calls — so a record opened to
+                        read an already-reviewed check-in stays quiet.
+                        It names WHO, because "next" on its own asks the coach to
+                        trust a queue they cannot see, and the count so they know
+                        whether this is the last one. */}
+                    {nextWaiting && (
+                      <div style={{ marginTop: 'var(--space-12)' }}>
+                        <Button
+                          onClick={() => navigate(`/client/${nextWaiting.id}?focus=checkIn`)}
+                          variant="primary"
+                          size="sm"
+                        >
+                          Next: {nextWaiting.name.split(' ')[0]}
+                          {nextWaiting.remaining > 1 ? ` · ${nextWaiting.remaining} left` : ''}
+                          <Icon name="right" />
+                        </Button>
+                      </div>
                     )}
                   </>
                 ) : (

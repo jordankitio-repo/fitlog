@@ -12,6 +12,7 @@ import { computeClientStats } from '../utils/clientStats'
 import { getInviteBlockReason } from '../utils/inviteValidation'
 import { compareByAttention, summarizeRoster } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
+import { waitingFrom } from '../utils/reviewQueue'
 import { rosterStatus, LENS_HEADERS, LENS_GRADERS, lensToneRank } from '../utils/rosterStatus'
 
 // Fraction of target days hit, for ordering within a compliance tone.
@@ -313,10 +314,13 @@ function CoachDashboard({ profile }) {
   // Clients with a check-in the coach hasn't reviewed yet, oldest submission
   // first — so the roster banner's "check-ins to review" can jump straight to
   // the most-waiting one, and drain the queue one click at a time at any scale.
-  const reviewClientIds = clients
-    .filter(c => { const s = clientStats[c.client_id]; return s?.checkIn && !s.checkIn.reviewed_at })
-    .sort((a, b) => (clientStats[a.client_id].checkIn.created_at || '').localeCompare(clientStats[b.client_id].checkIn.created_at || ''))
-    .map(c => c.client_id)
+  //
+  // The RULE lives in reviewQueue.js because the client record asks the same
+  // question of the database, and two spellings of one rule is how
+  // `week_of === period.weekOf` ended up in three places.
+  const reviewClientIds = waitingFrom(
+    Object.fromEntries(clients.map(c => [c.client_id, clientStats[c.client_id]?.checkIn || null])),
+  )
 
 
 
