@@ -1,0 +1,8 @@
+{
+  "appId": "fit.gardnr.app",
+  "appName": "Gardnr",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never"
+  }
+}

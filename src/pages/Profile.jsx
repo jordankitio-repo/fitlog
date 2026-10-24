@@ -12,6 +12,7 @@ import CheckinBuilder from '../components/CheckinBuilder'
 import AppearanceControls from '../components/AppearanceControls'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { SOLO_BILLING_ENABLED } from '../App'
+import { hidesPaymentUI } from '../utils/platform'
 import { SECTION_ICONS } from '../utils/sectionIcons'
 import ConfirmDialog from '../components/ConfirmDialog'
 import TargetCalculator from '../components/TargetCalculator'
@@ -106,6 +107,17 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     !!soloSubscription &&
     ['trialing', 'active', 'past_due'].includes(soloSubscription.status) &&
     !soloSubscription.paused_for_coaching
+
+  // The Solo Premium card is wholly payment UI: SoloUpgrade opens a Stripe
+  // checkout, SubscriptionManager opens the billing portal. It is also the ONLY
+  // purchase path a non-coach can reach, so it is the one the coach-role gate
+  // in App.jsx does not already close, and the only reason this check exists
+  // here at all.
+  //
+  // One const for both the rail entry and the panel, so the rule cannot end up
+  // with a copy in each that drift.
+  const showSoloBilling =
+    profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) && !hidesPaymentUI()
   const [name, setName] = useState(profile?.full_name || '')
   const [syncedName, setSyncedName] = useState(profile?.full_name || '')
   const [nameSaved, setNameSaved] = useState(false)
@@ -581,9 +593,12 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     {
       label: 'You',
       items: [
-        // Clients message their coach from the app-level thread; coaches and
-        // solo users have no bubble on this page, so no Messages entry.
-        { key: 'messages', label: 'Messages', show: profile?.role === 'client' },
+        // No Messages entry. It was a rail row that only ever navigated to
+        // /coach, and /coach is already in the primary nav for a client on
+        // both the phone's tab bar and the desktop pill links. So it was a
+        // second route to a destination one tap away, inside Settings, which
+        // is the "what did my coach say?" question having two answers again --
+        // the exact thing deleting ChatBubble was meant to end.
         { key: 'account', label: 'Account', show: true },
         { key: 'appearance', label: 'Appearance', show: true },
         { key: 'notifications', label: 'Notifications', show: emailCategories.length > 0 },
@@ -602,7 +617,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       label: 'Account',
       items: [
         { key: 'billing', label: 'Billing', show: profile?.role === 'coach' },
-        { key: 'soloBilling', label: 'Solo Premium', show: profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) },
+        { key: 'soloBilling', label: 'Solo Premium', show: showSoloBilling },
         { key: 'security', label: 'Security', show: true },
         { key: 'data', label: 'Data', show: true },
       ],
@@ -614,7 +629,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // Every destination this role actually has, flat, in rail order. One source:
   // the rail, the route validator and the phone's list all read it, so a
   // section cannot be reachable from one and missing from another.
-  const destinations = railGroups.flatMap(g => g.items).filter(d => d.key !== 'messages')
+  const destinations = railGroups.flatMap(g => g.items)
 
   // The section this route is on. An unknown or absent one falls back to the
   // first destination on a desktop (the rail is on screen, so landing
@@ -634,10 +649,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // section is a route and the screen is only ever as long as the thing you
   // came for.
   function handleRailJump(key) {
-    if (key === 'messages') {
-      navigate('/coach')
-      return
-    }
     navigate(`/profile/${key}`)
   }
 
@@ -713,7 +724,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             {group.items.map(item => (
               <Link
                 key={item.key}
-                to={item.key === 'messages' ? '/coach' : `/profile/${item.key}`}
+                to={`/profile/${item.key}`}
                 className="cv-dest-row ds-control"
               >
                 <svg
@@ -1116,7 +1127,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       {/* Solo billing is retired (Solo is free). Only show this card if the user
           still has a legacy active sub to manage, OR billing is re-enabled.
           When billing is off and there's nothing to manage, no dead paywall. */}
-      {profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) && (
+      {showSoloBilling && (
         <SectionPanel hideTitle={isMobile} active={isVisible('soloBilling')} id="section-soloBilling" title="Solo Premium">
           {soloSubActive ? (
             <div>

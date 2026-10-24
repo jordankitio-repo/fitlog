@@ -6,6 +6,8 @@ import FeedbackButton from './FeedbackButton'
 import NotificationCenter from './NotificationCenter'
 import Avatar from './Avatar'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useCoachUnread } from '../hooks/useCoachUnread'
+import { CountBadge } from './ui'
 
 function NavIcon({ label, size = 19 }) {
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className: 'gnav-mitem-icon' }
@@ -55,6 +57,12 @@ function NavBar({ profile }) {
   async function handleSignOut() {
     await supabase.auth.signOut()
   }
+
+  // Everything the coach has sent that the client has not opened, badged on
+  // the tab it actually lives on rather than counted into the bell. The bell
+  // keeps what has nowhere else to point: check-in reviews, nudges, and the
+  // account, security and billing notices.
+  const coachUnread = useCoachUnread(profile?.role)
 
   const links = profile?.role === 'coach'
     ? [{ to: '/', label: 'Clients' }, { to: '/profile', label: 'Profile' }]
@@ -117,9 +125,13 @@ function NavBar({ profile }) {
                 to={l.to}
                 className={`gnav-tab${active ? ' active' : ''}`}
                 aria-current={active ? 'page' : undefined}
+                aria-label={l.to === '/coach' && coachUnread > 0
+                  ? `${l.label}, ${coachUnread} unread`
+                  : undefined}
               >
                 <span className="gnav-tab-pill">
                   <NavIcon label={l.label} size={22} />
+                  {l.to === '/coach' && <CountBadge count={coachUnread} />}
                 </span>
                 <span className="gnav-tab-label">{l.label}</span>
               </Link>
@@ -145,8 +157,13 @@ function NavBar({ profile }) {
             key={l.to + l.label}
             to={l.to}
             className={`gnav-link${isActive(l.to, location.pathname) ? ' active' : ''}`}
+            style={l.to === '/coach' ? { position: 'relative' } : undefined}
+            aria-label={l.to === '/coach' && coachUnread > 0
+              ? `${l.label}, ${coachUnread} unread`
+              : undefined}
           >
             {l.label}
+            {l.to === '/coach' && <CountBadge count={coachUnread} />}
           </Link>
         ))}
         <NotificationCenter profile={profile} />

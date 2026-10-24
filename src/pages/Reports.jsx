@@ -7,6 +7,7 @@ import Avatar from '../components/Avatar'
 import ReportProse from '../components/ReportProse'
 import { Icon } from '../components/ui'
 import { relativeTime } from '../utils/relativeTime'
+import { refreshNotifications } from '../utils/notifyRefresh'
 import { leadOf, byMonth } from '../utils/reportFeed'
 
 // Reports from the coach: a LIST page and a READER page.
@@ -188,8 +189,12 @@ export default function ReportReader({ inPane = false, inModal = false }) {
       // must not answer that question for them.
       const { data: { session } } = await supabase.auth.getSession()
       if (!data.read_at && session?.user?.id === data.client_id) {
-        await supabase.from('reports').update({ read_at: new Date().toISOString() })
+        const { error: readErr } = await supabase.from('reports')
+          .update({ read_at: new Date().toISOString() })
           .eq('id', id).is('read_at', null)
+        // Same reason as the thread in Coach.jsx: the tab badge counts unread
+        // reports too, and nothing else tells it this one stopped being one.
+        if (!readErr) refreshNotifications()
       }
 
       // The neighbours, so the foot of the page offers the next report rather

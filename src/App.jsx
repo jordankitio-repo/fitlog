@@ -8,6 +8,8 @@ import LoadingScreen from './components/LoadingScreen'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CoachPaywall from './components/CoachPaywall'
+import CoachOnWeb from './components/CoachOnWeb'
+import { isNativeApp, isCoachOnNative } from './utils/platform'
 import { resolveLockState } from './utils/lockState'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -116,8 +118,34 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   const path = location.pathname
   // A PWA launched from the home screen opens at `/` and wants the sign-in form.
   // A stranger who tapped a link in a browser — at any width — wants the landing.
+  //
+  // The iOS app counts too, and for a stronger reason than screen shape: its
+  // only way in is being someone's client, so the marketing landing is never
+  // what it should boot to. Nobody downloads it to be sold coaching software.
   const isStandaloneDisplay = useMediaQuery('(display-mode: standalone)')
-  const isStandalone = isStandaloneDisplay || window.navigator.standalone === true
+  const isStandalone =
+    isStandaloneDisplay || window.navigator.standalone === true || isNativeApp()
+
+  // Warm the tab bar's destinations so changing tabs never suspends.
+  //
+  // Every page is a lazy() chunk, so the FIRST visit to each tab falls through
+  // to the Suspense fallback while its chunk loads. On the web an HTTP cache
+  // makes that invisible after the first time; in the native shell it was
+  // landing on every tab, and the fallback used to black out the whole screen,
+  // so it read as the app relaunching on every tap.
+  //
+  // Fetched once, on the way in, while the reader is still looking at their
+  // first screen. Failures are ignored on purpose: this is a cache warm, and
+  // the real navigation will surface any genuine load error.
+  useEffect(() => {
+    if (!session) return
+    Promise.all([
+      import('./pages/Dashboard'),
+      import('./pages/Log'),
+      import('./pages/Coach'),
+      import('./pages/Profile'),
+    ]).catch(() => {})
+  }, [session])
   const showLoginAsHome = !session && path === '/' && isStandalone
   const isLanding = !session && path === '/' && !isStandalone
 
@@ -155,7 +183,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
       {session && <a href="#main" className="skip-link">Skip to main content</a>}
       {session && <NavBar profile={profile} />}
       <main id="main" style={mainStyle}>
-        <Suspense fallback={<LoadingScreen />}>
+        <Suspense fallback={<LoadingScreen inline />}>
           <Routes>
             <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
             <Route path="/" element={session ? (
@@ -413,6 +441,15 @@ function App() {
         </main>
       </Suspense>
     )
+  }
+
+  // A coach signed into the iOS app. Checked BEFORE the paywall, and not gated
+  // on BILLING_ENABLED, because the paywall is the screen that must never
+  // render here: a Stripe checkout inside an App Store build is what gives
+  // Apple a cut of coach revenue. Refusing the role closes it, every other
+  // coach screen, and every coach screen not yet written.
+  if (isCoachOnNative(profile?.role)) {
+    return <CoachOnWeb profile={profile} onSignOut={handleSignOut} />
   }
 
   if (BILLING_ENABLED && profile?.role === 'coach' && subLoading) {

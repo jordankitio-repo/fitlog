@@ -3,6 +3,18 @@ import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
 import { controlStyle, Icon } from '../components/ui'
+import { isNativeApp } from '../utils/platform'
+
+// Signing up as a coach inside the iOS app is a trap: the role gate in App.jsx
+// sends every coach to CoachOnWeb, so picking it here creates an account and
+// then immediately refuses to let you use it. On native there is one role, so
+// the chooser has nothing to choose and does not render.
+//
+// Self-signup itself STAYS, deliberately. Apple rejects apps that cannot be
+// used at all without an account obtained somewhere else, and an invite-only
+// app is exactly that. A free Individual signup is the answer to that question
+// at review time, so it has to keep working here.
+const ROLES = isNativeApp() ? ['solo'] : ['solo', 'coach']
 
 function RolePicker({ session, onComplete, onCancel }) {
   const userId = session.user.id
@@ -51,10 +63,11 @@ function RolePicker({ session, onComplete, onCancel }) {
         />
       </div>
 
+      {ROLES.length > 1 && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>I am a...</p>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {['solo', 'coach'].map((r) => (
+          {ROLES.map((r) => (
             <button
               key={r}
               onClick={() => setRole(r)}
@@ -80,6 +93,7 @@ function RolePicker({ session, onComplete, onCancel }) {
           </p>
         )}
       </div>
+      )}
 
       <Button onClick={() => confirm(role)} variant="primary" fullWidth loading={loading}>
         Get started

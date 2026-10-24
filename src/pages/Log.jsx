@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { DndContext, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
+import { DndContext, DragOverlay, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
@@ -15,9 +14,24 @@ import { refreshNotifications } from '../utils/notifyRefresh'
 import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
 import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '../utils/savedMeals'
 import { controlStyle, Icon } from '../components/ui'
+import ActionSheet from '../components/ActionSheet'
+import { useLongPress } from '../hooks/useLongPress'
+import { formatMinutes, stepsGoalSub, cardioGoalSub } from '../utils/metricRows'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
+}
+
+// Where a day's weight or step count came from, named on its row. Mirrors the
+// source check constraint, which is the same list on weight_log and steps_log.
+const METRIC_SOURCES = {
+  manual: 'Logged by hand',
+  apple_health: 'Apple Health',
+  health_connect: 'Health Connect',
+  withings: 'Withings',
+  whoop: 'WHOOP',
+  google_health: 'Google Health',
 }
 
 const EXERCISE_TYPES = [
@@ -36,32 +50,38 @@ const MEASUREMENT_SITES = [
   { key: 'thigh', label: 'Thigh' },
 ]
 
-// A diary item (food row or meal container) draggable by its grip handle into
-// another meal section. Render-prop so the existing row markup stays in Log:
-// the wrapper supplies the node ref, a drag transform style, and the handle
-// props (spread onto the ⠿ grip). Stable module-scope component → no remounts.
+// A diary item (food row or meal container) that can be dragged into another
+// meal section. Render-prop so the row markup stays in Log; the wrapper hands
+// back the node ref, a style, and two ways in:
+//   handleProps -- the desktop's grip. A mouse drags from the handle only, so
+//                  text on the row stays selectable.
+//   rowProps    -- touch, on the WHOLE row. Hold, then move: the iOS lift.
+//                  There is no grip on a phone; the row is the handle.
+// The row is not moved in place any more. It stays as a faded placeholder
+// while a DragOverlay copy follows the finger (see Log), which is what lets
+// the moving copy look lifted rather than half-transparent.
+// Stable module-scope component → no remounts.
 function DraggableItem({ id, item, children }) {
-  const { listeners, attributes, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({ id, data: { item } })
-  const dragStyle = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.4 : 1,
-    position: 'relative',
-    zIndex: isDragging ? 50 : 'auto',
-  }
+  const { listeners, attributes, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id, data: { item } })
+  const dragStyle = { opacity: isDragging ? 0.35 : 1 }
   const handleProps = { ref: setActivatorNodeRef, ...listeners, ...attributes }
-  return children({ setNodeRef, dragStyle, handleProps })
+  const rowProps = { onTouchStart: listeners?.onTouchStart }
+  return children({ setNodeRef, dragStyle, handleProps, rowProps })
 }
 
-// A meal section that accepts dropped items; highlights while hovered.
+// A meal section that accepts dropped items; tinted while a drag is over it.
+// A uniform tint, no outline: it was a 2px dashed green border, and state is
+// never a coloured border (design-system B2). The box-shadow spread carries
+// the tint past the section's text the way a held row's does, without layout.
 function DroppableMeal({ slot, children }) {
   const { setNodeRef, isOver } = useDroppable({ id: `slot:${slot}`, data: { slot } })
+  const tint = isOver ? 'var(--color-primary-dim)' : 'transparent'
   return (
     <div ref={setNodeRef} style={{
       borderRadius: 'var(--radius)',
-      outline: isOver ? '2px dashed var(--color-primary)' : '2px dashed transparent',
-      outlineOffset: 2,
-      background: isOver ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)' : 'transparent',
-      transition: 'outline-color 120ms, background 120ms',
+      background: tint,
+      boxShadow: `0 0 0 var(--space-8) ${tint}`,
+      transition: 'background-color 120ms, box-shadow 120ms',
     }}>
       {children}
     </div>
@@ -148,12 +168,39 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [moveMenu, setMoveMenu] = useState(false)
   const [groupMenu, setGroupMenu] = useState(false)
   const [moveItemId, setMoveItemId] = useState(null) // id of the row/meal whose per-item "move to" menu is open
-  // Mouse drags after a few px; touch needs a short hold so a tap still opens
-  // the menu and a scroll-drag never gets hijacked.
+  // Long press on a logged row opens its actions as a named list, instead of
+  // making the reader decode four icons at the right edge. The icons STAY: a
+  // hold cannot be performed with a keyboard or a screen reader, so this is a
+  // second route to the same actions, never the only one.
+  const [sheet, setSheet] = useState(null) // { title, actions } | null
+  const bindLongPress = useLongPress()
+  // Same breakpoint the bottom tab bar uses (components/NavBar.jsx).
+  const isMobile = useMediaQuery('(max-width: 600px)')
+  // Mouse drags from the grip after a few px. Touch lifts a row after the SAME
+  // hold the menu uses, and a finger that travels 10px first is a scroll: the
+  // sensor cancels without preventing anything, so the list scrolls as usual.
+  // Once lifted the sensor blocks scrolling itself, so the row needs no
+  // touch-action of its own (F4's trap was a row that could not scroll).
   const dndSensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 500, tolerance: 10 } }),
   )
+  // Quick add can be folded away by someone who never uses it. Remembered per
+  // device, like ClientView's collapsed sections; storage can throw (private
+  // mode), so it falls back to open.
+  const [quickAddOpen, setQuickAddOpen] = useState(() => {
+    try { return localStorage.getItem('gardnr-log-quickadd') !== 'closed' } catch { return true }
+  })
+  function toggleQuickAdd() {
+    setQuickAddOpen(open => {
+      try { localStorage.setItem('gardnr-log-quickadd', open ? 'closed' : 'open') } catch { /* ignore */ }
+      return !open
+    })
+  }
+  const [dragItem, setDragItem] = useState(null) // the lifted diary item, for the overlay
+  // A hold that ends where it began opens the sheet on release; the click the
+  // browser synthesises from that same touch must not also toggle the row.
+  const suppressClickUntil = useRef(0)
   const [expandedMeals, setExpandedMeals] = useState(new Set())
   const [addingToMeal, setAddingToMeal] = useState(null) // { id, name, meal } when adding a food into a logged meal
   const [foodResults, setFoodResults] = useState([])
@@ -191,6 +238,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [steps, setSteps] = useState('')
   const [distance, setDistance] = useState('')
   const [savedSteps, setSavedSteps] = useState(null)
+  // The daily targets the Body and activity rows are read against -- the same
+  // targets row My Progress reads. The Log compares a day with its GOALS only;
+  // comparisons with earlier days are My Progress's job, not this page's.
+  const [targets, setTargets] = useState(null)
 
   // Body-measurement state (one row per date; sites in MEASUREMENT_SITES)
   const [meas, setMeas] = useState({ unit: 'in', neck: '', chest: '', waist: '', hips: '', arm: '', thigh: '' })
@@ -213,6 +264,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchLastMeasured()
     setFeedback('')
   }, [selectedDate])
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+    supabase.from('targets').select('steps, cardio_minutes').eq('user_id', session.user.id).maybeSingle()
+      .then(({ data, error }) => { if (error) console.error(error); else setTargets(data) })
+  }, [session?.user?.id])
 
   useEffect(() => {
     async function loadHideCalories() {
@@ -252,14 +309,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
       setFat(Math.round(baseNutrients.fat * multiplier).toString())
     }
   }, [servingSize, servingUnit, baseNutrients, baseServingSize])
-
-  useEffect(() => {
-    if (!savedWeight) setWeightExpanded(true)
-  }, [savedWeight])
-
-  useEffect(() => {
-    if (!savedSteps) setStepsExpanded(true)
-  }, [savedSteps])
 
   // Nutrition functions
   async function fetchEntries() {
@@ -395,9 +444,19 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setMoveItemId(null)
   }
 
-  // Drop a dragged diary item onto a meal section → move it to that slot.
-  function handleDiaryDragEnd({ active, over }) {
+  // A lifted item was let go. Two outcomes from one gesture, the way iOS does
+  // it: a touch that never travelled was a long press, so the row's sheet
+  // opens; one that ended over another meal section moves the item there.
+  function handleDiaryDragEnd({ active, over, delta, activatorEvent }) {
+    setDragItem(null)
     setMoveItemId(null)
+    suppressClickUntil.current = Date.now() + 400
+    const isTouch = activatorEvent?.type === 'touchstart'
+    if (isTouch && Math.hypot(delta.x, delta.y) < 10) {
+      const item = active.data.current?.item
+      if (item) setSheet(item.type === 'meal' ? mealSheet(item) : foodSheet(item.entry))
+      return
+    }
     if (!over) return
     const targetSlot = over.data.current?.slot
     const item = active.data.current?.item
@@ -739,6 +798,31 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setShowFoodResults(false); setFoodResults([])
   }
 
+  // Load a logged row back into the add-food form, ready to log again.
+  // Named and lifted out of the Re-log button because the long-press sheet
+  // offers the same action: two copies of eight setState calls would drift the
+  // first time a field was added to the form.
+  function prefillFromEntry(entry) {
+    setFood(entry.food); setCalories(entry.calories.toString())
+    setProtein(entry.protein.toString()); setCarbs(entry.carbs.toString()); setFat(entry.fat.toString())
+    setServingSize(entry.serving_size.toString()); setServingUnit(entry.serving_unit || 'g')
+    setMeal(entry.meal || mealForHour(new Date().getHours()))
+    // The row's macros are totals for its own serving, but the scaling effect
+    // reads the base as per-100g (or per-serving), so convert first. Handing it
+    // the totals as-is re-logged "1 serving · 402 kcal" as 4 kcal.
+    // Size is parsed the same way the effect parses it, so the round trip is exact.
+    const measured = (entry.serving_unit || 'g') in unitConversions
+    const perUnit = measured
+      ? 100 / ((parseInt(entry.serving_size) || 100) * unitConversions[entry.serving_unit || 'g'])
+      : 1 / (parseFloat(entry.serving_size) || 1)
+    setBaseNutrients({
+      calories: entry.calories * perUnit, protein: entry.protein * perUnit,
+      carbs: entry.carbs * perUnit, fat: entry.fat * perUnit,
+    })
+    setBaseServingSize(measured ? null : 1)
+    setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
+  }
+
   function startEdit(entry) {
     setEditingEntry(entry)
     setFood(entry.food)
@@ -845,6 +929,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const row = data?.[0] ?? null
     if (row) { setSavedWeight(row); setWeight(row.weight.toString()); setWeightUnit(row.unit) }
     else { setSavedWeight(null); setWeight(''); setWeightUnit('lbs') }
+    // Every day loads closed: an empty day shows a "Not logged" row with its
+    // own Log button. (This was an effect on savedWeight, null on the first
+    // render before this fetch lands, so every day loaded mid-edit.)
+    setWeightExpanded(false)
   }
 
   async function saveWeight() {
@@ -878,6 +966,15 @@ function Log({ session, profile, hasSoloPremium = true }) {
       if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
     }
   }
+
+  async function deleteWeight() {
+    if (!savedWeight) return
+    await deleteWithUndo({
+      table: 'weight_log', match: { id: savedWeight.id }, rows: [savedWeight], label: 'Weight',
+      refresh: fetchWeight,
+    })
+  }
+
 
   // Cardio functions
   async function fetchCardioEntries() {
@@ -917,7 +1014,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const row = cardioEntries.find(e => e.id === id)
     if (!row) return
     await deleteWithUndo({
-      table: 'cardio_log', match: { id }, rows: [row], label: row.activity || 'Cardio entry',
+      table: 'cardio_log', match: { id }, rows: [row], label: row.exercise_type || 'Cardio entry',
       refresh: fetchCardioEntries,
     })
   }
@@ -942,6 +1039,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) { console.error(error); return }
     if (data) { setSavedSteps(data); setSteps(data.steps.toString()); setDistance(data.distance?.toString() || '') }
     else { setSavedSteps(null); setSteps(''); setDistance('') }
+    setStepsExpanded(false) // see fetchWeight
   }
 
   async function saveSteps() {
@@ -972,6 +1070,15 @@ function Log({ session, profile, hasSoloPremium = true }) {
     }
     fetchSteps()
   }
+
+  async function deleteSteps() {
+    if (!savedSteps) return
+    await deleteWithUndo({
+      table: 'steps_log', match: { id: savedSteps.id }, rows: [savedSteps], label: 'Steps',
+      refresh: fetchSteps,
+    })
+  }
+
 
   async function fetchLastMeasured() {
     if (!session?.user?.id) return
@@ -1014,12 +1121,24 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchLastMeasured()
   }
 
+  async function deleteMeasurements() {
+    if (!savedMeas) return
+    await deleteWithUndo({
+      table: 'body_measurements', match: { id: savedMeas.id }, rows: [savedMeas], label: 'Measurements',
+      refresh: () => { fetchMeasurements(); fetchLastMeasured() },
+    })
+  }
+
   // Nav functions
   function goToPrevDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
   function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
   const isToday = selectedDate === toLocalDateString(new Date())
 
-  const displayDate = parseLocalDateString(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+  // The date control's middle: "Today" until the day moves, then the day's
+  // date. Short month, so the whole header holds one line on a 375pt phone.
+  const dayLabel = isToday
+    ? 'Today'
+    : parseLocalDateString(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   const totalCalories = entries.reduce((s, e) => s + (e.calories || 0), 0)
   const totalProtein = entries.reduce((s, e) => s + (e.protein || 0), 0)
@@ -1038,6 +1157,29 @@ function Log({ session, profile, hasSoloPremium = true }) {
     background: 'none', border: 'none', cursor: 'pointer',
     padding: '4px 6px', fontSize: 'var(--text-base)', color: 'var(--color-muted)'
   }
+  // The phone's one row control. The glyph is the same size as before, but
+  // the press area is 44x44 (Apple's floor; it was ~28x24, and four of them
+  // stacked in a column took aim). Negative margins give the extra area back,
+  // so the row's height and the glyph's position do not move.
+  const moreBtnStyle = {
+    ...iconBtnStyle, width: 44, height: 44, padding: 0, margin: '-8px -8px -8px -8px',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  }
+  // How far a row's value sits from the row's right edge on a phone: the more
+  // button's footprint (44 less its two -8 margins) plus the row's 10px gap.
+  // A group total on the right lines up with the values only if it is inset
+  // by the same amount.
+  const ACTION_COL_PX = 44 - 16 + 10
+  // Where a Body and activity row's TEXT starts: the 28px mark plus the row's
+  // 10px gap. Rules, the CARDIO label and "+ Log cardio" all start here.
+  const MARK_INSET_PX = 28 + 10
+
+  // The number at the right of a cardio or steps row: .trend-value at its
+  // phone size, so a session reads the way a Trends row on My Progress does.
+  const rowValueStyle = {
+    fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)',
+    color: 'var(--color-text)', whiteSpace: 'nowrap', flexShrink: 0,
+  }
 
   const selectLinkStyle = {
     background: 'transparent', border: 'none', color: 'var(--color-primary)',
@@ -1054,6 +1196,136 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const presentMealSlots = groupEntriesByMeal(entries).map(g => g.key)
   const slotLabel = (k) => MEALS.find(m => m.key === k)?.label ?? 'Other'
 
+  // One row of the Body and activity card: a name left, the number right,
+  // then the actions -- the Trends row's shape. `logged: false` is the empty
+  // state, which says so (F3) and carries a Log button where the number goes.
+  // `first` drops the top rule: rules separate records, not card from heading.
+  // One row of the Body and activity card, on a fixed grid so every row lines
+  // up with every other:
+  //
+  //   [mark] Title  note                 value  [more]
+  //   [mark] sub-line
+  //
+  // The value sits on the TITLE's baseline, not centred between the two lines
+  // where it lined up with nothing. The rule above a row starts at the text
+  // column (MARK_INSET_PX), as iOS insets separators past a row's icon, so the
+  // icon reads as part of its row; the CARDIO label and "+ Log cardio" start
+  // on that same column. `logged: false` is the empty state: "Not logged"
+  // (F3) and a Log button where the value goes. `first` drops the rule.
+  function renderMetricRow({ key, title, sub, value, mark, logged = true, first = false, onLog, onEdit, onDelete }) {
+    // The metric's hue as a FILL (a 16% disc behind its glyph), the mark the
+    // Trends rows on My Progress open with. Never on the text: metric tokens
+    // fail contrast as type on a light card (design-system B2).
+    const markEl = (
+      <span className="trend-mark" style={{ color: `var(--color-${mark.metric})`, gridColumn: 1, gridRow: '1 / span 2', alignSelf: 'center' }} aria-hidden="true">
+        <Icon name={mark.glyph} size={16} />
+      </span>
+    )
+    const rule = !first && (
+      <span aria-hidden="true" style={{ position: 'absolute', top: 0, left: MARK_INSET_PX, right: 0, borderTop: '1px solid var(--color-border)' }} />
+    )
+    const grid = {
+      position: 'relative', display: 'grid', gridTemplateColumns: '28px minmax(0, 1fr) auto auto',
+      columnGap: '10px', rowGap: '2px', alignItems: 'baseline', padding: '10px 0',
+    }
+    const titleEl = (
+      <p style={{ gridColumn: 2, gridRow: 1, fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', minWidth: 0 }}>
+        {title}
+      </p>
+    )
+    const subEl = (text) => (
+      <p style={{ gridColumn: '2 / span 3', gridRow: 2, fontSize: 'var(--text-sm)', minWidth: 0 }}>{text}</p>
+    )
+    if (!logged) {
+      return (
+        <div key={key} style={grid}>
+          {rule}{markEl}{titleEl}{subEl('Not logged')}
+          <div style={{ gridColumn: '3 / span 2', gridRow: '1 / span 2', alignSelf: 'center' }}>
+            <Button onClick={onLog} variant="muted" size="sm">Log</Button>
+          </div>
+        </div>
+      )
+    }
+    const openSheet = () => setSheet({
+      title,
+      actions: [
+        { label: 'Edit', icon: 'pencil', onSelect: onEdit },
+        { label: 'Delete', icon: 'trash', destructive: true, onSelect: onDelete },
+      ],
+    })
+    return (
+      <div key={key} {...bindLongPress(openSheet)} className="long-pressable" style={grid}>
+        {rule}{markEl}{titleEl}
+        <span className="tnum" style={{ ...rowValueStyle, gridColumn: 3, gridRow: 1 }}>{value}</span>
+        {/* Same split as a food row: the phone gets one button that opens the
+            sheet the long press opens; the desktop keeps the named icons. */}
+        <div data-no-longpress style={{ gridColumn: 4, gridRow: 1, alignSelf: 'center', display: 'flex', gap: '2px' }}>
+          {isMobile ? (
+            // Vertical margins wide enough that the 44pt press area takes no
+            // height in the grid: otherwise it sets the title line's height
+            // and pushes the sub-line away from its title.
+            <button onClick={openSheet} style={{ ...moreBtnStyle, margin: '-22px -8px' }} aria-label={`Actions for ${title}`} title="Actions"><Icon name="more" /></button>
+          ) : (
+            <>
+              <button onClick={onEdit} style={iconBtnStyle} aria-label={`Edit ${title}`} title="Edit"><Icon name="pencil" /></button>
+              <button onClick={onDelete} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label={`Delete ${title}`} title="Delete"><Icon name="trash" /></button>
+            </>
+          )}
+        </div>
+        {subEl(sub)}
+      </div>
+    )
+  }
+
+  // A synced value names its device; a hand-logged one says nothing, because
+  // "Logged by hand" on every row of every client without a device is noise.
+  const sourceOf = (row) => (row?.source && row.source !== 'manual' ? METRIC_SOURCES[row.source] : null)
+
+  // The sheets, built in one place because two gestures open each: the row's
+  // `more` button, and a hold released without moving (handleDiaryDragEnd).
+  function foodSheet(entry, inMeal = false) {
+    const currentSlot = entry.meal || 'other'
+    const moveTargets = inMeal ? [] : presentMealSlots.filter(k => k !== currentSlot)
+    // Mirrors the desktop icons, in the same order, named. Move is absent
+    // inside a meal: the container moves, not the row.
+    return {
+      title: entry.food,
+      actions: [
+        { label: 'Re-log', icon: 'repeat', onSelect: () => prefillFromEntry(entry) },
+        ...(moveTargets.length > 0
+          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(entry.id) }]
+          : []),
+        { label: 'Edit', icon: 'pencil', onSelect: () => startEdit(entry) },
+        { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteEntry(entry.id) },
+      ],
+    }
+  }
+  function mealSheet(item) {
+    const currentSlot = item.entries[0]?.meal || 'other'
+    const moveTargets = presentMealSlots.filter(k => k !== currentSlot)
+    return {
+      title: item.name,
+      actions: [
+        { label: 'Repeat meal', icon: 'repeat', onSelect: () => repeatLoggedMeal(item) },
+        { label: 'Save as a reusable meal', icon: 'utensils', onSelect: () => saveContainerAsMeal(item) },
+        ...(moveTargets.length > 0
+          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(item.id) }]
+          : []),
+        { label: 'Delete meal', icon: 'trash', destructive: true, onSelect: () => deleteLoggedMeal(item.id) },
+      ],
+    }
+  }
+
+  function measSheet() {
+    return {
+      title: 'Measurements',
+      actions: [
+        { label: 'Edit', icon: 'pencil', onSelect: () => setMeasExpanded(true) },
+        { label: 'Delete', icon: 'trash', destructive: true, onSelect: deleteMeasurements },
+      ],
+    }
+  }
+
   // A single food entry row — selectable in select mode, with re-log/edit/delete
   // otherwise. Reused for loose foods and for the children inside a meal.
   // inMeal: a child of a logged-meal container — no per-row move (the whole
@@ -1063,10 +1335,22 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const currentSlot = entry.meal || 'other'
     const moveTargets = inMeal ? [] : presentMealSlots.filter(k => k !== currentSlot)
     const moveOpen = moveItemId === entry.id
+    // A draggable row lifts on touch instead of opening the menu at 500ms;
+    // the drag decides on release (handleDiaryDragEnd). A row inside a meal
+    // is not draggable and keeps the plain hold-for-menu.
+    const entryPress = selectMode ? {} : bindLongPress(() => setSheet(foodSheet(entry, inMeal)), drag ? { touch: 'lift' } : undefined)
     return (
       <div key={entry.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
        <div
-        onClick={selectMode ? () => toggleSelect(entry.id) : undefined}
+        {...entryPress}
+        {...(selectMode ? {} : drag?.rowProps)}
+        className="long-pressable"
+        onClick={(e) => {
+          // The hook's onClick swallows the click the browser synthesises after
+          // a hold, so the row's own tap does not fire behind the open sheet.
+          entryPress.onClick(e)
+          if (!e.defaultPrevented && selectMode) toggleSelect(entry.id)
+        }}
         style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: selectMode ? 'pointer' : 'default' }}
       >
         {selectMode && (
@@ -1080,17 +1364,30 @@ function Log({ session, profile, hasSoloPremium = true }) {
             {` · ${entry.protein || 0}g P · ${entry.carbs || 0}g C · ${entry.fat || 0}g F`}
           </p>
         </div>
-        {!selectMode && (
-          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+        {/* A PHONE GETS ONE CONTROL, NOT FOUR.
+            Four buttons were ~118px of a ~370px row -- a third of its width --
+            which is what pushed the macro line into wrapping and orphaned
+            "12g F" onto a line of its own. Shrinking them recovers ~16px and
+            the line still wraps; the count was the problem, not the size.
+            They all have a home now: this opens the SAME sheet the long press
+            does. So the gesture is a shortcut rather than the only way in, and
+            a VoiceOver user still has a real button to land on.
+            A desktop keeps all four -- it has the room, a mouse is precise
+            enough for them, and hover reveals their titles. */}
+        {!selectMode && isMobile && (
+          <div data-no-longpress style={{ flexShrink: 0 }}>
             <button
-              onClick={() => {
-                setFood(entry.food); setCalories(entry.calories.toString())
-                setProtein(entry.protein.toString()); setCarbs(entry.carbs.toString()); setFat(entry.fat.toString())
-                setServingSize(entry.serving_size.toString()); setServingUnit(entry.serving_unit || 'g')
-                setMeal(entry.meal || mealForHour(new Date().getHours()))
-                setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
-                setBaseServingSize(null); setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
-              }}
+              onClick={() => setSheet(foodSheet(entry, inMeal))}
+              style={moreBtnStyle}
+              aria-label={`Actions for ${entry.food}`}
+              title="Actions"
+            ><Icon name="more" /></button>
+          </div>
+        )}
+        {!selectMode && !isMobile && (
+          <div data-no-longpress style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+            <button
+              onClick={() => prefillFromEntry(entry)}
               style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }}
               title="Re-log"
             ><Icon name="repeat" /></button>
@@ -1114,15 +1411,36 @@ function Log({ session, profile, hasSoloPremium = true }) {
     )
   }
 
+  // What follows the finger: the row's name and its one key number, on a
+  // raised surface. Deliberately not the whole row -- no actions, no macro
+  // line -- because nothing on it can be pressed mid-drag.
+  function renderDragPreview(item) {
+    const isMeal = item.type === 'meal'
+    const title = isMeal ? item.name : item.entry.food
+    const sub = isMeal
+      ? `${item.entries.length} item${item.entries.length === 1 ? '' : 's'}${hideCalories ? '' : ` · ${item.calories} kcal`}`
+      : `${item.entry.serving_size}${item.entry.serving_unit}${hideCalories ? '' : ` · ${item.entry.calories} kcal`}`
+    return (
+      <div style={{
+        background: 'var(--color-surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',
+        padding: 'var(--space-10) var(--space-12)', transform: 'scale(1.03)', cursor: 'grabbing',
+      }}>
+        <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{title}</p>
+        <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>{sub}</p>
+      </div>
+    )
+  }
+
   // A logged meal rendered as one collapsible container item.
   function renderLoggedMeal(item, drag = null) {
     const open = expandedMeals.has(item.id)
     const currentSlot = item.entries[0]?.meal || 'other'
     const moveTargets = presentMealSlots.filter(k => k !== currentSlot)
     const moveOpen = moveItemId === item.id
+    const mealPress = bindLongPress(() => setSheet(mealSheet(item)), drag ? { touch: 'lift' } : undefined)
     return (
       <div key={item.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}>
+        <div {...mealPress} {...drag?.rowProps} className="long-pressable" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}>
           <button
             type="button"
             onClick={() => toggleMealExpand(item.id)}
@@ -1144,20 +1462,29 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </p>
           </div>
           </button>
-          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal"><Icon name="repeat" /></button>
-            <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" />
-                <polyline points="7 3 7 8 15 8" />
-              </svg>
-            </button>
-            {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
-            )}
-            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete meal" title="Delete meal"><Icon name="trash" /></button>
-          </div>
+          {/* The phone gets the food rows' one button, not four: the same sheet
+              a hold opens. This row had been missed when the food rows
+              collapsed, and kept its grip by accident. */}
+          {isMobile ? (
+            <div data-no-longpress style={{ flexShrink: 0 }}>
+              <button onClick={() => setSheet(mealSheet(item))} style={moreBtnStyle} aria-label={`Actions for ${item.name}`} title="Actions"><Icon name="more" /></button>
+            </div>
+          ) : (
+            <div data-no-longpress style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+              <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal"><Icon name="repeat" /></button>
+              <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+              </button>
+              {moveTargets.length > 0 && (
+                <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
+              )}
+              <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete meal" title="Delete meal"><Icon name="trash" /></button>
+            </div>
+          )}
         </div>
         {moveOpen && moveTargets.length > 0 && (
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', padding: '0 0 10px 22px' }}>
@@ -1181,76 +1508,155 @@ function Log({ session, profile, hasSoloPremium = true }) {
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-        <h1>Daily Log</h1>
-        {/* A3: the stepper is one control (step or pick the same value); "Today"
-            is a separate action, so it sits a group-gap out rather than inside
-            the pill. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-24)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
-            <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="left" /></button>
-            <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
-              <input
-                type="date"
-                value={selectedDate}
-                max={toLocalDateString(new Date())}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                onClick={(e) => { try { e.currentTarget.showPicker() } catch { /* unsupported → native focus opens it */ } }}
-                style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
-              />
-            </label>
-            <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="right" /></button>
-          </div>
-          {/* There was no way back to today from a past day at all: only
-              stepping forward a day at a time, or opening the native picker and
-              finding today in it. The `›` goes disabled AT today and said
-              nothing about how to return TO it.
-
-              Same control and variant as My Progress's, and it appears on the
-              same condition — only when there is somewhere to go. No muted
-              "Today" label in the at-today state the way that page has one,
-              because the stepper here already spells the date out in words. */}
-          {!isToday && (
-            <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">
-              Today
-            </Button>
-          )}
+      {/* One header at every width: the title, and ONE date control at the
+          right -- `‹ Today ›`. The middle names the day ("Today" until it
+          moves, then "Oct 22") and opens the calendar. There is no separate
+          "Today" button any more: beside the stepper it did not fit a phone
+          (the title wrapped), and on a row of its own it left a lone pill
+          under the title. The calendar, or `›`, is the way back.
+          The middle is a Button with the native date input laid over it,
+          invisible, the way the old pill did it: tapping a real date input is
+          what reliably opens the picker in a WKWebView, where showPicker() is
+          not something to lean on. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)' }}>
+        <h1 style={{ whiteSpace: 'nowrap' }}>Daily Log</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexShrink: 0 }}>
+          <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <Button variant="muted" size="sm" tabIndex={-1} aria-hidden="true" style={{ minWidth: 76 }}>{dayLabel}</Button>
+            <input
+              type="date"
+              aria-label={`Pick a day, showing ${dayLabel}`}
+              value={selectedDate}
+              max={toLocalDateString(new Date())}
+              onChange={(e) => { if (e.target.value) setSelectedDate(e.target.value) }}
+              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+            />
+          </span>
+          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
         </div>
       </div>
 
-      {/* Weight */}
+      {/* Body and activity: weight, steps and cardio in ONE card. They were
+          three cards, two of them a heading and padding around a single row,
+          and F2 already names them as one group ("three single readings").
+          Steps sits above cardio because cardio is the open-ended list and
+          its "+ Log cardio" belongs at the foot of the card. */}
       <div style={sectionStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>Weight</h2>
-          {savedWeight && !weightExpanded && (
-            <button onClick={() => setWeightExpanded(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', padding: '4px 8px' }}>Edit</button>
+        <h2>Body and activity</h2>
+
+        <div>
+          {savedWeight && !weightExpanded
+            ? renderMetricRow({
+                key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'weight' },
+                // When it was weighed (and the device, once synced). No change
+                // since yesterday: a weigh-in has no daily goal, and how it
+                // moves over time is My Progress's question, not the Log's.
+                sub: [savedWeight.weighed_at && formatTime(savedWeight.weighed_at), sourceOf(savedWeight)].filter(Boolean).join(' · ') || 'No time recorded',
+                value: `${savedWeight.weight} ${savedWeight.unit}`,
+                onEdit: () => setWeightExpanded(true), onDelete: deleteWeight,
+              })
+            : !weightExpanded && renderMetricRow({ key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'weight' }, logged: false, onLog: () => setWeightExpanded(true) })}
+          {weightExpanded && (
+            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX }}>
+              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Weight</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
+                    <option value="lbs">lbs</option>
+                    <option value="kg">kg</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <Button onClick={() => setWeightExpanded(false)} variant="ghost" size="sm">Cancel</Button>
+                  <Button onClick={() => { saveWeight(); setWeightExpanded(false) }} variant="primary" size="sm">{savedWeight ? 'Update' : 'Log Weight'}</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {savedSteps && !stepsExpanded
+            ? renderMetricRow({
+                key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'footprints' },
+                sub: [stepsGoalSub(savedSteps.steps, targets?.steps), savedSteps.distance && `${savedSteps.distance} mi`, sourceOf(savedSteps)].filter(Boolean).join(' · ') || 'No step goal set',
+                value: savedSteps.steps.toLocaleString(),
+                onEdit: () => setStepsExpanded(true), onDelete: deleteSteps,
+              })
+            : !stepsExpanded && renderMetricRow({ key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'footprints' }, logged: false, onLog: () => setStepsExpanded(true) })}
+          {stepsExpanded && (
+            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX, borderTop: '1px solid var(--color-border)' }}>
+              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Steps</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
+                  <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <Button onClick={() => setStepsExpanded(false)} variant="ghost" size="sm">Cancel</Button>
+                  <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary" size="sm">{savedSteps ? 'Update' : 'Log Steps'}</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sessions are things DONE, weight and steps are things MEASURED, and
+              as one undivided list the two kinds read as a jumble once there
+              were two sessions. The label is the meal groups' (Nutrition, just
+              below), total and all. Not drawn over the empty row, which would
+              say "Cardio" twice. */}
+          {cardioEntries.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px', marginLeft: MARK_INSET_PX, paddingRight: isMobile ? ACTION_COL_PX : 0, borderTop: '1px solid var(--color-border)' }}>
+              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>Cardio</span>
+              <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{(() => {
+                // The day's total against the target, like Steps' "98% of
+                // 9,000". Not against yesterday: cardio resets each morning.
+                const total = cardioEntries.reduce((sum, e) => sum + (e.duration || 0), 0)
+                return [formatMinutes(total), cardioGoalSub(total, targets?.cardio_minutes)].filter(Boolean).join(' · ')
+              })()}</span>
+            </div>
+          )}
+          {cardioEntries.map((e, i) => renderMetricRow({
+            key: e.id, title: e.exercise_type, first: i === 0, mark: { metric: 'cardio', glyph: 'heart' },
+            sub: [
+              e.calories_burned && `${e.calories_burned} kcal`,
+              e.avg_heart_rate && `${e.avg_heart_rate} bpm avg`,
+              sourceOf(e),
+            ].filter(Boolean).join(' · ') || 'No calories or heart rate',
+            value: formatMinutes(e.duration),
+            onEdit: () => startEditCardio(e), onDelete: () => deleteCardio(e.id),
+          }))}
+          {cardioEntries.length === 0 && !cardioExpanded &&
+            renderMetricRow({ key: 'cardio', title: 'Cardio', mark: { metric: 'cardio', glyph: 'heart' }, logged: false, onLog: () => setCardioExpanded(true) })}
+          {cardioExpanded && (
+            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX, borderTop: '1px solid var(--color-border)' }}>
+              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'Cardio'}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                  {EXERCISE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
+                  <input type="number" placeholder="Duration (min)" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />
+                  <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
+                  <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <Button
+                    onClick={() => { setCardioExpanded(false); if (editingCardio) { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate('') } }}
+                    variant="ghost"
+                    size="sm"
+                  >Cancel</Button>
+                  <Button onClick={() => { logCardio(); setCardioExpanded(false) }} variant="primary" size="sm">
+                    {editingCardio ? 'Update session' : 'Log session'}
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {savedWeight && !weightExpanded ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div>
-              <span style={{ fontSize: 'var(--text-display)', fontWeight: 700, color: 'var(--color-text)' }}>{savedWeight.weight}</span>
-              <span style={{ fontSize: 'var(--text-body)', color: 'var(--color-muted)', marginLeft: '6px' }}>{savedWeight.unit}</span>
-            </div>
-            {savedWeight.weighed_at && <p style={{ fontSize: 'var(--text-sm)' }}>{formatTime(savedWeight.weighed_at)}</p>}
-            <Button onClick={() => setWeightExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>+ Log Weight</Button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-              <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
-                <option value="lbs">lbs</option>
-                <option value="kg">kg</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              {savedWeight && <Button onClick={() => setWeightExpanded(false)} variant="ghost" size="sm">Cancel</Button>}
-              <Button onClick={() => { saveWeight(); setWeightExpanded(false) }} variant="primary" size="sm">{savedWeight ? 'Update' : 'Log Weight'}</Button>
-            </div>
-          </div>
+        {cardioEntries.length > 0 && !cardioExpanded && (
+          <Button onClick={() => setCardioExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginLeft: MARK_INSET_PX }}>+ Log cardio</Button>
         )}
       </div>
 
@@ -1350,7 +1756,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 </div>
               ))
             ) : (
-              <DndContext sensors={dndSensors} collisionDetection={pointerWithin} onDragEnd={handleDiaryDragEnd}>
+              <div onClickCapture={(e) => { if (Date.now() < suppressClickUntil.current) { e.preventDefault(); e.stopPropagation() } }}>
+              <DndContext
+                sensors={dndSensors}
+                collisionDetection={pointerWithin}
+                onDragStart={({ active }) => setDragItem(active.data.current?.item ?? null)}
+                onDragCancel={() => setDragItem(null)}
+                onDragEnd={handleDiaryDragEnd}
+              >
                 {groupEntriesByMeal(entries).map(group => (
                   <DroppableMeal key={group.key} slot={group.key}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
@@ -1363,7 +1776,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     )}
                   </DroppableMeal>
                 ))}
+                {/* The lifted copy that follows the finger. Not the row itself,
+                    so it can look picked up -- surface, the dropdown shadow, a
+                    hair larger -- while the original holds its place, faded. */}
+                <DragOverlay>
+                  {dragItem && renderDragPreview(dragItem)}
+                </DragOverlay>
               </DndContext>
+              </div>
             )}
 
             {/* Bulk action bar */}
@@ -1645,8 +2065,21 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {/* Quick add — one-tap re-log of frequently logged foods */}
         {!nutritionExpanded && !showCopyPanel && frequentFoods.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Quick add</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
+            {/* The label is the toggle: the shared disclosure control, its
+                chevron rotating open, dressed as the group label it was. */}
+            <button
+              type="button"
+              className="ds-disclosure ds-control"
+              aria-expanded={quickAddOpen}
+              aria-controls="quick-add-tiles"
+              onClick={toggleQuickAdd}
+              style={{ width: 'auto', alignSelf: 'flex-start', padding: 0, gap: 'var(--space-4)', fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+            >
+              Quick add
+              <Icon name="right" size={12} className="ds-chev" />
+            </button>
+            {quickAddOpen && (
+            <div id="quick-add-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
               {frequentFoods.map(item => {
                 const key = item.food.trim().toLowerCase()
                 const pending = quickAddKey === key
@@ -1690,6 +2123,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 )
               })}
             </div>
+            )}
           </div>
         )}
 
@@ -1800,99 +2234,27 @@ function Log({ session, profile, hasSoloPremium = true }) {
         )}
       </div>
 
-      {/* Cardio */}
-      <div style={sectionStyle}>
-        <h2>Cardio</h2>
-
-        {cardioEntries.map(e => (
-          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
-            <div>
-              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-md)' }}>{e.exercise_type}</p>
-              <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
-                {e.duration} min{e.calories_burned ? ` · ${e.calories_burned} kcal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm avg` : ''}
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '2px' }}>
-              <button onClick={() => startEditCardio(e)} style={iconBtnStyle} aria-label="Edit cardio entry" title="Edit"><Icon name="pencil" /></button>
-              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete cardio entry" title="Delete"><Icon name="trash" /></button>
-            </div>
-          </div>
-        ))}
-
-        {cardioExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-              {EXERCISE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
-              <input type="number" placeholder="Duration (min)" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />
-              <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
-              <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <Button
-                onClick={() => { setCardioExpanded(false); if (editingCardio) { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate('') } }}
-                variant="ghost"
-                size="sm"
-              >Cancel</Button>
-              <Button onClick={() => { logCardio(); setCardioExpanded(false) }} variant="primary" size="sm">
-                {editingCardio ? 'Update session' : 'Log session'}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {!cardioExpanded && (
-          <Button
-            onClick={() => setCardioExpanded(true)}
-            variant="primary"
-            size="sm"
-            style={{ alignSelf: 'flex-start' }}
-          >+ Log Cardio</Button>
-        )}
-      </div>
-
-      {/* Steps */}
-      <div style={sectionStyle}>
-        <h2>Steps</h2>
-
-        {savedSteps && !stepsExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div>
-              <span style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--color-text)' }}>{savedSteps.steps.toLocaleString()}</span>
-              <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginLeft: '8px' }}>
-                steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {stepsExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
-              <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <Button onClick={() => setStepsExpanded(false)} variant="ghost" size="sm">Cancel</Button>
-              <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary" size="sm">{savedSteps ? 'Update' : 'Log Steps'}</Button>
-            </div>
-          </div>
-        )}
-
-        {!stepsExpanded && (
-          <Button
-            onClick={() => setStepsExpanded(true)}
-            variant="muted"
-            size="sm"
-            style={{ alignSelf: 'flex-start', borderColor: 'var(--color-steps)', color: 'var(--color-steps)' }}
-          >+ Log Steps</Button>
-        )}
-      </div>
-
       {/* Body measurements */}
       <div style={sectionStyle}>
-        <h2>Measurements</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+          <h2 style={{ flex: 1 }}>Measurements</h2>
+          {/* A day without measurements -- most days, for a monthly habit --
+              is the heading and a Log button, nothing else. Not "Not logged"
+              (on 27 days of 28 that reads as a miss), and not "Last taken
+              Oct 13": when that date matters the re-measure reminder below
+              already says it. */}
+          {!savedMeas && !measExpanded && (
+            <Button onClick={() => setMeasExpanded(true)} variant="muted" size="sm">Log</Button>
+          )}
+          {savedMeas && !measExpanded && (isMobile ? (
+            <button onClick={() => setSheet(measSheet())} style={moreBtnStyle} aria-label="Actions for measurements" title="Actions"><Icon name="more" /></button>
+          ) : (
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <button onClick={() => setMeasExpanded(true)} style={iconBtnStyle} aria-label="Edit measurements" title="Edit"><Icon name="pencil" /></button>
+              <button onClick={deleteMeasurements} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete measurements" title="Delete"><Icon name="trash" /></button>
+            </div>
+          ))}
+        </div>
 
         {/* Gentle re-measure reminder once the latest is past ~monthly (steady
             cadence — deliberately not nagging; the coach view is phase-precise). */}
@@ -1905,27 +2267,45 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
               </svg>
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
-                It's been {r.daysSince} days since your last measurements — a good time to update them.
+                It's been {r.daysSince} days since your last measurements. A good time to update them.
               </span>
             </div>
           )
         })()}
 
-        {savedMeas && !measExpanded && (
-          MEASUREMENT_SITES.some(s => savedMeas[s.key] != null) ? (
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-              {MEASUREMENT_SITES.filter(s => savedMeas[s.key] != null).map(s => (
-                <div key={s.key}>
-                  <span style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-text)' }}>{savedMeas[s.key]}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginLeft: '3px' }}>{savedMeas.unit}</span>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{s.label}</div>
+        {/* A 2 x 3 grid, the body read top to bottom: neck and chest, then
+            waist and hips side by side (the pair a coach compares), then arm
+            and thigh. It was a wrapping strip that put four on one line and
+            stranded two under it, a grid with a hole (F2), its columns
+            misaligned. Every cell holds its place: a skipped site says "--"
+            rather than collapsing the grid. Values only: change since the
+            last measurement is a trend, and trends live on My Progress.
+            Edit and Delete live behind the header's `more`, as on every other
+            record on this page. */}
+        {savedMeas && !measExpanded && (() => {
+          return (
+            <div
+              {...bindLongPress(() => setSheet(measSheet()))}
+              className="long-pressable"
+              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 'var(--space-16)', rowGap: 'var(--space-12)' }}
+            >
+              {MEASUREMENT_SITES.map(m => (
+                <div key={m.key} style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{m.label}</p>
+                  <p style={{ marginTop: '2px', whiteSpace: 'nowrap' }}>
+                    {savedMeas[m.key] != null ? (
+                      <span className="tnum" style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text)' }}>
+                        {Number(savedMeas[m.key]).toFixed(1)}<span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)', marginLeft: '3px' }}>{savedMeas.unit}</span>
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 'var(--text-md)', color: 'var(--color-muted)' }}>&ndash;</span>
+                    )}
+                  </p>
                 </div>
               ))}
             </div>
-          ) : (
-            <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>No measurements recorded for this day.</span>
           )
-        )}
+        })()}
 
         {measExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1950,11 +2330,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         )}
 
-        {!measExpanded && (
-          <Button onClick={() => setMeasExpanded(true)} variant="primary" size="sm" style={{ alignSelf: 'flex-start' }}>
-            {savedMeas ? 'Edit measurements' : '+ Log measurements'}
-          </Button>
-        )}
       </div>
 
       <ConfirmDialog
@@ -1967,6 +2342,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
         onConfirm={() => { const fn = dialog?.onConfirm; setDialog(null); fn?.() }}
         onCancel={() => setDialog(null)}
       />
+      {/* The long-press menu for a logged row. One instance for the page: only
+          one press can be in flight, so a sheet per row would be 40 portals
+          waiting to render nothing. */}
+      <ActionSheet
+        open={Boolean(sheet)}
+        title={sheet?.title}
+        actions={sheet?.actions || []}
+        onClose={() => setSheet(null)}
+      />
+
       <Toast message={toast?.message} type={toast?.type} action={toast?.action} onClose={() => setToast(null)} />
     </div>
   )
