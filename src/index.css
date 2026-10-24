@@ -1672,6 +1672,13 @@ nav a:hover {
 /* Pad trailing content clear of the fixed bottom bar (and lift the client
    chat FAB above it) whenever the bar is on screen. */
 @media (max-width: 600px) {
+  /* The content-column way back, OFF — the tab bar below carries a "Clients"
+     tab from here down, and two of them in one view is one too many. Above
+     600 it is the only exit until the rail appears at 1024, which is the gap
+     it exists to cover. Kept beside the tab bar deliberately: the two are one
+     decision, and splitting them is how the gap opened in the first place. */
+  .cv-backbar { display: none !important; }
+
   body.has-bottom-nav main {
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
   }

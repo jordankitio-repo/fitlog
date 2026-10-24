@@ -2238,6 +2238,23 @@ async function sendMessage(text) {
       <SectionRail groups={railGroups} footer={railFooter} activeKey={activeSection} onJump={handleRailJump}
         onBack={() => navigate('/')} backLabel="All clients" />
       <div className="cv-main">
+      {/* THE WAY OFF THIS RECORD WHEN THERE IS NO RAIL.
+          Two navigation systems governed this page and their breakpoints did
+          not meet: the rail appears from 1024px, the bottom tab bar (which
+          carries a "Clients" tab) only below 600. Between 601 and 1023 — a
+          desktop window dragged narrower — there was NOTHING. No rail, no tab
+          bar, and the summary route has no back link of its own, so the only
+          exits were the browser's own and the logo.
+          Rendered whenever the rail is gone and hidden by CSS at the same
+          600px line the tab bar takes over at (.cv-backbar), so the two can
+          never drift apart again. */}
+      {!hasRail && (
+        <Link to="/" className="cv-backbar ds-disclosure ds-control" style={{ width: 'auto', textDecoration: 'none' }}>
+          <Icon name="left" size={14} />
+          <span>All clients</span>
+        </Link>
+      )}
+
       {/* The header, composed once and laid out twice.
           On a phone it was four stacked fragments with no grouping: a name over
           an email over a red status over a second red word over a muted
