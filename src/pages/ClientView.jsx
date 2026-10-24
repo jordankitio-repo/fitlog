@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState'
 import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
+import CheckinReview from '../components/CheckinReview'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ReportProse from '../components/ReportProse'
 import Modal from '../components/Modal'
@@ -360,7 +361,6 @@ function ClientView({ profile }) {
   const [showTargetCalc, setShowTargetCalc] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
 
-  const [reviewComment, setReviewComment] = useState('')
   const [reviewing, setReviewing] = useState(false)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [daysSinceLog, setDaysSinceLog] = useState(null)
@@ -947,14 +947,16 @@ async function fetchStepsHistory() {
     setNextWaiting({ id: queue[0], name: who?.full_name || 'the next client', remaining: queue.length })
   }
 
-  async function reviewCheckIn() {
+  // The comment comes FROM the component now: it owns the box, this page owns
+  // what happens to what is typed in it.
+  async function reviewCheckIn(text = '') {
     if (!clientCheckIn?.id) return
     setReviewing(true)
-    const comment = reviewComment.trim() || null
+    const comment = String(text).trim() || null
     const { error } = await supabase.rpc('review_checkin', { p_id: clientCheckIn.id, p_comment: comment })
     if (error) console.error('Error reviewing check-in:', error)
     else {
-      setReviewComment(''); fetchClientCheckIn(); loadNextWaiting()
+      fetchClientCheckIn(); loadNextWaiting()
       // Notify the client by email; their bell derives the event from check_ins.
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {
@@ -3113,100 +3115,29 @@ async function sendMessage(text) {
               </Notice>
             </div>
           )}
-          {!clientCheckIn ? (
-            <div style={{ paddingTop: 'var(--space-8)' }}>
-              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted yet.</p>
-            </div>
-          ) : (
-            <>
-              {/* ALWAYS name the week it covers. The heading says how recent it
-                  is; this says exactly which one, so a coach is never reading
-                  ratings without knowing what they are ratings OF. */}
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-10)' }}>
-                Week of {parseLocalDateString(clientCheckIn.week_of).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                {!checkinCurrent && <> · <span style={{ color: 'var(--color-warning)' }}>none since</span></>}
-              </p>
-              {Array.isArray(clientCheckIn.answers) && clientCheckIn.answers.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
-                  {clientCheckIn.answers.map((a, i) => (
-                    <div key={a.question_id || i}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.prompt}</p>
-                      {a.type === 'text'
-                        ? <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{(a.value && String(a.value).trim()) ? a.value : '—'}</p>
-                        : <p style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-subhead)' }}>{formatAnswer(a)}</p>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
-                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Adherence</p>
-                      <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
-                    </div>
-                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Energy level</p>
-                      <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{clientCheckIn.energy_level}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
-                    </div>
-                  </div>
-                  {clientCheckIn.obstacles && (
-                    <div style={{ paddingTop: 'var(--space-4)' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 'var(--space-8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
-                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
-                    </div>
-                  )}
-                  {clientCheckIn.notes && (
-                    <div style={{ paddingTop: 'var(--space-4)' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 'var(--space-8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
-                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
-                    </div>
-                  )}
-                </>
-              )}
-              <div style={{ paddingTop: 'var(--space-12)', marginTop: 'var(--space-4)', borderTop: '1px solid var(--color-border)' }}>
-                {clientCheckIn.reviewed_at ? (
-                  <>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}><Icon name="check" /> Reviewed</p>
-                    {clientCheckIn.coach_comment && (
-                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6', marginTop: 'var(--space-6)' }}>{clientCheckIn.coach_comment}</p>
-                    )}
-                    {/* THE QUEUE ADVANCES. Only after a review done on this
-                        visit — `nextWaiting` is null until loadNextWaiting runs,
-                        which only reviewCheckIn calls — so a record opened to
-                        read an already-reviewed check-in stays quiet.
-                        It names WHO, because "next" on its own asks the coach to
-                        trust a queue they cannot see, and the count so they know
-                        whether this is the last one. */}
-                    {nextWaiting && (
-                      <div style={{ marginTop: 'var(--space-12)' }}>
-                        <Button
-                          onClick={() => navigate(`/client/${nextWaiting.id}?focus=checkIn`)}
-                          variant="primary"
-                          size="sm"
-                        >
-                          Next: {nextWaiting.name.split(' ')[0]}
-                          {nextWaiting.remaining > 1 ? ` · ${nextWaiting.remaining} left` : ''}
-                          <Icon name="right" />
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Textarea
-                      value={reviewComment}
-                      onChange={(e) => setReviewComment(e.target.value)}
-                      placeholder="Comment for the client (optional)…"
-                      rows={2}
-                      aria-label="Comment for the client"
-                      style={{ resize: 'vertical' }}
-                    />
-                    <Button onClick={reviewCheckIn} variant="primary" size="sm" loading={reviewing} style={{ marginTop: 'var(--space-8)' }}>Mark reviewed</Button>
-                  </>
-                )}
+          {/* The check-in itself lives in CheckinReview, shared with the
+              review queue — see that file for what stayed here and why. The
+              footer is this page's contribution: when a review has just been
+              done, the next client who is waiting. */}
+          <CheckinReview
+            checkIn={clientCheckIn}
+            current={checkinCurrent}
+            reviewing={reviewing}
+            onReview={reviewCheckIn}
+            footer={nextWaiting && (
+              <div style={{ marginTop: 'var(--space-12)' }}>
+                <Button
+                  onClick={() => navigate(`/client/${nextWaiting.id}?focus=checkIn`)}
+                  variant="primary"
+                  size="sm"
+                >
+                  Next: {nextWaiting.name.split(' ')[0]}
+                  {nextWaiting.remaining > 1 ? ` · ${nextWaiting.remaining} left` : ''}
+                  <Icon name="right" />
+                </Button>
               </div>
-            </>
-          )}
+            )}
+          />
           </div>
         </SectionHeader>
       </div>

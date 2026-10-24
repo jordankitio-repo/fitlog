@@ -27,6 +27,7 @@ const ConsumerHealthData = lazy(() => import('./pages/ConsumerHealthData'))
 // Reading a coach report is its own page, not a section that expands inside the
 // dashboard — see pages/Reports.jsx.
 const Coach = lazy(() => import('./pages/Coach'))
+const CheckinQueue = lazy(() => import('./pages/CheckinQueue'))
 
 // Coach paywall is OFF for now — coaches use the app free while we're
 // pre-public. Flip back to `true` to re-enable the paywall + trial gating when
@@ -172,6 +173,11 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
                 phone. See Profile.jsx. */}
             <Route path="/profile/:section" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
             <Route path="/coach" element={session ? <Coach profile={profile} /> : <Navigate to="/login" />} />
+            {/* The review queue, and the same queue with one check-in open over
+                it. URL-addressed like /coach/reports, so a coach can be sent
+                straight to a check-in and still land on the list on closing. */}
+            <Route path="/check-ins" element={session ? <CheckinQueue profile={profile} /> : <Navigate to="/login" />} />
+            <Route path="/check-ins/:clientId" element={session ? <CheckinQueue profile={profile} /> : <Navigate to="/login" />} />
             {/* The archive is a modal over the thread, not a page of its own.
                 The URL still addresses it, so a link opens the thread with it up. */}
             <Route path="/coach/reports" element={session ? <Coach profile={profile} archiveOpen /> : <Navigate to="/login" />} />

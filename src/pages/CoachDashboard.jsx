@@ -390,7 +390,11 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
           roster={summarizeRoster(clientStats)}
           checkedIn={clients.filter(c => clientStats[c.client_id]?.checkIn).length}
           total={clients.length}
-          onReviewClick={reviewClientIds.length ? () => navigate(`/client/${reviewClientIds[0]}?focus=checkIn`) : undefined}
+          /* To the LIST, not to whichever client waited longest. Picking for
+             the coach treated clients as interchangeable — they are not, and a
+             coach who knows which one is drifting wants to start there. The
+             chain is still available, inside the pop-up. */
+          onReviewClick={reviewClientIds.length ? () => navigate('/check-ins') : undefined}
         />
       )}
 

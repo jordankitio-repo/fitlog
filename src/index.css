@@ -784,6 +784,42 @@ body {
    second rule under the label. */
 .rep-month + .rep-row { border-top: none; }
 
+/* The review queue's rows. The same shape as a report row — avatar, a body
+   that truncates, a chevron — because it is the same gesture: a list of things
+   from people, one of which you open. Reusing the geometry rather than the
+   class, since a check-in row carries an avatar the report row does not. */
+.ciq-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-12);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-16) 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.ciq-row:first-child { border-top: none; }
+.ciq-row:hover { background-color: var(--color-surface-2); }
+.ciq-row:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; border-radius: var(--radius); }
+.ciq-body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.ciq-head { display: flex; align-items: baseline; gap: var(--space-8); flex-wrap: wrap; }
+.ciq-name { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
+.ciq-when { font-size: var(--text-sm); color: var(--color-muted); }
+/* One line. The preview is a hint at the submission, not the submission — it
+   is cut at the column edge rather than a character count that lands mid-word. */
+.ciq-preview {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .rep-row-body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .rep-row-head { display: flex; align-items: baseline; gap: var(--space-8); }
 /* The row title. When a report has a subject this is it; when it does not, the
