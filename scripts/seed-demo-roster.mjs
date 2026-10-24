@@ -276,13 +276,21 @@ for (const s of SPECS) {
   // clients, which is what puts them in "needs review" on the roster.
   for (let w = 0; w < s.checkIns; w++) {
     const isLatest = w === 0
+    // created_at matters, and defaulting it was a real fixture bug: every one
+    // of these eight weeks landed at the same instant, so the notification bell
+    // showed "Dan Moreau checked in · 1m ago" three times in a row and the
+    // duplicate pile looked like a product defect. A check-in is submitted in
+    // the week it belongs to.
+    const submitted = new Date(Date.now() - w * 7 * 864e5)
     await admin.from('check_ins').insert({
-      client_id: clientId, week_of: weekSundayAgo(w),
+      client_id: clientId, week_of: weekSundayAgo(w), created_at: submitted.toISOString(),
       adherence_rating: Math.max(1, Math.min(10, s.adh + (w === 0 ? 0 : Math.round((rnd() - 0.5) * 2)))),
       energy_level: Math.max(1, Math.min(10, s.nrg + (w === 0 ? 0 : Math.round((rnd() - 0.5) * 2)))),
       notes: isLatest ? 'Travel midweek made dinners harder, otherwise steady.' : 'Good week overall.',
       ...(!isLatest || s.reviewed
-        ? { reviewed_at: new Date(Date.now() - w * 7 * 864e5).toISOString(), coach_comment: 'Strong week. Hold the same plan.' }
+        // A day after it was submitted, not the same instant — and never in
+        // the future, which `w - 1` would be for this week's.
+        ? { reviewed_at: new Date(Math.min(Date.now(), +submitted + 864e5)).toISOString(), coach_comment: 'Strong week. Hold the same plan.' }
         : {}),
     })
   }

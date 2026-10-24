@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
+import { refreshNotifications } from '../utils/notifyRefresh'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import SectionHeader from '../components/SectionHeader'
 import Toast from '../components/Toast'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
+import CheckinReview from '../components/CheckinReview'
 import ComplianceSummary from '../components/ComplianceSummary'
 import ReportProse from '../components/ReportProse'
 import Modal from '../components/Modal'
@@ -353,7 +355,6 @@ function ClientView({ profile }) {
   const [showTargetCalc, setShowTargetCalc] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
 
-  const [reviewComment, setReviewComment] = useState('')
   const [reviewing, setReviewing] = useState(false)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [daysSinceLog, setDaysSinceLog] = useState(null)
@@ -914,14 +915,19 @@ async function fetchStepsHistory() {
     }
   }
 
-  async function reviewCheckIn() {
+  async function reviewCheckIn(text = '') {
     if (!clientCheckIn?.id) return
     setReviewing(true)
-    const comment = reviewComment.trim() || null
+    const comment = String(text).trim() || null
     const { error } = await supabase.rpc('review_checkin', { p_id: clientCheckIn.id, p_comment: comment })
     if (error) console.error('Error reviewing check-in:', error)
     else {
-      setReviewComment(''); fetchClientCheckIn()
+      fetchClientCheckIn()
+      // The coach's own bell carries a live "no check-in" alert for this
+      // client, and reviewing clears the condition behind it. Without this the
+      // alert sits there until a navigation or a tab refocus. The RECEIPT
+      // ("Dan checked in") deliberately stays — see NotificationCenter.
+      refreshNotifications()
       // Notify the client by email; their bell derives the event from check_ins.
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {
@@ -2203,6 +2209,23 @@ async function sendMessage(text) {
       <SectionRail groups={railGroups} footer={railFooter} activeKey={activeSection} onJump={handleRailJump}
         onBack={() => navigate('/')} backLabel="All clients" />
       <div className="cv-main">
+      {/* THE WAY OFF THIS RECORD WHEN THERE IS NO RAIL.
+          Two navigation systems governed this page and their breakpoints did
+          not meet: the rail appears from 1024px, the bottom tab bar (which
+          carries a "Clients" tab) only below 600. Between 601 and 1023 — a
+          desktop window dragged narrower — there was NOTHING. No rail, no tab
+          bar, and the summary route has no back link of its own, so the only
+          exits were the browser's own and the logo.
+          Rendered whenever the rail is gone and hidden by CSS at the same
+          600px line the tab bar takes over at (.cv-backbar), so the two can
+          never drift apart again. */}
+      {!hasRail && (
+        <Link to="/" className="cv-backbar ds-disclosure ds-control" style={{ width: 'auto', textDecoration: 'none' }}>
+          <Icon name="left" size={14} />
+          <span>All clients</span>
+        </Link>
+      )}
+
       {/* The header, composed once and laid out twice.
           On a phone it was four stacked fragments with no grouping: a name over
           an email over a red status over a second red word over a muted
@@ -3080,80 +3103,25 @@ async function sendMessage(text) {
               </Notice>
             </div>
           )}
-          {!clientCheckIn ? (
-            <div style={{ paddingTop: 'var(--space-8)' }}>
-              <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>No check-in submitted yet.</p>
-            </div>
-          ) : (
-            <>
-              {/* ALWAYS name the week it covers. The heading says how recent it
-                  is; this says exactly which one, so a coach is never reading
-                  ratings without knowing what they are ratings OF. */}
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-10)' }}>
-                Week of {parseLocalDateString(clientCheckIn.week_of).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                {!checkinCurrent && <> · <span style={{ color: 'var(--color-warning)' }}>none since</span></>}
-              </p>
-              {Array.isArray(clientCheckIn.answers) && clientCheckIn.answers.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
-                  {clientCheckIn.answers.map((a, i) => (
-                    <div key={a.question_id || i}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a.prompt}</p>
-                      {a.type === 'text'
-                        ? <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{(a.value && String(a.value).trim()) ? a.value : '—'}</p>
-                        : <p style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-subhead)' }}>{formatAnswer(a)}</p>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
-                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Adherence</p>
-                      <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{clientCheckIn.adherence_rating}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
-                    </div>
-                    <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Energy level</p>
-                      <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{clientCheckIn.energy_level}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
-                    </div>
-                  </div>
-                  {clientCheckIn.obstacles && (
-                    <div style={{ paddingTop: 'var(--space-4)' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 'var(--space-8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
-                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{clientCheckIn.obstacles}</p>
-                    </div>
-                  )}
-                  {clientCheckIn.notes && (
-                    <div style={{ paddingTop: 'var(--space-4)' }}>
-                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 'var(--space-8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
-                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{clientCheckIn.notes}</p>
-                    </div>
-                  )}
-                </>
-              )}
-              <div style={{ paddingTop: 'var(--space-12)', marginTop: 'var(--space-4)', borderTop: '1px solid var(--color-border)' }}>
-                {clientCheckIn.reviewed_at ? (
-                  <>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}><Icon name="check" /> Reviewed</p>
-                    {clientCheckIn.coach_comment && (
-                      <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6', marginTop: 'var(--space-6)' }}>{clientCheckIn.coach_comment}</p>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Textarea
-                      value={reviewComment}
-                      onChange={(e) => setReviewComment(e.target.value)}
-                      placeholder="Comment for the client (optional)…"
-                      rows={2}
-                      aria-label="Comment for the client"
-                      style={{ resize: 'vertical' }}
-                    />
-                    <Button onClick={reviewCheckIn} variant="primary" size="sm" loading={reviewing} style={{ marginTop: 'var(--space-8)' }}>Mark reviewed</Button>
-                  </>
-                )}
-              </div>
-            </>
-          )}
+          {/* The check-in itself lives in CheckinReview, shared with the
+              review queue — see that file for what stayed here and why.
+              NO footer here, deliberately. Reviewing from /check-ins is
+              draining a list, and the next one belongs under it; opening a
+              client's record is about THAT client, and being pushed at
+              somebody else afterwards is a different job starting itself. The
+              chain lives on the queue page, which is the surface that means
+              it. */}
+          {/* Keyed for the reason the queue's copy is: react-router keeps this
+              page mounted when only :clientId changes, so going from one
+              client to another (from the bell, say) would otherwise carry the
+              half-typed comment across. */}
+          <CheckinReview
+            key={clientCheckIn?.id}
+            checkIn={clientCheckIn}
+            current={checkinCurrent}
+            reviewing={reviewing}
+            onReview={reviewCheckIn}
+          />
           </div>
         </SectionHeader>
       </div>

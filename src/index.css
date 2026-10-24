@@ -784,6 +784,42 @@ body {
    second rule under the label. */
 .rep-month + .rep-row { border-top: none; }
 
+/* The review queue's rows. The same shape as a report row — avatar, a body
+   that truncates, a chevron — because it is the same gesture: a list of things
+   from people, one of which you open. Reusing the geometry rather than the
+   class, since a check-in row carries an avatar the report row does not. */
+.ciq-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-12);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-16) 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.ciq-row:first-child { border-top: none; }
+.ciq-row:hover { background-color: var(--color-surface-2); }
+.ciq-row:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; border-radius: var(--radius); }
+.ciq-body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.ciq-head { display: flex; align-items: baseline; gap: var(--space-8); flex-wrap: wrap; }
+.ciq-name { font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--color-text); }
+.ciq-when { font-size: var(--text-sm); color: var(--color-muted); }
+/* One line. The preview is a hint at the submission, not the submission — it
+   is cut at the column edge rather than a character count that lands mid-word. */
+.ciq-preview {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .rep-row-body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .rep-row-head { display: flex; align-items: baseline; gap: var(--space-8); }
 /* The row title. When a report has a subject this is it; when it does not, the
@@ -928,6 +964,25 @@ body {
     top: 60px !important;
   }
 }
+
+/* "Clear all" in the bell's header. A bare text action, not a Button: it sits
+   inside a 360px dropdown header beside a title, and a bordered control there
+   reads as the panel's primary act when it is the opposite — the quiet way out
+   of a list you have already dealt with elsewhere. Carries ds-control so the
+   blanket brightness hover stays off it and the colour change below is the one
+   that renders. */
+.notif-clear {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-muted);
+  transition: color 0.15s ease;
+}
+.notif-clear:hover { color: var(--color-text); }
+.notif-clear:active { color: var(--color-text-dim); }
 
 /* The day panel's two groups.
    `repeat(auto-fit, minmax(160px, 1fr))` gave four across a desktop and ONE
@@ -1636,6 +1691,13 @@ nav a:hover {
 /* Pad trailing content clear of the fixed bottom bar (and lift the client
    chat FAB above it) whenever the bar is on screen. */
 @media (max-width: 600px) {
+  /* The content-column way back, OFF — the tab bar below carries a "Clients"
+     tab from here down, and two of them in one view is one too many. Above
+     600 it is the only exit until the rail appears at 1024, which is the gap
+     it exists to cover. Kept beside the tab bar deliberately: the two are one
+     decision, and splitting them is how the gap opened in the first place. */
+  .cv-backbar { display: none !important; }
+
   body.has-bottom-nav main {
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
   }
@@ -1978,7 +2040,15 @@ button, a, input, select, textarea {
   width: 100%;
   background: none; border: none; cursor: pointer; font: inherit;
   font-size: var(--text-base); font-weight: var(--weight-medium);
-  color: var(--color-faint);
+  /* --color-text, not --color-faint.
+     This is the ONLY way off a client record on a desktop — a phone has the tab
+     bar, a desktop has this and the logo — and it was being drawn in the
+     faintest text token the app owns, FAINTER than the rail items under it
+     (--color-muted). So the one navigational action in the column read as less
+     important than the anchors that merely scroll the page you are already on,
+     and a coach reported there was no way back at all. The hierarchy was
+     upside down: leaving is navigation, a scroll target is a convenience. */
+  color: var(--color-text);
   padding: var(--space-8) var(--space-12);
   min-height: 40px;
   border-radius: var(--radius);
