@@ -17,6 +17,7 @@ import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '.
 import { controlStyle, Icon } from '../components/ui'
 import ActionSheet from '../components/ActionSheet'
 import { useLongPress } from '../hooks/useLongPress'
+import { formatMinutes, stepsGoalSub, weightDeltaSub } from '../utils/metricRows'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
 const unitConversions = {
@@ -213,6 +214,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [steps, setSteps] = useState('')
   const [distance, setDistance] = useState('')
   const [savedSteps, setSavedSteps] = useState(null)
+  // Context for the Body and activity rows: the step target (from the same
+  // targets row My Progress reads) and the weigh-in before this day's.
+  const [targets, setTargets] = useState(null)
+  const [prevWeight, setPrevWeight] = useState(null)
 
   // Body-measurement state (one row per date; sites in MEASUREMENT_SITES)
   const [meas, setMeas] = useState({ unit: 'in', neck: '', chest: '', waist: '', hips: '', arm: '', thigh: '' })
@@ -235,6 +240,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchLastMeasured()
     setFeedback('')
   }, [selectedDate])
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+    supabase.from('targets').select('steps').eq('user_id', session.user.id).maybeSingle()
+      .then(({ data, error }) => { if (error) console.error(error); else setTargets(data) })
+  }, [session?.user?.id])
 
   useEffect(() => {
     async function loadHideCalories() {
@@ -888,6 +899,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
     // own Log button. (This was an effect on savedWeight, null on the first
     // render before this fetch lands, so every day loaded mid-edit.)
     setWeightExpanded(false)
+    if (!row || !session?.user?.id) { setPrevWeight(null); return }
+    const { data: prev } = await supabase
+      .from('weight_log').select('weight, unit, logged_date')
+      .eq('user_id', session.user.id)
+      .lt('logged_date', selectedDate)
+      .order('logged_date', { ascending: false }).order('created_at', { ascending: false })
+      .limit(1)
+    setPrevWeight(prev?.[0] ?? null)
   }
 
   async function saveWeight() {
@@ -924,14 +943,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   async function deleteWeight() {
     if (!savedWeight) return
-    const { error } = await supabase.from('weight_log').delete().eq('id', savedWeight.id)
-    if (error) {
-      console.error(error)
-      showToast('Couldn\'t delete your weight. Try again.', 'error')
-      return
-    }
-    fetchWeight()
+    await deleteWithUndo({
+      table: 'weight_log', match: { id: savedWeight.id }, rows: [savedWeight], label: 'Weight',
+      refresh: fetchWeight,
+    })
   }
+
 
   // Cardio functions
   async function fetchCardioEntries() {
@@ -971,7 +988,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const row = cardioEntries.find(e => e.id === id)
     if (!row) return
     await deleteWithUndo({
-      table: 'cardio_log', match: { id }, rows: [row], label: row.activity || 'Cardio entry',
+      table: 'cardio_log', match: { id }, rows: [row], label: row.exercise_type || 'Cardio entry',
       refresh: fetchCardioEntries,
     })
   }
@@ -1030,14 +1047,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   async function deleteSteps() {
     if (!savedSteps) return
-    const { error } = await supabase.from('steps_log').delete().eq('id', savedSteps.id)
-    if (error) {
-      console.error(error)
-      showToast('Couldn\'t delete your steps. Try again.', 'error')
-      return
-    }
-    fetchSteps()
+    await deleteWithUndo({
+      table: 'steps_log', match: { id: savedSteps.id }, rows: [savedSteps], label: 'Steps',
+      refresh: fetchSteps,
+    })
   }
+
 
   async function fetchLastMeasured() {
     if (!session?.user?.id) return
@@ -1104,6 +1119,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
     background: 'none', border: 'none', cursor: 'pointer',
     padding: '4px 6px', fontSize: 'var(--text-base)', color: 'var(--color-muted)'
   }
+  // The phone's one row control. The glyph is the same size as before, but
+  // the press area is 44x44 (Apple's floor; it was ~28x24, and four of them
+  // stacked in a column took aim). Negative margins give the extra area back,
+  // so the row's height and the glyph's position do not move.
+  const moreBtnStyle = {
+    ...iconBtnStyle, width: 44, height: 44, padding: 0, margin: '-8px -8px -8px -8px',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  }
+  // How far a row's value sits from the row's right edge on a phone: the more
+  // button's footprint (44 less its two -8 margins) plus the row's 10px gap.
+  // A group total on the right lines up with the values only if it is inset
+  // by the same amount.
+  const ACTION_COL_PX = 44 - 16 + 10
+
   // The number at the right of a cardio or steps row: .trend-value at its
   // phone size, so a session reads the way a Trends row on My Progress does.
   const rowValueStyle = {
@@ -1166,7 +1195,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             sheet the long press opens; the desktop keeps the named icons. */}
         {isMobile ? (
           <div data-no-longpress style={{ flexShrink: 0 }}>
-            <button onClick={openSheet} style={iconBtnStyle} aria-label={`Actions for ${title}`} title="Actions"><Icon name="more" /></button>
+            <button onClick={openSheet} style={moreBtnStyle} aria-label={`Actions for ${title}`} title="Actions"><Icon name="more" /></button>
           </div>
         ) : (
           <div data-no-longpress style={{ display: 'flex', gap: '2px' }}>
@@ -1247,7 +1276,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 title: entry.food,
                 actions: entrySheetActions,
               })}
-              style={iconBtnStyle}
+              style={moreBtnStyle}
               aria-label={`Actions for ${entry.food}`}
               title="Actions"
             ><Icon name="more" /></button>
@@ -1414,7 +1443,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           {savedWeight && !weightExpanded
             ? renderMetricRow({
                 key: 'weight', title: 'Weight', first: true,
-                sub: [savedWeight.weighed_at && formatTime(savedWeight.weighed_at), sourceOf(savedWeight)].filter(Boolean).join(' · ') || 'No time',
+                sub: [savedWeight.weighed_at && formatTime(savedWeight.weighed_at), weightDeltaSub(savedWeight, prevWeight), sourceOf(savedWeight)].filter(Boolean).join(' · ') || 'First weigh-in',
                 value: `${savedWeight.weight} ${savedWeight.unit}`,
                 onEdit: () => setWeightExpanded(true), onDelete: deleteWeight,
               })
@@ -1441,7 +1470,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           {savedSteps && !stepsExpanded
             ? renderMetricRow({
                 key: 'steps', title: 'Steps',
-                sub: [savedSteps.distance && `${savedSteps.distance} mi`, sourceOf(savedSteps)].filter(Boolean).join(' · ') || 'No distance',
+                sub: [stepsGoalSub(savedSteps.steps, targets?.steps), savedSteps.distance && `${savedSteps.distance} mi`, sourceOf(savedSteps)].filter(Boolean).join(' · ') || 'No step goal set',
                 value: savedSteps.steps.toLocaleString(),
                 onEdit: () => setStepsExpanded(true), onDelete: deleteSteps,
               })
@@ -1462,14 +1491,25 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </div>
           )}
 
-          {cardioEntries.map(e => renderMetricRow({
-            key: e.id, title: e.exercise_type,
+          {/* Sessions are things DONE, weight and steps are things MEASURED, and
+              as one undivided list the two kinds read as a jumble once there
+              were two sessions. The label is the meal groups' (Nutrition, just
+              below), total and all. Not drawn over the empty row, which would
+              say "Cardio" twice. */}
+          {cardioEntries.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px', paddingRight: isMobile ? ACTION_COL_PX : 0, borderTop: '1px solid var(--color-border)' }}>
+              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>Cardio</span>
+              <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{formatMinutes(cardioEntries.reduce((sum, e) => sum + (e.duration || 0), 0))}</span>
+            </div>
+          )}
+          {cardioEntries.map((e, i) => renderMetricRow({
+            key: e.id, title: e.exercise_type, first: i === 0,
             sub: [
               e.calories_burned && `${e.calories_burned} kcal`,
               e.avg_heart_rate && `${e.avg_heart_rate} bpm avg`,
               sourceOf(e),
             ].filter(Boolean).join(' · ') || 'No calories or heart rate',
-            value: `${e.duration} min`,
+            value: formatMinutes(e.duration),
             onEdit: () => startEditCardio(e), onDelete: () => deleteCardio(e.id),
           }))}
           {cardioEntries.length === 0 && !cardioExpanded &&
