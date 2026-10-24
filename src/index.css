@@ -965,7 +965,7 @@ body {
   }
 }
 
-/* "Clear n" in the bell's header. A bare text action, not a Button: it sits
+/* "Clear all" in the bell's header. A bare text action, not a Button: it sits
    inside a 360px dropdown header beside a title, and a bordered control there
    reads as the panel's primary act when it is the opposite — the quiet way out
    of a list you have already dealt with elsewhere. Carries ds-control so the

@@ -13,9 +13,13 @@ import { parseLocalDateString } from '../utils/dateHelpers'
 // check-in: the cadence control, its confirmation, the section header.
 //
 // It owns the comment box and nothing else. Whether a review succeeded, what to
-// do afterwards, and what sits under the Reviewed line are the caller's — the
-// record offers the next client in the queue there, the queue page offers the
-// same thing plus a way into the record.
+// do afterwards, and what sits under the Reviewed line are the caller's: the
+// queue page puts the next waiting client there, and the client record
+// deliberately puts nothing (chaining belongs to the queue — see ClientView).
+//
+// MOUNT ONE PER CHECK-IN. The comment box is state in here, so both callers key
+// this component by the check-in's id; reusing an instance across two different
+// check-ins carries one client's half-typed note into another's box.
 export default function CheckinReview({ checkIn, current = true, reviewing = false, onReview, footer = null }) {
   const [comment, setComment] = useState('')
 

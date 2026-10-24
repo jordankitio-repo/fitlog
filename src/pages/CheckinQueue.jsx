@@ -207,7 +207,16 @@ export default function CheckinQueue({ profile }) {
                 Open record <Icon name="right" size={14} />
               </Button>
             </div>
+            {/* KEYED BY THE CHECK-IN. Without this React reuses the instance
+                across Next, because the element type and position do not
+                change — and the comment box is state inside it. Measured: type
+                a note for Dan, mark reviewed, press Next, and Dan's note is
+                sitting in Gia's box one click from being sent to her. A key is
+                the fix rather than an effect that clears the text, because the
+                box genuinely belongs to one check-in and should be born and
+                die with it. */}
             <CheckinReview
+              key={open.checkIn?.id}
               checkIn={open.checkIn}
               current={open.current}
               reviewing={reviewing}

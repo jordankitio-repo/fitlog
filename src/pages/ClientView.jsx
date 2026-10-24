@@ -3111,7 +3111,12 @@ async function sendMessage(text) {
               somebody else afterwards is a different job starting itself. The
               chain lives on the queue page, which is the surface that means
               it. */}
+          {/* Keyed for the reason the queue's copy is: react-router keeps this
+              page mounted when only :clientId changes, so going from one
+              client to another (from the bell, say) would otherwise carry the
+              half-typed comment across. */}
           <CheckinReview
+            key={clientCheckIn?.id}
             checkIn={clientCheckIn}
             current={checkinCurrent}
             reviewing={reviewing}
