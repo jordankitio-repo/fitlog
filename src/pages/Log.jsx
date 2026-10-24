@@ -1100,7 +1100,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
   function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
   const isToday = selectedDate === toLocalDateString(new Date())
 
-  const displayDate = parseLocalDateString(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+  // The date control's middle: "Today" until the day moves, then the day's
+  // date. Short month, so the whole header holds one line on a 375pt phone.
+  const dayLabel = isToday
+    ? 'Today'
+    : parseLocalDateString(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   const totalCalories = entries.reduce((s, e) => s + (e.calories || 0), 0)
   const totalProtein = entries.reduce((s, e) => s + (e.protein || 0), 0)
@@ -1159,11 +1163,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // then the actions -- the Trends row's shape. `logged: false` is the empty
   // state, which says so (F3) and carries a Log button where the number goes.
   // `first` drops the top rule: rules separate records, not card from heading.
-  function renderMetricRow({ key, title, sub, value, logged = true, first = false, onLog, onEdit, onDelete }) {
+  function renderMetricRow({ key, title, sub, value, mark, logged = true, first = false, onLog, onEdit, onDelete }) {
     const rule = first ? {} : { borderTop: '1px solid var(--color-border)' }
+    // The metric's hue as a FILL (a 16% disc behind its glyph), the mark the
+    // Trends rows on My Progress open with. Never on the text: metric tokens
+    // fail contrast as type on a light card (design-system B2).
+    const markEl = mark && (
+      <span className="trend-mark" style={{ color: `var(--color-${mark.metric})` }} aria-hidden="true">
+        <Icon name={mark.glyph} size={16} />
+      </span>
+    )
     if (!logged) {
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', ...rule }}>
+          {markEl}
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{title}</p>
             <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>Not logged</p>
@@ -1186,6 +1199,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         className="long-pressable"
         style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', ...rule }}
       >
+        {markEl}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{title}</p>
           <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>{sub}</p>
@@ -1387,47 +1401,32 @@ function Log({ session, profile, hasSoloPremium = true }) {
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
       {/* Header */}
-      {/* On a phone the date controls take their own row under the title, as on
-          My Progress. Side by side, the stepper plus "Today" did not fit, so on
-          any past day the controls wrapped and squeezed the title onto two
-          lines -- and the header changed shape between today and yesterday. */}
-      <div style={isMobile
-        ? { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-12)' }
-        : { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-        <h1>Daily Log</h1>
-        {/* A3: the stepper is one control (step or pick the same value); "Today"
-            is a separate action, so it sits a group-gap out rather than inside
-            the pill. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-24)', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
-          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
-            <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="left" /></button>
-            <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', whiteSpace: 'nowrap', padding: '0 2px' }}>{displayDate}</span>
-              <input
-                type="date"
-                value={selectedDate}
-                max={toLocalDateString(new Date())}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                onClick={(e) => { try { e.currentTarget.showPicker() } catch { /* unsupported → native focus opens it */ } }}
-                style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
-              />
-            </label>
-            <button onClick={goToNextDay} disabled={isToday} style={{ background: 'none', border: 'none', color: isToday ? 'var(--color-border)' : 'var(--color-muted)', cursor: isToday ? 'default' : 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="right" /></button>
-          </div>
-          {/* There was no way back to today from a past day at all: only
-              stepping forward a day at a time, or opening the native picker and
-              finding today in it. The `›` goes disabled AT today and said
-              nothing about how to return TO it.
-
-              Same control and variant as My Progress's, and it appears on the
-              same condition — only when there is somewhere to go. No muted
-              "Today" label in the at-today state the way that page has one,
-              because the stepper here already spells the date out in words. */}
-          {!isToday && (
-            <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">
-              Today
-            </Button>
-          )}
+      {/* One header at every width: the title, and ONE date control at the
+          right -- `‹ Today ›`. The middle names the day ("Today" until it
+          moves, then "Oct 22") and opens the calendar. There is no separate
+          "Today" button any more: beside the stepper it did not fit a phone
+          (the title wrapped), and on a row of its own it left a lone pill
+          under the title. The calendar, or `›`, is the way back.
+          The middle is a Button with the native date input laid over it,
+          invisible, the way the old pill did it: tapping a real date input is
+          what reliably opens the picker in a WKWebView, where showPicker() is
+          not something to lean on. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)' }}>
+        <h1 style={{ whiteSpace: 'nowrap' }}>Daily Log</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexShrink: 0 }}>
+          <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <Button variant="muted" size="sm" tabIndex={-1} aria-hidden="true" style={{ minWidth: 76 }}>{dayLabel}</Button>
+            <input
+              type="date"
+              aria-label={`Pick a day, showing ${dayLabel}`}
+              value={selectedDate}
+              max={toLocalDateString(new Date())}
+              onChange={(e) => { if (e.target.value) setSelectedDate(e.target.value) }}
+              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+            />
+          </span>
+          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
         </div>
       </div>
 
@@ -1442,12 +1441,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
         <div>
           {savedWeight && !weightExpanded
             ? renderMetricRow({
-                key: 'weight', title: 'Weight', first: true,
+                key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'scale' }, 
                 sub: [savedWeight.weighed_at && formatTime(savedWeight.weighed_at), weightDeltaSub(savedWeight, prevWeight), sourceOf(savedWeight)].filter(Boolean).join(' · ') || 'First weigh-in',
                 value: `${savedWeight.weight} ${savedWeight.unit}`,
                 onEdit: () => setWeightExpanded(true), onDelete: deleteWeight,
               })
-            : !weightExpanded && renderMetricRow({ key: 'weight', title: 'Weight', first: true, logged: false, onLog: () => setWeightExpanded(true) })}
+            : !weightExpanded && renderMetricRow({ key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'scale' }, logged: false, onLog: () => setWeightExpanded(true) })}
           {weightExpanded && (
             <div style={{ padding: '10px 0' }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Weight</p>
@@ -1469,12 +1468,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
           {savedSteps && !stepsExpanded
             ? renderMetricRow({
-                key: 'steps', title: 'Steps',
+                key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'stairs' }, 
                 sub: [stepsGoalSub(savedSteps.steps, targets?.steps), savedSteps.distance && `${savedSteps.distance} mi`, sourceOf(savedSteps)].filter(Boolean).join(' · ') || 'No step goal set',
                 value: savedSteps.steps.toLocaleString(),
                 onEdit: () => setStepsExpanded(true), onDelete: deleteSteps,
               })
-            : !stepsExpanded && renderMetricRow({ key: 'steps', title: 'Steps', logged: false, onLog: () => setStepsExpanded(true) })}
+            : !stepsExpanded && renderMetricRow({ key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'stairs' }, logged: false, onLog: () => setStepsExpanded(true) })}
           {stepsExpanded && (
             <div style={{ padding: '10px 0', borderTop: '1px solid var(--color-border)' }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Steps</p>
@@ -1503,7 +1502,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </div>
           )}
           {cardioEntries.map((e, i) => renderMetricRow({
-            key: e.id, title: e.exercise_type, first: i === 0,
+            key: e.id, title: e.exercise_type, first: i === 0, mark: { metric: 'cardio', glyph: 'heart' },
             sub: [
               e.calories_burned && `${e.calories_burned} kcal`,
               e.avg_heart_rate && `${e.avg_heart_rate} bpm avg`,
@@ -1513,7 +1512,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             onEdit: () => startEditCardio(e), onDelete: () => deleteCardio(e.id),
           }))}
           {cardioEntries.length === 0 && !cardioExpanded &&
-            renderMetricRow({ key: 'cardio', title: 'Cardio', logged: false, onLog: () => setCardioExpanded(true) })}
+            renderMetricRow({ key: 'cardio', title: 'Cardio', mark: { metric: 'cardio', glyph: 'heart' }, logged: false, onLog: () => setCardioExpanded(true) })}
           {cardioExpanded && (
             <div style={{ padding: '10px 0', borderTop: '1px solid var(--color-border)' }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'Cardio'}</p>

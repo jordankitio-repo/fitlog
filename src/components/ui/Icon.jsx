@@ -71,6 +71,15 @@ const PATHS = {
   // little under because an open canopy is less ink than a closed shape, which
   // is the glyph's nature rather than a defect.
   tree:     <><path d="M12 21.5v-6" /><path d="M7 15.5a5 5 0 0 1-1.8-9.7A5.2 5.2 0 0 1 12 2.2a5.2 5.2 0 0 1 6.8 3.6A5 5 0 0 1 17 15.5Z" /></>,
+  // The three Body and activity metrics, for the tinted mark that starts each
+  // row on the Log. `heart` and `stairs` are the section rail's cardio and
+  // steps glyphs (sectionIcons.jsx), so a metric reads the same everywhere.
+  // Weight does NOT reuse the rail's weightChart: that is a falling trend
+  // line, and beside a reading it would say "going down" whatever the
+  // reading did. A scale names the thing measured and claims no direction.
+  heart:    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />,
+  stairs:   <polyline points="4 20 8 20 8 15 12 15 12 10 16 10 16 5 20 5" />,
+  scale:    <><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M8 10a4 4 0 0 1 8 0" /><line x1="12" y1="10" x2="13.6" y2="7.6" /></>,
   // Marks a saved meal — a group of entries logged together. Replaces a 🍽
   // emoji, which rendered in the OS font and was the app's last emoji-as-icon.
   utensils: <><path d="M7 2v8a2 2 0 0 0 2 2v10" /><path d="M4 2v5" /><path d="M10 2v5" /><path d="M18 2c-1.7 1.5-2.5 3.7-2.5 6 0 1.7.6 2.7 1.8 3.1V22" /></>,
