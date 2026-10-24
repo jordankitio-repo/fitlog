@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "cap:sync": "vite build && cap sync",
+    "cap:sync:demo": "vite build --mode demo && cap sync",
     "ios": "cap run ios",
     "ios:live": "cap run ios --live-reload --host localhost --port 5173",
     "test": "vitest",
