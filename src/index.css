@@ -911,6 +911,35 @@ body {
   }
 }
 
+/* The day panel's two groups.
+   `repeat(auto-fit, minmax(160px, 1fr))` gave four across a desktop and ONE
+   across a phone — 2x160 plus the gap is 336 and a 375px screen leaves ~310 —
+   so the seven cells became seven rows and the panel became a scroll.
+   The counts are explicit per width instead, and they keep F2's grouping:
+   calories/protein/carbs/fat are four parts of one number and tile 2x2, while
+   cardio/steps/weight are three single readings and stay a strip of three.
+   Neither count leaves a hole, which is the thing F2 is actually about. */
+.cv-stats-macros,
+.cv-stats-activity { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+@media (max-width: 560px) {
+  .cv-stats-macros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Two columns, and WEIGHT takes the full width of the second row.
+     Three across is 82px a card at 360, and "70.5 kg" at --text-xl needs ~85
+     of the ~42 that leaves inside the padding — the values clipped. Three
+     cells do not divide two columns, and F2 bans the hole that normally
+     makes, so the odd one spans instead of leaving a gap. Weight is the right
+     one to widen: it is the only reading of the three that carries a unit and
+     a timestamp. */
+  .cv-stats-activity { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cv-stats-activity > :last-child { grid-column: 1 / -1; }
+
+  /* 20px of padding each side out of a 131px card leaves 91 for a sub-line
+     that measures ~95 ("of 1,850 cal · 87%"). The card is the thing with room
+     to give. */
+  .stat-card { padding: var(--space-12) !important; }
+}
+
 /* The weekday/weekend rows, narrow.
    The row is label | track | value at 78 + 1fr + 80, which on a phone leaves
    the track ~66px while the axis keys above it (UNDER / TARGET / OVER) need

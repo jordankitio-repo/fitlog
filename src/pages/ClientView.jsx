@@ -2450,7 +2450,7 @@ async function sendMessage(text) {
                 yields two tracks, which is the 2x2 F2 asked for — the shape
                 was right there and wrong on a desktop, so it is a breakpoint
                 rather than a layout. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-16)' }}>
+            <div className="cv-stats-macros" style={{ display: 'grid', gap: 'var(--space-16)' }}>
               <StatCard label="Calories" value={num(totals.calories)} sub={dayTarget(totals.calories, clientTargets.calories, ' cal')} color="var(--color-calories)" />
               <StatCard label="Protein" value={`${num(totals.protein)}g`} sub={dayTarget(totals.protein, clientTargets.protein, 'g')} color="var(--color-protein)" />
               <StatCard label="Carbs" value={`${num(totals.carbs)}g`} sub={dayTarget(totals.carbs, clientTargets.carbs, 'g')} color="var(--color-carbs)" />
@@ -2460,7 +2460,7 @@ async function sendMessage(text) {
                 target for both and the page carries a chart for each — so the
                 client's own Dashboard showed seven metrics for a day while the
                 coach's view of the same day showed five. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-16)' }}>
+            <div className="cv-stats-activity" style={{ display: 'grid', gap: 'var(--space-16)' }}>
               <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} sub={dayTarget(dayCardio, clientTargets.cardio_minutes, ' min')} color="var(--color-cardio)" />
               <StatCard label="Steps" value={daySteps ? num(daySteps) : '—'} sub={dayTarget(daySteps, clientTargets.steps)} color="var(--color-steps)" />
               <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
