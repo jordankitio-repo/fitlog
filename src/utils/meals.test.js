@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mealForHour, groupEntriesByMeal, groupLoggedMeals } from './meals'
+import { mealForHour, groupEntriesByMeal, groupLoggedMeals, formatServing } from './meals'
 
 describe('mealForHour', () => {
   it('maps the day into meal slots', () => {
@@ -54,5 +54,26 @@ describe('groupLoggedMeals', () => {
   it('returns all loose foods when none are containers', () => {
     const out = groupLoggedMeals([{ id: 'a', food: 'Apple', calories: 95 }])
     expect(out).toEqual([{ type: 'food', entry: { id: 'a', food: 'Apple', calories: 95 } }])
+  })
+})
+
+describe('formatServing', () => {
+  it('sets a symbol against the number', () => {
+    expect(formatServing(100, 'g')).toBe('100g')
+    expect(formatServing(8, 'oz')).toBe('8oz')
+    expect(formatServing(250, 'ml')).toBe('250ml')
+  })
+  it('spaces a word and pluralises it', () => {
+    expect(formatServing(1, 'serving')).toBe('1 serving')
+    expect(formatServing(2, 'serving')).toBe('2 servings')
+    expect(formatServing(1.5, 'cup')).toBe('1.5 cups')
+  })
+  it('spaces tbsp and tsp without pluralising', () => {
+    expect(formatServing(2, 'tbsp')).toBe('2 tbsp')
+    expect(formatServing(1, 'tsp')).toBe('1 tsp')
+  })
+  it('defaults a missing unit to grams, and blanks a missing size', () => {
+    expect(formatServing(100, null)).toBe('100g')
+    expect(formatServing(null, 'g')).toBe('')
   })
 })

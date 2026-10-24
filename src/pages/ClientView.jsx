@@ -57,7 +57,7 @@ import {
   toLocalDateString
 } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
-import { groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
+import { groupEntriesByMeal, groupLoggedMeals, formatServing } from '../utils/meals'
 import { Line, Bar, Chart } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -2947,7 +2947,7 @@ async function sendMessage(text) {
                       {item.entries.map((entry) => (
                         <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) 0', fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                           <span>{entry.food}</span>
-                          <span>{entry.calories} cal · P {entry.protein}g · {entry.serving_size}{entry.serving_unit}</span>
+                          <span>{entry.calories} cal · P {entry.protein}g · {formatServing(entry.serving_size, entry.serving_unit)}</span>
                         </div>
                       ))}
                     </div>
@@ -2966,7 +2966,7 @@ async function sendMessage(text) {
                         <span style={{ color: 'var(--color-muted)' }}>P: {item.entry.protein}g</span>
                         <span style={{ color: 'var(--color-muted)' }}>C: {item.entry.carbs}g</span>
                         <span style={{ color: 'var(--color-muted)' }}>F: {item.entry.fat}g</span>
-                        <span style={{ color: 'var(--color-muted)' }}>{item.entry.serving_size}{item.entry.serving_unit}</span>
+                        <span style={{ color: 'var(--color-muted)' }}>{formatServing(item.entry.serving_size, item.entry.serving_unit)}</span>
                       </div>
                     </div>
                   ))}

@@ -11,7 +11,7 @@ import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { measurementStatus } from '../utils/measurementCadence'
 import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
-import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
+import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals, formatServing } from '../utils/meals'
 import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '../utils/savedMeals'
 import { controlStyle, Icon } from '../components/ui'
 import ActionSheet from '../components/ActionSheet'
@@ -1359,7 +1359,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{entry.food}</p>
           <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
-            {entry.serving_size}{entry.serving_unit}
+            {formatServing(entry.serving_size, entry.serving_unit)}
             {!hideCalories && ` · ${entry.calories} kcal`}
             {` · ${entry.protein || 0}g P · ${entry.carbs || 0}g C · ${entry.fat || 0}g F`}
           </p>
@@ -1419,7 +1419,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const title = isMeal ? item.name : item.entry.food
     const sub = isMeal
       ? `${item.entries.length} item${item.entries.length === 1 ? '' : 's'}${hideCalories ? '' : ` · ${item.calories} kcal`}`
-      : `${item.entry.serving_size}${item.entry.serving_unit}${hideCalories ? '' : ` · ${item.entry.calories} kcal`}`
+      : `${formatServing(item.entry.serving_size, item.entry.serving_unit)}${hideCalories ? '' : ` · ${item.entry.calories} kcal`}`
     return (
       <div style={{
         background: 'var(--color-surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',

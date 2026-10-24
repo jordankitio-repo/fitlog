@@ -63,3 +63,19 @@ export function groupEntriesByMeal(entries = []) {
   if (other.length) groups.push({ key: 'other', label: 'Other', entries: other, calories: sum(other) })
   return groups
 }
+
+// A logged amount as text: "100g", "8oz", "1 serving", "2 servings",
+// "1.5 cups", "2 tbsp". Symbols sit against the number the way "129g" does
+// elsewhere; words get a space and a plural, which is what "1serving" lacked.
+// tbsp/tsp are abbreviations too, but not symbols, so they take the space
+// without an "s".
+const UNIT_SYMBOLS = new Set(['g', 'ml', 'oz'])
+const UNIT_PLURALS = { serving: 'servings', cup: 'cups' }
+
+export function formatServing(size, unit) {
+  if (size == null || size === '') return ''
+  const u = unit || 'g'
+  if (UNIT_SYMBOLS.has(u)) return `${size}${u}`
+  const plural = Number(size) !== 1 && UNIT_PLURALS[u]
+  return `${size} ${plural || u}`
+}

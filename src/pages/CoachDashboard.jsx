@@ -24,6 +24,7 @@ function complianceRatio(s) {
 import { cardStyle } from '../utils/styles'
 import { Pill, Field, Icon, Panel, Row } from '../components/ui'
 import { scrollBehavior } from '../utils/motion'
+import { formatAnswer } from '../utils/checkinQuestions'
 
 const attentionColors = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
 
@@ -527,9 +528,15 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                         {/* The email is gone and the dash with it. A phone row
                             gets the facts that change: who, what needs doing,
                             and their own ratings when they submitted any. */}
-                        {s?.checkIn && (
+                        {/* Only the ratings the client actually gave: a check-in
+                            can arrive with either one blank, and printing the raw
+                            value wrote "null/10". */}
+                        {s?.checkIn && (s.checkIn.adherence_rating != null || s.checkIn.energy_level != null) && (
                           <span className="rost-m-meta tnum">
-                            Adh {s.checkIn.adherence_rating}/10 · Nrg {s.checkIn.energy_level}/10
+                            {[
+                              s.checkIn.adherence_rating != null && `Adh ${s.checkIn.adherence_rating}/10`,
+                              s.checkIn.energy_level != null && `Nrg ${s.checkIn.energy_level}/10`,
+                            ].filter(Boolean).join(' · ')}
                           </span>
                         )}
                         {/* Only when the status is not already saying it. The
@@ -613,8 +620,10 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                     <div className="roster-strip" style={{ display: 'flex' }}>
                       {s?.checkIn ? (
                         <>
-                          <StatCell k="Adh" v={`${s.checkIn.adherence_rating}/10`} />
-                          <StatCell k="Nrg" v={`${s.checkIn.energy_level}/10`} />
+                          {/* A column holds its place, so a blank rating reads as
+                              a dash (formatAnswer), never "null/10". */}
+                          <StatCell k="Adh" v={formatAnswer({ type: 'rating', value: s.checkIn.adherence_rating })} />
+                          <StatCell k="Nrg" v={formatAnswer({ type: 'rating', value: s.checkIn.energy_level })} />
                         </>
                       ) : (
                         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-faint)' }}>—</span>
