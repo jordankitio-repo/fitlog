@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { DndContext, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
+import { DndContext, DragOverlay, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
@@ -51,32 +50,38 @@ const MEASUREMENT_SITES = [
   { key: 'thigh', label: 'Thigh' },
 ]
 
-// A diary item (food row or meal container) draggable by its grip handle into
-// another meal section. Render-prop so the existing row markup stays in Log:
-// the wrapper supplies the node ref, a drag transform style, and the handle
-// props (spread onto the ⠿ grip). Stable module-scope component → no remounts.
+// A diary item (food row or meal container) that can be dragged into another
+// meal section. Render-prop so the row markup stays in Log; the wrapper hands
+// back the node ref, a style, and two ways in:
+//   handleProps -- the desktop's grip. A mouse drags from the handle only, so
+//                  text on the row stays selectable.
+//   rowProps    -- touch, on the WHOLE row. Hold, then move: the iOS lift.
+//                  There is no grip on a phone; the row is the handle.
+// The row is not moved in place any more. It stays as a faded placeholder
+// while a DragOverlay copy follows the finger (see Log), which is what lets
+// the moving copy look lifted rather than half-transparent.
+// Stable module-scope component → no remounts.
 function DraggableItem({ id, item, children }) {
-  const { listeners, attributes, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({ id, data: { item } })
-  const dragStyle = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.4 : 1,
-    position: 'relative',
-    zIndex: isDragging ? 50 : 'auto',
-  }
+  const { listeners, attributes, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id, data: { item } })
+  const dragStyle = { opacity: isDragging ? 0.35 : 1 }
   const handleProps = { ref: setActivatorNodeRef, ...listeners, ...attributes }
-  return children({ setNodeRef, dragStyle, handleProps })
+  const rowProps = { onTouchStart: listeners?.onTouchStart }
+  return children({ setNodeRef, dragStyle, handleProps, rowProps })
 }
 
-// A meal section that accepts dropped items; highlights while hovered.
+// A meal section that accepts dropped items; tinted while a drag is over it.
+// A uniform tint, no outline: it was a 2px dashed green border, and state is
+// never a coloured border (design-system B2). The box-shadow spread carries
+// the tint past the section's text the way a held row's does, without layout.
 function DroppableMeal({ slot, children }) {
   const { setNodeRef, isOver } = useDroppable({ id: `slot:${slot}`, data: { slot } })
+  const tint = isOver ? 'var(--color-primary-dim)' : 'transparent'
   return (
     <div ref={setNodeRef} style={{
       borderRadius: 'var(--radius)',
-      outline: isOver ? '2px dashed var(--color-primary)' : '2px dashed transparent',
-      outlineOffset: 2,
-      background: isOver ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)' : 'transparent',
-      transition: 'outline-color 120ms, background 120ms',
+      background: tint,
+      boxShadow: `0 0 0 var(--space-8) ${tint}`,
+      transition: 'background-color 120ms, box-shadow 120ms',
     }}>
       {children}
     </div>
@@ -171,12 +176,19 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const bindLongPress = useLongPress()
   // Same breakpoint the bottom tab bar uses (components/NavBar.jsx).
   const isMobile = useMediaQuery('(max-width: 600px)')
-  // Mouse drags after a few px; touch needs a short hold so a tap still opens
-  // the menu and a scroll-drag never gets hijacked.
+  // Mouse drags from the grip after a few px. Touch lifts a row after the SAME
+  // hold the menu uses, and a finger that travels 10px first is a scroll: the
+  // sensor cancels without preventing anything, so the list scrolls as usual.
+  // Once lifted the sensor blocks scrolling itself, so the row needs no
+  // touch-action of its own (F4's trap was a row that could not scroll).
   const dndSensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 500, tolerance: 10 } }),
   )
+  const [dragItem, setDragItem] = useState(null) // the lifted diary item, for the overlay
+  // A hold that ends where it began opens the sheet on release; the click the
+  // browser synthesises from that same touch must not also toggle the row.
+  const suppressClickUntil = useRef(0)
   const [expandedMeals, setExpandedMeals] = useState(new Set())
   const [addingToMeal, setAddingToMeal] = useState(null) // { id, name, meal } when adding a food into a logged meal
   const [foodResults, setFoodResults] = useState([])
@@ -420,9 +432,19 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setMoveItemId(null)
   }
 
-  // Drop a dragged diary item onto a meal section → move it to that slot.
-  function handleDiaryDragEnd({ active, over }) {
+  // A lifted item was let go. Two outcomes from one gesture, the way iOS does
+  // it: a touch that never travelled was a long press, so the row's sheet
+  // opens; one that ended over another meal section moves the item there.
+  function handleDiaryDragEnd({ active, over, delta, activatorEvent }) {
+    setDragItem(null)
     setMoveItemId(null)
+    suppressClickUntil.current = Date.now() + 400
+    const isTouch = activatorEvent?.type === 'touchstart'
+    if (isTouch && Math.hypot(delta.x, delta.y) < 10) {
+      const item = active.data.current?.item
+      if (item) setSheet(item.type === 'meal' ? mealSheet(item) : foodSheet(item.entry))
+      return
+    }
     if (!over) return
     const targetSlot = over.data.current?.slot
     const item = active.data.current?.item
@@ -1225,6 +1247,41 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // "Logged by hand" on every row of every client without a device is noise.
   const sourceOf = (row) => (row?.source && row.source !== 'manual' ? METRIC_SOURCES[row.source] : null)
 
+  // The sheets, built in one place because two gestures open each: the row's
+  // `more` button, and a hold released without moving (handleDiaryDragEnd).
+  function foodSheet(entry, inMeal = false) {
+    const currentSlot = entry.meal || 'other'
+    const moveTargets = inMeal ? [] : presentMealSlots.filter(k => k !== currentSlot)
+    // Mirrors the desktop icons, in the same order, named. Move is absent
+    // inside a meal: the container moves, not the row.
+    return {
+      title: entry.food,
+      actions: [
+        { label: 'Re-log', icon: 'repeat', onSelect: () => prefillFromEntry(entry) },
+        ...(moveTargets.length > 0
+          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(entry.id) }]
+          : []),
+        { label: 'Edit', icon: 'pencil', onSelect: () => startEdit(entry) },
+        { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteEntry(entry.id) },
+      ],
+    }
+  }
+  function mealSheet(item) {
+    const currentSlot = item.entries[0]?.meal || 'other'
+    const moveTargets = presentMealSlots.filter(k => k !== currentSlot)
+    return {
+      title: item.name,
+      actions: [
+        { label: 'Repeat meal', icon: 'repeat', onSelect: () => repeatLoggedMeal(item) },
+        { label: 'Save as a reusable meal', icon: 'utensils', onSelect: () => saveContainerAsMeal(item) },
+        ...(moveTargets.length > 0
+          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(item.id) }]
+          : []),
+        { label: 'Delete meal', icon: 'trash', destructive: true, onSelect: () => deleteLoggedMeal(item.id) },
+      ],
+    }
+  }
+
   // A single food entry row — selectable in select mode, with re-log/edit/delete
   // otherwise. Reused for loose foods and for the children inside a meal.
   // inMeal: a child of a logged-meal container — no per-row move (the whole
@@ -1234,25 +1291,15 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const currentSlot = entry.meal || 'other'
     const moveTargets = inMeal ? [] : presentMealSlots.filter(k => k !== currentSlot)
     const moveOpen = moveItemId === entry.id
-    // Mirrors the icons at the right edge, in the same order, named. Move is
-    // absent when the row is inside a meal: the container moves, not the row
-    // (same rule moveTargets already encodes above).
-    const entrySheetActions = [
-      { label: 'Re-log', icon: 'repeat', onSelect: () => prefillFromEntry(entry) },
-      ...(moveTargets.length > 0
-        ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(entry.id) }]
-        : []),
-      { label: 'Edit', icon: 'pencil', onSelect: () => startEdit(entry) },
-      { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteEntry(entry.id) },
-    ]
-    const entryPress = selectMode ? {} : bindLongPress(() => setSheet({
-      title: entry.food,
-      actions: entrySheetActions,
-    }))
+    // A draggable row lifts on touch instead of opening the menu at 500ms;
+    // the drag decides on release (handleDiaryDragEnd). A row inside a meal
+    // is not draggable and keeps the plain hold-for-menu.
+    const entryPress = selectMode ? {} : bindLongPress(() => setSheet(foodSheet(entry, inMeal)), drag ? { touch: 'lift' } : undefined)
     return (
       <div key={entry.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
        <div
         {...entryPress}
+        {...(selectMode ? {} : drag?.rowProps)}
         className="long-pressable"
         onClick={(e) => {
           // The hook's onClick swallows the click the browser synthesises after
@@ -1286,10 +1333,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {!selectMode && isMobile && (
           <div data-no-longpress style={{ flexShrink: 0 }}>
             <button
-              onClick={() => setSheet({
-                title: entry.food,
-                actions: entrySheetActions,
-              })}
+              onClick={() => setSheet(foodSheet(entry, inMeal))}
               style={moreBtnStyle}
               aria-label={`Actions for ${entry.food}`}
               title="Actions"
@@ -1323,26 +1367,36 @@ function Log({ session, profile, hasSoloPremium = true }) {
     )
   }
 
+  // What follows the finger: the row's name and its one key number, on a
+  // raised surface. Deliberately not the whole row -- no actions, no macro
+  // line -- because nothing on it can be pressed mid-drag.
+  function renderDragPreview(item) {
+    const isMeal = item.type === 'meal'
+    const title = isMeal ? item.name : item.entry.food
+    const sub = isMeal
+      ? `${item.entries.length} item${item.entries.length === 1 ? '' : 's'}${hideCalories ? '' : ` · ${item.calories} kcal`}`
+      : `${item.entry.serving_size}${item.entry.serving_unit}${hideCalories ? '' : ` · ${item.entry.calories} kcal`}`
+    return (
+      <div style={{
+        background: 'var(--color-surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',
+        padding: 'var(--space-10) var(--space-12)', transform: 'scale(1.03)', cursor: 'grabbing',
+      }}>
+        <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{title}</p>
+        <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>{sub}</p>
+      </div>
+    )
+  }
+
   // A logged meal rendered as one collapsible container item.
   function renderLoggedMeal(item, drag = null) {
     const open = expandedMeals.has(item.id)
     const currentSlot = item.entries[0]?.meal || 'other'
     const moveTargets = presentMealSlots.filter(k => k !== currentSlot)
     const moveOpen = moveItemId === item.id
-    const mealPress = bindLongPress(() => setSheet({
-      title: item.name,
-      actions: [
-        { label: 'Repeat meal', icon: 'repeat', onSelect: () => repeatLoggedMeal(item) },
-        { label: 'Save as a reusable meal', icon: 'utensils', onSelect: () => saveContainerAsMeal(item) },
-        ...(moveTargets.length > 0
-          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(item.id) }]
-          : []),
-        { label: 'Delete meal', icon: 'trash', destructive: true, onSelect: () => deleteLoggedMeal(item.id) },
-      ],
-    }))
+    const mealPress = bindLongPress(() => setSheet(mealSheet(item)), drag ? { touch: 'lift' } : undefined)
     return (
       <div key={item.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
-        <div {...mealPress} className="long-pressable" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}>
+        <div {...mealPress} {...drag?.rowProps} className="long-pressable" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}>
           <button
             type="button"
             onClick={() => toggleMealExpand(item.id)}
@@ -1364,20 +1418,29 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </p>
           </div>
           </button>
-          <div data-no-longpress style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-            <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal"><Icon name="repeat" /></button>
-            <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" />
-                <polyline points="7 3 7 8 15 8" />
-              </svg>
-            </button>
-            {moveTargets.length > 0 && (
-              <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
-            )}
-            <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete meal" title="Delete meal"><Icon name="trash" /></button>
-          </div>
+          {/* The phone gets the food rows' one button, not four: the same sheet
+              a hold opens. This row had been missed when the food rows
+              collapsed, and kept its grip by accident. */}
+          {isMobile ? (
+            <div data-no-longpress style={{ flexShrink: 0 }}>
+              <button onClick={() => setSheet(mealSheet(item))} style={moreBtnStyle} aria-label={`Actions for ${item.name}`} title="Actions"><Icon name="more" /></button>
+            </div>
+          ) : (
+            <div data-no-longpress style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+              <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal"><Icon name="repeat" /></button>
+              <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+              </button>
+              {moveTargets.length > 0 && (
+                <button {...drag?.handleProps} onClick={() => setMoveItemId(moveOpen ? null : item.id)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)', letterSpacing: '-2px', touchAction: 'none', cursor: 'grab', color: moveOpen ? 'var(--color-primary)' : 'var(--color-muted)' }} aria-label="Move to another meal" title="Drag to a meal, or tap for options"><Icon name="grip" /></button>
+              )}
+              <button onClick={() => deleteLoggedMeal(item.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete meal" title="Delete meal"><Icon name="trash" /></button>
+            </div>
+          )}
         </div>
         {moveOpen && moveTargets.length > 0 && (
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', padding: '0 0 10px 22px' }}>
@@ -1641,7 +1704,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 </div>
               ))
             ) : (
-              <DndContext sensors={dndSensors} collisionDetection={pointerWithin} onDragEnd={handleDiaryDragEnd}>
+              <div onClickCapture={(e) => { if (Date.now() < suppressClickUntil.current) { e.preventDefault(); e.stopPropagation() } }}>
+              <DndContext
+                sensors={dndSensors}
+                collisionDetection={pointerWithin}
+                onDragStart={({ active }) => setDragItem(active.data.current?.item ?? null)}
+                onDragCancel={() => setDragItem(null)}
+                onDragEnd={handleDiaryDragEnd}
+              >
                 {groupEntriesByMeal(entries).map(group => (
                   <DroppableMeal key={group.key} slot={group.key}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
@@ -1654,7 +1724,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     )}
                   </DroppableMeal>
                 ))}
+                {/* The lifted copy that follows the finger. Not the row itself,
+                    so it can look picked up -- surface, the dropdown shadow, a
+                    hair larger -- while the original holds its place, faded. */}
+                <DragOverlay>
+                  {dragItem && renderDragPreview(dragItem)}
+                </DragOverlay>
               </DndContext>
+              </div>
             )}
 
             {/* Bulk action bar */}

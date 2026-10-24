@@ -34,6 +34,13 @@ import { useRef, useCallback } from 'react'
 // never flashes. Touch and pen only: a mouse has right-click, and a tint on
 // every desktop mousedown would be noise.
 //
+// A ROW THAT CAN ALSO BE DRAGGED binds with `{ touch: 'lift' }`. On touch the
+// hook then only draws the hold; it sets no menu timer, because dnd-kit owns
+// the hold there and decides on release: still -> the menu, moved -> a drop
+// (see Log's handleDiaryDragEnd). Two timers racing on one finger is how a
+// sheet lands on top of a drag in progress. Mouse and right-click are
+// unchanged.
+//
 // contextmenu is wired to the same handler so a right-click on a desktop opens
 // the same menu. That is the one place a long press has a true mouse analogue.
 // Called ONCE per component, returns a `bind(onLongPress)` you call per row.
@@ -62,14 +69,13 @@ export function useLongPress({ delay = 500, moveTolerance = 10 } = {}) {
     release()
   }, [release])
 
-  const start = useCallback((e, onLongPress) => {
+  const start = useCallback((e, onLongPress, touchMode = 'menu') => {
     if (!onLongPress) return
     // Anything inside [data-no-longpress] is out. Two reasons, and the first
-    // is a real collision: dnd-kit's TouchSensor starts a drag after 120ms, so
-    // a finger resting on the grip while deciding where to drop would ALSO
-    // trip this at 500ms and throw a sheet over a drag in progress. The second
-    // is plainer -- holding the Delete icon should not open a menu offering
-    // Delete. Marking the controls rather than excluding `button` wholesale,
+    // is a real collision: a finger resting on the desktop's grip while
+    // deciding where to drop would ALSO trip this at 500ms and throw a sheet
+    // over a drag in progress. The second is plainer -- holding the Delete
+    // icon should not open a menu offering Delete. Marking the controls rather than excluding `button` wholesale,
     // because a row's whole body can itself be a button (the meal group's
     // expand toggle) and that row must stay pressable.
     if (e.target?.closest?.('[data-no-longpress]')) return
@@ -89,6 +95,7 @@ export function useLongPress({ delay = 500, moveTolerance = 10 } = {}) {
         pressed.current = el
       }, PRESS_GRACE)
     }
+    if (touchMode === 'lift' && e.pointerType !== 'mouse') return
     timer.current = setTimeout(() => {
       fired.current = true
       timer.current = null
@@ -98,7 +105,7 @@ export function useLongPress({ delay = 500, moveTolerance = 10 } = {}) {
   }, [delay, release])
 
   const move = useCallback((e) => {
-    if (!timer.current || !origin.current) return
+    if (!origin.current) return
     const dx = Math.abs(e.clientX - origin.current.x)
     const dy = Math.abs(e.clientY - origin.current.y)
     if (dx > moveTolerance || dy > moveTolerance) clear()
@@ -112,8 +119,8 @@ export function useLongPress({ delay = 500, moveTolerance = 10 } = {}) {
     fired.current = false
   }, [])
 
-  return useCallback((onLongPress) => ({
-    onPointerDown: (e) => start(e, onLongPress),
+  return useCallback((onLongPress, { touch = 'menu' } = {}) => ({
+    onPointerDown: (e) => start(e, onLongPress, touch),
     onPointerMove: move,
     onPointerUp: clear,
     onPointerLeave: clear,
