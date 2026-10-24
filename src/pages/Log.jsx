@@ -17,9 +17,21 @@ import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '.
 import { controlStyle, Icon } from '../components/ui'
 import ActionSheet from '../components/ActionSheet'
 import { useLongPress } from '../hooks/useLongPress'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
+}
+
+// Where a day's weight or step count came from, named on its row. Mirrors the
+// source check constraint, which is the same list on weight_log and steps_log.
+const METRIC_SOURCES = {
+  manual: 'Logged by hand',
+  apple_health: 'Apple Health',
+  health_connect: 'Health Connect',
+  withings: 'Withings',
+  whoop: 'WHOOP',
+  google_health: 'Google Health',
 }
 
 const EXERCISE_TYPES = [
@@ -156,6 +168,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // second route to the same actions, never the only one.
   const [sheet, setSheet] = useState(null) // { title, actions } | null
   const bindLongPress = useLongPress()
+  // Same breakpoint the bottom tab bar uses (components/NavBar.jsx).
+  const isMobile = useMediaQuery('(max-width: 600px)')
   // Mouse drags after a few px; touch needs a short hold so a tap still opens
   // the menu and a scroll-drag never gets hijacked.
   const dndSensors = useSensors(
@@ -260,14 +274,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
       setFat(Math.round(baseNutrients.fat * multiplier).toString())
     }
   }, [servingSize, servingUnit, baseNutrients, baseServingSize])
-
-  useEffect(() => {
-    if (!savedWeight) setWeightExpanded(true)
-  }, [savedWeight])
-
-  useEffect(() => {
-    if (!savedSteps) setStepsExpanded(true)
-  }, [savedSteps])
 
   // Nutrition functions
   async function fetchEntries() {
@@ -752,12 +758,24 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // offers the same action: two copies of eight setState calls would drift the
   // first time a field was added to the form.
   function prefillFromEntry(entry) {
-                setFood(entry.food); setCalories(entry.calories.toString())
-                setProtein(entry.protein.toString()); setCarbs(entry.carbs.toString()); setFat(entry.fat.toString())
-                setServingSize(entry.serving_size.toString()); setServingUnit(entry.serving_unit || 'g')
-                setMeal(entry.meal || mealForHour(new Date().getHours()))
-                setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
-                setBaseServingSize(null); setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
+    setFood(entry.food); setCalories(entry.calories.toString())
+    setProtein(entry.protein.toString()); setCarbs(entry.carbs.toString()); setFat(entry.fat.toString())
+    setServingSize(entry.serving_size.toString()); setServingUnit(entry.serving_unit || 'g')
+    setMeal(entry.meal || mealForHour(new Date().getHours()))
+    // The row's macros are totals for its own serving, but the scaling effect
+    // reads the base as per-100g (or per-serving), so convert first. Handing it
+    // the totals as-is re-logged "1 serving · 402 kcal" as 4 kcal.
+    // Size is parsed the same way the effect parses it, so the round trip is exact.
+    const measured = (entry.serving_unit || 'g') in unitConversions
+    const perUnit = measured
+      ? 100 / ((parseInt(entry.serving_size) || 100) * unitConversions[entry.serving_unit || 'g'])
+      : 1 / (parseFloat(entry.serving_size) || 1)
+    setBaseNutrients({
+      calories: entry.calories * perUnit, protein: entry.protein * perUnit,
+      carbs: entry.carbs * perUnit, fat: entry.fat * perUnit,
+    })
+    setBaseServingSize(measured ? null : 1)
+    setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
   }
 
   function startEdit(entry) {
@@ -866,6 +884,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const row = data?.[0] ?? null
     if (row) { setSavedWeight(row); setWeight(row.weight.toString()); setWeightUnit(row.unit) }
     else { setSavedWeight(null); setWeight(''); setWeightUnit('lbs') }
+    // Open the editor only for a day with nothing logged. This was an effect on
+    // savedWeight, which is null on the first render before this fetch lands,
+    // so it opened the editor and nothing ever closed it: every day loaded mid-edit.
+    setWeightExpanded(!row)
   }
 
   async function saveWeight() {
@@ -898,6 +920,17 @@ function Log({ session, profile, hasSoloPremium = true }) {
         }])
       if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
     }
+  }
+
+  async function deleteWeight() {
+    if (!savedWeight) return
+    const { error } = await supabase.from('weight_log').delete().eq('id', savedWeight.id)
+    if (error) {
+      console.error(error)
+      showToast('Couldn\'t delete your weight. Try again.', 'error')
+      return
+    }
+    fetchWeight()
   }
 
   // Cardio functions
@@ -963,6 +996,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) { console.error(error); return }
     if (data) { setSavedSteps(data); setSteps(data.steps.toString()); setDistance(data.distance?.toString() || '') }
     else { setSavedSteps(null); setSteps(''); setDistance('') }
+    setStepsExpanded(!data) // see fetchWeight
   }
 
   async function saveSteps() {
@@ -989,6 +1023,17 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) {
       console.error(error)
       showToast('Couldn\'t save your steps. Try again.', 'error')
+      return
+    }
+    fetchSteps()
+  }
+
+  async function deleteSteps() {
+    if (!savedSteps) return
+    const { error } = await supabase.from('steps_log').delete().eq('id', savedSteps.id)
+    if (error) {
+      console.error(error)
+      showToast('Couldn\'t delete your steps. Try again.', 'error')
       return
     }
     fetchSteps()
@@ -1059,6 +1104,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
     background: 'none', border: 'none', cursor: 'pointer',
     padding: '4px 6px', fontSize: 'var(--text-base)', color: 'var(--color-muted)'
   }
+  // The number at the right of a cardio or steps row: .trend-value at its
+  // phone size, so a session reads the way a Trends row on My Progress does.
+  const rowValueStyle = {
+    fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)',
+    color: 'var(--color-text)', whiteSpace: 'nowrap', flexShrink: 0,
+  }
 
   const selectLinkStyle = {
     background: 'transparent', border: 'none', color: 'var(--color-primary)',
@@ -1087,16 +1138,17 @@ function Log({ session, profile, hasSoloPremium = true }) {
     // Mirrors the icons at the right edge, in the same order, named. Move is
     // absent when the row is inside a meal: the container moves, not the row
     // (same rule moveTargets already encodes above).
+    const entrySheetActions = [
+      { label: 'Re-log', icon: 'repeat', onSelect: () => prefillFromEntry(entry) },
+      ...(moveTargets.length > 0
+        ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(entry.id) }]
+        : []),
+      { label: 'Edit', icon: 'pencil', onSelect: () => startEdit(entry) },
+      { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteEntry(entry.id) },
+    ]
     const entryPress = selectMode ? {} : bindLongPress(() => setSheet({
       title: entry.food,
-      actions: [
-        { label: 'Re-log', icon: 'repeat', onSelect: () => prefillFromEntry(entry) },
-        ...(moveTargets.length > 0
-          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(entry.id) }]
-          : []),
-        { label: 'Edit', icon: 'pencil', onSelect: () => startEdit(entry) },
-        { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteEntry(entry.id) },
-      ],
+      actions: entrySheetActions,
     }))
     return (
       <div key={entry.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
@@ -1122,7 +1174,30 @@ function Log({ session, profile, hasSoloPremium = true }) {
             {` · ${entry.protein || 0}g P · ${entry.carbs || 0}g C · ${entry.fat || 0}g F`}
           </p>
         </div>
-        {!selectMode && (
+        {/* A PHONE GETS ONE CONTROL, NOT FOUR.
+            Four buttons were ~118px of a ~370px row -- a third of its width --
+            which is what pushed the macro line into wrapping and orphaned
+            "12g F" onto a line of its own. Shrinking them recovers ~16px and
+            the line still wraps; the count was the problem, not the size.
+            They all have a home now: this opens the SAME sheet the long press
+            does. So the gesture is a shortcut rather than the only way in, and
+            a VoiceOver user still has a real button to land on.
+            A desktop keeps all four -- it has the room, a mouse is precise
+            enough for them, and hover reveals their titles. */}
+        {!selectMode && isMobile && (
+          <div data-no-longpress style={{ flexShrink: 0 }}>
+            <button
+              onClick={() => setSheet({
+                title: entry.food,
+                actions: entrySheetActions,
+              })}
+              style={iconBtnStyle}
+              aria-label={`Actions for ${entry.food}`}
+              title="Actions"
+            ><Icon name="more" /></button>
+          </div>
+        )}
+        {!selectMode && !isMobile && (
           <div data-no-longpress style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
             <button
               onClick={() => prefillFromEntry(entry)}
@@ -1267,23 +1342,44 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Weight */}
       <div style={sectionStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>Weight</h2>
-          {savedWeight && !weightExpanded && (
-            <button onClick={() => setWeightExpanded(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', padding: '4px 8px' }}>Edit</button>
-          )}
-        </div>
+        <h2>Weight</h2>
 
-        {savedWeight && !weightExpanded ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div>
-              <span style={{ fontSize: 'var(--text-display)', fontWeight: 700, color: 'var(--color-text)' }}>{savedWeight.weight}</span>
-              <span style={{ fontSize: 'var(--text-body)', color: 'var(--color-muted)', marginLeft: '6px' }}>{savedWeight.unit}</span>
+        {/* The Steps row's shape. A logged day used to offer an "Edit" link AND
+            a "+ Log Weight" button, and both opened the same Update form. */}
+        {savedWeight && !weightExpanded ? (() => {
+          const openWeightSheet = () => setSheet({
+            title: 'Weight',
+            actions: [
+              { label: 'Edit', icon: 'pencil', onSelect: () => setWeightExpanded(true) },
+              { label: 'Delete', icon: 'trash', destructive: true, onSelect: deleteWeight },
+            ],
+          })
+          return (
+            <div
+              {...bindLongPress(openWeightSheet)}
+              className="long-pressable"
+              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{METRIC_SOURCES[savedWeight.source] ?? 'Logged by hand'}</p>
+                <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
+                  {savedWeight.weighed_at ? formatTime(savedWeight.weighed_at) : 'No time'}
+                </p>
+              </div>
+              <span className="tnum" style={rowValueStyle}>{savedWeight.weight} {savedWeight.unit}</span>
+              {isMobile ? (
+                <div data-no-longpress style={{ flexShrink: 0 }}>
+                  <button onClick={openWeightSheet} style={iconBtnStyle} aria-label="Actions for weight" title="Actions"><Icon name="more" /></button>
+                </div>
+              ) : (
+                <div data-no-longpress style={{ display: 'flex', gap: '2px' }}>
+                  <button onClick={() => setWeightExpanded(true)} style={iconBtnStyle} aria-label="Edit weight" title="Edit"><Icon name="pencil" /></button>
+                  <button onClick={deleteWeight} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete weight" title="Delete"><Icon name="trash" /></button>
+                </div>
+              )}
             </div>
-            {savedWeight.weighed_at && <p style={{ fontSize: 'var(--text-sm)' }}>{formatTime(savedWeight.weighed_at)}</p>}
-            <Button onClick={() => setWeightExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>+ Log Weight</Button>
-          </div>
-        ) : (
+          )
+        })() : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
@@ -1850,31 +1946,49 @@ function Log({ session, profile, hasSoloPremium = true }) {
       <div style={sectionStyle}>
         <h2>Cardio</h2>
 
-        {cardioEntries.map(e => (
+        {cardioEntries.map(e => {
+          // Same split as a food row: the phone gets one button that opens the
+          // sheet the long press opens; the desktop keeps the named icons.
+          const openCardioSheet = () => setSheet({
+            title: e.exercise_type,
+            actions: [
+              { label: 'Edit', icon: 'pencil', onSelect: () => startEditCardio(e) },
+              { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteCardio(e.id) },
+            ],
+          })
+          return (
           <div
             key={e.id}
-            {...bindLongPress(() => setSheet({
-              title: e.exercise_type,
-              actions: [
-                { label: 'Edit', icon: 'pencil', onSelect: () => startEditCardio(e) },
-                { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteCardio(e.id) },
-              ],
-            }))}
+            {...bindLongPress(openCardioSheet)}
             className="long-pressable"
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}
           >
-            <div>
-              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-md)' }}>{e.exercise_type}</p>
+            {/* Name left, the session's number right: the Trends row's shape.
+                With the minutes buried in the sub-line, the right of the row
+                held nothing once the icons folded into the sheet. */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{e.exercise_type}</p>
               <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
-                {e.duration} min{e.calories_burned ? ` · ${e.calories_burned} kcal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm avg` : ''}
+                {[
+                  e.calories_burned && `${e.calories_burned} kcal`,
+                  e.avg_heart_rate && `${e.avg_heart_rate} bpm avg`,
+                ].filter(Boolean).join(' · ') || 'No calories or heart rate'}
               </p>
             </div>
-            <div data-no-longpress style={{ display: 'flex', gap: '2px' }}>
-              <button onClick={() => startEditCardio(e)} style={iconBtnStyle} aria-label="Edit cardio entry" title="Edit"><Icon name="pencil" /></button>
-              <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete cardio entry" title="Delete"><Icon name="trash" /></button>
-            </div>
+            <span className="tnum" style={rowValueStyle}>{e.duration} min</span>
+            {isMobile ? (
+              <div data-no-longpress style={{ flexShrink: 0 }}>
+                <button onClick={openCardioSheet} style={iconBtnStyle} aria-label={`Actions for ${e.exercise_type}`} title="Actions"><Icon name="more" /></button>
+              </div>
+            ) : (
+              <div data-no-longpress style={{ display: 'flex', gap: '2px' }}>
+                <button onClick={() => startEditCardio(e)} style={iconBtnStyle} aria-label="Edit cardio entry" title="Edit"><Icon name="pencil" /></button>
+                <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete cardio entry" title="Delete"><Icon name="trash" /></button>
+              </div>
+            )}
           </div>
-        ))}
+          )
+        })}
 
         {cardioExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1913,16 +2027,45 @@ function Log({ session, profile, hasSoloPremium = true }) {
       <div style={sectionStyle}>
         <h2>Steps</h2>
 
-        {savedSteps && !stepsExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div>
-              <span style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--color-text)' }}>{savedSteps.steps.toLocaleString()}</span>
-              <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginLeft: '8px' }}>
-                steps{savedSteps.distance ? ` · ${savedSteps.distance} mi` : ''}
-              </span>
+        {/* One row, the cardio row's shape: where the count came from on the
+            left, the count on the right. It used to be a lone numeral beside a
+            "+ Log Steps" button that, on a day already logged, opened an Update
+            form; the row's sheet is now the way in to change it. */}
+        {savedSteps && !stepsExpanded && (() => {
+          const openStepsSheet = () => setSheet({
+            title: 'Steps',
+            actions: [
+              { label: 'Edit', icon: 'pencil', onSelect: () => setStepsExpanded(true) },
+              { label: 'Delete', icon: 'trash', destructive: true, onSelect: deleteSteps },
+            ],
+          })
+          return (
+            <div
+              {...bindLongPress(openStepsSheet)}
+              className="long-pressable"
+              // No bottom rule: it separates records, and this is the only one.
+              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{METRIC_SOURCES[savedSteps.source] ?? 'Logged by hand'}</p>
+                <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
+                  {savedSteps.distance ? `${savedSteps.distance} mi` : 'No distance'}
+                </p>
+              </div>
+              <span className="tnum" style={rowValueStyle}>{savedSteps.steps.toLocaleString()}</span>
+              {isMobile ? (
+                <div data-no-longpress style={{ flexShrink: 0 }}>
+                  <button onClick={openStepsSheet} style={iconBtnStyle} aria-label="Actions for steps" title="Actions"><Icon name="more" /></button>
+                </div>
+              ) : (
+                <div data-no-longpress style={{ display: 'flex', gap: '2px' }}>
+                  <button onClick={() => setStepsExpanded(true)} style={iconBtnStyle} aria-label="Edit steps" title="Edit"><Icon name="pencil" /></button>
+                  <button onClick={deleteSteps} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete steps" title="Delete"><Icon name="trash" /></button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {stepsExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1937,7 +2080,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         )}
 
-        {!stepsExpanded && (
+        {!stepsExpanded && !savedSteps && (
           <Button
             onClick={() => setStepsExpanded(true)}
             variant="muted"
