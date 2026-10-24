@@ -1358,12 +1358,18 @@ function Log({ session, profile, hasSoloPremium = true }) {
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+      {/* On a phone the date controls take their own row under the title, as on
+          My Progress. Side by side, the stepper plus "Today" did not fit, so on
+          any past day the controls wrapped and squeezed the title onto two
+          lines -- and the header changed shape between today and yesterday. */}
+      <div style={isMobile
+        ? { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-12)' }
+        : { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
         <h1>Daily Log</h1>
         {/* A3: the stepper is one control (step or pick the same value); "Today"
             is a separate action, so it sits a group-gap out rather than inside
             the pill. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-24)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-24)', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
           <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '999px' }}>
             <button onClick={goToPrevDay} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', padding: '7px 14px', fontSize: 'var(--text-body)', lineHeight: 1 }}><Icon name="left" /></button>
             <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
