@@ -2550,6 +2550,25 @@ html.native-app .gnav {
   }
 }
 
+/* The hold, made visible (see useLongPress). While a finger rests on the row
+   it eases into a tint and a 2% shrink over the rest of the hold, so the row
+   is its own progress bar and finishes as the sheet opens. Letting go early
+   springs it back quickly. The tint is a box-shadow spread rather than
+   padding, so it reaches past the text to the card's inset without moving a
+   pixel of layout. Reduced motion keeps the tint and drops the easing (the
+   global rule above). */
+.long-pressable {
+  transition: transform 160ms ease-out, background-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+.long-pressable[data-pressing] {
+  transform: scale(0.98);
+  background-color: var(--color-surface-2);
+  box-shadow: 0 0 0 var(--space-8) var(--color-surface-2);
+  border-radius: var(--radius);
+  transition-duration: var(--press-ms, 380ms);
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
 .sheet-backdrop {
   position: fixed; inset: 0; z-index: 4000;
   background: rgba(0, 0, 0, 0.55);

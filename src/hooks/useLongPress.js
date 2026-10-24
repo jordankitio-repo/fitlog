@@ -26,6 +26,14 @@ import { useRef, useCallback } from 'react'
 //     (index.css), which switches it off for coarse pointers only -- a desktop
 //     keeps text selectable.
 //
+// THE HOLD IS VISIBLE. Without feedback a hold reads as "nothing happened"
+// until the sheet appears, so a finger lets go at 400ms and tries again. The
+// row takes `data-pressing` and index.css eases it into a tint and a slight
+// shrink that lands exactly when the menu opens -- the row is the progress
+// bar. It waits out a short grace first, so a tap or the start of a scroll
+// never flashes. Touch and pen only: a mouse has right-click, and a tint on
+// every desktop mousedown would be noise.
+//
 // contextmenu is wired to the same handler so a right-click on a desktop opens
 // the same menu. That is the one place a long press has a true mouse analogue.
 // Called ONCE per component, returns a `bind(onLongPress)` you call per row.
@@ -34,15 +42,25 @@ import { useRef, useCallback } from 'react'
 // cannot be called inside the loop. The refs are shared across every row,
 // which is correct rather than a compromise: only one finger is down at a
 // time, so only one press can ever be in flight.
+const PRESS_GRACE = 120 // ms before a touch starts to look like a hold
+
 export function useLongPress({ delay = 500, moveTolerance = 10 } = {}) {
   const timer = useRef(null)
+  const graceTimer = useRef(null)
+  const pressed = useRef(null)
   const origin = useRef(null)
   const fired = useRef(false)
+
+  const release = useCallback(() => {
+    if (graceTimer.current) { clearTimeout(graceTimer.current); graceTimer.current = null }
+    if (pressed.current) { delete pressed.current.dataset.pressing; pressed.current = null }
+  }, [])
 
   const clear = useCallback(() => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null }
     origin.current = null
-  }, [])
+    release()
+  }, [release])
 
   const start = useCallback((e, onLongPress) => {
     if (!onLongPress) return
@@ -60,12 +78,24 @@ export function useLongPress({ delay = 500, moveTolerance = 10 } = {}) {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     fired.current = false
     origin.current = { x: e.clientX, y: e.clientY }
+    if (e.pointerType !== 'mouse') {
+      const el = e.currentTarget
+      graceTimer.current = setTimeout(() => {
+        graceTimer.current = null
+        // The ease runs over what is left of the hold, so it finishes as the
+        // menu opens however `delay` is tuned.
+        el.style.setProperty('--press-ms', `${delay - PRESS_GRACE}ms`)
+        el.dataset.pressing = ''
+        pressed.current = el
+      }, PRESS_GRACE)
+    }
     timer.current = setTimeout(() => {
       fired.current = true
       timer.current = null
+      release()
       onLongPress(e)
     }, delay)
-  }, [delay])
+  }, [delay, release])
 
   const move = useCallback((e) => {
     if (!timer.current || !origin.current) return
