@@ -1647,22 +1647,36 @@ nav a:hover {
    edge, within thumb reach. Only rendered at <=600px (see NavBar). The active
    tab lifts its icon into a Material-3-style "pill" so the current page reads
    at a glance without crowding the label. */
+/* The bar FLOATS: detached from the edges, with the page visibly scrolling
+   underneath it.
+   It used to be a full-width slab welded to the bottom, and at ~76px it still
+   read as a wall across the screen -- because what makes a bar feel heavy is
+   not only its height but that it cuts the page in two. Lifting it off the
+   edge means the content continues past it, so the same height reads as an
+   object sitting ON the app rather than a floor under it.
+   Translucent and blurred for the same reason: you can see what is behind it,
+   so it does not claim the space it covers. --color-surface at 82% keeps the
+   label contrast while letting the page through.
+   The bottom offset carries the home-indicator clearance now, so the padding
+   that used to do it is gone -- doing both would double it. */
 .gnav-bottom {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: var(--space-12);
+  right: var(--space-12);
+  bottom: calc(max(0px, calc(env(safe-area-inset-bottom, 0px) - 10px)) + var(--space-8));
   z-index: 100;
   display: flex;
   align-items: stretch;
-  background-color: var(--color-surface);
-  /* A single hairline + a whisper of lift — no heavy drop shadow, which read as
-     a harsh dark band above the bar (esp. on the light theme). Surface-vs-bg
-     contrast carries the rest of the separation. */
-  border-top: 1px solid var(--color-border);
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
-  /* Sit above the iOS home indicator in the standalone PWA. */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-radius: 22px;
+  background-color: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--color-border);
+  /* A detached object needs a real shadow to sit above the page rather than
+     float ambiguously in it. Still soft -- the blur does most of the work. */
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  /* So an active tab's pill cannot paint outside the rounded container. */
+  overflow: hidden;
 }
 /* Sized to its contents, not to a round number. The pill (28) + the gap (2)
    + the label's line (~14) + 6 top and bottom is 56px, which is what a tab
@@ -1676,9 +1690,9 @@ nav a:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  min-height: 52px;
-  padding: 6px 4px;
+  gap: 1px;
+  min-height: 48px;
+  padding: 4px 4px;
   color: var(--color-muted);
   text-decoration: none;
   transition: color 0.18s ease;
@@ -1691,8 +1705,8 @@ nav a:hover {
   justify-content: center;
   /* Anchors ui/CountBadge, which is absolute and overlaps the pill's corner. */
   position: relative;
-  width: 52px;
-  height: 28px;
+  width: 44px;
+  height: 26px;
   border-radius: 999px;
   background-color: transparent;
   transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
@@ -1720,20 +1734,23 @@ nav a:hover {
   .cv-backbar { display: none !important; }
 
   body.has-bottom-nav main {
-    /* Tracks .gnav-tab's height above: 56px of bar plus room to breathe. */
-    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+    /* Tracks the floating bar: 49px of content, its bottom offset, and room
+       to breathe. Written the same shape as .gnav-bottom so the two cannot
+       drift. Content SCROLLS under the bar by design; this only guarantees
+       the last row can be read clear of it. */
+    padding-bottom: calc(69px + max(0px, calc(env(safe-area-inset-bottom, 0px) - 10px))) !important;
   }
   body.has-bottom-nav.has-chat-fab main {
     padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px)) !important;
   }
   body.has-bottom-nav .chat-launcher {
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(76px + max(0px, calc(env(safe-area-inset-bottom, 0px) - 10px)));
   }
   /* Same lift for the toast. Portaling it (see Toast.jsx) is what lets it paint
      above the bar at all; this is what stops it sitting ON the bar and burying
      the tabs under a message the reader has to wait out. */
   body.has-bottom-nav .ds-toast {
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(76px + max(0px, calc(env(safe-area-inset-bottom, 0px) - 10px)));
   }
 }
 
