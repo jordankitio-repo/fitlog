@@ -268,42 +268,61 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
           and this grid lives inside a drag-sortable section — so mid-drag the
           tooltip would start measuring from the card instead of the viewport.
           Out here nothing can clip it or move its origin. */}
-      {tooltip && createPortal((
-        <div
-          className="info-tip-bubble"
-          style={{
-            // Positioning only. Everything else — surface, border, radius,
-            // padding, type, shadow, z-index — comes from the class InfoTip
-            // already uses, because this is the same gesture and the app had
-            // two spellings of it: 6px radius against --radius, 4px/10px
-            // padding against 10px/12px, --color-surface-2 against
-            // --color-surface, and no shadow at all against a 22px one.
-            //
-            // Flip to the LEFT of the pointer near the right edge. The bubble
-            // sat at x+12, so on the last columns — exactly where a coach looks
-            // first, because that is this week — it ran off the window and the
-            // sentence lost its end: "Week of Sep 27 - 6/7 lo".
-            // translateX(-100%) moves it by its OWN width, so the flip is exact
-            // however long the text is; the estimate only decides WHEN, and is
-            // deliberately generous so it flips early rather than late.
-            // On a NARROW screen there is no side to put it on: at 375px the
-            // flip triggers for nearly every cell (x + 320 > 367 is true from
-            // x=48), and the bubble then runs off the LEFT instead — measured
-            // at -66, -69, -32 on cells in the first third of the grid. So
-            // below 560 it spans the viewport with a margin and only its Y
-            // tracks the pointer, which cannot clip on either side.
-            ...(window.innerWidth < 560
-              ? { left: 8, right: 8, width: 'auto', maxWidth: 'none', transform: 'none' }
-              : (tooltip.x + TIP_ESTIMATE > window.innerWidth - 8
+      {/* PORTALED to <body>, like InfoTip's bubble and Toast. `position: fixed`
+          resolves against the nearest ancestor carrying a transform or filter,
+          and this grid lives inside a drag-sortable section — out here nothing
+          can clip it or move its origin. */}
+      {tooltip && createPortal(
+        window.innerWidth < 560 ? (
+          /* NARROW: a bounded wrapper, and the bubble sizes to its text inside
+             it. There is no side to flip to at 375px — the desktop rule fires
+             from x=48, so almost every cell flipped and the bubble then ran off
+             the LEFT (-66, -69, -32 on cells in the first third). Pinning it
+             edge to edge fixed that and made a full-width card out of "Tue, Jul
+             28 - No log", which is not what a six-word label needs.
+             So the WRAPPER is bounded and the bubble is content-sized: it
+             cannot clip on either side, and it still sits on the pointer's side
+             of the screen because the wrapper justifies by which third of the
+             width the pointer is in. */
+          <div
+            style={{
+              position: 'fixed',
+              top: Math.max(8, tooltip.y - 28),
+              left: 8,
+              right: 8,
+              display: 'flex',
+              justifyContent: tooltip.x < window.innerWidth / 3
+                ? 'flex-start'
+                : tooltip.x > (window.innerWidth * 2) / 3 ? 'flex-end' : 'center',
+              pointerEvents: 'none',
+              zIndex: 3000,
+            }}
+          >
+            {/* `static`, so it lays out inside the wrapper rather than against
+                the viewport; the class's own 300px cap still applies. */}
+            <span className="info-tip-bubble" style={{ position: 'static' }}>
+              {tooltip.text}
+            </span>
+          </div>
+        ) : (
+          <div
+            className="info-tip-bubble"
+            style={{
+              // Flip to the LEFT of the pointer near the right edge, where
+              // there IS a side to flip to. translateX(-100%) moves it by its
+              // own width, so the flip is exact however long the text is; the
+              // estimate only decides WHEN.
+              ...(tooltip.x + TIP_ESTIMATE > window.innerWidth - 8
                 ? { left: tooltip.x - 12, transform: 'translateX(-100%)' }
-                : { left: tooltip.x + 12 })),
-            // And never above the top of the window.
-            top: Math.max(8, tooltip.y - 28),
-          }}
-        >
-          {tooltip.text}
-        </div>
-      ), document.body)}
+                : { left: tooltip.x + 12 }),
+              top: Math.max(8, tooltip.y - 28),
+            }}
+          >
+            {tooltip.text}
+          </div>
+        ),
+        document.body,
+      )}
     </div>
   )
 }

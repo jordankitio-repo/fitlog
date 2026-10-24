@@ -913,24 +913,18 @@ body {
 
 /* The weekday/weekend rows, narrow.
    The row is label | track | value at 78 + 1fr + 80, which on a phone leaves
-   the track 66px at 360 — and the axis keys above it (UNDER / TARGET / OVER)
-   need 118, so they overprinted as "UNDTARGEOVER". The track gets the whole
-   row here instead, with the label and its value sharing the line above it.
-   That is more width for the bars, not less, which is the point: a diverging
-   bar in 66px cannot show anything.
-   The axis keys move with it — their middle column IS the track, so the two
-   spans that reserve the other columns come out and the keys span the row. */
+   the track ~66px while the axis keys above it (UNDER / TARGET / OVER) need
+   118 — so they overprinted as "UNDTARGEOVER".
+   The row stays ONE row. Stacking the track under its label was the first fix
+   and it traded the collision for a worse reading: "Weekdays" sat directly
+   beneath the word UNDER, which looks like a heading over it. The columns give
+   the track the room instead — 78 -> 66 for the label ("Weekends" measures 66)
+   and 80 -> 68 for the value ("-645 cal" measures 66) — and the keys drop
+   their letter-spacing, which is the first thing to go when three words have
+   to share 110px. */
 @media (max-width: 560px) {
-  .cb-row {
-    grid-template-columns: 1fr auto !important;
-    grid-template-areas: "label value" "track track";
-    row-gap: var(--space-4);
-  }
-  .cb-row > :nth-child(1) { grid-area: label; }
-  .cb-row > :nth-child(2) { grid-area: track; }
-  .cb-row > :nth-child(3) { grid-area: value; text-align: right; }
-  .cb-axis { grid-template-columns: 1fr !important; }
-  .cb-axis > span:empty { display: none; }
+  .cb-row, .cb-axis { --cb-label: 66px; --cb-value: 68px; }
+  .cb-axis-keys { letter-spacing: normal !important; }
 
   /* 4+1 strands "No log" on its own row; 3+2 is the even split. */
   .heat-legend {
@@ -940,6 +934,15 @@ body {
     gap: var(--space-6) var(--space-12) !important;
     margin-left: 0 !important;
   }
+}
+
+/* At 360 even the tightened row leaves the track 90px against the keys' 110,
+   so the two END keys go and TARGET stays. TARGET is the one not already being
+   said: the bar's direction and the sign on its value both state under or
+   over, while nothing else marks where the centre line is. */
+@media (max-width: 379px) {
+  .cb-axis-keys > span:first-child,
+  .cb-axis-keys > span:last-child { display: none; }
 }
 
 /* The adherence strip, narrow.
