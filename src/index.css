@@ -842,6 +842,24 @@ body {
    strip only at the phone breakpoint. */
 .rost-chips { display: contents; }
 
+/* A row of chips that SCROLLS rather than wraps, at every width.
+   Wrapping splits one list into rows, and a row of two under a row of three
+   reads as a grouping that is not there. The roster's lens bar reached this
+   conclusion first (.rost-chips, below its breakpoint); this is the same
+   control in the same situation, so it is the same behaviour — just not
+   conditional, because a wrap is wrong wherever it happens.
+   No scrollbar: it is a short strip beside its own label, and a visible
+   scrollbar under four chips is louder than the overflow it reports. */
+.ds-chipstrip {
+  display: flex;
+  gap: var(--space-8);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: var(--space-2);
+}
+.ds-chipstrip::-webkit-scrollbar { display: none; }
+.ds-chipstrip > * { flex: 0 0 auto; }
+
 /* The adherence block: grid beside its reads on a desktop, stacked below one.
    The grid is a fixed 13 columns capped at 34px a cell, so it settles around
    494px and no longer fills a wide card on its own. Rather than leave that to

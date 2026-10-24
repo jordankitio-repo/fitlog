@@ -2819,7 +2819,13 @@ async function sendMessage(text) {
                 aria-label="Weight goal"
                 value={clientTargets.weight_goal}
                 onChange={(e) => setClientTargets({ ...clientTargets, weight_goal: e.target.value })}
-                style={{ flex: 1, width: 'auto' }}
+                /* `min-width: 0` is the whole fix. A flex item defaults to
+                   min-width:auto and a number input's intrinsic minimum is
+                   wide — this one measured 221px — so `flex: 1` could not
+                   shrink it, and at 360 it pushed the unit select 20px past
+                   the card. The same note already sits on .cv-checkin-config
+                   for the same reason. */
+                style={{ flex: 1, width: 'auto', minWidth: 0 }}
               />
               <Select
                 value={clientTargets.weight_goal_unit}
@@ -2828,7 +2834,9 @@ async function sendMessage(text) {
                   const unit = e.target.value
                   setClientTargets(prev => ({ ...prev, weight_goal_unit: unit, weight_goal: convertGoalValue(prev.weight_goal, prev.weight_goal_unit, unit) }))
                 }}
-                style={{ width: '80px', cursor: 'pointer' }}
+                /* And the select never gives up its 80px: it is the narrower
+                   of the two and the one carrying a dropdown arrow. */
+                style={{ width: '80px', flexShrink: 0, cursor: 'pointer' }}
               >
                 <option value="lbs">lbs</option>
                 <option value="kg">kg</option>
@@ -2837,7 +2845,11 @@ async function sendMessage(text) {
           </div>
           <div style={{ marginTop: 'var(--space-12)' }}>
             <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', color: 'var(--color-muted)' }}>Primary goal</p>
-            <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
+            {/* One axis, scrolled — not wrapped. Four chips wrap to 3 + 1 on a
+                phone, which reads as two groups of goals rather than one list
+                of four. The roster's lens bar already made this call; this is
+                the same control in the same situation. */}
+            <div className="ds-chipstrip" role="group" aria-label="Primary goal">
               {GOALS.map((g) => {
                 const active = clientGoal === g.key
                 return (
