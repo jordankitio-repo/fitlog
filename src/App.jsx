@@ -125,6 +125,27 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
   const isStandaloneDisplay = useMediaQuery('(display-mode: standalone)')
   const isStandalone =
     isStandaloneDisplay || window.navigator.standalone === true || isNativeApp()
+
+  // Warm the tab bar's destinations so changing tabs never suspends.
+  //
+  // Every page is a lazy() chunk, so the FIRST visit to each tab falls through
+  // to the Suspense fallback while its chunk loads. On the web an HTTP cache
+  // makes that invisible after the first time; in the native shell it was
+  // landing on every tab, and the fallback used to black out the whole screen,
+  // so it read as the app relaunching on every tap.
+  //
+  // Fetched once, on the way in, while the reader is still looking at their
+  // first screen. Failures are ignored on purpose: this is a cache warm, and
+  // the real navigation will surface any genuine load error.
+  useEffect(() => {
+    if (!session) return
+    Promise.all([
+      import('./pages/Dashboard'),
+      import('./pages/Log'),
+      import('./pages/Coach'),
+      import('./pages/Profile'),
+    ]).catch(() => {})
+  }, [session])
   const showLoginAsHome = !session && path === '/' && isStandalone
   const isLanding = !session && path === '/' && !isStandalone
 
@@ -162,7 +183,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
       {session && <a href="#main" className="skip-link">Skip to main content</a>}
       {session && <NavBar profile={profile} />}
       <main id="main" style={mainStyle}>
-        <Suspense fallback={<LoadingScreen />}>
+        <Suspense fallback={<LoadingScreen inline />}>
           <Routes>
             <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
             <Route path="/" element={session ? (

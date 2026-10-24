@@ -2421,3 +2421,64 @@ button.trend-rowbtn:hover { background-color: var(--color-surface-2); }
   .trend-rowbtn { gap: var(--space-10); padding: var(--space-12) var(--space-2); }
   .trend-value { font-size: var(--text-md); }
 }
+
+/* ---- Native shell (iOS / Android via Capacitor) -------------------------
+   In a browser the BODY scrolls, and the top bar (position: sticky) and the
+   tab bar (position: fixed) ride along correctly. In a WKWebView the same
+   markup comes apart: momentum scrolling and rubber-band overscroll move the
+   VIEWPORT itself, so the fixed tab bar slides with the content and the
+   sticky top bar lets the page run underneath it into the status bar. Both
+   were visible in the app: the tab bar drifting mid-scroll, and a card
+   bleeding above the Gardnr bar.
+
+   The fix is to stop the body scrolling at all and hand the scroll to an
+   inner element. The viewport then never moves, so `fixed` is genuinely
+   fixed and `sticky` has a stable scrollport to stick to. #root creates no
+   containing block for fixed children (no transform/filter), so .gnav-bottom
+   still pins to the viewport rather than to the scroller.
+
+   Scoped to .native-app on <html>, set before first paint in main.jsx. The
+   browser and the installed PWA keep the body scrolling they already have,
+   which works and which the rest of this file is written against. */
+html.native-app,
+html.native-app body {
+  height: 100%;
+  overflow: hidden;
+  /* Kills the rubber-band at the document level. Without it the whole page
+     still bounces past its ends and takes the fixed chrome with it. */
+  overscroll-behavior-y: none;
+}
+
+html.native-app #root {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* `contain` rather than `none`: inner scrollers (the coach thread, modals)
+     keep their own bounce, but reaching their end does not start scrolling
+     anything behind them. */
+  overscroll-behavior-y: contain;
+  /* .gnav is taken out of flow below, so the scroller reserves its height or
+     the first card starts underneath it. 56px is navBase's height in
+     components/NavBar.jsx. */
+  padding-top: 56px;
+}
+
+/* The top bar must be FIXED, not sticky.
+   `sticky` pins an element within the SCROLLING CONTENT, so when #root
+   rubber-bands at the top the header translates down with the content -- the
+   bar visibly gets pulled even though the body no longer scrolls. That is why
+   moving the scroll to #root fixed the tab bar (already `fixed`, so
+   viewport-relative) but not the header.
+   `fixed` is relative to the viewport, and the viewport cannot move now that
+   body is overflow:hidden, so the bar is genuinely immovable. Content slides
+   under it, which is what the opaque --color-surface background is for.
+   !important because NavBar applies `position: sticky` as an INLINE style
+   (navBase), and inline styles outrank any class rule without it. */
+html.native-app .gnav {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+

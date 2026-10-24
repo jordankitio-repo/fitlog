@@ -593,9 +593,12 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     {
       label: 'You',
       items: [
-        // Clients message their coach from the app-level thread; coaches and
-        // solo users have no bubble on this page, so no Messages entry.
-        { key: 'messages', label: 'Messages', show: profile?.role === 'client' },
+        // No Messages entry. It was a rail row that only ever navigated to
+        // /coach, and /coach is already in the primary nav for a client on
+        // both the phone's tab bar and the desktop pill links. So it was a
+        // second route to a destination one tap away, inside Settings, which
+        // is the "what did my coach say?" question having two answers again --
+        // the exact thing deleting ChatBubble was meant to end.
         { key: 'account', label: 'Account', show: true },
         { key: 'appearance', label: 'Appearance', show: true },
         { key: 'notifications', label: 'Notifications', show: emailCategories.length > 0 },
@@ -626,7 +629,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // Every destination this role actually has, flat, in rail order. One source:
   // the rail, the route validator and the phone's list all read it, so a
   // section cannot be reachable from one and missing from another.
-  const destinations = railGroups.flatMap(g => g.items).filter(d => d.key !== 'messages')
+  const destinations = railGroups.flatMap(g => g.items)
 
   // The section this route is on. An unknown or absent one falls back to the
   // first destination on a desktop (the rail is on screen, so landing
@@ -646,10 +649,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // section is a route and the screen is only ever as long as the thing you
   // came for.
   function handleRailJump(key) {
-    if (key === 'messages') {
-      navigate('/coach')
-      return
-    }
     navigate(`/profile/${key}`)
   }
 
@@ -725,7 +724,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             {group.items.map(item => (
               <Link
                 key={item.key}
-                to={item.key === 'messages' ? '/coach' : `/profile/${item.key}`}
+                to={`/profile/${item.key}`}
                 className="cv-dest-row ds-control"
               >
                 <svg
