@@ -42,7 +42,6 @@ import Avatar from '../components/Avatar'
 import { energyBalanceRead, WINDOW_OPTIONS, WINDOW_DATA_DAYS } from '../utils/energyBalanceRead'
 import { computeClientStats } from '../utils/clientStats'
 import { latestCheckIn, coversPeriod } from '../utils/checkinLookup'
-import { waitingFrom, latestPerClient } from '../utils/reviewQueue'
 import { attentionLevel } from '../utils/attentionLevel'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
@@ -297,12 +296,6 @@ function ClientView({ profile }) {
   // moved, and it swapped the check-in this card displays. A dropdown that
   // emails somebody should not be a dropdown.
   const [pendingInterval, setPendingInterval] = useState(null)
-  // The rest of the queue, asked for only after a review lands here. The roster
-  // sends a coach to the oldest waiting check-in and then abandons them: review
-  // it and you are stranded on a client record, and the next one costs a trip
-  // back to the roster and another click. At nine clients that is eighteen
-  // navigations to drain three check-ins.
-  const [nextWaiting, setNextWaiting] = useState(null)
   // Remembered per viewer, like `gardnr-eb-window`: whether a coach reads
   // adherence a day or a week at a time is about how they work, not about this
   // client. The SPAN is not a choice (see complianceWindow.js) — only this is.
@@ -921,34 +914,6 @@ async function fetchStepsHistory() {
     }
   }
 
-  // Who is next, excluding this client. Deliberately asked AFTER the review
-  // rather than on load: a coach opening a record for any other reason does not
-  // need to be told there is work elsewhere, and the roster already says so.
-  async function loadNextWaiting() {
-    if (!profile?.id) return
-    const { data: links } = await supabase
-      .from('coach_clients')
-      .select('client_id')
-      .eq('coach_id', profile.id)
-    const others = (links || []).map(l => l.client_id).filter(id => id !== clientId)
-    if (!others.length) { setNextWaiting(null); return }
-    // Eight weeks is the same window clientStats reads, so the two cannot
-    // disagree about who is waiting.
-    const since = toLocalDateString(addDays(new Date(), -8 * 7))
-    const { data: rows } = await supabase
-      .from('check_ins')
-      .select('client_id, week_of, reviewed_at, created_at')
-      .in('client_id', others)
-      .gte('week_of', since)
-    const queue = waitingFrom(latestPerClient(rows || []))
-    if (!queue.length) { setNextWaiting(null); return }
-    const { data: who } = await supabase
-      .from('profiles').select('full_name').eq('id', queue[0]).maybeSingle()
-    setNextWaiting({ id: queue[0], name: who?.full_name || 'the next client', remaining: queue.length })
-  }
-
-  // The comment comes FROM the component now: it owns the box, this page owns
-  // what happens to what is typed in it.
   async function reviewCheckIn(text = '') {
     if (!clientCheckIn?.id) return
     setReviewing(true)
@@ -956,7 +921,7 @@ async function fetchStepsHistory() {
     const { error } = await supabase.rpc('review_checkin', { p_id: clientCheckIn.id, p_comment: comment })
     if (error) console.error('Error reviewing check-in:', error)
     else {
-      fetchClientCheckIn(); loadNextWaiting()
+      fetchClientCheckIn()
       // Notify the client by email; their bell derives the event from check_ins.
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {
@@ -3133,27 +3098,18 @@ async function sendMessage(text) {
             </div>
           )}
           {/* The check-in itself lives in CheckinReview, shared with the
-              review queue — see that file for what stayed here and why. The
-              footer is this page's contribution: when a review has just been
-              done, the next client who is waiting. */}
+              review queue — see that file for what stayed here and why.
+              NO footer here, deliberately. Reviewing from /check-ins is
+              draining a list, and the next one belongs under it; opening a
+              client's record is about THAT client, and being pushed at
+              somebody else afterwards is a different job starting itself. The
+              chain lives on the queue page, which is the surface that means
+              it. */}
           <CheckinReview
             checkIn={clientCheckIn}
             current={checkinCurrent}
             reviewing={reviewing}
             onReview={reviewCheckIn}
-            footer={nextWaiting && (
-              <div style={{ marginTop: 'var(--space-12)' }}>
-                <Button
-                  onClick={() => navigate(`/client/${nextWaiting.id}?focus=checkIn`)}
-                  variant="primary"
-                  size="sm"
-                >
-                  Next: {nextWaiting.name.split(' ')[0]}
-                  {nextWaiting.remaining > 1 ? ` · ${nextWaiting.remaining} left` : ''}
-                  <Icon name="right" />
-                </Button>
-              </div>
-            )}
           />
           </div>
         </SectionHeader>
