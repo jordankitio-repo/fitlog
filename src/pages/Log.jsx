@@ -185,6 +185,18 @@ function Log({ session, profile, hasSoloPremium = true }) {
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 500, tolerance: 10 } }),
   )
+  // Quick add can be folded away by someone who never uses it. Remembered per
+  // device, like ClientView's collapsed sections; storage can throw (private
+  // mode), so it falls back to open.
+  const [quickAddOpen, setQuickAddOpen] = useState(() => {
+    try { return localStorage.getItem('gardnr-log-quickadd') !== 'closed' } catch { return true }
+  })
+  function toggleQuickAdd() {
+    setQuickAddOpen(open => {
+      try { localStorage.setItem('gardnr-log-quickadd', open ? 'closed' : 'open') } catch { /* ignore */ }
+      return !open
+    })
+  }
   const [dragItem, setDragItem] = useState(null) // the lifted diary item, for the overlay
   // A hold that ends where it began opens the sheet on release; the click the
   // browser synthesises from that same touch must not also toggle the row.
@@ -2053,8 +2065,21 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {/* Quick add — one-tap re-log of frequently logged foods */}
         {!nutritionExpanded && !showCopyPanel && frequentFoods.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Quick add</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
+            {/* The label is the toggle: the shared disclosure control, its
+                chevron rotating open, dressed as the group label it was. */}
+            <button
+              type="button"
+              className="ds-disclosure ds-control"
+              aria-expanded={quickAddOpen}
+              aria-controls="quick-add-tiles"
+              onClick={toggleQuickAdd}
+              style={{ width: 'auto', alignSelf: 'flex-start', padding: 0, gap: 'var(--space-4)', fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+            >
+              Quick add
+              <Icon name="right" size={12} className="ds-chev" />
+            </button>
+            {quickAddOpen && (
+            <div id="quick-add-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
               {frequentFoods.map(item => {
                 const key = item.food.trim().toLowerCase()
                 const pending = quickAddKey === key
@@ -2098,6 +2123,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 )
               })}
             </div>
+            )}
           </div>
         )}
 
