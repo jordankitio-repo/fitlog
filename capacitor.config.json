@@ -3,6 +3,6 @@
   "appName": "Gardnr",
   "webDir": "dist",
   "ios": {
-    "contentInset": "always"
+    "contentInset": "never"
   }
 }
