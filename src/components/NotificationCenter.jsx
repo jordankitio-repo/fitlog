@@ -323,12 +323,19 @@ export default function NotificationCenter({ profile }) {
               {/* The escape hatch that per-item acknowledgement requires. The
                   list caps at twenty; without this, a week away from the bell
                   costs twenty clicks, and the old glance-clears-everything
-                  behaviour would start looking like a feature. Named for what
-                  it does to the group it sits above — the alerts below are not
-                  clearable and are deliberately untouched. */}
+                  behaviour would start looking like a feature.
+
+                  "Clear all", by the user's call, over "Clear 15". The count
+                  was there because this takes the notices and not the alerts
+                  sitting above them, so the label named its own scope — but
+                  nobody arrives at a bell looking for "Clear 15", and a button
+                  you have to read a number off is a worse button than one you
+                  recognise. The alerts stay put when it is pressed, which reads
+                  as what it is: they are conditions, and the panel still shows
+                  them because they are still true. */}
               {visibleEvents.length > 1 && (
                 <button type="button" className="notif-clear ds-control" onClick={() => acknowledge(visibleEvents)}>
-                  Clear {visibleEvents.length}
+                  Clear all
                 </button>
               )}
             </div>
