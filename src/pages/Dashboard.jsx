@@ -137,24 +137,33 @@ function ConsistencyStat({ label, hint, n, of, tone, sub }) {
 // One cell of the identity strip. Same shape as ConsistencyStat above — the
 // page should have one cell vocabulary, not two — but it states a whole number
 // rather than a ratio, and its sub-line is where the nudge lives.
-function IdentityStat({ label, value, unit, sub, subTone }) {
+function IdentityStat({ label, value, unit, sub, subTone, icon, reserveSub = true }) {
   return (
     <span className="ds-statcell" style={{ flex: '1 1 160px', minWidth: 0, gap: 'var(--space-6)' }}>
       <span style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-faint)', fontWeight: 'var(--weight-medium)' }}>
         {label}
       </span>
-      <span className="tnum" style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text)', lineHeight: 1.1 }}>
+      <span className="tnum" style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text)', lineHeight: 1.1, display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-6)' }}>
+        {/* The growth motif, which the system sanctions on streaks (and on
+            milestones, empty states and celebrations -- not everywhere). A
+            line glyph, never an emoji. Green because B1 grades a live run as
+            "fine"; it is the data's own colour, not chrome. */}
+        {icon && <Icon name={icon} size={18} style={{ color: 'var(--color-primary)', alignSelf: 'center' }} />}
         {value}
         {unit && (
           <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}> {unit}</span>
         )}
       </span>
-      {/* Reserved whether or not there is anything to say, so the numerals
-          across the strip keep a shared baseline instead of lifting whenever a
-          neighbour has no sub-line. */}
-      <span style={{ fontSize: 'var(--text-xs)', color: subTone || 'var(--color-muted)', minHeight: '1em' }}>
-        {sub || '\u00a0'}
-      </span>
+      {/* Reserved whether or not THIS cell has anything to say, so the
+          numerals keep a shared baseline instead of lifting whenever a
+          neighbour's sub-line is absent. Dropped entirely when NO cell in the
+          strip has one, which would otherwise leave a blank line under the
+          whole row -- the caller knows that, this does not. */}
+      {reserveSub && (
+        <span style={{ fontSize: 'var(--text-xs)', color: subTone || 'var(--color-muted)', minHeight: '1em' }}>
+          {sub || '\u00a0'}
+        </span>
+      )}
     </span>
   )
 }
@@ -199,6 +208,15 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [heatmapData, setHeatmapData] = useState({})
   const [milestone, setMilestone] = useState(null)
   const [loggedToday, setLoggedToday] = useState(false)
+  // The ONE sub-line the strip still carries, and the only one worth the row:
+  // a run about to break, or a run worth noticing. The standing labels that
+  // used to sit beside it went -- "All time" restated DAYS LOGGED, and "Your
+  // best yet" restated what the leaf and the tree showing the same number
+  // already say. A caption that only repeats its own label is a line of noise
+  // the eye has to clear before reaching the numerals.
+  const streakSub =
+    !loggedToday && streak > 0 ? 'Log today to keep it'
+      : (streak >= 7 && loggedToday ? "You're on a roll" : '')
   const [cardOrder, setCardOrder] = useState(profile?.layout?.dashboard || [])
 
   async function saveCardOrder(next) {
@@ -1305,28 +1323,49 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             to separate it from the title above and the date control below, so
             it carries its own — A3 wants ≥24 between groups, and 8 + 16 is
             where that lands. */}
+        {/* THREE CELLS, ALWAYS. An earlier pass dropped the Longest cell when
+            it matched Current, on the grounds that C6 forbids printing one
+            fact twice. That traded a C6 duplication for a B3 breach -- "a bar
+            read daily should not move" -- and it moved it at the worst moment,
+            so the reward for reaching a personal best was a vanishing column.
+            Three stable cells, and the repeat is answered by TELLING THEM
+            APART instead of deleting one: the growth motif runs leaf -> tree,
+            current run to best run, so two cells showing 12 read as a
+            progression that has arrived rather than one number stuttering.
+            Days logged carries no glyph on purpose. It is a tally, not a run,
+            and giving it one would flatten the pair back into three of a kind.
+            No gradient, either: the decorated streak card was deleted in Oct
+            2026 for stating a number the strip below it already stated, and
+            chrome here would walk that back. */}
         <div className="ds-statstrip is-compact" style={{ margin: 'var(--space-16) 0' }}>
           <IdentityStat
             label="Current streak"
             value={streak}
             unit={streak === 1 ? 'day' : 'days'}
-            sub={!loggedToday && streak > 0 ? 'Log today to keep it' : (streak >= 7 && loggedToday ? "You're on a roll" : '')}
+            icon={streak > 0 ? 'leaf' : undefined}
+            // Ordered by what the reader can act on. The nudge outranks the
+            // compliment: a run about to break matters more than how long it
+            // got.
+            sub={streakSub}
             subTone={!loggedToday && streak > 0 ? 'var(--color-warning)' : undefined}
+            reserveSub={Boolean(streakSub)}
           />
           <IdentityStat
             label="Longest streak"
             value={longestStreak}
             unit={longestStreak === 1 ? 'day' : 'days'}
-            // Only worth saying when it is not the same run twice. A personal
-            // best that IS the current streak is the thing the first cell
-            // already said.
-            sub={longestStreak > 0 && longestStreak === streak ? 'Your best, right now' : ''}
+            icon={longestStreak > 0 ? 'tree' : undefined}
+            reserveSub={Boolean(streakSub)}
+            // No sub-line. "Your best, right now" lived here and wrapped onto a
+            // second line, leaving the row ragged; the same news now sits on
+            // the Current cell as "Your best yet", which is where the reader
+            // looks first and where it is about the run they are still in.
           />
           <IdentityStat
             label="Days logged"
             value={daysLogged}
             unit={daysLogged === 1 ? 'day' : 'days'}
-            sub="All time"
+            reserveSub={Boolean(streakSub)}
           />
         </div>
 
