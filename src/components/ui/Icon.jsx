@@ -72,14 +72,23 @@ const PATHS = {
   // is the glyph's nature rather than a defect.
   tree:     <><path d="M12 21.5v-6" /><path d="M7 15.5a5 5 0 0 1-1.8-9.7A5.2 5.2 0 0 1 12 2.2a5.2 5.2 0 0 1 6.8 3.6A5 5 0 0 1 17 15.5Z" /></>,
   // The three Body and activity metrics, for the tinted mark that starts each
-  // row on the Log. `heart` and `stairs` are the section rail's cardio and
-  // steps glyphs (sectionIcons.jsx), so a metric reads the same everywhere.
-  // Weight does NOT reuse the rail's weightChart: that is a falling trend
-  // line, and beside a reading it would say "going down" whatever the
-  // reading did. A scale names the thing measured and claims no direction.
-  heart:    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />,
-  stairs:   <polyline points="4 20 8 20 8 15 12 15 12 10 16 10 16 5 20 5" />,
-  scale:    <><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M8 10a4 4 0 0 1 8 0" /><line x1="12" y1="10" x2="13.6" y2="7.6" /></>,
+  // row on the Log. Sized by MEASUREMENT against the set, like `tree`: the set
+  // sits in a ~20-22 unit ink box at ~23-31% coverage (leaf 20.8/28.2, trash
+  // 19.8 x 21.8/30.8, repeat 19.8 x 23.8/25.5 by the same render).
+  // `heart` is the rail's cardio glyph at 92%: at full size it was the widest
+  // mark in the set (22.6) and the heart rows read heavier than the others.
+  // Now 20.8 x 18.4 at 24.3%.
+  // `footprints` for steps, not the staircase it replaced: a staircase is
+  // what Apple Health draws for FLIGHTS CLIMBED, and at 17.8 x 16.8 and 19%
+  // it was the smallest, palest mark of the three. 19.8 x 21.8 at 33.2%.
+  // `weight` for a weigh-in, not the bathroom scale it replaced: a scale is a
+  // closed square, which put it at 37.5% (the heaviest in the set) and left a
+  // dial too small to read at 16px. The weight shape says the same thing
+  // lighter: 20.0 x 19.6 at 29.8%. (Not the rail's weightChart either: a
+  // falling trend line beside a reading would claim a direction.)
+  heart:      <path transform="translate(12 12) scale(0.92) translate(-12 -12)" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />,
+  footprints: <><path d="M4 16v-2.4C4 11.5 3 10.5 3 8c0-2.7 1.5-6 4.5-6C9.4 2 10 3.8 10 5.5c0 3.1-2 5.7-2 8.7V16a2 2 0 1 1-4 0z" /><path d="M20 20v-2.4c0-2.1 1-3.1 1-5.6 0-2.7-1.5-6-4.5-6C14.6 6 14 7.8 14 9.5c0 3.1 2 5.7 2 8.7V20a2 2 0 1 0 4 0z" /><path d="M16 17h4" /><path d="M4 13h4" /></>,
+  weight:     <><circle cx="12" cy="5.5" r="2.75" /><path d="M6.8 8.25h10.4a1.6 1.6 0 0 1 1.55 1.2l2.3 9.2a1.6 1.6 0 0 1-1.55 2H4.5a1.6 1.6 0 0 1-1.55-2l2.3-9.2a1.6 1.6 0 0 1 1.55-1.2z" /></>,
   // Marks a saved meal — a group of entries logged together. Replaces a 🍽
   // emoji, which rendered in the OS font and was the app's last emoji-as-icon.
   utensils: <><path d="M7 2v8a2 2 0 0 0 2 2v10" /><path d="M4 2v5" /><path d="M10 2v5" /><path d="M18 2c-1.7 1.5-2.5 3.7-2.5 6 0 1.7.6 2.7 1.8 3.1V22" /></>,

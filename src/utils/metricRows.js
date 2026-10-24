@@ -1,10 +1,7 @@
 // The words on the Body and activity card's rows (Log). Pure so the phrasing
-// is tested rather than eyeballed, and kept apart from the page so a row's
-// sub-line can't quietly drift into stating what is missing again -- "No
-// distance" was the line this replaced, a fact nobody had asked about.
-
-import { convertWeight, normUnit } from './weightTarget'
-import { parseLocalDateString, addDays, toLocalDateString } from './dateHelpers'
+// is tested rather than eyeballed. Every helper here reads a day against its
+// own GOAL; nothing compares with an earlier day. The Log is for logging and
+// for "how is today going", and trends over time are My Progress's job.
 
 // 35 -> "35 min", 78 -> "1 hr 18 min", 120 -> "2 hr". Past an hour, minutes
 // alone make the reader do the division.
@@ -24,19 +21,11 @@ export function stepsGoalSub(steps, target) {
   return `${pct}% of ${t.toLocaleString('en-US')}`
 }
 
-// The change since the previous weigh-in, in TODAY's unit: "−0.2 kg vs
-// yesterday", "+1.4 lbs vs Oct 20", "No change vs yesterday". Null with no
-// earlier weigh-in. A true minus sign, not a hyphen: it is a number.
-export function weightDeltaSub(current, previous) {
-  if (!current || !previous) return null
-  const unit = normUnit(current.unit)
-  const prev = convertWeight(Number(previous.weight), normUnit(previous.unit), unit)
-  const delta = Math.round((Number(current.weight) - prev) * 10) / 10
-  const yesterday = toLocalDateString(addDays(parseLocalDateString(current.logged_date), -1))
-  const when = previous.logged_date === yesterday
-    ? 'yesterday'
-    : parseLocalDateString(previous.logged_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  if (delta === 0) return `No change vs ${when}`
-  const sign = delta > 0 ? '+' : '−'
-  return `${sign}${Math.abs(delta).toFixed(1)} ${unit} vs ${when}`
+// "323% of 35 min" against the daily cardio target, else null. The cardio
+// counterpart of stepsGoalSub: an effort that resets each day is read against
+// its goal, never against yesterday (a rest day would read as a decline).
+export function cardioGoalSub(minutes, target) {
+  const t = Number(target)
+  if (!Number.isFinite(t) || t <= 0) return null
+  return `${Math.round((Number(minutes) / t) * 100)}% of ${formatMinutes(t)}`
 }

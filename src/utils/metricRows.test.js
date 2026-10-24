@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatMinutes, stepsGoalSub, weightDeltaSub } from './metricRows'
+import { formatMinutes, stepsGoalSub, cardioGoalSub } from './metricRows'
 
 describe('formatMinutes', () => {
   it('keeps minutes under an hour', () => {
@@ -30,27 +30,12 @@ describe('stepsGoalSub', () => {
   })
 })
 
-describe('weightDeltaSub', () => {
-  const today = (weight, unit = 'kg') => ({ weight, unit, logged_date: '2026-10-24' })
-
-  it('names yesterday when the last weigh-in was yesterday', () => {
-    expect(weightDeltaSub(today(70.5), { weight: 70.7, unit: 'kg', logged_date: '2026-10-23' }))
-      .toBe('−0.2 kg vs yesterday')
+describe('cardioGoalSub', () => {
+  it('states the day against the target', () => {
+    expect(cardioGoalSub(113, 35)).toBe('323% of 35 min')
+    expect(cardioGoalSub(30, 90)).toBe('33% of 1 hr 30 min')
   })
-  it('dates an older weigh-in', () => {
-    expect(weightDeltaSub(today(71.9), { weight: 70.5, unit: 'kg', logged_date: '2026-10-20' }))
-      .toBe('+1.4 kg vs Oct 20')
-  })
-  it('converts the previous weigh-in into today’s unit', () => {
-    // 155.4 lbs is 70.49 kg, so 70.5 kg reads as no change
-    expect(weightDeltaSub(today(70.5), { weight: 155.4, unit: 'lbs', logged_date: '2026-10-23' }))
-      .toBe('No change vs yesterday')
-  })
-  it('crosses a month boundary', () => {
-    expect(weightDeltaSub({ weight: 70, unit: 'kg', logged_date: '2026-11-01' }, { weight: 70.3, unit: 'kg', logged_date: '2026-10-31' }))
-      .toBe('−0.3 kg vs yesterday')
-  })
-  it('is null without a previous weigh-in', () => {
-    expect(weightDeltaSub(today(70.5), null)).toBeNull()
+  it('is null with no target', () => {
+    expect(cardioGoalSub(113, null)).toBeNull()
   })
 })

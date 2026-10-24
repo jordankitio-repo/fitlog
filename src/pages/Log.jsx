@@ -16,7 +16,7 @@ import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '.
 import { controlStyle, Icon } from '../components/ui'
 import ActionSheet from '../components/ActionSheet'
 import { useLongPress } from '../hooks/useLongPress'
-import { formatMinutes, stepsGoalSub, weightDeltaSub } from '../utils/metricRows'
+import { formatMinutes, stepsGoalSub, cardioGoalSub } from '../utils/metricRows'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
 const unitConversions = {
@@ -226,10 +226,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [steps, setSteps] = useState('')
   const [distance, setDistance] = useState('')
   const [savedSteps, setSavedSteps] = useState(null)
-  // Context for the Body and activity rows: the step target (from the same
-  // targets row My Progress reads) and the weigh-in before this day's.
+  // The daily targets the Body and activity rows are read against -- the same
+  // targets row My Progress reads. The Log compares a day with its GOALS only;
+  // comparisons with earlier days are My Progress's job, not this page's.
   const [targets, setTargets] = useState(null)
-  const [prevWeight, setPrevWeight] = useState(null)
 
   // Body-measurement state (one row per date; sites in MEASUREMENT_SITES)
   const [meas, setMeas] = useState({ unit: 'in', neck: '', chest: '', waist: '', hips: '', arm: '', thigh: '' })
@@ -255,7 +255,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   useEffect(() => {
     if (!session?.user?.id) return
-    supabase.from('targets').select('steps').eq('user_id', session.user.id).maybeSingle()
+    supabase.from('targets').select('steps, cardio_minutes').eq('user_id', session.user.id).maybeSingle()
       .then(({ data, error }) => { if (error) console.error(error); else setTargets(data) })
   }, [session?.user?.id])
 
@@ -921,14 +921,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
     // own Log button. (This was an effect on savedWeight, null on the first
     // render before this fetch lands, so every day loaded mid-edit.)
     setWeightExpanded(false)
-    if (!row || !session?.user?.id) { setPrevWeight(null); return }
-    const { data: prev } = await supabase
-      .from('weight_log').select('weight, unit, logged_date')
-      .eq('user_id', session.user.id)
-      .lt('logged_date', selectedDate)
-      .order('logged_date', { ascending: false }).order('created_at', { ascending: false })
-      .limit(1)
-    setPrevWeight(prev?.[0] ?? null)
   }
 
   async function saveWeight() {
@@ -1117,6 +1109,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchLastMeasured()
   }
 
+  async function deleteMeasurements() {
+    if (!savedMeas) return
+    await deleteWithUndo({
+      table: 'body_measurements', match: { id: savedMeas.id }, rows: [savedMeas], label: 'Measurements',
+      refresh: () => { fetchMeasurements(); fetchLastMeasured() },
+    })
+  }
+
   // Nav functions
   function goToPrevDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
   function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
@@ -1158,6 +1158,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // A group total on the right lines up with the values only if it is inset
   // by the same amount.
   const ACTION_COL_PX = 44 - 16 + 10
+  // Where a Body and activity row's TEXT starts: the 28px mark plus the row's
+  // 10px gap. Rules, the CARDIO label and "+ Log cardio" all start here.
+  const MARK_INSET_PX = 28 + 10
 
   // The number at the right of a cardio or steps row: .trend-value at its
   // phone size, so a session reads the way a Trends row on My Progress does.
@@ -1185,25 +1188,49 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // then the actions -- the Trends row's shape. `logged: false` is the empty
   // state, which says so (F3) and carries a Log button where the number goes.
   // `first` drops the top rule: rules separate records, not card from heading.
+  // One row of the Body and activity card, on a fixed grid so every row lines
+  // up with every other:
+  //
+  //   [mark] Title  note                 value  [more]
+  //   [mark] sub-line
+  //
+  // The value sits on the TITLE's baseline, not centred between the two lines
+  // where it lined up with nothing. The rule above a row starts at the text
+  // column (MARK_INSET_PX), as iOS insets separators past a row's icon, so the
+  // icon reads as part of its row; the CARDIO label and "+ Log cardio" start
+  // on that same column. `logged: false` is the empty state: "Not logged"
+  // (F3) and a Log button where the value goes. `first` drops the rule.
   function renderMetricRow({ key, title, sub, value, mark, logged = true, first = false, onLog, onEdit, onDelete }) {
-    const rule = first ? {} : { borderTop: '1px solid var(--color-border)' }
     // The metric's hue as a FILL (a 16% disc behind its glyph), the mark the
     // Trends rows on My Progress open with. Never on the text: metric tokens
     // fail contrast as type on a light card (design-system B2).
-    const markEl = mark && (
-      <span className="trend-mark" style={{ color: `var(--color-${mark.metric})` }} aria-hidden="true">
+    const markEl = (
+      <span className="trend-mark" style={{ color: `var(--color-${mark.metric})`, gridColumn: 1, gridRow: '1 / span 2', alignSelf: 'center' }} aria-hidden="true">
         <Icon name={mark.glyph} size={16} />
       </span>
     )
+    const rule = !first && (
+      <span aria-hidden="true" style={{ position: 'absolute', top: 0, left: MARK_INSET_PX, right: 0, borderTop: '1px solid var(--color-border)' }} />
+    )
+    const grid = {
+      position: 'relative', display: 'grid', gridTemplateColumns: '28px minmax(0, 1fr) auto auto',
+      columnGap: '10px', rowGap: '2px', alignItems: 'baseline', padding: '10px 0',
+    }
+    const titleEl = (
+      <p style={{ gridColumn: 2, gridRow: 1, fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', minWidth: 0 }}>
+        {title}
+      </p>
+    )
+    const subEl = (text) => (
+      <p style={{ gridColumn: '2 / span 3', gridRow: 2, fontSize: 'var(--text-sm)', minWidth: 0 }}>{text}</p>
+    )
     if (!logged) {
       return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', ...rule }}>
-          {markEl}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{title}</p>
-            <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>Not logged</p>
+        <div key={key} style={grid}>
+          {rule}{markEl}{titleEl}{subEl('Not logged')}
+          <div style={{ gridColumn: '3 / span 2', gridRow: '1 / span 2', alignSelf: 'center' }}>
+            <Button onClick={onLog} variant="muted" size="sm">Log</Button>
           </div>
-          <Button onClick={onLog} variant="muted" size="sm">Log</Button>
         </div>
       )
     }
@@ -1215,30 +1242,25 @@ function Log({ session, profile, hasSoloPremium = true }) {
       ],
     })
     return (
-      <div
-        key={key}
-        {...bindLongPress(openSheet)}
-        className="long-pressable"
-        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', ...rule }}
-      >
-        {markEl}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{title}</p>
-          <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>{sub}</p>
-        </div>
-        <span className="tnum" style={rowValueStyle}>{value}</span>
+      <div key={key} {...bindLongPress(openSheet)} className="long-pressable" style={grid}>
+        {rule}{markEl}{titleEl}
+        <span className="tnum" style={{ ...rowValueStyle, gridColumn: 3, gridRow: 1 }}>{value}</span>
         {/* Same split as a food row: the phone gets one button that opens the
             sheet the long press opens; the desktop keeps the named icons. */}
-        {isMobile ? (
-          <div data-no-longpress style={{ flexShrink: 0 }}>
-            <button onClick={openSheet} style={moreBtnStyle} aria-label={`Actions for ${title}`} title="Actions"><Icon name="more" /></button>
-          </div>
-        ) : (
-          <div data-no-longpress style={{ display: 'flex', gap: '2px' }}>
-            <button onClick={onEdit} style={iconBtnStyle} aria-label={`Edit ${title}`} title="Edit"><Icon name="pencil" /></button>
-            <button onClick={onDelete} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label={`Delete ${title}`} title="Delete"><Icon name="trash" /></button>
-          </div>
-        )}
+        <div data-no-longpress style={{ gridColumn: 4, gridRow: 1, alignSelf: 'center', display: 'flex', gap: '2px' }}>
+          {isMobile ? (
+            // Vertical margins wide enough that the 44pt press area takes no
+            // height in the grid: otherwise it sets the title line's height
+            // and pushes the sub-line away from its title.
+            <button onClick={openSheet} style={{ ...moreBtnStyle, margin: '-22px -8px' }} aria-label={`Actions for ${title}`} title="Actions"><Icon name="more" /></button>
+          ) : (
+            <>
+              <button onClick={onEdit} style={iconBtnStyle} aria-label={`Edit ${title}`} title="Edit"><Icon name="pencil" /></button>
+              <button onClick={onDelete} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label={`Delete ${title}`} title="Delete"><Icon name="trash" /></button>
+            </>
+          )}
+        </div>
+        {subEl(sub)}
       </div>
     )
   }
@@ -1278,6 +1300,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
           ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(item.id) }]
           : []),
         { label: 'Delete meal', icon: 'trash', destructive: true, onSelect: () => deleteLoggedMeal(item.id) },
+      ],
+    }
+  }
+
+  function measSheet() {
+    return {
+      title: 'Measurements',
+      actions: [
+        { label: 'Edit', icon: 'pencil', onSelect: () => setMeasExpanded(true) },
+        { label: 'Delete', icon: 'trash', destructive: true, onSelect: deleteMeasurements },
       ],
     }
   }
@@ -1504,14 +1536,17 @@ function Log({ session, profile, hasSoloPremium = true }) {
         <div>
           {savedWeight && !weightExpanded
             ? renderMetricRow({
-                key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'scale' }, 
-                sub: [savedWeight.weighed_at && formatTime(savedWeight.weighed_at), weightDeltaSub(savedWeight, prevWeight), sourceOf(savedWeight)].filter(Boolean).join(' · ') || 'First weigh-in',
+                key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'weight' },
+                // When it was weighed (and the device, once synced). No change
+                // since yesterday: a weigh-in has no daily goal, and how it
+                // moves over time is My Progress's question, not the Log's.
+                sub: [savedWeight.weighed_at && formatTime(savedWeight.weighed_at), sourceOf(savedWeight)].filter(Boolean).join(' · ') || 'No time recorded',
                 value: `${savedWeight.weight} ${savedWeight.unit}`,
                 onEdit: () => setWeightExpanded(true), onDelete: deleteWeight,
               })
-            : !weightExpanded && renderMetricRow({ key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'scale' }, logged: false, onLog: () => setWeightExpanded(true) })}
+            : !weightExpanded && renderMetricRow({ key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'weight' }, logged: false, onLog: () => setWeightExpanded(true) })}
           {weightExpanded && (
-            <div style={{ padding: '10px 0' }}>
+            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Weight</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1531,14 +1566,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
           {savedSteps && !stepsExpanded
             ? renderMetricRow({
-                key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'stairs' }, 
+                key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'footprints' },
                 sub: [stepsGoalSub(savedSteps.steps, targets?.steps), savedSteps.distance && `${savedSteps.distance} mi`, sourceOf(savedSteps)].filter(Boolean).join(' · ') || 'No step goal set',
                 value: savedSteps.steps.toLocaleString(),
                 onEdit: () => setStepsExpanded(true), onDelete: deleteSteps,
               })
-            : !stepsExpanded && renderMetricRow({ key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'stairs' }, logged: false, onLog: () => setStepsExpanded(true) })}
+            : !stepsExpanded && renderMetricRow({ key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'footprints' }, logged: false, onLog: () => setStepsExpanded(true) })}
           {stepsExpanded && (
-            <div style={{ padding: '10px 0', borderTop: '1px solid var(--color-border)' }}>
+            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX, borderTop: '1px solid var(--color-border)' }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Steps</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -1559,9 +1594,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
               below), total and all. Not drawn over the empty row, which would
               say "Cardio" twice. */}
           {cardioEntries.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px', paddingRight: isMobile ? ACTION_COL_PX : 0, borderTop: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px', marginLeft: MARK_INSET_PX, paddingRight: isMobile ? ACTION_COL_PX : 0, borderTop: '1px solid var(--color-border)' }}>
               <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>Cardio</span>
-              <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{formatMinutes(cardioEntries.reduce((sum, e) => sum + (e.duration || 0), 0))}</span>
+              <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{(() => {
+                // The day's total against the target, like Steps' "98% of
+                // 9,000". Not against yesterday: cardio resets each morning.
+                const total = cardioEntries.reduce((sum, e) => sum + (e.duration || 0), 0)
+                return [formatMinutes(total), cardioGoalSub(total, targets?.cardio_minutes)].filter(Boolean).join(' · ')
+              })()}</span>
             </div>
           )}
           {cardioEntries.map((e, i) => renderMetricRow({
@@ -1577,7 +1617,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           {cardioEntries.length === 0 && !cardioExpanded &&
             renderMetricRow({ key: 'cardio', title: 'Cardio', mark: { metric: 'cardio', glyph: 'heart' }, logged: false, onLog: () => setCardioExpanded(true) })}
           {cardioExpanded && (
-            <div style={{ padding: '10px 0', borderTop: '1px solid var(--color-border)' }}>
+            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX, borderTop: '1px solid var(--color-border)' }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'Cardio'}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
@@ -1604,7 +1644,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         </div>
 
         {cardioEntries.length > 0 && !cardioExpanded && (
-          <Button onClick={() => setCardioExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start' }}>+ Log cardio</Button>
+          <Button onClick={() => setCardioExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginLeft: MARK_INSET_PX }}>+ Log cardio</Button>
         )}
       </div>
 
@@ -2170,7 +2210,25 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       {/* Body measurements */}
       <div style={sectionStyle}>
-        <h2>Measurements</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+          <h2 style={{ flex: 1 }}>Measurements</h2>
+          {/* A day without measurements -- most days, for a monthly habit --
+              is the heading and a Log button, nothing else. Not "Not logged"
+              (on 27 days of 28 that reads as a miss), and not "Last taken
+              Oct 13": when that date matters the re-measure reminder below
+              already says it. */}
+          {!savedMeas && !measExpanded && (
+            <Button onClick={() => setMeasExpanded(true)} variant="muted" size="sm">Log</Button>
+          )}
+          {savedMeas && !measExpanded && (isMobile ? (
+            <button onClick={() => setSheet(measSheet())} style={moreBtnStyle} aria-label="Actions for measurements" title="Actions"><Icon name="more" /></button>
+          ) : (
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <button onClick={() => setMeasExpanded(true)} style={iconBtnStyle} aria-label="Edit measurements" title="Edit"><Icon name="pencil" /></button>
+              <button onClick={deleteMeasurements} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete measurements" title="Delete"><Icon name="trash" /></button>
+            </div>
+          ))}
+        </div>
 
         {/* Gentle re-measure reminder once the latest is past ~monthly (steady
             cadence — deliberately not nagging; the coach view is phase-precise). */}
@@ -2183,27 +2241,45 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
               </svg>
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
-                It's been {r.daysSince} days since your last measurements — a good time to update them.
+                It's been {r.daysSince} days since your last measurements. A good time to update them.
               </span>
             </div>
           )
         })()}
 
-        {savedMeas && !measExpanded && (
-          MEASUREMENT_SITES.some(s => savedMeas[s.key] != null) ? (
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-              {MEASUREMENT_SITES.filter(s => savedMeas[s.key] != null).map(s => (
-                <div key={s.key}>
-                  <span style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-text)' }}>{savedMeas[s.key]}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginLeft: '3px' }}>{savedMeas.unit}</span>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{s.label}</div>
+        {/* A 2 x 3 grid, the body read top to bottom: neck and chest, then
+            waist and hips side by side (the pair a coach compares), then arm
+            and thigh. It was a wrapping strip that put four on one line and
+            stranded two under it, a grid with a hole (F2), its columns
+            misaligned. Every cell holds its place: a skipped site says "--"
+            rather than collapsing the grid. Values only: change since the
+            last measurement is a trend, and trends live on My Progress.
+            Edit and Delete live behind the header's `more`, as on every other
+            record on this page. */}
+        {savedMeas && !measExpanded && (() => {
+          return (
+            <div
+              {...bindLongPress(() => setSheet(measSheet()))}
+              className="long-pressable"
+              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 'var(--space-16)', rowGap: 'var(--space-12)' }}
+            >
+              {MEASUREMENT_SITES.map(m => (
+                <div key={m.key} style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{m.label}</p>
+                  <p style={{ marginTop: '2px', whiteSpace: 'nowrap' }}>
+                    {savedMeas[m.key] != null ? (
+                      <span className="tnum" style={{ fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text)' }}>
+                        {Number(savedMeas[m.key]).toFixed(1)}<span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)', marginLeft: '3px' }}>{savedMeas.unit}</span>
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 'var(--text-md)', color: 'var(--color-muted)' }}>&ndash;</span>
+                    )}
+                  </p>
                 </div>
               ))}
             </div>
-          ) : (
-            <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>No measurements recorded for this day.</span>
           )
-        )}
+        })()}
 
         {measExpanded && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -2228,11 +2304,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         )}
 
-        {!measExpanded && (
-          <Button onClick={() => setMeasExpanded(true)} variant="primary" size="sm" style={{ alignSelf: 'flex-start' }}>
-            {savedMeas ? 'Edit measurements' : '+ Log measurements'}
-          </Button>
-        )}
       </div>
 
       <ConfirmDialog
