@@ -148,6 +148,11 @@ verify_jwt = false
 enabled = true
 verify_jwt = false
 
+[functions.device-sync]
+enabled = true
+verify_jwt = false
+import_map = "./functions/device-sync/deno.json"
+
 [analytics]
 # Off for local dev: the vector container mounts the Docker socket, which Colima
 # cannot do ("operation not supported"). Nothing local depends on it.
