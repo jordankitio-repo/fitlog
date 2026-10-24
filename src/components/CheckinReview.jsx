@@ -59,11 +59,11 @@ export default function CheckinReview({ checkIn, current = true, reviewing = fal
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Adherence</p>
-              <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{checkIn.adherence_rating}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
+              <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{checkIn.adherence_rating != null ? <>{checkIn.adherence_rating}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></> : <span style={{ color: 'var(--color-muted)' }}>&mdash;</span>}</p>
             </div>
             <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius)', padding: 'var(--space-12)' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>Energy level</p>
-              <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{checkIn.energy_level}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></p>
+              <p className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{checkIn.energy_level != null ? <>{checkIn.energy_level}<span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)' }}>/10</span></> : <span style={{ color: 'var(--color-muted)' }}>&mdash;</span>}</p>
             </div>
           </div>
           {checkIn.obstacles && (
