@@ -2497,3 +2497,72 @@ html.native-app .gnav {
   right: 0;
 }
 
+/* ---- Long press, and the sheet it opens --------------------------------
+   The gesture lives in hooks/useLongPress.js; this is the half that has to be
+   CSS. In a WKWebView a hold raises the system text-selection and share
+   bubble, which paints over anything the app shows. Refused for COARSE
+   pointers only, so a mouse keeps text selectable -- a desktop reaches the
+   same menu by right-click, where no callout is in the way. */
+@media (pointer: coarse) {
+  .long-pressable {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 4000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center; padding: var(--space-16);
+}
+
+.sheet-panel {
+  width: 100%; max-width: 380px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: var(--space-8);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* The phone gets a true sheet: full width, flush to the bottom edge within
+   thumb reach, and clearing the home indicator. A centred tile on a phone puts
+   the actions under the hand that is reaching for them. */
+@media (max-width: 600px) {
+  .sheet-backdrop { align-items: flex-end; padding: 0; }
+  .sheet-panel {
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+    padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* The row the actions belong to, so a sheet opened by a hold says what it is
+   about. A5 puts it a size down and a grade quieter than the actions. */
+.sheet-title {
+  margin: 0; padding: var(--space-12) var(--space-16) var(--space-8);
+  font-size: var(--text-xs); color: var(--color-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.sheet-action {
+  display: flex; align-items: center; gap: var(--space-12);
+  width: 100%; min-height: 48px;
+  padding: var(--space-12) var(--space-16);
+  background: none; border: none; border-radius: 10px;
+  color: var(--color-text); font-family: inherit;
+  font-size: var(--text-base); text-align: left; cursor: pointer;
+}
+.sheet-action:active { background: var(--color-surface-2); }
+.sheet-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.sheet-action svg { color: var(--color-faint); flex-shrink: 0; }
+.sheet-action.destructive, .sheet-action.destructive svg { color: var(--color-error); }
+/* Cancel is a way out, not an action. Separated by a hairline and graded down,
+   so the eye lands on what the sheet was opened FOR. */
+.sheet-action.cancel {
+  margin-top: var(--space-4); border-top: 1px solid var(--color-border);
+  border-radius: 0 0 10px 10px; color: var(--color-muted); justify-content: center;
+}

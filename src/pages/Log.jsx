@@ -15,6 +15,8 @@ import { refreshNotifications } from '../utils/notifyRefresh'
 import { MEALS, mealForHour, groupEntriesByMeal, groupLoggedMeals } from '../utils/meals'
 import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '../utils/savedMeals'
 import { controlStyle, Icon } from '../components/ui'
+import ActionSheet from '../components/ActionSheet'
+import { useLongPress } from '../hooks/useLongPress'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -148,6 +150,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [moveMenu, setMoveMenu] = useState(false)
   const [groupMenu, setGroupMenu] = useState(false)
   const [moveItemId, setMoveItemId] = useState(null) // id of the row/meal whose per-item "move to" menu is open
+  // Long press on a logged row opens its actions as a named list, instead of
+  // making the reader decode four icons at the right edge. The icons STAY: a
+  // hold cannot be performed with a keyboard or a screen reader, so this is a
+  // second route to the same actions, never the only one.
+  const [sheet, setSheet] = useState(null) // { title, actions } | null
+  const bindLongPress = useLongPress()
   // Mouse drags after a few px; touch needs a short hold so a tap still opens
   // the menu and a scroll-drag never gets hijacked.
   const dndSensors = useSensors(
@@ -739,6 +747,19 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setShowFoodResults(false); setFoodResults([])
   }
 
+  // Load a logged row back into the add-food form, ready to log again.
+  // Named and lifted out of the Re-log button because the long-press sheet
+  // offers the same action: two copies of eight setState calls would drift the
+  // first time a field was added to the form.
+  function prefillFromEntry(entry) {
+                setFood(entry.food); setCalories(entry.calories.toString())
+                setProtein(entry.protein.toString()); setCarbs(entry.carbs.toString()); setFat(entry.fat.toString())
+                setServingSize(entry.serving_size.toString()); setServingUnit(entry.serving_unit || 'g')
+                setMeal(entry.meal || mealForHour(new Date().getHours()))
+                setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
+                setBaseServingSize(null); setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
+  }
+
   function startEdit(entry) {
     setEditingEntry(entry)
     setFood(entry.food)
@@ -1063,10 +1084,31 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const currentSlot = entry.meal || 'other'
     const moveTargets = inMeal ? [] : presentMealSlots.filter(k => k !== currentSlot)
     const moveOpen = moveItemId === entry.id
+    // Mirrors the icons at the right edge, in the same order, named. Move is
+    // absent when the row is inside a meal: the container moves, not the row
+    // (same rule moveTargets already encodes above).
+    const entryPress = selectMode ? {} : bindLongPress(() => setSheet({
+      title: entry.food,
+      actions: [
+        { label: 'Re-log', icon: 'repeat', onSelect: () => prefillFromEntry(entry) },
+        ...(moveTargets.length > 0
+          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(entry.id) }]
+          : []),
+        { label: 'Edit', icon: 'pencil', onSelect: () => startEdit(entry) },
+        { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteEntry(entry.id) },
+      ],
+    }))
     return (
       <div key={entry.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
        <div
-        onClick={selectMode ? () => toggleSelect(entry.id) : undefined}
+        {...entryPress}
+        className="long-pressable"
+        onClick={(e) => {
+          // The hook's onClick swallows the click the browser synthesises after
+          // a hold, so the row's own tap does not fire behind the open sheet.
+          entryPress.onClick(e)
+          if (!e.defaultPrevented && selectMode) toggleSelect(entry.id)
+        }}
         style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', cursor: selectMode ? 'pointer' : 'default' }}
       >
         {selectMode && (
@@ -1081,16 +1123,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </p>
         </div>
         {!selectMode && (
-          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+          <div data-no-longpress style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
             <button
-              onClick={() => {
-                setFood(entry.food); setCalories(entry.calories.toString())
-                setProtein(entry.protein.toString()); setCarbs(entry.carbs.toString()); setFat(entry.fat.toString())
-                setServingSize(entry.serving_size.toString()); setServingUnit(entry.serving_unit || 'g')
-                setMeal(entry.meal || mealForHour(new Date().getHours()))
-                setBaseNutrients({ calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat })
-                setBaseServingSize(null); setBaseServingLabel(''); setEditingEntry(null); setNutritionExpanded(true)
-              }}
+              onClick={() => prefillFromEntry(entry)}
               style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }}
               title="Re-log"
             ><Icon name="repeat" /></button>
@@ -1120,9 +1155,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const currentSlot = item.entries[0]?.meal || 'other'
     const moveTargets = presentMealSlots.filter(k => k !== currentSlot)
     const moveOpen = moveItemId === item.id
+    const mealPress = bindLongPress(() => setSheet({
+      title: item.name,
+      actions: [
+        { label: 'Repeat meal', icon: 'repeat', onSelect: () => repeatLoggedMeal(item) },
+        { label: 'Save as a reusable meal', icon: 'utensils', onSelect: () => saveContainerAsMeal(item) },
+        ...(moveTargets.length > 0
+          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(item.id) }]
+          : []),
+        { label: 'Delete meal', icon: 'trash', destructive: true, onSelect: () => deleteLoggedMeal(item.id) },
+      ],
+    }))
     return (
       <div key={item.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}>
+        <div {...mealPress} className="long-pressable" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0' }}>
           <button
             type="button"
             onClick={() => toggleMealExpand(item.id)}
@@ -1144,7 +1190,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             </p>
           </div>
           </button>
-          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+          <div data-no-longpress style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
             <button onClick={() => repeatLoggedMeal(item)} style={{ ...iconBtnStyle, fontSize: 'var(--text-body)' }} title="Repeat meal" aria-label="Repeat meal"><Icon name="repeat" /></button>
             <button onClick={() => saveContainerAsMeal(item)} style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center' }} title="Save as a reusable meal" aria-label="Save as a reusable meal">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1805,14 +1851,25 @@ function Log({ session, profile, hasSoloPremium = true }) {
         <h2>Cardio</h2>
 
         {cardioEntries.map(e => (
-          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
+          <div
+            key={e.id}
+            {...bindLongPress(() => setSheet({
+              title: e.exercise_type,
+              actions: [
+                { label: 'Edit', icon: 'pencil', onSelect: () => startEditCardio(e) },
+                { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteCardio(e.id) },
+              ],
+            }))}
+            className="long-pressable"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}
+          >
             <div>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-md)' }}>{e.exercise_type}</p>
               <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
                 {e.duration} min{e.calories_burned ? ` · ${e.calories_burned} kcal` : ''}{e.avg_heart_rate ? ` · ${e.avg_heart_rate} bpm avg` : ''}
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '2px' }}>
+            <div data-no-longpress style={{ display: 'flex', gap: '2px' }}>
               <button onClick={() => startEditCardio(e)} style={iconBtnStyle} aria-label="Edit cardio entry" title="Edit"><Icon name="pencil" /></button>
               <button onClick={() => deleteCardio(e.id)} style={{ ...iconBtnStyle, color: 'var(--color-error)' }} aria-label="Delete cardio entry" title="Delete"><Icon name="trash" /></button>
             </div>
@@ -1967,6 +2024,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
         onConfirm={() => { const fn = dialog?.onConfirm; setDialog(null); fn?.() }}
         onCancel={() => setDialog(null)}
       />
+      {/* The long-press menu for a logged row. One instance for the page: only
+          one press can be in flight, so a sheet per row would be 40 portals
+          waiting to render nothing. */}
+      <ActionSheet
+        open={Boolean(sheet)}
+        title={sheet?.title}
+        actions={sheet?.actions || []}
+        onClose={() => setSheet(null)}
+      />
+
       <Toast message={toast?.message} type={toast?.type} action={toast?.action} onClose={() => setToast(null)} />
     </div>
   )
