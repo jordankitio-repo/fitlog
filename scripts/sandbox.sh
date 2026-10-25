@@ -126,6 +126,19 @@ SUPA_URL="$SUPA_URL" SERVICE_KEY="$SERVICE_KEY" ALLOW_REMOTE_HOST="$ALLOW_REMOTE
   node scripts/sandbox-seed.mjs
 PSQL < scripts/sandbox-fill.sql >/dev/null
 
+# Edge functions the demo needs. Only food search so far: the reset above
+# rebuilds the database, never the functions, and the demo shipped without
+# any -- name search returned nothing in the hosted demo and the simulator.
+# USDA_FDC_API_KEY is set only when absent, so a real key put on the demo
+# project later is never overwritten; DEMO_KEY is USDA's shared key (~30
+# searches an hour), enough for a demo.
+DEMO_REF="$(echo "$SUPA_URL" | sed -E 's#https://([^.]+)\..*#\1#')"
+if ! npx supabase secrets list --project-ref "$DEMO_REF" 2>/dev/null | grep -q USDA_FDC_API_KEY; then
+  npx supabase secrets set USDA_FDC_API_KEY=DEMO_KEY --project-ref "$DEMO_REF" >/dev/null
+fi
+npx supabase functions deploy food-search --project-ref "$DEMO_REF" >/dev/null 2>&1 \
+  || echo "  ! food-search did not deploy; name search will be empty in the demo"
+
 echo "→ [3/4] Build '$BRANCH' frontend…"
 rm -rf dist && npx vite build --mode demo >/dev/null 2>&1
 

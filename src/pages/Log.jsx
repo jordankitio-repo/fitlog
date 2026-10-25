@@ -978,12 +978,22 @@ function Log({ session, profile, hasSoloPremium = true }) {
     }
   }
 
+  // What a lookup fills in, emptied when a lookup fails. Otherwise a scan
+  // that found a product followed by one that found nothing left the FIRST
+  // product's calories and macros beside an empty name, one tap from being
+  // logged as something else. The meal choice is left alone.
+  function clearLookupFill() {
+    setFood(''); setCalories(''); setProtein(''); setCarbs(''); setFat('')
+    setServingSize(''); setServingUnit('g')
+    setBaseNutrients(null); setBaseServingSize(null); setBaseServingLabel('')
+  }
+
   async function lookupBarcode(barcode) {
     setLookupError('')
     try {
       const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`)
       const data = await response.json()
-      if (data.status === 0) { setLookupError('Product not found.'); return }
+      if (data.status === 0) { clearLookupFill(); setLookupError('Product not found.'); return }
 
       const nutrients = data.product.nutriments
       const hasServingData = nutrients['energy-kcal_serving'] != null
@@ -1021,7 +1031,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       setFat(base.fat.toString())
       setShowBarcodeInput(false)
       setBarcodeInput('')
-    } catch { setLookupError('Lookup failed.') }
+    } catch { clearLookupFill(); setLookupError('Lookup failed.') }
   }
 
   // Weight functions
