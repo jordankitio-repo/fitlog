@@ -29,3 +29,16 @@ export function cardioGoalSub(minutes, target) {
   if (!Number.isFinite(t) || t <= 0) return null
   return `${Math.round((Number(minutes) / t) * 100)}% of ${formatMinutes(t)}`
 }
+
+// A tape measurement typed into the form, converted when its unit toggles
+// (in <-> cm) so the number follows the unit instead of being relabelled:
+// "30" in becomes "76.2" cm. One decimal, the way the form stores them.
+// Blank or half-typed input is returned as it is.
+export function convertLengthValue(value, from, to) {
+  if (from === to) return value
+  const n = Number(value)
+  if (value === '' || value == null || !Number.isFinite(n)) return value
+  const cm = from === 'in' ? n * 2.54 : n
+  const out = to === 'in' ? cm / 2.54 : cm
+  return String(Math.round(out * 10) / 10)
+}

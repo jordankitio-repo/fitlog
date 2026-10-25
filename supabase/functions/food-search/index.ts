@@ -1,5 +1,5 @@
 // Food name search, proxying USDA FoodData Central so the API key stays
-// server-side. Auth-gated (verify_jwt) — only signed-in users can search.
+// server-side. Only signed-in users can search: see the user check below.
 // Returns generic foods (Foundation / SR Legacy / FNDDS) normalized to
 // per-100g macros, the shape the Log form's barcode path already consumes.
 // (Barcode lookups stay on OpenFoodFacts; FDC handles typed search.)
@@ -41,9 +41,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (!req.headers.get('Authorization')) {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
       return jsonResponse({ error: 'Missing authorization header' }, 401)
     }
+    // A REAL signed-in user, not just a header. The gateway's verify_jwt
+    // accepts the project's public anon key, which ships in the web app, so
+    // a header check alone let anyone use this as a free USDA proxy and spend
+    // the key's hourly quota out from under real users. Same check as
+    // nutrition-coach: the anon key resolves to no user and is refused.
+    const userRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
+      headers: { Authorization: authHeader, apikey: Deno.env.get('SUPABASE_ANON_KEY')! },
+    })
+    const user = userRes.ok ? await userRes.json() : null
+    if (!user?.id) return jsonResponse({ error: 'Unauthorized' }, 401)
 
     const { q } = await req.json()
     const term = (q || '').toString().trim()
