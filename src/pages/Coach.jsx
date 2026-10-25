@@ -1,5 +1,5 @@
-import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Fragment, useState, useEffect, useCallback, useRef, useContext } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Button from '../components/Button'
@@ -8,7 +8,8 @@ import EmptyState from '../components/EmptyState'
 import Skeleton from '../components/Skeleton'
 import { Icon, Textarea } from '../components/ui'
 import { useMediaQuery } from '../hooks/useMediaQuery'
-import { useTabReturn } from '../hooks/useTabReturn'
+import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
+import { revealWhenReady } from '../utils/quickActions'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import ReportReader, { ReportArchive } from './Reports'
 import { leadOf } from '../utils/reportFeed'
@@ -196,6 +197,22 @@ export default function Coach({ profile, archiveOpen = false }) {
   // it read.
   useTabReturn(() => { if (threadLoaded && !noCoach) fetchThread(refreshSize(messageCount)) })
 
+  // The home screen's "Message coach" Quick Action arrives as ?action=compose
+  // (utils/quickActions): once the thread is on screen, bring the message box
+  // into view and give it the cursor. Only while this is the tab on screen
+  // (it is kept alive). iOS raises the keyboard only for a focus that comes
+  // from a tap, so on the phone this places the reader at the box.
+  const tabActive = useContext(TabActiveContext)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const composeRef = useRef(null)
+  useEffect(() => {
+    if (!tabActive || !threadLoaded || searchParams.get('action') !== 'compose') return
+    const sp = new URLSearchParams(searchParams)
+    sp.delete('action')
+    setSearchParams(sp, { replace: true })
+    revealWhenReady(() => composeRef.current, 'end')
+  }, [tabActive, threadLoaded, searchParams, setSearchParams])
+
   // Keyed on the LAST item, not the count: paging older messages in above grows
   // the list without changing its end, and scrolling to the bottom there would
   // undo the thing the reader just asked for.
@@ -368,6 +385,7 @@ export default function Coach({ profile, archiveOpen = false }) {
             )}
             <div className="coach-compose">
               <Textarea
+                ref={composeRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send() } }}

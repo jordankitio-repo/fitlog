@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useContext } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { DndContext, DragOverlay, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core'
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
@@ -17,7 +18,8 @@ import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '.
 import { controlStyle, Icon } from '../components/ui'
 import ActionSheet from '../components/ActionSheet'
 import { useLongPress } from '../hooks/useLongPress'
-import { useTabReturn } from '../hooks/useTabReturn'
+import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
+import { revealWhenReady } from '../utils/quickActions'
 import { formatMinutes, stepsGoalSub, cardioGoalSub } from '../utils/metricRows'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
@@ -262,16 +264,27 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // `loadSeq` drops a slow load for a day the reader has already stepped past,
   // so it cannot lift the placeholders over the day now loading.
   const [pageLoading, setPageLoading] = useState(true)
+  // The day whose records are on screen, set when its load lands: a home
+  // screen Quick Action waits on it (below), so it never acts on a form that
+  // is about to be replaced by the day it asked for.
+  const [loadedDate, setLoadedDate] = useState(null)
   const loadSeq = useRef(0)
   useEffect(() => {
     async function loadDay() {
       const seq = ++loadSeq.current
       setPageLoading(true)
+      // Every day opens with its editors closed; an empty day shows "Not
+      // logged" rows with their own Log buttons. This lives on the DAY
+      // change, not in fetchWeight/fetchSteps, because those also run on a
+      // quiet refresh -- and closing there shut a form the reader (or a
+      // Quick Action) had just opened.
+      setWeightExpanded(false)
+      setStepsExpanded(false)
       await Promise.allSettled([
         fetchEntries(), fetchDayComplete(), fetchWeight(),
         fetchCardioEntries(), fetchSteps(), fetchMeasurements(),
       ])
-      if (seq === loadSeq.current) setPageLoading(false)
+      if (seq === loadSeq.current) { setPageLoading(false); setLoadedDate(selectedDate) }
     }
     loadDay()
     fetchFrequentFoods()
@@ -287,6 +300,47 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchEntries(); fetchDayComplete(); fetchWeight(); fetchCardioEntries()
     fetchSteps(); fetchMeasurements(); fetchFrequentFoods(); fetchSavedMeals(); fetchLastMeasured()
   })
+
+  // Home screen Quick Actions arrive as /log?action=… (utils/quickActions).
+  // Logging happens NOW, so each one moves the page to today; the action is
+  // taken from the URL at once (so a reload cannot repeat it) and carried out
+  // once today's records are on screen. Only while this is the tab on screen:
+  // the Log is kept alive, and a hidden one must not act on another page's URL.
+  const tabActive = useContext(TabActiveContext)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [pendingAction, setPendingAction] = useState(null)
+  const foodInputRef = useRef(null)
+  const weightInputRef = useRef(null)
+  useEffect(() => {
+    function takeAction() {
+      const action = searchParams.get('action')
+      if (!tabActive || !action) return
+      const sp = new URLSearchParams(searchParams)
+      sp.delete('action')
+      setSearchParams(sp, { replace: true })
+      setPendingAction(action)
+      setSelectedDate(toLocalDateString(new Date()))
+    }
+    takeAction()
+  }, [tabActive, searchParams, setSearchParams])
+  useEffect(() => {
+    function carryOut() {
+      if (!pendingAction || pageLoading || loadedDate !== toLocalDateString(new Date())) return
+      const action = pendingAction
+      setPendingAction(null)
+      if (action === 'add-food') { setShowCopyPanel(false); setNutritionExpanded(true) }
+      if (action === 'scan') { setShowCopyPanel(false); setNutritionExpanded(true); setShowScanner(true) }
+      if (action === 'log-weight') setWeightExpanded(true)
+      // Bring the field into view and give it the cursor once it has rendered.
+      // (iOS raises the keyboard only for a focus that comes from a tap, so on
+      // the phone this places the reader at the field; one tap types.)
+      // Once the page is on screen and the field exists (revealWhenReady): a
+      // shortcut from the background is handled while the app is still hidden.
+      const target = action === 'add-food' ? foodInputRef : action === 'log-weight' ? weightInputRef : null
+      if (target) revealWhenReady(() => target.current)
+    }
+    carryOut()
+  }, [pendingAction, pageLoading, loadedDate])
 
   useEffect(() => {
     if (!session?.user?.id) return
@@ -952,10 +1006,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const row = data?.[0] ?? null
     if (row) { setSavedWeight(row); setWeight(row.weight.toString()); setWeightUnit(row.unit) }
     else { setSavedWeight(null); setWeight(''); setWeightUnit('lbs') }
-    // Every day loads closed: an empty day shows a "Not logged" row with its
-    // own Log button. (This was an effect on savedWeight, null on the first
-    // render before this fetch lands, so every day loaded mid-edit.)
-    setWeightExpanded(false)
   }
 
   async function saveWeight() {
@@ -1062,7 +1112,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (error) { console.error(error); return }
     if (data) { setSavedSteps(data); setSteps(data.steps.toString()); setDistance(data.distance?.toString() || '') }
     else { setSavedSteps(null); setSteps(''); setDistance('') }
-    setStepsExpanded(false) // see fetchWeight
   }
 
   async function saveSteps() {
@@ -1595,7 +1644,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Weight</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <input type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  <input ref={weightInputRef} type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
                   <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
                     <option value="lbs">lbs</option>
                     <option value="kg">kg</option>
@@ -1928,6 +1977,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               ))}
             </div>
             <input
+              ref={foodInputRef}
               type="text"
               placeholder="Search or enter a food"
               value={food}

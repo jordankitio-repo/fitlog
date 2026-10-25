@@ -12,6 +12,7 @@ import CoachOnWeb from './components/CoachOnWeb'
 import { isNativeApp, isCoachOnNative } from './utils/platform'
 import { resolveLockState } from './utils/lockState'
 import { TabActiveContext } from './hooks/useTabReturn'
+import { QUICK_ACTION_EVENT, quickActionRoute, takeLaunchQuickAction } from './utils/quickActions'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Log = lazy(() => import('./pages/Log'))
@@ -53,6 +54,10 @@ export const SOLO_BILLING_ENABLED = false
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy', '/health-data-privacy']
 // The tab bar's data pages, kept mounted once visited (see KeptTabs below).
 const KEPT_TABS = ['/', '/log', '/coach']
+// The home screen Quick Action that launched the app, if any, taken ONCE when
+// this module loads (the iOS shell injects it before the page starts). Not in
+// render, where a double render could take it and drop it.
+const LAUNCH_QUICK_ACTION = takeLaunchQuickAction()
 
 // Where should a client land when they open the app? They get dropped straight
 // onto the Log page so they can log right away — unless their progress view is
@@ -123,6 +128,21 @@ function HomeLanding({ profile, hasSoloPremium }) {
 function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium, onProfileUpdate }) {
   const location = useLocation()
   const path = location.pathname
+
+  // Home screen Quick Actions (iOS). One that launched the app is waiting on
+  // window from before the page loaded; it is held until there is a session
+  // to act in (a signed-out launch goes to sign-in first, then on). One that
+  // arrives while the app is open comes as an event.
+  const navigate = useNavigate()
+  const pendingQuickAction = useRef(LAUNCH_QUICK_ACTION)
+  useEffect(() => {
+    if (!session) return
+    const go = (type) => { const to = quickActionRoute(type); if (to) navigate(to) }
+    if (pendingQuickAction.current) { go(pendingQuickAction.current); pendingQuickAction.current = null }
+    const onAction = (e) => go(e.detail)
+    window.addEventListener(QUICK_ACTION_EVENT, onAction)
+    return () => window.removeEventListener(QUICK_ACTION_EVENT, onAction)
+  }, [session, navigate])
 
   // KEPT TABS. The tab bar's data pages stay mounted once visited and are
   // hidden, not unmounted, while another tab is up -- the way a native tab bar
@@ -320,6 +340,10 @@ function App() {
   // time-box and deliberately have no idle timeout.
   useSessionPolicy(session, profile)
 
+  // Whose profile is loaded, so a session event for the same person can be
+  // told apart from a sign-in by someone new (onAuthStateChange, below).
+  const loadedUserId = useRef(null)
+
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -334,10 +358,12 @@ function App() {
     }
 
     setProfile(data)
+    loadedUserId.current = userId
     setLoading(false)
   }, [])
 
   const handleSignOut = useCallback(async () => {
+    loadedUserId.current = null
     await supabase.auth.signOut()
     setSession(null)
     setProfile(null)
@@ -366,10 +392,17 @@ function App() {
 
       setSession(session)
       if (session) {
-        setLoading(true)
+        // Only a NEW person gets the full loading screen. Supabase also fires
+        // here for the same person -- a token refresh, and a re-sign-in when
+        // the app returns from the background -- and blanking for those tore
+        // down the whole page tree on every resume: kept tabs were lost, and
+        // whatever was half-done (a form a home screen shortcut had just
+        // opened) was wiped. The same person's profile refreshes quietly.
+        if (session.user.id !== loadedUserId.current) setLoading(true)
         fetchProfile(session.user.id)
       }
       else {
+        loadedUserId.current = null
         setProfile(null)
         setSubscription(null)
         setSoloSubscription(null)
