@@ -1397,6 +1397,11 @@ p  { color: var(--color-muted); }
    browser at 20px who chooses Large gets 22.5px, not 18px. */
 html {
   font-size: calc(100% * var(--text-scale));
+  /* WebKit paints a grey square over anything tapped, before the control's own
+     pressed state. Controls here carry their own (Button sinks, rows tint on a
+     hold), so the square was a second, cruder response to every tap. It was
+     already off on the tab bar alone, which is why only the tabs felt native. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body, #root {

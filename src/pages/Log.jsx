@@ -3,6 +3,7 @@ import { DndContext, DragOverlay, pointerWithin, MouseSensor, TouchSensor, useSe
 import { supabase } from '../supabase'
 import BarcodeScanner from '../components/BarcodeScanner'
 import Button from '../components/Button'
+import Skeleton from '../components/Skeleton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toast from '../components/Toast'
 import Modal from '../components/Modal'
@@ -252,15 +253,28 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // the coach's ClientView read is the phase-precise one.
   const [lastMeasuredIso, setLastMeasuredIso] = useState(null)
 
+  // The day's records load behind placeholder boxes, as My Progress does.
+  // Rendering before they land showed "Not logged" and "Nothing logged yet
+  // today" for a beat on every visit: an empty day and an unloaded one looked
+  // identical. Only the reads that decide what the cards SAY are awaited; the
+  // quick-add tiles, saved meals and the re-measure date fill in on their own.
+  // `loadSeq` drops a slow load for a day the reader has already stepped past,
+  // so it cannot lift the placeholders over the day now loading.
+  const [pageLoading, setPageLoading] = useState(true)
+  const loadSeq = useRef(0)
   useEffect(() => {
-    fetchEntries()
+    async function loadDay() {
+      const seq = ++loadSeq.current
+      setPageLoading(true)
+      await Promise.allSettled([
+        fetchEntries(), fetchDayComplete(), fetchWeight(),
+        fetchCardioEntries(), fetchSteps(), fetchMeasurements(),
+      ])
+      if (seq === loadSeq.current) setPageLoading(false)
+    }
+    loadDay()
     fetchFrequentFoods()
     fetchSavedMeals()
-    fetchDayComplete()
-    fetchWeight()
-    fetchCardioEntries()
-    fetchSteps()
-    fetchMeasurements()
     fetchLastMeasured()
     setFeedback('')
   }, [selectedDate])
@@ -1537,6 +1551,16 @@ function Log({ session, profile, hasSoloPremium = true }) {
         </div>
       </div>
 
+      {pageLoading ? (
+        // The shapes of the cards to come: Body and activity, then Nutrition's
+        // totals and a few rows, then Measurements.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+          <Skeleton height="230px" />
+          <Skeleton height="96px" />
+          {[...Array(3)].map((_, i) => <Skeleton key={i} height="56px" />)}
+          <Skeleton height="120px" />
+        </div>
+      ) : (<>
       {/* Body and activity: weight, steps and cardio in ONE card. They were
           three cards, two of them a heading and padding around a single row,
           and F2 already names them as one group ("three single readings").
@@ -2331,6 +2355,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         )}
 
       </div>
+      </>)}
 
       <ConfirmDialog
         open={!!dialog}

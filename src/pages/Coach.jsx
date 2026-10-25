@@ -5,6 +5,7 @@ import Avatar from '../components/Avatar'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
+import Skeleton from '../components/Skeleton'
 import { Icon, Textarea } from '../components/ui'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { refreshNotifications } from '../utils/notifyRefresh'
@@ -107,6 +108,10 @@ export default function Coach({ profile, archiveOpen = false }) {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [noCoach, setNoCoach] = useState(false)
+  // False until the thread's first load lands. Until then the page shows
+  // placeholder shapes, as My Progress does: rendering early read "No messages
+  // yet. Say hello." for a beat on every visit, to a client mid-conversation.
+  const [threadLoaded, setThreadLoaded] = useState(false)
   const endRef = useRef(null)
 
   // One fetch for the surface, because the surface is one list. Messages and
@@ -170,7 +175,7 @@ export default function Coach({ profile, archiveOpen = false }) {
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session) { setThreadLoaded(true); return }
       const { data: rel } = await supabase
         .from('coach_clients').select('coach_id')
         .eq('client_id', session.user.id).eq('status', 'active').maybeSingle()
@@ -180,6 +185,7 @@ export default function Coach({ profile, archiveOpen = false }) {
         .eq('id', rel.coach_id).maybeSingle()
       setCoach(c || null)
       await fetchThread()
+      setThreadLoaded(true)
     }
     load()
   }, [fetchThread])
@@ -223,6 +229,23 @@ export default function Coach({ profile, archiveOpen = false }) {
           title="No coach connected"
           message="When you join a coaching plan, your messages and weekly reports will live here."
         />
+      </div>
+    )
+  }
+
+  // The shape of the page to come: the coach's header, a few messages on
+  // alternating sides, and the composer.
+  if (!threadLoaded) {
+    return (
+      <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+          <Skeleton width="44px" height="44px" borderRadius="50%" />
+          <Skeleton width="160px" height="22px" />
+        </div>
+        {['70%', '55%', '80%', '45%'].map((w, i) => (
+          <Skeleton key={i} width={w} height="56px" style={{ alignSelf: i % 2 ? 'flex-end' : 'flex-start' }} />
+        ))}
+        <Skeleton height="44px" />
       </div>
     )
   }
