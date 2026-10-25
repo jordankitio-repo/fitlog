@@ -21,6 +21,7 @@ import { useLongPress } from '../hooks/useLongPress'
 import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
 import { revealWhenReady } from '../utils/quickActions'
 import { formatMinutes, stepsGoalSub, cardioGoalSub } from '../utils/metricRows'
+import { convertGoalValue } from '../utils/weightTarget'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
 const unitConversions = {
@@ -1645,7 +1646,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <input ref={weightInputRef} type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                  <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
+                  <select value={weightUnit} onChange={(e) => { setWeight(convertGoalValue(weight, weightUnit, e.target.value)); setWeightUnit(e.target.value) }} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
                     <option value="lbs">lbs</option>
                     <option value="kg">kg</option>
                   </select>
