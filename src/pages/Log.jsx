@@ -17,6 +17,7 @@ import { itemsFromEntries, entriesFromItems, mealTotals, mealSignature } from '.
 import { controlStyle, Icon } from '../components/ui'
 import ActionSheet from '../components/ActionSheet'
 import { useLongPress } from '../hooks/useLongPress'
+import { useTabReturn } from '../hooks/useTabReturn'
 import { formatMinutes, stepsGoalSub, cardioGoalSub } from '../utils/metricRows'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
@@ -278,6 +279,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchLastMeasured()
     setFeedback('')
   }, [selectedDate])
+
+  // Back on this tab (kept alive): refresh in place, no placeholders. The day
+  // shown is the day the reader left on, and something may have changed it
+  // meanwhile (a coach, a device sync, another device).
+  useTabReturn(() => {
+    fetchEntries(); fetchDayComplete(); fetchWeight(); fetchCardioEntries()
+    fetchSteps(); fetchMeasurements(); fetchFrequentFoods(); fetchSavedMeals(); fetchLastMeasured()
+  })
 
   useEffect(() => {
     if (!session?.user?.id) return

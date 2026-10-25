@@ -8,6 +8,7 @@ import EmptyState from '../components/EmptyState'
 import Skeleton from '../components/Skeleton'
 import { Icon, Textarea } from '../components/ui'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useTabReturn } from '../hooks/useTabReturn'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import ReportReader, { ReportArchive } from './Reports'
 import { leadOf } from '../utils/reportFeed'
@@ -189,6 +190,11 @@ export default function Coach({ profile, archiveOpen = false }) {
     }
     load()
   }, [fetchThread])
+
+  // Back on this tab (kept alive): fetch the thread again at its current size,
+  // which brings in anything new and, as opening the thread always has, marks
+  // it read.
+  useTabReturn(() => { if (threadLoaded && !noCoach) fetchThread(refreshSize(messageCount)) })
 
   // Keyed on the LAST item, not the count: paging older messages in above grows
   // the list without changing its end, and scrolling to the bottom there would
