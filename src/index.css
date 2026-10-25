@@ -1397,6 +1397,11 @@ p  { color: var(--color-muted); }
    browser at 20px who chooses Large gets 22.5px, not 18px. */
 html {
   font-size: calc(100% * var(--text-scale));
+  /* WebKit paints a grey square over anything tapped, before the control's own
+     pressed state. Controls here carry their own (Button sinks, rows tint on a
+     hold), so the square was a second, cruder response to every tap. It was
+     already off on the tab bar alone, which is why only the tabs felt native. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body, #root {
@@ -2585,11 +2590,28 @@ html.native-app .gnav {
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
 
+/* In and out (see ActionSheet). The backdrop fades; the panel scales up a
+   touch on a desktop and rises from the bottom edge on a phone, on the
+   decelerating curve iOS uses for its own sheets, and plays back faster on
+   close. Reduced motion is zeroed by the global rule. */
+@keyframes sheet-fade-in { from { opacity: 0; } }
+@keyframes sheet-fade-out { to { opacity: 0; } }
+@keyframes sheet-pop-in { from { opacity: 0; transform: scale(0.96); } }
+@keyframes sheet-pop-out { to { opacity: 0; transform: scale(0.97); } }
+@keyframes sheet-rise-in { from { transform: translateY(100%); } }
+@keyframes sheet-rise-out { to { transform: translateY(100%); } }
+.sheet-backdrop { animation: sheet-fade-in 220ms ease-out both; }
+.sheet-backdrop.sheet-closing { animation: sheet-fade-out 200ms ease-in both; }
+.sheet-panel { animation: sheet-pop-in 240ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.sheet-closing .sheet-panel { animation: sheet-pop-out 180ms ease-in both; }
+
 /* The phone gets a true sheet: full width, flush to the bottom edge within
    thumb reach, and clearing the home indicator. A centred tile on a phone puts
    the actions under the hand that is reaching for them. */
 @media (max-width: 600px) {
   .sheet-backdrop { align-items: flex-end; padding: 0; }
+  .sheet-panel { animation-name: sheet-rise-in; animation-duration: 320ms; }
+  .sheet-closing .sheet-panel { animation: sheet-rise-out 200ms cubic-bezier(0.4, 0, 1, 1) both; }
   .sheet-panel {
     max-width: none;
     border-radius: 16px 16px 0 0;
@@ -2616,6 +2638,9 @@ html.native-app .gnav {
 }
 .sheet-action:active { background: var(--color-surface-2); }
 .sheet-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+/* The panel takes focus on open (useFocusTrap focusContainer) only so a
+   screen reader lands in the dialog; it is not a control and draws no ring. */
+.sheet-panel:focus { outline: none; }
 .sheet-action svg { color: var(--color-faint); flex-shrink: 0; }
 .sheet-action.destructive, .sheet-action.destructive svg { color: var(--color-error); }
 /* Cancel is a way out, not an action. Separated by a hairline and graded down,

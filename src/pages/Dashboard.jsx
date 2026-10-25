@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useContext } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
+import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
 import TodayPanel from '../components/TodayPanel'
 import TrendsPanel from '../components/TrendsPanel'
 import Button from '../components/Button'
@@ -268,7 +269,11 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const navigate = useNavigate()
   // Deep-link from a notification (?focus=reports): expand + scroll to it.
   // 'chat' is handled by ChatBubble.
+  // Only the tab on screen may act on (and consume) ?focus: kept alive, a
+  // hidden My Progress would otherwise eat a parameter meant for another page.
+  const tabActive = useContext(TabActiveContext)
   useEffect(() => {
+    if (!tabActive) return
     const focus = searchParams.get('focus')
     if (!focus || focus === 'chat') return
     let timer, tries = 0
@@ -285,15 +290,24 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     sp.delete('focus')
     setSearchParams(sp, { replace: true })
     return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
-  }, [searchParams, setSearchParams])
+  }, [searchParams, setSearchParams, tabActive])
 
   function toggleSection(key) {
     setSectionsCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  // Coming back to this tab (it is kept alive, see useTabReturn) re-runs the
+  // load SILENTLY: the page the reader left stays on screen and updates in
+  // place, rather than dropping back to placeholders.
+  const [reloadTick, setReloadTick] = useState(0)
+  const silentReload = useRef(false)
+  useTabReturn(() => { silentReload.current = true; setReloadTick(t => t + 1) })
+
   useEffect(() => {
     async function loadPage() {
-      setPageLoading(true)
+      const silent = silentReload.current
+      silentReload.current = false
+      if (!silent) setPageLoading(true)
       await Promise.all([
         fetchTotals(),
         fetchWeight(),
@@ -319,7 +333,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       setPageLoading(false)
     }
     loadPage()
-  }, [selectedDate])
+  }, [selectedDate, reloadTick])
 
   useEffect(() => {
     const MILESTONES = [7, 14, 30, 60, 90]

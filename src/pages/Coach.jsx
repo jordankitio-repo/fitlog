@@ -1,12 +1,15 @@
-import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Fragment, useState, useEffect, useCallback, useRef, useContext } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
+import Skeleton from '../components/Skeleton'
 import { Icon, Textarea } from '../components/ui'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
+import { revealWhenReady } from '../utils/quickActions'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import ReportReader, { ReportArchive } from './Reports'
 import { leadOf } from '../utils/reportFeed'
@@ -107,6 +110,10 @@ export default function Coach({ profile, archiveOpen = false }) {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [noCoach, setNoCoach] = useState(false)
+  // False until the thread's first load lands. Until then the page shows
+  // placeholder shapes, as My Progress does: rendering early read "No messages
+  // yet. Say hello." for a beat on every visit, to a client mid-conversation.
+  const [threadLoaded, setThreadLoaded] = useState(false)
   const endRef = useRef(null)
 
   // One fetch for the surface, because the surface is one list. Messages and
@@ -170,7 +177,7 @@ export default function Coach({ profile, archiveOpen = false }) {
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session) { setThreadLoaded(true); return }
       const { data: rel } = await supabase
         .from('coach_clients').select('coach_id')
         .eq('client_id', session.user.id).eq('status', 'active').maybeSingle()
@@ -180,9 +187,31 @@ export default function Coach({ profile, archiveOpen = false }) {
         .eq('id', rel.coach_id).maybeSingle()
       setCoach(c || null)
       await fetchThread()
+      setThreadLoaded(true)
     }
     load()
   }, [fetchThread])
+
+  // Back on this tab (kept alive): fetch the thread again at its current size,
+  // which brings in anything new and, as opening the thread always has, marks
+  // it read.
+  useTabReturn(() => { if (threadLoaded && !noCoach) fetchThread(refreshSize(messageCount)) })
+
+  // The home screen's "Message coach" Quick Action arrives as ?action=compose
+  // (utils/quickActions): once the thread is on screen, bring the message box
+  // into view and give it the cursor. Only while this is the tab on screen
+  // (it is kept alive). iOS raises the keyboard only for a focus that comes
+  // from a tap, so on the phone this places the reader at the box.
+  const tabActive = useContext(TabActiveContext)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const composeRef = useRef(null)
+  useEffect(() => {
+    if (!tabActive || !threadLoaded || searchParams.get('action') !== 'compose') return
+    const sp = new URLSearchParams(searchParams)
+    sp.delete('action')
+    setSearchParams(sp, { replace: true })
+    revealWhenReady(() => composeRef.current, 'end')
+  }, [tabActive, threadLoaded, searchParams, setSearchParams])
 
   // Keyed on the LAST item, not the count: paging older messages in above grows
   // the list without changing its end, and scrolling to the bottom there would
@@ -223,6 +252,23 @@ export default function Coach({ profile, archiveOpen = false }) {
           title="No coach connected"
           message="When you join a coaching plan, your messages and weekly reports will live here."
         />
+      </div>
+    )
+  }
+
+  // The shape of the page to come: the coach's header, a few messages on
+  // alternating sides, and the composer.
+  if (!threadLoaded) {
+    return (
+      <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+          <Skeleton width="44px" height="44px" borderRadius="50%" />
+          <Skeleton width="160px" height="22px" />
+        </div>
+        {['70%', '55%', '80%', '45%'].map((w, i) => (
+          <Skeleton key={i} width={w} height="56px" style={{ alignSelf: i % 2 ? 'flex-end' : 'flex-start' }} />
+        ))}
+        <Skeleton height="44px" />
       </div>
     )
   }
@@ -339,6 +385,7 @@ export default function Coach({ profile, archiveOpen = false }) {
             )}
             <div className="coach-compose">
               <Textarea
+                ref={composeRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send() } }}

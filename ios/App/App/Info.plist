@@ -24,6 +24,43 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Home screen Quick Actions (press and hold the icon). Each type is
+	     handed to the web app, which routes it (src/utils/quickActions.js). -->
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fit.gardnr.app.log-food</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Log food</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>fork.knife</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fit.gardnr.app.log-weight</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Log weight</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>scalemass</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fit.gardnr.app.scan-barcode</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Scan barcode</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>barcode.viewfinder</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fit.gardnr.app.message-coach</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Message coach</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>message</string>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

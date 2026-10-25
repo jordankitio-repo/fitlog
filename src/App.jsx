@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import { supabase } from './supabase'
 import { useSessionPolicy } from './hooks/useSessionPolicy'
 import Landing from './pages/Landing'
@@ -11,6 +11,8 @@ import CoachPaywall from './components/CoachPaywall'
 import CoachOnWeb from './components/CoachOnWeb'
 import { isNativeApp, isCoachOnNative } from './utils/platform'
 import { resolveLockState } from './utils/lockState'
+import { TabActiveContext } from './hooks/useTabReturn'
+import { QUICK_ACTION_EVENT, quickActionRoute, takeLaunchQuickAction } from './utils/quickActions'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Log = lazy(() => import('./pages/Log'))
@@ -50,6 +52,12 @@ export const BILLING_ENABLED = false
 // the server keeps serving for free.
 export const SOLO_BILLING_ENABLED = false
 const PUBLIC_ROUTES = ['/billing/success', '/terms', '/privacy', '/health-data-privacy']
+// The tab bar's data pages, kept mounted once visited (see KeptTabs below).
+const KEPT_TABS = ['/', '/log', '/coach']
+// The home screen Quick Action that launched the app, if any, taken ONCE when
+// this module loads (the iOS shell injects it before the page starts). Not in
+// render, where a double render could take it and drop it.
+const LAUNCH_QUICK_ACTION = takeLaunchQuickAction()
 
 // Where should a client land when they open the app? They get dropped straight
 // onto the Log page so they can log right away — unless their progress view is
@@ -97,25 +105,91 @@ function HomeLanding({ profile, hasSoloPremium }) {
     sessionStorage.getItem(LANDED_KEY) ? 'dashboard' : 'pending'
   )
 
+  const navigate = useNavigate()
   useEffect(() => {
     if (decision !== 'pending') return
     let active = true
     resolveClientLanding().then((target) => {
       if (!active) return
       sessionStorage.setItem(LANDED_KEY, '1')
-      setDecision(target)
+      // Redirect as an ACTION, then settle on the dashboard. This page is
+      // kept alive (KeptTabs), so rendering <Navigate> here would leave My
+      // Progress a blank <Navigate> the next time its tab was opened.
+      if (target === 'log') navigate('/log', { replace: true })
+      setDecision('dashboard')
     })
     return () => { active = false }
-  }, [decision])
+  }, [decision, navigate])
 
   if (decision === 'pending') return <LoadingScreen />
-  if (decision === 'log') return <Navigate to="/log" replace />
   return <Dashboard profile={profile} hasSoloPremium={hasSoloPremium} />
 }
 
 function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPremium, onProfileUpdate }) {
   const location = useLocation()
   const path = location.pathname
+
+  // Home screen Quick Actions (iOS). One that launched the app is waiting on
+  // window from before the page loaded; it is held until there is a session
+  // to act in (a signed-out launch goes to sign-in first, then on). One that
+  // arrives while the app is open comes as an event.
+  const navigate = useNavigate()
+  const pendingQuickAction = useRef(LAUNCH_QUICK_ACTION)
+  useEffect(() => {
+    if (!session) return
+    const go = (type) => { const to = quickActionRoute(type); if (to) navigate(to) }
+    if (pendingQuickAction.current) { go(pendingQuickAction.current); pendingQuickAction.current = null }
+    const onAction = (e) => go(e.detail)
+    window.addEventListener(QUICK_ACTION_EVENT, onAction)
+    return () => window.removeEventListener(QUICK_ACTION_EVENT, onAction)
+  }, [session, navigate])
+
+  // KEPT TABS. The tab bar's data pages stay mounted once visited and are
+  // hidden, not unmounted, while another tab is up -- the way a native tab bar
+  // keeps its view controllers. A switch back is then instant, with its scroll
+  // position and anything half-typed intact, and the page refreshes itself
+  // quietly (useTabReturn). Before, every switch rebuilt the page and waited on
+  // the network again. Profile is not kept: it is addressed by section in the
+  // URL and loads near-instantly. Kept per signed-in user, so signing out or
+  // in as someone else starts clean.
+  const userId = session?.user?.id || null
+  const [kept, setKept] = useState({ userId: null, paths: [] })
+  const keptPaths = kept.userId === userId ? kept.paths : []
+  const keepThis = Boolean(userId) && KEPT_TABS.includes(path)
+  if (kept.userId !== userId || (keepThis && !keptPaths.includes(path))) {
+    setKept({ userId, paths: keepThis && !keptPaths.includes(path) ? [...keptPaths, path] : keptPaths })
+  }
+  const keptElement = (p) => {
+    if (p === '/') {
+      return profile?.role === 'coach'
+        ? <CoachDashboard profile={profile} />
+        : <HomeLanding profile={profile} hasSoloPremium={hasSoloPremium} />
+    }
+    if (p === '/log') return <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} />
+    return <Coach profile={profile} />
+  }
+
+  // The kept tabs share one scroller (the body, or #root in the native shell),
+  // so each tab's scroll position is remembered and put back when it returns;
+  // otherwise coming back to the Log would land wherever My Progress was left.
+  const scrollTops = useRef({})
+  const scrollPath = useRef(path)
+  useEffect(() => {
+    const native = document.documentElement.classList.contains('native-app')
+    const target = native ? document.getElementById('root') : window
+    const read = () => (native ? document.getElementById('root').scrollTop : window.scrollY)
+    const onScroll = () => { scrollTops.current[scrollPath.current] = read() }
+    target.addEventListener('scroll', onScroll, { passive: true })
+    return () => target.removeEventListener('scroll', onScroll)
+  }, [])
+  useLayoutEffect(() => {
+    scrollPath.current = path
+    if (!KEPT_TABS.includes(path)) return
+    const top = scrollTops.current[path] ?? 0
+    const root = document.getElementById('root')
+    if (document.documentElement.classList.contains('native-app') && root) root.scrollTop = top
+    else window.scrollTo(0, top)
+  }, [path])
   // A PWA launched from the home screen opens at `/` and wants the sign-in form.
   // A stranger who tapped a link in a browser — at any width — wants the landing.
   //
@@ -186,12 +260,10 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
         <Suspense fallback={<LoadingScreen inline />}>
           <Routes>
             <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
-            <Route path="/" element={session ? (
-              profile?.role === 'coach'
-                ? <CoachDashboard profile={profile} />
-                : <HomeLanding profile={profile} hasSoloPremium={hasSoloPremium} />
-            ) : (showLoginAsHome ? <Login /> : <Landing />)} />
-            <Route path="/log" element={session ? <Log session={session} profile={profile} hasSoloPremium={hasSoloPremium} /> : <Navigate to="/login" />} />
+            {/* Signed in, `/`, /log and /coach render nothing here: they are
+                KeptTabs, mounted below and shown or hidden by path. */}
+            <Route path="/" element={session ? null : (showLoginAsHome ? <Login /> : <Landing />)} />
+            <Route path="/log" element={session ? null : <Navigate to="/login" />} />
             <Route path="/profile" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
             {/* Each settings section is its own route, the same shape the
                 coach's client record uses (/client/:id/:section). The rail
@@ -200,7 +272,7 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
                 the first section on a desktop, a list of destinations on a
                 phone. See Profile.jsx. */}
             <Route path="/profile/:section" element={session ? <Profile session={session} profile={profile} subscription={subscription} soloSubscription={soloSubscription} hasSoloPremium={hasSoloPremium} onProfileUpdate={onProfileUpdate} /> : <Navigate to="/login" />} />
-            <Route path="/coach" element={session ? <Coach profile={profile} /> : <Navigate to="/login" />} />
+            <Route path="/coach" element={session ? null : <Navigate to="/login" />} />
             {/* The review queue, and the same queue with one check-in open over
                 it. URL-addressed like /coach/reports, so a coach can be sent
                 straight to a check-in and still land on the list on closing. */}
@@ -229,6 +301,16 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
             <Route path="/health-data-privacy" element={<ConsumerHealthData />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          {/* The kept tabs. The one on screen is display: contents, so its
+              wrapper adds no box and the page lays out exactly as it did as a
+              route; the rest are display: none. */}
+          {keptPaths.map(p => (
+            <div key={`${userId}:${p}`} style={{ display: p === path ? 'contents' : 'none' }}>
+              <TabActiveContext.Provider value={p === path}>
+                {keptElement(p)}
+              </TabActiveContext.Provider>
+            </div>
+          ))}
         </Suspense>
       </main>
       {/* Client chat bubble — mounted at the layout level so it's available on
@@ -258,6 +340,10 @@ function App() {
   // time-box and deliberately have no idle timeout.
   useSessionPolicy(session, profile)
 
+  // Whose profile is loaded, so a session event for the same person can be
+  // told apart from a sign-in by someone new (onAuthStateChange, below).
+  const loadedUserId = useRef(null)
+
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -272,10 +358,12 @@ function App() {
     }
 
     setProfile(data)
+    loadedUserId.current = userId
     setLoading(false)
   }, [])
 
   const handleSignOut = useCallback(async () => {
+    loadedUserId.current = null
     await supabase.auth.signOut()
     setSession(null)
     setProfile(null)
@@ -304,10 +392,17 @@ function App() {
 
       setSession(session)
       if (session) {
-        setLoading(true)
+        // Only a NEW person gets the full loading screen. Supabase also fires
+        // here for the same person -- a token refresh, and a re-sign-in when
+        // the app returns from the background -- and blanking for those tore
+        // down the whole page tree on every resume: kept tabs were lost, and
+        // whatever was half-done (a form a home screen shortcut had just
+        // opened) was wiped. The same person's profile refreshes quietly.
+        if (session.user.id !== loadedUserId.current) setLoading(true)
         fetchProfile(session.user.id)
       }
       else {
+        loadedUserId.current = null
         setProfile(null)
         setSubscription(null)
         setSoloSubscription(null)

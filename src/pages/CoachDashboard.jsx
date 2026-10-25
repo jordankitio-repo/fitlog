@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useTabReturn } from '../hooks/useTabReturn'
 import { Link, useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import Avatar from '../components/Avatar'
@@ -129,9 +130,12 @@ function CoachDashboard({ profile }) {
   useEffect(() => {
     fetchClients()
   }, [])
+  // Back on this tab (kept alive): refresh the roster in place, without the
+  // loading state, so the list the coach left stays put while it updates.
+  useTabReturn(() => { fetchClients({ silent: true }) })
 
-  async function fetchClients() {
-    setLoading(true)
+  async function fetchClients({ silent = false } = {}) {
+    if (!silent) setLoading(true)
 
     const { data: relationships, error } = await supabase
       .from('coach_clients')
