@@ -1356,34 +1356,25 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   // The sheets, built in one place because two gestures open each: the row's
   // `more` button, and a hold released without moving (handleDiaryDragEnd).
-  function foodSheet(entry, inMeal = false) {
-    const currentSlot = entry.meal || 'other'
-    const moveTargets = inMeal ? [] : presentMealSlots.filter(k => k !== currentSlot)
-    // Mirrors the desktop icons, in the same order, named. Move is absent
-    // inside a meal: the container moves, not the row.
+  // No "Move to another meal": on a phone the row itself moves (hold, then
+  // drag), and a food can also change meal in Edit, which is the route for
+  // anyone who cannot drag (VoiceOver, switch control).
+  function foodSheet(entry) {
     return {
       title: entry.food,
       actions: [
         { label: 'Re-log', icon: 'repeat', onSelect: () => prefillFromEntry(entry) },
-        ...(moveTargets.length > 0
-          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(entry.id) }]
-          : []),
         { label: 'Edit', icon: 'pencil', onSelect: () => startEdit(entry) },
         { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteEntry(entry.id) },
       ],
     }
   }
   function mealSheet(item) {
-    const currentSlot = item.entries[0]?.meal || 'other'
-    const moveTargets = presentMealSlots.filter(k => k !== currentSlot)
     return {
       title: item.name,
       actions: [
         { label: 'Repeat meal', icon: 'repeat', onSelect: () => repeatLoggedMeal(item) },
         { label: 'Save as a reusable meal', icon: 'utensils', onSelect: () => saveContainerAsMeal(item) },
-        ...(moveTargets.length > 0
-          ? [{ label: 'Move to another meal', icon: 'grip', onSelect: () => setMoveItemId(item.id) }]
-          : []),
         { label: 'Delete meal', icon: 'trash', destructive: true, onSelect: () => deleteLoggedMeal(item.id) },
       ],
     }
@@ -1411,7 +1402,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     // A draggable row lifts on touch instead of opening the menu at 500ms;
     // the drag decides on release (handleDiaryDragEnd). A row inside a meal
     // is not draggable and keeps the plain hold-for-menu.
-    const entryPress = selectMode ? {} : bindLongPress(() => setSheet(foodSheet(entry, inMeal)), drag ? { touch: 'lift' } : undefined)
+    const entryPress = selectMode ? {} : bindLongPress(() => setSheet(foodSheet(entry)), drag ? { touch: 'lift' } : undefined)
     return (
       <div key={entry.id} ref={drag?.setNodeRef} style={{ borderBottom: '1px solid var(--color-border)', ...drag?.dragStyle }}>
        <div
@@ -1450,7 +1441,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {!selectMode && isMobile && (
           <div data-no-longpress style={{ flexShrink: 0 }}>
             <button
-              onClick={() => setSheet(foodSheet(entry, inMeal))}
+              onClick={() => setSheet(foodSheet(entry))}
               style={moreBtnStyle}
               aria-label={`Actions for ${entry.food}`}
               title="Actions"
