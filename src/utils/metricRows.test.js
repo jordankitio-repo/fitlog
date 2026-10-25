@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatMinutes, stepsGoalSub, cardioGoalSub } from './metricRows'
+import { formatMinutes, stepsGoalSub, cardioGoalSub, convertLengthValue } from './metricRows'
 
 describe('formatMinutes', () => {
   it('keeps minutes under an hour', () => {
@@ -37,5 +37,17 @@ describe('cardioGoalSub', () => {
   })
   it('is null with no target', () => {
     expect(cardioGoalSub(113, null)).toBeNull()
+  })
+})
+
+describe('convertLengthValue', () => {
+  it('converts inches and centimetres both ways', () => {
+    expect(convertLengthValue('30', 'in', 'cm')).toBe('76.2')
+    expect(convertLengthValue('76.2', 'cm', 'in')).toBe('30')
+  })
+  it('leaves blank, partial and same-unit input alone', () => {
+    expect(convertLengthValue('', 'in', 'cm')).toBe('')
+    expect(convertLengthValue('-', 'in', 'cm')).toBe('-')
+    expect(convertLengthValue('30', 'cm', 'cm')).toBe('30')
   })
 })

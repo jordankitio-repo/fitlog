@@ -20,7 +20,7 @@ import ActionSheet from '../components/ActionSheet'
 import { useLongPress } from '../hooks/useLongPress'
 import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
 import { revealWhenReady } from '../utils/quickActions'
-import { formatMinutes, stepsGoalSub, cardioGoalSub } from '../utils/metricRows'
+import { formatMinutes, stepsGoalSub, cardioGoalSub, convertLengthValue } from '../utils/metricRows'
 import { convertGoalValue } from '../utils/weightTarget'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
@@ -2438,7 +2438,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginRight: '2px' }}>Unit:</span>
               {['in', 'cm'].map(u => (
-                <button key={u} type="button" onClick={() => setMeas({ ...meas, unit: u })} style={{ ...pillBtnStyle, ...(meas.unit === u ? { backgroundColor: 'var(--color-primary-fill)', borderColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)' } : {}) }}>{u}</button>
+                <button key={u} type="button" onClick={() => setMeas(Object.fromEntries(Object.entries(meas).map(([k, v]) => [k, k === 'unit' ? u : convertLengthValue(v, meas.unit, u)])))} style={{ ...pillBtnStyle, ...(meas.unit === u ? { backgroundColor: 'var(--color-primary-fill)', borderColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)' } : {}) }}>{u}</button>
               ))}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
