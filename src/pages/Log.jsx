@@ -1286,6 +1286,18 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // 10px gap. Rules, the CARDIO label and "+ Log cardio" all start here.
   const MARK_INSET_PX = 28 + 10
 
+  // A form field with its name ABOVE it. These forms named their fields only
+  // by placeholder, which vanishes the moment there is a value: a filled-in
+  // food read "97 / 1 / 23 / 0 / 100" with nothing to say which was protein.
+  // Same small muted label the Measurements form uses; a real <label>, so
+  // tapping it focuses the field and a screen reader reads it.
+  const fieldLabel = (text, input, style) => (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, ...style }}>
+      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{text}</span>
+      {input}
+    </label>
+  )
+
   // The number at the right of a cardio or steps row: .trend-value at its
   // phone size, so a session reads the way a Trends row on My Progress does.
   const rowValueStyle = {
@@ -1674,8 +1686,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Weight</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <input ref={weightInputRef} type="number" placeholder={`Weight (${weightUnit})`} value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                  {fieldLabel('Weight', <input ref={weightInputRef} type="number" value={weight} onChange={(e) => setWeight(e.target.value)} style={inputStyle} />, { flex: 1 })}
                   <select value={weightUnit} onChange={(e) => { setWeight(convertGoalValue(weight, weightUnit, e.target.value)); setWeightUnit(e.target.value) }} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
                     <option value="lbs">lbs</option>
                     <option value="kg">kg</option>
@@ -1702,8 +1714,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Steps</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input type="number" placeholder="Steps" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
-                  <input type="number" placeholder="Miles" value={distance} onChange={(e) => setDistance(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  {fieldLabel('Steps', <input type="number" value={steps} onChange={(e) => setSteps(e.target.value)} style={inputStyle} />, { flex: 2 })}
+                  {fieldLabel('Distance (mi)', <input type="number" value={distance} onChange={(e) => setDistance(e.target.value)} style={inputStyle} />, { flex: 1 })}
                 </div>
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   <Button onClick={() => setStepsExpanded(false)} variant="ghost" size="sm">Cancel</Button>
@@ -1745,13 +1757,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX, borderTop: '1px solid var(--color-border)' }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'Cardio'}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                {fieldLabel('Activity', <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
                   {EXERCISE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                </select>)}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
-                  <input type="number" placeholder="Duration (min)" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />
-                  <input type="number" placeholder="Calories burned" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />
-                  <input type="number" placeholder="Avg heart rate" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />
+                  {fieldLabel('Duration (min)', <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />)}
+                  {fieldLabel('Calories burned', <input type="number" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />)}
+                  {fieldLabel('Avg heart rate (bpm)', <input type="number" value={avgHeartRate} onChange={(e) => setAvgHeartRate(e.target.value)} style={inputStyle} />)}
                 </div>
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   <Button
@@ -2079,19 +2091,18 @@ function Log({ session, profile, hasSoloPremium = true }) {
             )}
             {lookupError && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)' }}>{lookupError}</p>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-              <input type="number" placeholder="Calories" value={calories} onChange={(e) => { setCalories(e.target.value); setNutritionErrors(p => ({ ...p, calories: '' })) }} style={{ ...inputStyle, borderColor: nutritionErrors.calories ? 'var(--color-error)' : 'var(--color-border)', minWidth: 0 }} />
-              <input type="number" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} style={inputStyle} />
-              <input type="number" placeholder="Carbs (g)" value={carbs} onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />
-              <input type="number" placeholder="Fat (g)" value={fat} onChange={(e) => setFat(e.target.value)} style={inputStyle} />
+              {fieldLabel('Calories (kcal)', <input type="number" value={calories} onChange={(e) => { setCalories(e.target.value); setNutritionErrors(p => ({ ...p, calories: '' })) }} style={{ ...inputStyle, borderColor: nutritionErrors.calories ? 'var(--color-error)' : 'var(--color-border)', minWidth: 0 }} />)}
+              {fieldLabel('Protein (g)', <input type="number" value={protein} onChange={(e) => setProtein(e.target.value)} style={inputStyle} />)}
+              {fieldLabel('Carbs (g)', <input type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} style={inputStyle} />)}
+              {fieldLabel('Fat (g)', <input type="number" value={fat} onChange={(e) => setFat(e.target.value)} style={inputStyle} />)}
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+              {fieldLabel(baseServingSize != null ? 'Servings' : 'Amount', <input
                 type="number"
-                placeholder={baseServingSize != null ? 'Servings' : 'Serving size'}
                 value={servingSize}
                 onChange={(e) => setServingSize(e.target.value)}
-                style={{ ...inputStyle, flex: 1 }}
-              />
+                style={inputStyle}
+              />, { flex: 1 })}
               {baseServingSize == null && (
                 <select value={servingUnit} onChange={(e) => setServingUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
                   <option value="g">g</option>
