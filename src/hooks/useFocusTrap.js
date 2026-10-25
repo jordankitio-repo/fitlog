@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
 //
 // Safe to call unconditionally (e.g. before an early `return null`): when
 // `active` is false it does nothing.
-export function useFocusTrap(active, onClose) {
+export function useFocusTrap(active, onClose, { focusContainer = false } = {}) {
   const ref = useRef(null)
   useEffect(() => {
     if (!active || !ref.current) return
@@ -22,7 +22,12 @@ export function useFocusTrap(active, onClose) {
       ).filter((el) => el.offsetParent !== null)
 
     // Move focus into the dialog: first focusable, else the container itself.
-    const first = focusable()[0]
+    // focusContainer: land on the dialog itself rather than its first control.
+    // ActionSheet uses it because it opens under a touch, and WebKit draws the
+    // keyboard focus ring on a programmatically focused button even then --
+    // the first action appeared pre-selected. A screen reader still announces
+    // the dialog by its label, and Tab moves into the actions.
+    const first = focusContainer ? null : focusable()[0]
     if (first) first.focus()
     else {
       node.setAttribute('tabindex', '-1')
@@ -56,7 +61,7 @@ export function useFocusTrap(active, onClose) {
       document.removeEventListener('keydown', onKey, true)
       if (prevFocused && typeof prevFocused.focus === 'function') prevFocused.focus()
     }
-  }, [active, onClose])
+  }, [active, onClose, focusContainer])
 
   return ref
 }

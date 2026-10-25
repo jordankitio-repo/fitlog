@@ -66,9 +66,11 @@ const MEASUREMENT_SITES = [
 // while a DragOverlay copy follows the finger (see Log), which is what lets
 // the moving copy look lifted rather than half-transparent.
 // Stable module-scope component → no remounts.
-function DraggableItem({ id, item, children }) {
+function DraggableItem({ id, item, lifted, children }) {
   const { listeners, attributes, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id, data: { item } })
-  const dragStyle = { opacity: isDragging ? 0.35 : 1 }
+  // Faded only once the item has actually been LIFTED (moved), not merely
+  // held: a hold that opens the menu must not also look like a drag.
+  const dragStyle = { opacity: isDragging && lifted ? 0.35 : 1, transition: 'opacity 150ms ease' }
   const handleProps = { ref: setActivatorNodeRef, ...listeners, ...attributes }
   const rowProps = { onTouchStart: listeners?.onTouchStart }
   return children({ setNodeRef, dragStyle, handleProps, rowProps })
@@ -78,9 +80,11 @@ function DraggableItem({ id, item, children }) {
 // A uniform tint, no outline: it was a 2px dashed green border, and state is
 // never a coloured border (design-system B2). The box-shadow spread carries
 // the tint past the section's text the way a held row's does, without layout.
-function DroppableMeal({ slot, children }) {
+// `target` is false for the dragged item's own section and before anything
+// has moved, so a still hold never flashes its own meal green.
+function DroppableMeal({ slot, target, children }) {
   const { setNodeRef, isOver } = useDroppable({ id: `slot:${slot}`, data: { slot } })
-  const tint = isOver ? 'var(--color-primary-dim)' : 'transparent'
+  const tint = isOver && target ? 'var(--color-primary-dim)' : 'transparent'
   return (
     <div ref={setNodeRef} style={{
       borderRadius: 'var(--radius)',
@@ -525,16 +529,41 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // A lifted item was let go. Two outcomes from one gesture, the way iOS does
   // it: a touch that never travelled was a long press, so the row's sheet
   // opens; one that ended over another meal section moves the item there.
-  function handleDiaryDragEnd({ active, over, delta, activatorEvent }) {
+  // ONE GESTURE, the way iOS does it: a touch held still for the hold time
+  // opens the row's menu right then, finger still down (handleDiaryDragStart);
+  // moving the finger after that dismisses the menu and LIFTS the row
+  // (handleDiaryDragMove), and only from then is anything drawn as a drag --
+  // the floating copy, the faded original, the target tint. Before, the drag
+  // visuals appeared at the hold whether or not the finger moved, and the
+  // menu snapped up only on release.
+  const LIFT_PX = 8
+  const [dragLifted, setDragLifted] = useState(false)
+  function itemSlot(item) {
+    return item.type === 'meal' ? (item.entries[0]?.meal || 'other') : (item.entry.meal || 'other')
+  }
+  function handleDiaryDragStart({ active, activatorEvent }) {
+    const item = active.data.current?.item ?? null
+    setDragItem(item)
+    setDragLifted(false)
+    if (activatorEvent?.type === 'touchstart' && item) {
+      // The press tint is the hold's progress bar; the menu replaces it.
+      document.querySelectorAll('[data-pressing]').forEach(el => { delete el.dataset.pressing })
+      setSheet(item.type === 'meal' ? mealSheet(item) : foodSheet(item.entry))
+    }
+  }
+  function handleDiaryDragMove({ delta }) {
+    if (dragLifted || Math.hypot(delta.x, delta.y) < LIFT_PX) return
+    setDragLifted(true)
+    setSheet(null)
+  }
+  function handleDiaryDragEnd({ active, over, activatorEvent }) {
+    const lifted = dragLifted
     setDragItem(null)
+    setDragLifted(false)
     setMoveItemId(null)
     suppressClickUntil.current = Date.now() + 400
-    const isTouch = activatorEvent?.type === 'touchstart'
-    if (isTouch && Math.hypot(delta.x, delta.y) < 10) {
-      const item = active.data.current?.item
-      if (item) setSheet(item.type === 'meal' ? mealSheet(item) : foodSheet(item.entry))
-      return
-    }
+    // A touch that never lifted was the menu, already open: nothing to drop.
+    if (activatorEvent?.type === 'touchstart' && !lifted) return
     if (!over) return
     const targetSlot = over.data.current?.slot
     const item = active.data.current?.item
@@ -1834,19 +1863,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
               <DndContext
                 sensors={dndSensors}
                 collisionDetection={pointerWithin}
-                onDragStart={({ active }) => setDragItem(active.data.current?.item ?? null)}
-                onDragCancel={() => setDragItem(null)}
+                onDragStart={handleDiaryDragStart}
+                onDragMove={handleDiaryDragMove}
+                onDragCancel={() => { setDragItem(null); setDragLifted(false) }}
                 onDragEnd={handleDiaryDragEnd}
               >
                 {groupEntriesByMeal(entries).map(group => (
-                  <DroppableMeal key={group.key} slot={group.key}>
+                  <DroppableMeal key={group.key} slot={group.key} target={dragLifted && !!dragItem && itemSlot(dragItem) !== group.key}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
                       <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
                       {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
                     </div>
                     {groupLoggedMeals(group.entries).map(item => item.type === 'meal'
-                      ? <DraggableItem key={item.id} id={item.id} item={item}>{d => renderLoggedMeal(item, d)}</DraggableItem>
-                      : <DraggableItem key={item.entry.id} id={item.entry.id} item={item}>{d => renderFoodEntry(item.entry, false, d)}</DraggableItem>
+                      ? <DraggableItem key={item.id} id={item.id} item={item} lifted={dragLifted}>{d => renderLoggedMeal(item, d)}</DraggableItem>
+                      : <DraggableItem key={item.entry.id} id={item.entry.id} item={item} lifted={dragLifted}>{d => renderFoodEntry(item.entry, false, d)}</DraggableItem>
                     )}
                   </DroppableMeal>
                 ))}
@@ -1854,7 +1884,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     so it can look picked up -- surface, the dropdown shadow, a
                     hair larger -- while the original holds its place, faded. */}
                 <DragOverlay>
-                  {dragItem && renderDragPreview(dragItem)}
+                  {dragItem && dragLifted && renderDragPreview(dragItem)}
                 </DragOverlay>
               </DndContext>
               </div>
