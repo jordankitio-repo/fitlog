@@ -9,7 +9,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import Toast from '../components/Toast'
 import Modal from '../components/Modal'
 import SoloUpgrade from '../components/SoloUpgrade'
-import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
+import { toLocalDateString } from '../utils/dateHelpers'
 import { measurementStatus } from '../utils/measurementCadence'
 import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
@@ -28,6 +28,7 @@ import {
   syncAppleHealth, undismissDeviceRows, writeWeighInToHealth,
 } from '../utils/healthSync'
 import PullToRefresh from '../components/PullToRefresh'
+import DayStepper from '../components/DayStepper'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -1317,16 +1318,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
     })
   }
 
-  // Nav functions
-  function goToPrevDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
-  function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
-  const isToday = selectedDate === toLocalDateString(new Date())
-
-  // The date control's middle: "Today" until the day moves, then the day's
-  // date. Short month, so the whole header holds one line on a 375pt phone.
-  const dayLabel = isToday
-    ? 'Today'
-    : parseLocalDateString(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   const totalCalories = entries.reduce((s, e) => s + (e.calories || 0), 0)
   const totalProtein = entries.reduce((s, e) => s + (e.protein || 0), 0)
@@ -1705,28 +1696,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
           moves, then "Oct 22") and opens the calendar. There is no separate
           "Today" button any more: beside the stepper it did not fit a phone
           (the title wrapped), and on a row of its own it left a lone pill
-          under the title. The calendar, or `›`, is the way back.
-          The middle is a Button with the native date input laid over it,
-          invisible, the way the old pill did it: tapping a real date input is
-          what reliably opens the picker in a WKWebView, where showPicker() is
-          not something to lean on. */}
+          under the title. The calendar, or `›`, is the way back. Shared with
+          My Progress and the client record: components/DayStepper. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)' }}>
         <h1 style={{ whiteSpace: 'nowrap' }}>Daily Log</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexShrink: 0 }}>
-          <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
-          <span style={{ position: 'relative', display: 'inline-flex' }}>
-            <Button variant="muted" size="sm" tabIndex={-1} aria-hidden="true" style={{ minWidth: 76 }}>{dayLabel}</Button>
-            <input
-              type="date"
-              aria-label={`Pick a day, showing ${dayLabel}`}
-              value={selectedDate}
-              max={toLocalDateString(new Date())}
-              onChange={(e) => { if (e.target.value) setSelectedDate(e.target.value) }}
-              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
-            />
-          </span>
-          <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
-        </div>
+        <DayStepper value={selectedDate} onChange={setSelectedDate} />
       </div>
 
       {pageLoading ? (

@@ -31,6 +31,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "read", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveWeight", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "deleteSample", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeStatus", returnType: CAPPluginReturnPromise),
     ]
 
     private let store = HKHealthStore()
@@ -184,6 +185,23 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
             } else {
                 write()
             }
+        }
+    }
+
+    // writeStatus() -> { status: 'allowed' | 'off' | 'notAsked' }
+    //
+    // Whether Gardnr may write weigh-ins, for the settings switch. Write access,
+    // unlike read access, is something HealthKit will report. 'notAsked' is
+    // decided by getRequestStatusForAuthorization rather than by
+    // authorizationStatus, which reports a never-asked type as denied (see
+    // saveWeight) and would show the switch as blocked before anyone said no.
+    @objc func writeStatus(_ call: CAPPluginCall) {
+        if store.authorizationStatus(for: bodyMass) == .sharingAuthorized {
+            call.resolve(["status": "allowed"])
+            return
+        }
+        store.getRequestStatusForAuthorization(toShare: shareTypes, read: readTypes) { status, _ in
+            call.resolve(["status": status == .shouldRequest ? "notAsked" : "off"])
         }
     }
 

@@ -1,21 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Button from './Button'
-import { SettingRow } from './ui'
+import { Checkbox, SettingRow, Toggle } from './ui'
 import { relativeTime } from '../utils/relativeTime'
+import appleHealthIcon from '../assets/apple-health-icon.png'
 import { isNativeApp } from '../utils/platform'
-import { connectAppleHealth, disconnectAppleHealth, syncAppleHealth } from '../utils/healthSync'
+import {
+  CONSENT_TEXT, connectAppleHealth, disconnectAppleHealth, healthWriteStatus,
+  savesWeighInsToHealth, setSavesWeighInsToHealth, syncAppleHealth,
+} from '../utils/healthSync'
 
 const muted = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }
 const errorText = { fontSize: 'var(--text-sm)', color: 'var(--color-error)', margin: 0 }
 const divider = { height: '1px', backgroundColor: 'var(--color-border)' }
-// The sign-up age gate's checkbox, at reading size: these are the two
-// sentences being agreed to, not small print under a form.
-const consentRow = {
-  display: 'flex', alignItems: 'flex-start', gap: 'var(--space-8)',
-  fontSize: 'var(--text-base)', color: 'var(--color-text)', lineHeight: 1.5, cursor: 'pointer',
+// Two standing facts about the sync, set as quiet notes under its row rather
+// than a paragraph of their own between two controls.
+const notes = {
+  margin: 0, paddingLeft: 'var(--space-16)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)',
+  fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.5,
 }
-const box = { marginTop: '3px', flex: '0 0 auto', cursor: 'pointer', width: 16, height: 16, accentColor: 'var(--color-primary)' }
+// Where a client changes what Gardnr may do in Health, per Apple's own guide.
+const HEALTH_APPS_PATH = 'In the Health app, tap your profile picture, then Apps › Gardnr.'
 
 const ERRORS = {
   consent_required: 'Tick both boxes to connect.',
@@ -27,12 +32,17 @@ const messageFor = (err) => ERRORS[err?.code] || 'Something went wrong. Try agai
 
 // What the connection is doing, in a sentence. Graded like every other status
 // in the app (B1): amber only when it needs the reader, grey otherwise.
-function statusLine(connection) {
+// The fix it names has to exist where it is read: Sync now is on the phone
+// only, so the web points at the phone instead.
+function statusLine(connection, native) {
   if (connection.status === 'error' || connection.status === 'reauth_required') {
-    return { text: 'Sync is failing. Try Sync now.', tone: 'var(--color-warning)' }
+    return {
+      text: native ? 'Last sync failed. Try Sync now.' : 'Last sync failed. Open Gardnr on your iPhone to retry.',
+      tone: 'var(--color-warning)',
+    }
   }
-  if (connection.backfill_pending) return { text: 'Importing your last year.', tone: null }
-  if (connection.last_synced_at) return { text: `Synced ${relativeTime(connection.last_synced_at)}`, tone: null }
+  if (connection.backfill_pending) return { text: 'Importing your history…', tone: null }
+  if (connection.last_synced_at) return { text: `Last synced ${relativeTime(connection.last_synced_at)}`, tone: null }
   return { text: 'Waiting for the first sync.', tone: null }
 }
 
@@ -52,6 +62,14 @@ export default function AppleHealthSettings({ userId, connection, onChange }) {
   const [error, setError] = useState('')
   const [stage, setStage] = useState('idle') // disconnect: 'idle' | 'confirm'
   const [purge, setPurge] = useState(false)
+  const [saveWeighIns, setSaveWeighIns] = useState(savesWeighInsToHealth)
+  // Whether iOS lets Gardnr write at all. Read once the connection is up, so
+  // the switch never offers something the phone has already turned off.
+  const [writeStatus, setWriteStatus] = useState(null)
+  useEffect(() => {
+    if (!connection || !native) return
+    healthWriteStatus().then(setWriteStatus)
+  }, [connection, native])
 
   async function run(kind, fn) {
     setBusy(kind)
@@ -86,85 +104,110 @@ export default function AppleHealthSettings({ userId, connection, onChange }) {
   if (!connection) {
     return (
       <>
-        <p style={muted}>
-          Bring your steps, weigh-ins and workouts in from Apple Health instead of typing them. The only
-          thing Gardnr adds to Health is a weigh-in you type here, so your weight history is whole there too.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
-          <label style={consentRow}>
-            <input type="checkbox" checked={collect} onChange={e => setCollect(e.target.checked)} style={box} />
-            <span>I agree to Gardnr collecting my steps, weight and workouts from Apple Health.</span>
-          </label>
-          <label style={consentRow}>
-            <input type="checkbox" checked={share} onChange={e => setShare(e.target.checked)} style={box} />
-            <span>I agree to my coach, now or in future, seeing this data.</span>
-          </label>
+        {/* Apple's own Health icon, as Apple supplies it (Apple Design
+            Resources): its shape is in the artwork, so no mask, border or
+            effect is added, and it is only resized. Apple's rules for using it
+            in an app, all kept here: the name "Apple Health" sits beside it,
+            it is not a button, and it marks compatibility, nothing more. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+          <img src={appleHealthIcon} alt="" width={48} height={48} style={{ flex: '0 0 auto', display: 'block' }} />
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)', color: 'var(--color-text)' }}>
+              Apple Health
+            </p>
+            <p style={muted}>Your steps, weigh-ins and workouts sync from Apple Health automatically.</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* The sentences come from CONSENT_TEXT, the same strings connect
+              stores against the grant, so the record says what the box said. */}
+          <Checkbox checked={collect} onChange={setCollect}>{CONSENT_TEXT.collect}</Checkbox>
+          <Checkbox checked={share} onChange={setShare}>{CONSENT_TEXT.shareCoach}</Checkbox>
         </div>
         <p style={muted}>
-          You can disconnect at any time. See the{' '}
+          You can disconnect at any time. Read how we handle health data in our{' '}
           <Link to="/health-data-privacy" style={{ color: 'var(--color-primary)' }}>Consumer Health Data Policy</Link>.
         </p>
         {error && <p style={errorText}>{error}</p>}
         <div>
           <Button variant="primary" onClick={connect} loading={busy === 'connect'} disabled={!collect || !share}>
-            Connect Apple Health
+            Connect to Apple Health
           </Button>
         </div>
       </>
     )
   }
 
-  const status = statusLine(connection)
+  const status = statusLine(connection, native)
   return (
     <>
+      {/* The STATUS is the row's headline, because it is the one thing that
+          changes and the one thing a reader opens this screen to check. The
+          page title already says Apple Health, so the row does not say it
+          again. Sync now sits beside it at every width: it is short, and a
+          button stacked under a paragraph read as an afterthought. */}
       <SettingRow
-        label="Apple Health"
-        description={
-          <>
-            <span style={status.tone ? { color: status.tone, fontWeight: 'var(--weight-semibold)' } : undefined}>
-              {status.text}
-            </span>
-            <br />
-            {native
-              ? 'Steps, weigh-ins and workouts. A number you edit or delete here stays the way you left it.'
-              : 'Syncs from the Gardnr app on your iPhone.'}
-          </>
-        }
+        keepInline
+        label={<span style={status.tone ? { color: status.tone, fontWeight: 'var(--weight-semibold)' } : undefined}>{status.text}</span>}
+        description={native
+          ? 'Steps, weigh-ins and workouts.'
+          : 'Steps, weigh-ins and workouts, synced from your iPhone.'}
       >
         {native && (
-          <Button variant="muted" onClick={syncNow} loading={busy === 'sync'}>Sync now</Button>
+          <Button variant="muted" size="sm" onClick={syncNow} loading={busy === 'sync'}>Sync now</Button>
         )}
       </SettingRow>
       {native && (
-        <p style={muted}>
-          Nothing showing up? Check Settings › Health › Data Access & Devices › Gardnr.
-        </p>
+        <ul style={notes}>
+          <li>Anything you edit or delete in Gardnr stays the way you left it.</li>
+          <li>Missing data? {HEALTH_APPS_PATH}</li>
+        </ul>
       )}
       {error && <p style={errorText}>{error}</p>}
 
+      {/* The one direction Gardnr writes, and the client's switch for it. When
+          iOS has turned writing off, the switch says so and how to undo it,
+          rather than offering a choice the phone will not honour. */}
+      {native && (
+        <>
+          <div style={divider} />
+          <Toggle
+            label="Save weigh-ins to Apple Health"
+            description={writeStatus === 'off'
+              ? `Turned off for Gardnr in Apple Health. ${HEALTH_APPS_PATH}`
+              : 'Weigh-ins you type here are added to Apple Health.'}
+            checked={writeStatus !== 'off' && saveWeighIns}
+            disabled={writeStatus === 'off'}
+            onChange={() => { setSavesWeighInsToHealth(!saveWeighIns); setSaveWeighIns(!saveWeighIns) }}
+          />
+        </>
+      )}
+
       <div style={divider} />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+        {/* A plain label and a `danger` button, not a red label above a
+            button saying the same word: the red arrives on the button when it
+            is pressed (D3), and the screen does not stand in red at rest. */}
         <SettingRow
-          label="Disconnect"
-          tone="danger"
-          description="Stops syncing and withdraws both consents. What was already imported stays unless you choose to delete it."
+          keepInline
+          label="Stop syncing"
+          description="Your imported history stays unless you choose to delete it."
         >
           {stage === 'idle' && (
-            <Button variant="danger" onClick={() => { setStage('confirm'); setError('') }}>Disconnect</Button>
+            <Button variant="danger" size="sm" onClick={() => { setStage('confirm'); setError('') }}>Disconnect</Button>
           )}
         </SettingRow>
         {stage === 'confirm' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
-            <label style={consentRow}>
-              <input type="checkbox" checked={purge} onChange={e => setPurge(e.target.checked)} style={box} />
-              <span>Also delete everything imported from Apple Health. Numbers you typed or edited yourself are kept.</span>
-            </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+            <Checkbox checked={purge} onChange={setPurge}>
+              Also delete the data imported from Apple Health. Entries you typed or edited are kept.
+            </Checkbox>
             <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
-              <Button variant="danger-solid" onClick={disconnect} loading={busy === 'disconnect'}>
+              <Button variant="danger-solid" size="sm" onClick={disconnect} loading={busy === 'disconnect'}>
                 {purge ? 'Disconnect and delete' : 'Disconnect'}
               </Button>
-              <Button variant="ghost" onClick={() => { setStage('idle'); setPurge(false) }}>Cancel</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setStage('idle'); setPurge(false) }}>Cancel</Button>
             </div>
           </div>
         )}

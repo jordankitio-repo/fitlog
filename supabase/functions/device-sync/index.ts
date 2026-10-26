@@ -235,8 +235,15 @@ Deno.serve(async (req) => {
     // connection ingesting data with no consent recorded against it.
     if (action === 'connect') {
       const {
-        consentCollect, consentShareCoach, policyVersion, deviceLabel,
+        consentCollect, consentShareCoach, policyVersion, deviceLabel, consentTexts,
       } = body as Record<string, unknown>
+
+      // The sentence each box said, kept with the grant (consent_text). Capped
+      // because it is client-supplied; absent from an older app build.
+      const texts = (consentTexts && typeof consentTexts === 'object')
+        ? consentTexts as Record<string, unknown> : {}
+      const textFor = (key: string) =>
+        typeof texts[key] === 'string' && texts[key] ? (texts[key] as string).slice(0, 500) : null
 
       if (consentCollect !== true || consentShareCoach !== true) {
         return jsonResponse({ error: 'consent_required' }, 400)
@@ -245,12 +252,13 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'missing_policy_version' }, 400)
       }
 
-      for (const kind of ['device_collect', 'device_share_coach']) {
+      for (const [kind, key] of [['device_collect', 'collect'], ['device_share_coach', 'shareCoach']]) {
         if (await hasConsent(kind)) continue
         await rest('health_data_consents', {
           method: 'POST',
           body: JSON.stringify({
             user_id: userId, kind, scope: provider, policy_version: policyVersion,
+            consent_text: textFor(key),
           }),
         })
       }

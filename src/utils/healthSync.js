@@ -133,6 +133,14 @@ async function preferredWeightUnit(userId) {
   return t?.weight_goal_unit === 'kg' ? 'kg' : 'lbs'
 }
 
+// The two consent sentences, exactly as the checkboxes show them. One source:
+// the settings screen renders these and connect records them, so the stored
+// consent can never differ from what the client read and ticked.
+export const CONSENT_TEXT = {
+  collect: 'Allow Gardnr to read my steps, weight and workouts from Apple Health.',
+  shareCoach: 'Share this data with my coach, including any coach I work with later.',
+}
+
 // Shows Apple's permission sheet, records both consents, opens the connection.
 // The client has already ticked both consents in our UI; this is the call that
 // makes them a record.
@@ -143,6 +151,7 @@ export async function connectAppleHealth() {
     provider: APPLE_HEALTH,
     consentCollect: true,
     consentShareCoach: true,
+    consentTexts: CONSENT_TEXT,
     policyVersion: HEALTH_POLICY_VERSION,
     deviceLabel: 'iPhone',
   })
@@ -248,8 +257,31 @@ export function isTypedWeighIn(row) {
   return Boolean(row) && !row.source_connection_id && !row.external_id
 }
 
+// The client's own switch for writing ("Save weigh-ins to Apple Health").
+// Kept on the device, not the account, because that is where the permission it
+// sits on top of lives: iOS grants Health access per device, and a client with
+// two phones is asked on each. Storage can throw (private mode, cleared site
+// data); it then reads as on, which is the default.
+const SAVE_WEIGH_INS_KEY = 'gardnr-health-save-weigh-ins'
+
+export function savesWeighInsToHealth() {
+  try { return localStorage.getItem(SAVE_WEIGH_INS_KEY) !== 'off' } catch { return true }
+}
+
+export function setSavesWeighInsToHealth(on) {
+  try { localStorage.setItem(SAVE_WEIGH_INS_KEY, on ? 'on' : 'off') } catch { /* stays on */ }
+}
+
+// 'allowed' | 'off' (turned off for Gardnr in iOS) | 'notAsked', or null off
+// the native app.
+export async function healthWriteStatus() {
+  if (!isNativeApp()) return null
+  try { return (await Health.writeStatus()).status ?? null } catch { return null }
+}
+
 export async function writeWeighInToHealth(row) {
   if (!isNativeApp() || !isTypedWeighIn(row) || !row.user_id) return null
+  if (!savesWeighInsToHealth()) return null
   // Only for a client who connected Apple Health. Writing is part of that
   // connection, and nobody else has been asked.
   if (!(await fetchAppleHealthConnection(row.user_id))) return null
@@ -274,8 +306,11 @@ export async function removeWeighInFromHealth(row) {
 }
 
 // An edit replaces the sample rather than changing it: HealthKit samples are
-// immutable, and delete-then-save is how its own apps edit one.
+// immutable, and delete-then-save is how its own apps edit one. With the switch
+// off, Health is left exactly as it is: removing the old sample would still be
+// Gardnr changing Health, which is what the client turned off.
 export async function rewriteWeighInInHealth(before, after) {
+  if (!savesWeighInsToHealth()) return null
   await removeWeighInFromHealth(before)
   return writeWeighInToHealth({ ...after, health_sample_id: null })
 }

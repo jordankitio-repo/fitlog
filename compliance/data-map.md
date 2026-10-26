@@ -72,7 +72,7 @@ Full clause-by-clause review: **[`device-api-terms.md`](device-api-terms.md)**. 
 | Deletion / erasure | Profile → delete account → `delete-account` (all tables + storage photo) | ✅ completed Jun 24 |
 | Correction | Edit in-app (profile, logs, targets) | ✅ existing |
 | Age gate | Required 18+ / Terms+Privacy checkbox at signup | ✅ added Jun 24 |
-| Consent (health data) | `health_data_consents` — separate `device_collect` + `device_share_coach` grants, with withdrawal | 🟡 **devices only**; base-app collection still ⬜ pending |
+| Consent (health data) | `health_data_consents` — separate `device_collect` + `device_share_coach` grants, with withdrawal; each grant stores the policy version AND the exact sentence agreed to (`consent_text`, from 2026-10-26) | 🟡 **devices only**; base-app collection still ⬜ pending |
 | Breach response runbook | **TODO** — FTC HBNR process | ⬜ pending |
 
 ## 4b. Erasure gap found and fixed (Oct 15 2026)

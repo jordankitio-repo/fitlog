@@ -7,7 +7,7 @@ import Button from '../components/Button'
 import Logo from '../components/Logo'
 import PasswordInput from '../components/PasswordInput'
 import { getPasswordValidationError } from '../utils/passwordValidation'
-import { controlStyle } from '../components/ui'
+import { Checkbox, controlStyle } from '../components/ui'
 
 function Login() {
   const [searchParams] = useSearchParams()
@@ -360,20 +360,12 @@ function Login() {
       )}
 
       {isSignUp && (
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.5, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            style={{ marginTop: '2px', flex: '0 0 auto', cursor: 'pointer', width: 16, height: 16 }}
-          />
-          <span>
-            I confirm I'm 18 or older and agree to the{' '}
-            <Link to="/terms" style={{ color: 'var(--color-primary)' }}>Terms of Service</Link>
-            {' '}and{' '}
-            <Link to="/privacy" style={{ color: 'var(--color-primary)' }}>Privacy Policy</Link>.
-          </span>
-        </label>
+        <Checkbox small checked={agreed} onChange={setAgreed}>
+          I confirm I'm 18 or older and agree to the{' '}
+          <Link to="/terms" style={{ color: 'var(--color-primary)' }}>Terms of Service</Link>
+          {' '}and{' '}
+          <Link to="/privacy" style={{ color: 'var(--color-primary)' }}>Privacy Policy</Link>.
+        </Checkbox>
       )}
       {errors.agreed && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-xs)', marginTop: '-4px' }}>{errors.agreed}</p>}
 
