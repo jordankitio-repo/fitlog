@@ -125,6 +125,8 @@ function cleanWorkouts(raw: unknown[]) {
     if (typeof r.external_id !== 'string' || !r.external_id) continue
     const calories = num(r.calories_burned)
     const hr = num(r.avg_heart_rate)
+    const maxHr = num(r.max_heart_rate)
+    const distance = num(r.distance)
     out.push({
       logged_date: r.logged_date,
       exercise_type: typeof r.exercise_type === 'string' && r.exercise_type
@@ -133,6 +135,14 @@ function cleanWorkouts(raw: unknown[]) {
       duration: Math.round(duration),
       calories_burned: calories !== null && calories >= 0 ? Math.round(calories) : null,
       avg_heart_rate: hr !== null && hr > 0 ? Math.round(hr) : null,
+      max_heart_rate: maxHr !== null && maxHr > 0 ? Math.round(maxHr) : null,
+      distance: distance !== null && distance > 0 ? Math.round(distance * 100) / 100 : null,
+      // Only an explicit false opts a workout out of the cardio target. A
+      // missing flag is an older app build, which only ever sent cardio.
+      counts_as_cardio: r.counts_as_cardio !== false,
+      recorded_by: typeof r.recorded_by === 'string' && r.recorded_by
+        ? r.recorded_by.slice(0, 80)
+        : null,
       external_id: r.external_id.slice(0, 200),
     })
   }

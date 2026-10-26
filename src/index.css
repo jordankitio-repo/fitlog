@@ -2649,3 +2649,43 @@ html.native-app .gnav {
   margin-top: var(--space-4); border-top: 1px solid var(--color-border);
   border-radius: 0 0 10px 10px; color: var(--color-muted); justify-content: center;
 }
+
+/* ---- Pull to refresh (components/PullToRefresh.jsx) ----------------------
+   The slot is zero tall at rest and the indicator hangs off its bottom edge,
+   so it sits just above the page, hidden under the fixed top bar, until #root's
+   rubber-band uncovers it. While a refresh runs the slot opens to hold the page
+   down around the wheel, and closes again when it is done. */
+.ptr-slot {
+  position: relative;
+  transition: height 220ms ease;
+}
+.ptr-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted);
+  opacity: 0;
+  pointer-events: none;
+}
+.ptr-indicator.ptr-active { opacity: 1; }
+/* During the pull, spoke i shows once --ptr-shown passes it: the wheel fills
+   in as the finger travels and is whole at the point a release refreshes. */
+.ptr-spoke {
+  opacity: calc(clamp(0, var(--ptr-shown, 0) - var(--spoke-i), 1) * var(--spoke-opacity));
+}
+.ptr-spinning .ptr-spoke { opacity: var(--spoke-opacity); }
+/* Stepped, one spoke per step, as the system spinner turns. */
+.ptr-spinning { animation: ptr-turn 0.8s steps(8) infinite; }
+@keyframes ptr-turn { to { transform: rotate(360deg); } }
+.ptr-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

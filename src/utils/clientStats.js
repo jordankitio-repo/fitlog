@@ -30,7 +30,7 @@ export async function computeClientStats(clientIds, relationships = []) {
     supabase.rpc('client_last_log_dates', { p_client_ids: clientIds }),
     supabase.from('check_ins').select('*').in('client_id', clientIds).gte('week_of', checkInWindowStart),
     supabase.from('nutrition_log').select('user_id, logged_date, calories, protein').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
-    supabase.from('cardio_log').select('user_id, logged_date, duration').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
+    supabase.from('cardio_log').select('user_id, logged_date, duration').eq('counts_as_cardio', true).in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
     supabase.from('steps_log').select('user_id, logged_date, steps').in('user_id', clientIds).gte('logged_date', sevenDaysAgo).lte('logged_date', today),
     supabase.from('targets').select('user_id, calories, protein, cardio_minutes, steps').in('user_id', clientIds),
   ])

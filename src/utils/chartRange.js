@@ -123,3 +123,37 @@ export function bucketHistory(history, valueKey, rangeKey, { asOf = new Date() }
     }
   })
 }
+
+// Every day of a W or M window, logged or not, for the CHART's x-axis.
+//
+// bucketHistory returns logged days only, which is right for anything that
+// reads the numbers (averages, the goal line) and wrong for the picture: a
+// client with two logged days saw the same two bars on W and on M, so the
+// range control appeared to do nothing. A window is drawn as the window --
+// seven or thirty slots, empty where nothing was logged, the way Apple Health
+// draws one -- so changing the range always changes the chart, and a gap reads
+// as a gap instead of being closed up.
+//
+// A day with several rows (two weigh-ins) keeps all of them, in order. Y is
+// returned as it is: its points are months, and an empty month in a young
+// account is better left off than drawn as twelve slots of nothing.
+export function padToWindow(rows, valueKey, rangeKey, { asOf = new Date() } = {}) {
+  const range = rangeByKey(rangeKey)
+  if (range.key === 'Y') return rows
+  const end = new Date(asOf)
+  end.setHours(12, 0, 0, 0)
+  const byIso = new Map()
+  for (const r of rows || []) {
+    if (!byIso.has(r.iso)) byIso.set(r.iso, [])
+    byIso.get(r.iso).push(r)
+  }
+  const out = []
+  for (let i = range.days - 1; i >= 0; i--) {
+    const iso = ymd(new Date(end.getTime() - i * 86400000))
+    out.push(...(byIso.get(iso) ?? [{ iso, date: iso.slice(5), [valueKey]: null }]))
+  }
+  return out
+}
+
+// Whether a padded series has anything in it to draw.
+export const hasValues = (rows, valueKey) => (rows || []).some((r) => r[valueKey] != null)

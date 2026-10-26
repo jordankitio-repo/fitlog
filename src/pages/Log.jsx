@@ -23,6 +23,11 @@ import { revealWhenReady } from '../utils/quickActions'
 import { formatMinutes, stepsGoalSub, cardioGoalSub, convertLengthValue } from '../utils/metricRows'
 import { convertGoalValue } from '../utils/weightTarget'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import {
+  DEVICE_SYNC_EVENT, dismissDeviceRows, removeWeighInFromHealth, rewriteWeighInInHealth,
+  syncAppleHealth, undismissDeviceRows, writeWeighInToHealth,
+} from '../utils/healthSync'
+import PullToRefresh from '../components/PullToRefresh'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -42,8 +47,12 @@ const METRIC_SOURCES = {
 const EXERCISE_TYPES = [
   'Running', 'Cycling', 'Elliptical', 'Swimming',
   'Rowing', 'Jump Rope', 'Stair Climber', 'Walking',
-  'HIIT', 'Other'
+  'HIIT', 'Martial Arts', 'Strength Training', 'Yoga', 'Other'
 ]
+// Typed-in workouts that do not count toward the cardio target, matching how
+// an imported one is classified (HealthPlugin.swift's workoutTypes): an hour of
+// strength or yoga is real training, but it is not an hour of cardio.
+const NON_CARDIO_TYPES = new Set(['Strength Training', 'Yoga'])
 
 // Tape-measurement sites (body composition). Order = display order.
 const MEASUREMENT_SITES = [
@@ -150,6 +159,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // Deleting a logged row is one tap on a small ✕ and used to be silent and
   // irreversible. Re-inserting the captured row verbatim (same id, same
   // created_at) restores it in its original position.
+  //
+  // A row that came from Apple Health also leaves a tombstone, or the next sync
+  // would put it straight back. The tombstone failing is not worth unwinding
+  // the delete over: the row is gone, and the worst case is that it returns.
   async function deleteWithUndo({ table, match, rows, label, refresh }) {
     const { error } = await supabase.from(table).delete().match(match)
     if (error) {
@@ -157,15 +170,30 @@ function Log({ session, profile, hasSoloPremium = true }) {
       showToast('Couldn\'t delete that. Try again.', 'error')
       return
     }
+    dismissDeviceRows(table, rows).catch(err => console.error('Error dismissing device row:', err))
+    // A typed weigh-in Gardnr wrote to Apple Health leaves Health with it.
+    if (table === 'weight_log') {
+      for (const r of rows) removeWeighInFromHealth(r).catch(err => console.error('Error removing weigh-in from Health:', err))
+    }
     refresh()
     showToast(`${label} deleted.`, 'success', {
       label: 'Undo',
       onClick: async () => {
+        // Lift the tombstone BEFORE restoring, or the restored row would sit
+        // under a tombstone that the next sync honours by skipping its updates.
+        await undismissDeviceRows(table, rows).catch(err => console.error('Error undismissing device row:', err))
         const { error: restoreErr } = await supabase.from(table).insert(rows)
         if (restoreErr) {
           console.error(`Error restoring ${table}:`, restoreErr)
           showToast('Couldn\'t undo that.', 'error')
         } else {
+          // Its Health sample was deleted with it, so the restored row is
+          // written again and takes the new sample's id.
+          if (table === 'weight_log') {
+            for (const r of rows) {
+              writeWeighInToHealth({ ...r, health_sample_id: null }).catch(err => console.error('Error rewriting weigh-in to Health:', err))
+            }
+          }
           refresh()
         }
       },
@@ -305,6 +333,37 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchEntries(); fetchDayComplete(); fetchWeight(); fetchCardioEntries()
     fetchSteps(); fetchMeasurements(); fetchFrequentFoods(); fetchSavedMeals(); fetchLastMeasured()
   })
+
+  // Pull to refresh: Apple Health first, so what was just logged in Health or
+  // Fitness is in the database before the page re-reads it. A failed sync
+  // still refreshes the page -- the pull asked for the latest, and the rest of
+  // the day is worth having even when Health is not.
+  async function pullRefresh() {
+    try {
+      await syncAppleHealth(session?.user?.id, { force: true })
+    } catch (err) {
+      console.error('Apple Health sync failed:', err)
+      showToast('Couldn\'t sync with Apple Health. Try again.', 'error')
+    }
+    await Promise.allSettled([
+      fetchEntries(), fetchDayComplete(), fetchWeight(), fetchCardioEntries(),
+      fetchSteps(), fetchMeasurements(), fetchFrequentFoods(), fetchSavedMeals(), fetchLastMeasured(),
+    ])
+  }
+
+  // Apple Health just wrote something. Re-read the three metrics it writes,
+  // except one whose editor is open: fetchWeight/fetchSteps reset the field,
+  // and a sync landing mid-keystroke must not take a number out from under the
+  // reader. The open editor's save pins its value anyway.
+  useEffect(() => {
+    function onSynced() {
+      fetchCardioEntries()
+      if (!weightExpanded) fetchWeight()
+      if (!stepsExpanded) fetchSteps()
+    }
+    window.addEventListener(DEVICE_SYNC_EVENT, onSynced)
+    return () => window.removeEventListener(DEVICE_SYNC_EVENT, onSynced)
+  }, [selectedDate, weightExpanded, stepsExpanded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Home screen Quick Actions arrive as /log?action=… (utils/quickActions).
   // Logging happens NOW, so each one moves the page to today; the action is
@@ -1061,13 +1120,19 @@ function Log({ session, profile, hasSoloPremium = true }) {
       // is deliberately LEFT ALONE: it is the dedupe key, so clearing it would
       // make the next sync find no match and insert a duplicate of the row the
       // client just corrected.
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from('weight_log')
         .update({ weight: parseFloat(weight), unit: weightUnit, weighed_at, source: 'manual' })
         .eq('id', savedWeight.id)
-      if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
+        .select()
+        .single()
+      if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else {
+        // Health follows the edit for a weigh-in typed here; a scale's reading
+        // stays as the scale recorded it (isTypedWeighIn).
+        rewriteWeighInInHealth(savedWeight, updated).catch(err => console.error('Error updating weigh-in in Health:', err)).finally(fetchWeight)
+      }
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('weight_log')
         .insert([{
           weight: parseFloat(weight),
@@ -1076,7 +1141,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
           user_id: currentSession.user.id,
           weighed_at,
         }])
-      if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else fetchWeight()
+        .select()
+        .single()
+      if (error) { console.error(error); showToast('Couldn\'t save your weight. Try again.', 'error') } else {
+        writeWeighInToHealth(inserted).catch(err => console.error('Error writing weigh-in to Health:', err)).finally(fetchWeight)
+      }
     }
   }
 
@@ -1104,21 +1173,28 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (editingCardio) {
       const { error } = await supabase.from('cardio_log').update({
         exercise_type: exerciseType,
+        // An unchanged name keeps the row's own classification: an imported
+        // "Martial Arts" knows it is cardio, and the picker's short list
+        // should not get a say in that.
+        counts_as_cardio: exerciseType === editingCardio.exercise_type
+          ? editingCardio.counts_as_cardio !== false
+          : !NON_CARDIO_TYPES.has(exerciseType),
         duration: parseInt(duration),
         calories_burned: parseInt(caloriesBurned) || null,
         avg_heart_rate: parseInt(avgHeartRate) || null,
         source: 'manual', // pins the edit against later syncs; see saveWeight
       }).eq('id', editingCardio.id)
-      if (error) { console.error(error); showToast('Couldn\'t save your cardio. Try again.', 'error') }
+      if (error) { console.error(error); showToast('Couldn\'t save your workout. Try again.', 'error') }
       else { setEditingCardio(null); setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
     } else {
       const { error } = await supabase.from('cardio_log').insert([{
         exercise_type: exerciseType, duration: parseInt(duration),
+        counts_as_cardio: !NON_CARDIO_TYPES.has(exerciseType),
         calories_burned: parseInt(caloriesBurned) || null,
         avg_heart_rate: parseInt(avgHeartRate) || null,
         logged_date: selectedDate, user_id: currentSession.user.id
       }])
-      if (error) { console.error(error); showToast('Couldn\'t save your cardio. Try again.', 'error') }
+      if (error) { console.error(error); showToast('Couldn\'t save your workout. Try again.', 'error') }
       else { setDuration(''); setCaloriesBurned(''); setAvgHeartRate(''); fetchCardioEntries() }
     }
   }
@@ -1127,7 +1203,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const row = cardioEntries.find(e => e.id === id)
     if (!row) return
     await deleteWithUndo({
-      table: 'cardio_log', match: { id }, rows: [row], label: row.exercise_type || 'Cardio entry',
+      table: 'cardio_log', match: { id }, rows: [row], label: row.exercise_type || 'Workout',
       refresh: fetchCardioEntries,
     })
   }
@@ -1283,7 +1359,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // by the same amount.
   const ACTION_COL_PX = 44 - 16 + 10
   // Where a Body and activity row's TEXT starts: the 28px mark plus the row's
-  // 10px gap. Rules, the CARDIO label and "+ Log cardio" all start here.
+  // 10px gap. Rules, the WORKOUTS label and "+ Log workout" all start here.
   const MARK_INSET_PX = 28 + 10
 
   // A form field with its name ABOVE it. These forms named their fields only
@@ -1333,7 +1409,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // The value sits on the TITLE's baseline, not centred between the two lines
   // where it lined up with nothing. The rule above a row starts at the text
   // column (MARK_INSET_PX), as iOS insets separators past a row's icon, so the
-  // icon reads as part of its row; the CARDIO label and "+ Log cardio" start
+  // icon reads as part of its row; the WORKOUTS label and "+ Log workout" start
   // on that same column. `logged: false` is the empty state: "Not logged"
   // (F3) and a Log button where the value goes. `first` drops the rule.
   function renderMetricRow({ key, title, sub, value, mark, logged = true, first = false, onLog, onEdit, onDelete }) {
@@ -1620,6 +1696,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   return (
+    <PullToRefresh onRefresh={pullRefresh}>
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
       {/* Header */}
@@ -1666,7 +1743,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           three cards, two of them a heading and padding around a single row,
           and F2 already names them as one group ("three single readings").
           Steps sits above cardio because cardio is the open-ended list and
-          its "+ Log cardio" belongs at the foot of the card. */}
+          its "+ Log workout" belongs at the foot of the card. */}
       <div style={sectionStyle}>
         <h2>Body and activity</h2>
 
@@ -1729,36 +1806,54 @@ function Log({ session, profile, hasSoloPremium = true }) {
               as one undivided list the two kinds read as a jumble once there
               were two sessions. The label is the meal groups' (Nutrition, just
               below), total and all. Not drawn over the empty row, which would
-              say "Cardio" twice. */}
+              say "Workouts" twice.
+              WORKOUTS, not cardio: every kind is listed, because the Watch
+              records judo and strength sessions too and a log that hides them
+              misrepresents the day. Only the cardio ones add up against the
+              target, so the total says "cardio" whenever something here is not. */}
           {cardioEntries.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px', marginLeft: MARK_INSET_PX, paddingRight: isMobile ? ACTION_COL_PX : 0, borderTop: '1px solid var(--color-border)' }}>
-              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>Cardio</span>
+              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>Workouts</span>
               <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{(() => {
                 // The day's total against the target, like Steps' "98% of
                 // 9,000". Not against yesterday: cardio resets each morning.
-                const total = cardioEntries.reduce((sum, e) => sum + (e.duration || 0), 0)
-                return [formatMinutes(total), cardioGoalSub(total, targets?.cardio_minutes)].filter(Boolean).join(' · ')
+                const cardio = cardioEntries.filter(e => e.counts_as_cardio !== false)
+                const total = cardio.reduce((sum, e) => sum + (e.duration || 0), 0)
+                const mixed = cardio.length < cardioEntries.length
+                return [`${formatMinutes(total)}${mixed ? ' cardio' : ''}`, cardioGoalSub(total, targets?.cardio_minutes)].filter(Boolean).join(' · ')
               })()}</span>
             </div>
           )}
           {cardioEntries.map((e, i) => renderMetricRow({
             key: e.id, title: e.exercise_type, first: i === 0, mark: { metric: 'cardio', glyph: 'heart' },
+            // What recorded it ("Apple Watch") says more than where it came
+            // through ("Apple Health"), so it wins when the device named one.
             sub: [
               e.calories_burned && `${e.calories_burned} kcal`,
-              e.avg_heart_rate && `${e.avg_heart_rate} bpm avg`,
-              sourceOf(e),
+              e.avg_heart_rate && (e.max_heart_rate
+                ? `${e.avg_heart_rate} avg · ${e.max_heart_rate} max bpm`
+                : `${e.avg_heart_rate} bpm avg`),
+              e.distance && `${Number(e.distance)} mi`,
+              e.counts_as_cardio === false && 'Not cardio',
+              e.recorded_by || sourceOf(e),
             ].filter(Boolean).join(' · ') || 'No calories or heart rate',
             value: formatMinutes(e.duration),
             onEdit: () => startEditCardio(e), onDelete: () => deleteCardio(e.id),
           }))}
           {cardioEntries.length === 0 && !cardioExpanded &&
-            renderMetricRow({ key: 'cardio', title: 'Cardio', mark: { metric: 'cardio', glyph: 'heart' }, logged: false, onLog: () => setCardioExpanded(true) })}
+            renderMetricRow({ key: 'cardio', title: 'Workouts', mark: { metric: 'cardio', glyph: 'heart' }, logged: false, onLog: () => setCardioExpanded(true) })}
           {cardioExpanded && (
             <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX, borderTop: '1px solid var(--color-border)' }}>
-              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'Cardio'}</p>
+              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'Workout'}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {fieldLabel('Activity', <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                  {EXERCISE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {/* An imported name the short list lacks ("Pickleball") stays
+                      selectable, or editing the row would quietly rename it to
+                      the first option. */}
+                  {(editingCardio && !EXERCISE_TYPES.includes(editingCardio.exercise_type)
+                    ? [editingCardio.exercise_type, ...EXERCISE_TYPES]
+                    : EXERCISE_TYPES
+                  ).map(t => <option key={t} value={t}>{t}</option>)}
                 </select>)}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
                   {fieldLabel('Duration (min)', <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />)}
@@ -1781,7 +1876,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         </div>
 
         {cardioEntries.length > 0 && !cardioExpanded && (
-          <Button onClick={() => setCardioExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginLeft: MARK_INSET_PX }}>+ Log cardio</Button>
+          <Button onClick={() => setCardioExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginLeft: MARK_INSET_PX }}>+ Log workout</Button>
         )}
       </div>
 
@@ -2481,6 +2576,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       <Toast message={toast?.message} type={toast?.type} action={toast?.action} onClose={() => setToast(null)} />
     </div>
+    </PullToRefresh>
   )
 }
 

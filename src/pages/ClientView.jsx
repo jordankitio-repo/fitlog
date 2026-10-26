@@ -24,7 +24,7 @@ import InfoTip from '../components/InfoTip'
 import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
-import { bucketHistory, historyWindow, DEFAULT_RANGE } from '../utils/chartRange'
+import { bucketHistory, hasValues, historyWindow, padToWindow, DEFAULT_RANGE } from '../utils/chartRange'
 import { ADHERENCE_DAYS, ADHERENCE_WEEKS, ADHERENCE_NAME, ADHERENCE_FETCH_DAYS, GRAINS, DEFAULT_GRAIN, isGrain, heatmapCap } from '../utils/complianceWindow'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
@@ -89,12 +89,15 @@ const GW_ACCENT_REPORT = '#34d399'
 const CHART_SERIES = '#34d399'
 /* eslint-enable no-restricted-syntax */
 
+// The chart's series is one slot per DAY now (padToWindow), so a window of
+// seven slots is seven calendar days. It used to be the last seven weigh-ins,
+// which for someone weighing in twice a week was a month labelled "7-day".
+// Empty days are skipped, and draw no point of their own.
 function computeRollingAverage(data, window = 7) {
-  return data.map((_, i) => {
-    const start = Math.max(0, i - window + 1)
-    const slice = data.slice(start, i + 1)
-    const avg = slice.reduce((sum, d) => sum + d.weight, 0) / slice.length
-    return Math.round(avg * 10) / 10
+  return data.map((d, i) => {
+    if (d.weight == null) return null
+    const vals = data.slice(Math.max(0, i - window + 1), i + 1).map(x => x.weight).filter(v => v != null)
+    return Math.round((vals.reduce((sum, v) => sum + v, 0) / vals.length) * 10) / 10
   })
 }
 
@@ -785,7 +788,7 @@ function ClientView({ profile }) {
   // steps is a single row per day.
   async function fetchDayActivity() {
     const [{ data: c, error: ce }, { data: st, error: se }] = await Promise.all([
-      supabase.from('cardio_log').select('duration').eq('user_id', clientId).eq('logged_date', selectedDate),
+      supabase.from('cardio_log').select('duration').eq('user_id', clientId).eq('logged_date', selectedDate).eq('counts_as_cardio', true),
       supabase.from('steps_log').select('steps').eq('user_id', clientId).eq('logged_date', selectedDate).limit(1),
     ])
     if (ce) console.error('Error fetching cardio:', ce)
@@ -850,6 +853,7 @@ async function fetchCardioHistory() {
   const { data, error } = await supabase
     .from('cardio_log').select('logged_date, duration')
     .eq('user_id', clientId)
+    .eq('counts_as_cardio', true)
     .gte('logged_date', from).lte('logged_date', to)
   if (error) console.error(error)
   else {
@@ -1246,7 +1250,9 @@ async function addNoteEntry() {
         totalCarbs: dayEntries.reduce((sum, e) => sum + (e.carbs || 0), 0),
         totalFat: dayEntries.reduce((sum, e) => sum + (e.fat || 0), 0),
         meals: dayEntries.map(e => e.food),
-        cardioSessions: dayCardio.map(c => `${c.exercise_type} ${c.duration}min${c.calories_burned ? ` ${c.calories_burned}cal` : ''}`),
+        // Every workout goes to the report, the non-cardio ones marked, so the
+        // model neither ignores a strength session nor counts it as cardio.
+        cardioSessions: dayCardio.map(c => `${c.exercise_type} ${c.duration}min${c.calories_burned ? ` ${c.calories_burned}cal` : ''}${c.counts_as_cardio === false ? ' (not cardio)' : ''}`),
         steps: daySteps ? daySteps.steps : null
       }
     })
@@ -1368,7 +1374,7 @@ async function addNoteEntry() {
         weight: dayWeight ? `${dayWeight.weight} ${dayWeight.unit}` : null,
         totalCalories: dayEntries.reduce((sum, e) => sum + (e.calories || 0), 0),
         totalProtein: dayEntries.reduce((sum, e) => sum + (e.protein || 0), 0),
-        cardioSessions: dayCardio.map(c => `${c.exercise_type} ${c.duration}min`),
+        cardioSessions: dayCardio.map(c => `${c.exercise_type} ${c.duration}min${c.counts_as_cardio === false ? ' (not cardio)' : ''}`),
         steps: daySteps?.steps || null
       }
     })
@@ -1906,20 +1912,22 @@ async function sendMessage(text) {
   const METRIC_SERIES = [
     {
       key: 'calorieChart', label: 'Calories', unit: 'cal',
-      empty: 'No nutrition logged yet',
-      history: () => bucketHistory(calorieHistory, 'calories', chartRange),
+      empty: 'No nutrition logged yet', valueKey: 'calories',
+      // Padded to the whole window so the range control visibly changes
+      // the span (chartRange.js padToWindow).
+      history: () => padToWindow(bucketHistory(calorieHistory, 'calories', chartRange), 'calories', chartRange),
       data: (h) => calorieChartData(plainCharts.has('dailyMetrics'), h),
     },
     {
       key: 'cardioChart', label: 'Cardio', unit: 'min',
-      empty: 'No cardio logged yet',
-      history: () => bucketHistory(cardioHistory, 'minutes', chartRange),
+      empty: 'No cardio logged yet', valueKey: 'minutes',
+      history: () => padToWindow(bucketHistory(cardioHistory, 'minutes', chartRange), 'minutes', chartRange),
       data: (h) => metricBarData({ history: h, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('dailyMetrics') }),
     },
     {
       key: 'stepsChart', label: 'Steps', unit: 'steps',
-      empty: 'No steps logged yet',
-      history: () => bucketHistory(stepsHistory, 'steps', chartRange),
+      empty: 'No steps logged yet', valueKey: 'steps',
+      history: () => padToWindow(bucketHistory(stepsHistory, 'steps', chartRange), 'steps', chartRange),
       data: (h) => metricBarData({ history: h, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('dailyMetrics') }),
     },
   ]
@@ -2100,12 +2108,17 @@ async function sendMessage(text) {
             weightGoal: clientTargets.weight_goal,
             weightGoalUnit: clientTargets.weight_goal_unit,
           })
-          const rIdx = wt?.reached ? wt.reachedIndex : -1
-          const isMark = (i) => i === rIdx
+          // The goal maths reads the weigh-ins; the chart draws the window.
+          // The marker is matched by ROW, not position, because padding
+          // shifts every index.
+          const plotHistory = padToWindow(dispHistory, 'weight', chartRange)
+          const reachedRow = wt?.reached ? dispHistory[wt.reachedIndex] : null
+          const isMark = (i) => reachedRow != null && plotHistory[i] === reachedRow
           const datasets = [
             {
               label: 'Weight',
-              data: dispHistory.map(d => d.weight),
+              data: plotHistory.map(d => d.weight),
+              spanGaps: true,
               // eslint-disable-next-line no-restricted-syntax -- chart.js renders to a canvas and cannot resolve a CSS var; kept matched to the metric token by hand.
               borderColor: '#34d399',
               // A ~10% wash, not a saturated block — and a 2px line, which
@@ -2118,12 +2131,12 @@ async function sendMessage(text) {
               // pop on both cards: a deep-green fill (#15803d) carries contrast
               // on the light card, a white ring carries it on the dark card —
               // each does its job on the theme where the other washes out.
-              pointRadius: dispHistory.map((_, i) => (isMark(i) ? 7 : 0)),
+              pointRadius: plotHistory.map((_, i) => (isMark(i) ? 7 : 0)),
               pointHoverRadius: 5,
               pointStyle: 'circle',
-              pointBackgroundColor: dispHistory.map((_, i) => (isMark(i) ? '#15803d' : '#34d399')),
-              pointBorderColor: dispHistory.map((_, i) => (isMark(i) ? '#ffffff' : '#34d399')),
-              pointBorderWidth: dispHistory.map((_, i) => (isMark(i) ? 2.5 : 1)),
+              pointBackgroundColor: plotHistory.map((_, i) => (isMark(i) ? '#15803d' : '#34d399')),
+              pointBorderColor: plotHistory.map((_, i) => (isMark(i) ? '#ffffff' : '#34d399')),
+              pointBorderWidth: plotHistory.map((_, i) => (isMark(i) ? 2.5 : 1)),
               tension: 0.3,
               fill: true,
             },
@@ -2135,7 +2148,8 @@ async function sendMessage(text) {
           // window.
           if (chartRange !== 'Y') datasets.push({
             label: '7-day avg',
-            data: computeRollingAverage(dispHistory),
+            data: computeRollingAverage(plotHistory),
+            spanGaps: true,
             borderColor: 'rgba(52, 211, 153, 0.45)',
             backgroundColor: 'transparent',
             borderWidth: MARK.lineWidth,
@@ -2146,7 +2160,7 @@ async function sendMessage(text) {
           })
           if (wt) datasets.push({
             label: `Goal (${wt.goal} ${wt.displayUnit})`,
-            data: dispHistory.map(() => wt.goal),
+            data: plotHistory.map(() => wt.goal),
             borderColor: CHART.targetLine,
             backgroundColor: 'transparent',
             borderDash: [6, 4],
@@ -2173,7 +2187,7 @@ async function sendMessage(text) {
           }
           return (
             <>
-              <Line data={{ labels: dispHistory.map(d => d.date), datasets }} options={weightChartOptions} />
+              <Line data={{ labels: plotHistory.map(d => d.date), datasets }} options={weightChartOptions} />
               {wtNow && (
                 <p style={{ fontSize: 'var(--text-sm)', margin: 'var(--space-10) var(--space-2) 0', color: 'var(--color-muted)' }}>
                   {wtNow.reached ? (
@@ -3275,7 +3289,7 @@ async function sendMessage(text) {
                       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>
                         {m.label} <span style={{ color: 'var(--color-faint)' }}>({m.unit})</span>
                       </p>
-                      {history.length > 0 ? (
+                      {hasValues(history, m.valueKey) ? (
                         <div style={{ height: '150px' }}>
                           <Bar data={m.data(history)} options={stackedMetricOptions(isLast)} />
                         </div>

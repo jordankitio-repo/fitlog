@@ -108,6 +108,9 @@ async function runDigest() {
     const { data: cardioLogs } = await supabase
       .from('cardio_log')
       .select('user_id, duration, logged_date')
+      // Workouts that are not cardio (strength, yoga) are logged but do not
+      // count toward the cardio target this digest grades against.
+      .eq('counts_as_cardio', true)
       .in('user_id', clientIds)
       .gte('logged_date', startDate)
       .lte('logged_date', endDate)

@@ -18,7 +18,7 @@ export default function ConsumerHealthData() {
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Consumer Health Data Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated October 15, 2026</p>
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated October 25, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
@@ -42,6 +42,7 @@ export default function ConsumerHealthData() {
           <li style={li}>Body measurements you enter (neck, chest, waist, hips, arm, thigh)</li>
           <li style={li}>Nutrition and diet information (foods, calories, protein, carbs, fat, meals)</li>
           <li style={li}>Cardio activity and daily step counts</li>
+          <li style={li}>If you connect Apple Health: your daily steps and walking distance, weigh-ins, and workouts (type, duration, calories burned, average and maximum heart rate, distance, and the device or app that recorded them)</li>
           <li style={li}>Biometric and profile details used to estimate targets: sex, date of birth, height, activity level, and body-composition goals</li>
           <li style={li}>A profile photo, if you choose to upload one</li>
           <li style={li}>Coaching content that reflects the above: check-ins, coach targets and notes, reports, and messages</li>
@@ -52,7 +53,11 @@ export default function ConsumerHealthData() {
         <h2 style={h2}>2. Where this data comes from</h2>
         <p style={p}>
           We collect consumer health data <strong style={{ color: 'var(--color-text)' }}>directly from you</strong> when
-          you enter it into the Services. If you are connected to a coach, that coach may also create related data
+          you enter it into the Services. If you choose to connect Apple Health in the Gardnr iPhone app, we also
+          collect the data listed above from Apple Health on your device, but only after you separately consent to
+          collecting it and to sharing it with your coach. The only thing we write to Apple Health is a weigh-in you
+          type into Gardnr yourself, so your weight history is complete there; we never write steps or workouts. You
+          can disconnect at any time in Profile, and choose whether to delete what was imported. If you are connected to a coach, that coach may also create related data
           about you (such as targets, reports, and private notes). We do not buy consumer health data, and we do not
           collect it from data brokers or advertising networks.
         </p>
