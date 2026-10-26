@@ -105,12 +105,23 @@ export default function AppleHealthSettings({ userId, connection, onChange }) {
     return (
       <>
         {/* Apple's own Health icon, as Apple supplies it (Apple Design
-            Resources): its shape is in the artwork, so no mask, border or
-            effect is added, and it is only resized. Apple's rules for using it
+            Resources): its shape is in the artwork, so it is not masked,
+            recoloured or given effects, and it is only resized. Apple's rules for using it
             in an app, all kept here: the name "Apple Health" sits beside it,
             it is not a button, and it marks compatibility, nothing more. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
-          <img src={appleHealthIcon} alt="" width={48} height={48} style={{ flex: '0 0 auto', display: 'block' }} />
+          {/* The hairline is not on the artwork, it is laid over its edge, the
+              way Apple's own screens outline the white Health icon on a light
+              ground: without it the icon's edge vanishes into a light card and
+              the heart reads as a stray mark. 22.5% matches the icon's corner
+              to within half a pixel at this size. */}
+          <span style={{ position: 'relative', flex: '0 0 auto', width: 48, height: 48 }}>
+            <img src={appleHealthIcon} alt="" width={48} height={48} style={{ display: 'block' }} />
+            <span aria-hidden="true" style={{
+              position: 'absolute', inset: 0, borderRadius: '22.5%', pointerEvents: 'none',
+              boxShadow: 'inset 0 0 0 1px var(--color-border)',
+            }} />
+          </span>
           <div style={{ minWidth: 0 }}>
             <p style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)', color: 'var(--color-text)' }}>
               Apple Health
