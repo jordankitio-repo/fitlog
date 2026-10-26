@@ -18,7 +18,7 @@ export const APPLE_HEALTH = 'apple_health'
 // Recorded against both consents. It is the Consumer Health Data policy's
 // "Last updated" date, because that page is what the client is agreeing to:
 // bump the two together.
-export const HEALTH_POLICY_VERSION = '2026-10-25'
+export const HEALTH_POLICY_VERSION = '2026-10-26'
 
 // Fired on window after a sync wrote anything, so an open Log can re-read.
 export const DEVICE_SYNC_EVENT = 'gardnr:device-synced'
@@ -137,7 +137,7 @@ async function preferredWeightUnit(userId) {
 // the settings screen renders these and connect records them, so the stored
 // consent can never differ from what the client read and ticked.
 export const CONSENT_TEXT = {
-  collect: 'Allow Gardnr to read my steps, weight and workouts from Apple Health.',
+  collect: 'Allow Gardnr to read my steps, weight, workouts, height, sex and date of birth from Apple Health.',
   shareCoach: 'Share this data with my coach, including any coach I work with later.',
 }
 
@@ -155,6 +155,20 @@ export async function connectAppleHealth() {
     policyVersion: HEALTH_POLICY_VERSION,
     deviceLabel: 'iPhone',
   })
+}
+
+// What Health knows about the client, to fill in onboarding: { sex,
+// birthDate, heightCm, weightKg, weightDate }, each present only if Health has
+// it and the client allowed it. Never throws: a profile it cannot read is an
+// empty one, and the form is still there to type into.
+export async function readHealthProfile() {
+  if (!isNativeApp()) return {}
+  try {
+    return await Health.readProfile()
+  } catch (err) {
+    console.error('Apple Health profile read failed:', err)
+    return {}
+  }
 }
 
 export async function disconnectAppleHealth({ purge }) {

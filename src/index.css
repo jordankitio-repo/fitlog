@@ -1762,7 +1762,24 @@ nav a:hover {
 }
 .gnav-tab:active .gnav-tab-pill { transform: scale(0.9); }
 .gnav-tab.active { color: var(--color-primary); }
-.gnav-tab.active .gnav-tab-pill { background-color: var(--color-primary-dim); }
+/* The selected tab's tint is ONE element, .gnav-selector, that glides from
+   tab to tab (NavBar measures where). The pills themselves stay transparent:
+   they keep the icon, the badge's anchor and the press scale. */
+.gnav-selector {
+  position: absolute; top: 0; left: 0;
+  border-radius: 999px;
+  background-color: var(--color-primary-dim);
+  pointer-events: none;
+}
+/* Gliding, on the curve the sheets and pushed pages use. A touch over a
+   third of a second: long enough to read as travel from one tab to the
+   next, short enough that a quick second tap never waits on it. */
+.gnav-selector.is-gliding {
+  transition: transform 380ms cubic-bezier(0.32, 0.72, 0, 1), width 380ms cubic-bezier(0.32, 0.72, 0, 1), opacity 180ms ease;
+}
+/* The bar is the selector's frame; the tabs paint over it. */
+.gnav-bottom { isolation: isolate; }
+.gnav-tab { position: relative; z-index: 1; }
 .gnav-tab-label {
   /* Held at the ramp's floor however large the reader sets text, the way iOS
      holds its own tab bars: four labels in a fixed bar cannot grow without
@@ -2282,9 +2299,9 @@ button, a, input, select, textarea {
    glyphs, so each row would subtly reflow as the marker passed over it, and a
    column of labels twitching in sequence is the jitter this is meant to end.
    Colour and icon opacity carry it; both animate without moving anything.
-   (`.gnav-tab-pill` keeps its brand tint — that is the MOBILE tab bar, where
-   the marker is route-driven and stationary, and a tinted active tab is the
-   platform convention on both iOS and Android.) */
+   (`.gnav-selector` keeps its brand tint — that is the MOBILE tab bar, where
+   a tinted active tab is the platform convention on both iOS and Android,
+   and where it glides between tabs rather than jumping.) */
 .cv-rail-item.is-active {
   /* No `background` declared AT ALL, deliberately. This rule sits after
      :hover, so setting even `transparent` here would win and the active row
@@ -2941,6 +2958,123 @@ html.native-app .gnav {
   .modal-sheet { max-width: none; height: 92dvh; max-height: none; padding-bottom: 0; }
   .modal-sheet-body { flex: 1; min-height: 0; }
 }
+
+/* ---- First-run setup (pages/Onboarding) -----------------------------------
+   One question a screen: a top row (back, progress, "Set up later"), the
+   question, and its action pinned at the foot where the thumb is. */
+.onb {
+  max-width: 460px; margin: 0 auto; min-height: 100dvh;
+  display: flex; flex-direction: column;
+  padding: var(--space-12) var(--space-20) calc(var(--space-20) + env(safe-area-inset-bottom, 0px));
+}
+html.native-app .onb { min-height: calc(100dvh - env(safe-area-inset-top, 0px)); }
+.onb-top { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: var(--space-12); }
+.onb-back {
+  appearance: none; background: none; border: none; cursor: pointer; color: var(--color-text);
+  width: 44px; height: 44px; margin-left: -10px; display: inline-flex; align-items: center; justify-content: center;
+}
+.onb-progress { height: 4px; border-radius: 999px; background-color: var(--color-border); overflow: hidden; }
+.onb-progress > span {
+  display: block; height: 100%; background-color: var(--color-primary);
+  transform-origin: left center; transition: transform 380ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.onb-later, .onb-secondary {
+  appearance: none; background: none; border: none; cursor: pointer; font: inherit;
+  min-height: 44px; padding: 0 var(--space-4);
+  color: var(--color-muted); font-size: var(--text-sm); font-weight: var(--weight-medium);
+}
+.onb-secondary { font-size: var(--text-base); }
+.onb-step { flex: 1 0 auto; display: flex; flex-direction: column; }
+@keyframes onb-in-forward { from { opacity: 0; transform: translateX(28px); } }
+@keyframes onb-in-back { from { opacity: 0; transform: translateX(-28px); } }
+.onb-go-forward { animation: onb-in-forward 320ms cubic-bezier(0.32, 0.72, 0, 1); }
+.onb-go-back { animation: onb-in-back 320ms cubic-bezier(0.32, 0.72, 0, 1); }
+.onb-art { margin-top: var(--space-32); }
+.onb-title { margin: var(--space-24) 0 var(--space-8); }
+.onb-art + .onb-title { margin-top: var(--space-20); }
+.onb-sub { margin: 0; color: var(--color-muted); font-size: var(--text-md); line-height: 1.5; }
+.onb-body { margin-top: var(--space-24); display: flex; flex-direction: column; gap: var(--space-20); }
+.onb-field { display: flex; flex-direction: column; }
+.onb-label { display: block; font-size: var(--text-sm); color: var(--color-muted); margin-bottom: var(--space-6); }
+.onb-note { margin: var(--space-6) 0 0; font-size: var(--text-xs); color: var(--color-muted); }
+.onb-error { margin: 0 0 var(--space-4); font-size: var(--text-sm); color: var(--color-error); }
+.onb-seg {
+  display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 2px;
+  padding: 2px; border-radius: 10px; background-color: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+.onb-seg-opt {
+  appearance: none; border: none; font: inherit; cursor: pointer;
+  min-height: 40px; border-radius: 8px; background: transparent;
+  color: var(--color-text); font-size: var(--text-base); font-weight: var(--weight-medium);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+/* The chosen segment is the raised one: lighter than its track in both
+   themes, as iOS draws it (a white thumb on light, a grey one on dark). */
+.onb-seg-opt.is-on {
+  background-color: color-mix(in srgb, var(--color-text) 20%, var(--color-surface));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); font-weight: var(--weight-semibold);
+}
+:root[data-theme="light"] .onb-seg-opt.is-on { background-color: var(--color-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.onb-seg-opt:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+/* On a wide screen the action follows the question rather than sitting at the
+   foot of a tall window, a long way from what it confirms. */
+@media (min-width: 601px) {
+  .onb { min-height: 0; padding-top: var(--space-32); }
+  .onb-step { flex: 0 0 auto; }
+  .onb-actions { padding-top: var(--space-32); }
+}
+.onb-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
+.onb-unitfield { position: relative; display: block; }
+.onb-unitfield > input { padding-right: 40px; }
+.onb-unitfield > span {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--color-muted); font-size: var(--text-base); pointer-events: none;
+}
+.onb-actions { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-4); padding-top: var(--space-24); }
+/* A choice list, iOS's: rows, one hairline between, a check on the chosen. */
+.onb-choices {
+  background-color: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.onb-choice {
+  appearance: none; font: inherit; width: 100%; text-align: left; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-12);
+  min-height: 52px; padding: var(--space-12) var(--space-16);
+  background-color: var(--color-surface); border: none; border-top: 1px solid var(--color-border);
+  color: var(--color-text); font-size: var(--text-base);
+  transition: background-color 140ms ease;
+}
+.onb-choice:first-child { border-top: none; }
+.onb-choice:active { background-color: var(--color-surface-2); }
+.onb-choice.is-on { font-weight: var(--weight-medium); }
+.onb-choice svg { color: var(--color-primary); flex-shrink: 0; }
+.onb-choice:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.onb-date { position: relative; display: block; }
+.onb-date > input { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-width: 0; min-height: 44px; text-align: left; }
+.onb-date > input::-webkit-date-and-time-value { text-align: left; }
+.onb-date-ph {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--color-faint); pointer-events: none; font-size: 16px;
+}
+.onb-inline-link {
+  appearance: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer;
+  color: var(--color-primary); text-decoration: underline; text-underline-offset: 2px;
+}
+.onb-health-icon { position: relative; display: inline-block; width: 64px; height: 64px; }
+.onb-health-icon img { display: block; }
+.onb-health-icon::after {
+  content: ''; position: absolute; inset: 0; border-radius: 22.5%; pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+.onb-targets { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-12); }
+.onb-target {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  background-color: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-12) var(--space-16);
+}
+.onb-target-mark { width: 24px; height: 4px; border-radius: 999px; }
+.onb-target-label { font-size: var(--text-sm); color: var(--color-muted); margin-top: var(--space-4); }
+.onb-target-value { font-size: var(--text-xl); font-weight: var(--weight-semibold); color: var(--color-text); line-height: 1.1; }
 
 /* ---- A pushed page (components/PushPanel) -------------------------------
    Slides in from the right between the top bar and the floating tab bar,

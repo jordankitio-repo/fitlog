@@ -29,7 +29,7 @@ import { ADHERENCE_DAYS, ADHERENCE_WEEKS, ADHERENCE_NAME, ADHERENCE_FETCH_DAYS, 
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART, MARK, baseChartOptions } from '../utils/chartTheme'
-import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from '../utils/weightTarget'
+import { computeWeightTarget, convertWeight, convertGoalValue, normUnit, unitLabel } from '../utils/weightTarget'
 import { measurementCadenceDays, measurementStatus } from '../utils/measurementCadence'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import Reorderable from '../components/Reorderable'
@@ -1244,7 +1244,7 @@ async function addNoteEntry() {
 
       return {
         date,
-        weight: dayWeight ? `${dayWeight.weight} ${dayWeight.unit}` : null,
+        weight: dayWeight ? `${dayWeight.weight} ${unitLabel(dayWeight.unit)}` : null,
         totalCalories: dayEntries.reduce((sum, e) => sum + (e.calories || 0), 0),
         totalProtein: dayEntries.reduce((sum, e) => sum + (e.protein || 0), 0),
         totalCarbs: dayEntries.reduce((sum, e) => sum + (e.carbs || 0), 0),
@@ -1371,7 +1371,7 @@ async function addNoteEntry() {
       const daySteps = stepsResult.data?.find(s => s.logged_date === date)
       return {
         date,
-        weight: dayWeight ? `${dayWeight.weight} ${dayWeight.unit}` : null,
+        weight: dayWeight ? `${dayWeight.weight} ${unitLabel(dayWeight.unit)}` : null,
         totalCalories: dayEntries.reduce((sum, e) => sum + (e.calories || 0), 0),
         totalProtein: dayEntries.reduce((sum, e) => sum + (e.protein || 0), 0),
         cardioSessions: dayCardio.map(c => `${c.exercise_type} ${c.duration}min${c.counts_as_cardio === false ? ' (not cardio)' : ''}`),
@@ -1623,7 +1623,7 @@ async function sendMessage(text) {
         weightGoalUnit: clientTargets.weight_goal_unit,
       })
       if (goalRef) datasets.push({
-        type: 'line', label: `Goal (${goalRef.goal} ${goalRef.displayUnit})`,
+        type: 'line', label: `Goal (${goalRef.goal} ${unitLabel(goalRef.displayUnit)})`,
         data: allDates.map(() => goalRef.goal),
         borderColor: CHART.targetLine, borderDash: [6, 4],
         borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, fill: false, tension: 0,
@@ -2149,7 +2149,7 @@ async function sendMessage(text) {
             fill: false,
           })
           if (wt) datasets.push({
-            label: `Goal (${wt.goal} ${wt.displayUnit})`,
+            label: `Goal (${wt.goal} ${unitLabel(wt.displayUnit)})`,
             data: plotHistory.map(() => wt.goal),
             borderColor: CHART.targetLine,
             backgroundColor: 'transparent',
@@ -2167,12 +2167,12 @@ async function sendMessage(text) {
               ...chartOptions.plugins,
               tooltip: {
                 ...chartOptions.plugins.tooltip,
-                callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${displayUnit}` },
+                callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${unitLabel(displayUnit)}` },
               },
             },
             scales: {
               ...chartOptions.scales,
-              y: { ...chartOptions.scales.y, title: { display: true, text: `Weight (${displayUnit})`, color: CHART.tick } },
+              y: { ...chartOptions.scales.y, title: { display: true, text: `Weight (${unitLabel(displayUnit)})`, color: CHART.tick } },
             },
           }
           return (
@@ -2190,11 +2190,11 @@ async function sendMessage(text) {
                         Reached goal
                       </span>
                       {wtNow.direction === 'maintain'
-                        ? <>. Holding at {wtNow.goal} {wtNow.displayUnit}</>
-                        : <>. First hit {wtNow.goal} {wtNow.displayUnit} on {new Date(wtNow.reachedIso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</>}
+                        ? <>. Holding at {wtNow.goal} {unitLabel(wtNow.displayUnit)}</>
+                        : <>. First hit {wtNow.goal} {unitLabel(wtNow.displayUnit)} on {new Date(wtNow.reachedIso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</>}
                     </>
                   ) : (
-                    <><strong style={{ color: 'var(--color-text)', fontWeight: 'var(--weight-semibold)' }}>{wtNow.remainingAbs} {wtNow.displayUnit}</strong> {wtNow.direction === 'up' ? 'to gain' : 'to lose'} to reach the {wtNow.goal} {wtNow.displayUnit} goal</>
+                    <><strong style={{ color: 'var(--color-text)', fontWeight: 'var(--weight-semibold)' }}>{wtNow.remainingAbs} {unitLabel(wtNow.displayUnit)}</strong> {wtNow.direction === 'up' ? 'to gain' : 'to lose'} to reach the {wtNow.goal} {unitLabel(wtNow.displayUnit)} goal</>
                   )}
                 </p>
               )}
@@ -2479,7 +2479,7 @@ async function sendMessage(text) {
             <div className="cv-stats-activity" style={{ display: 'grid', gap: 'var(--space-16)' }}>
               <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} sub={dayTarget(dayCardio, clientTargets.cardio_minutes, ' min')} color="var(--color-cardio)" />
               <StatCard label="Steps" value={daySteps ? num(daySteps) : '—'} sub={dayTarget(daySteps, clientTargets.steps)} color="var(--color-steps)" />
-              <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${weightEntry.unit}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
+              <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${unitLabel(weightEntry.unit)}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
             </div>
           </div>
         </SectionHeader>
@@ -2854,7 +2854,7 @@ async function sendMessage(text) {
                    of the two and the one carrying a dropdown arrow. */
                 style={{ width: '80px', flexShrink: 0, cursor: 'pointer' }}
               >
-                <option value="lbs">lbs</option>
+                <option value="lbs">lb</option>
                 <option value="kg">kg</option>
               </Select>
             </div>
@@ -3188,7 +3188,7 @@ async function sendMessage(text) {
                           to the full chart now. */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-8)', margin: '0 0 var(--space-4)' }}>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>
-                          Weight <span style={{ color: 'var(--color-faint)' }}>({weightDisplayUnit})</span>
+                          Weight <span style={{ color: 'var(--color-faint)' }}>({unitLabel(weightDisplayUnit)})</span>
                         </p>
                         {weightHistory.length > 1 && (
                           <Button variant="muted" size="sm" onClick={() => setExpandedChart('weight')} ariaLabel="Expand weight chart">

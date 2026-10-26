@@ -978,7 +978,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               aria-label="Weight goal unit"
               style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}
             >
-              <option value="lbs">lbs</option>
+              <option value="lbs">lb</option>
               <option value="kg">kg</option>
             </select>
           </div>

@@ -13,6 +13,13 @@ export function normUnit(u) {
   return u === 'kg' ? 'kg' : 'lbs'
 }
 
+// The unit as a reader sees it. Stored as 'lbs' (every row, every table), shown
+// as 'lb', Apple's abbreviation in Health and Fitness. Display only: never
+// write this back.
+export function unitLabel(u) {
+  return normUnit(u) === 'kg' ? 'kg' : 'lb'
+}
+
 export function convertWeight(value, from, to) {
   const f = normUnit(from)
   const t = normUnit(to)

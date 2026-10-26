@@ -1841,7 +1841,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           <div style={{ display: 'flex', gap: '8px' }}>
             <input ref={weightInputRef} type="number" inputMode="decimal" aria-label="Weight" value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
             <select aria-label="Unit" value={weightUnit} onChange={(e) => { setWeight(convertGoalValue(weight, weightUnit, e.target.value)); setWeightUnit(e.target.value) }} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
-              <option value="lbs">lbs</option>
+              <option value="lbs">lb</option>
               <option value="kg">kg</option>
             </select>
           </div>

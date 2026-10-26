@@ -1,27 +1,78 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../supabase'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
+import Avatar from '../components/Avatar'
+import Modal from '../components/Modal'
+import ConsumerHealthData from './ConsumerHealthData'
+import { Checkbox, Icon, controlStyle } from '../components/ui'
 import { estimateTargets, ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, convertWeight, ftInToCm, todayStr } from '../utils/biometrics'
-import { controlStyle, Pill } from '../components/ui'
 import { GOALS } from '../utils/goals'
+import {
+  CONSENT_TEXT, appleHealthAvailable, connectAppleHealth, readHealthProfile, syncAppleHealth,
+} from '../utils/healthSync'
+import appleHealthIcon from '../assets/apple-health-icon.png'
 
-// First-run setup for brand-new tracked users (solo + clients who weren't
-// already solo). Collects the stable biometrics the target math needs — stored
-// on the profile so they survive a solo→client change and a coach can read them
-// — then auto-suggests starting macros (saved to `targets`) and seeds today's
-// weigh-in. Skippable: "Skip for now" just stamps onboarded_at so we don't nag.
+// First run for a new tracked user (a client, or someone tracking alone).
 //
-// The gate that mounts this lives in App (role ∈ {solo,client} && !onboarded_at).
-// Coaches never see it (they aren't tracked).
-
-// A sensible default pace per goal (the assessment derives direction from
-// current vs goal weight; pace only sets the rate).
+// ONE QUESTION A SCREEN. It was a single form of nine fields, which is the
+// version people abandon; MacroFactor, MyFitnessPal and iOS's own setup ask
+// one thing at a time, with a way back and a way out on every screen.
+//
+// The order:
+//   1. Welcome. A client meets their coach by name and face: they were invited
+//      by a person, not by an app.
+//   2. Apple Health, in the iPhone app. Connecting brings in their history at
+//      once and fills in most of what follows, so the next screens become a
+//      check rather than a form. The two consents are the Settings screen's,
+//      same sentences, same rule: separate, unticked, both required.
+//   3. About you: sex, date of birth, height (what the energy estimate needs).
+//   4. Weight: now, and a goal.
+//   5. Goal.  6. Activity.
+//   7. Starting targets. A coach's targets, when the coach has already set
+//      them, are never replaced: the client is shown those instead.
+//
+// "Set up later" on any screen stamps onboarded_at and lets them in; nothing
+// typed is required. The gate that mounts this lives in App.
 const PACE_FOR_GOAL = { lose: 'moderate', gain: 'gentle', maintain: 'moderate', recomp: 'gentle' }
 
 export default function Onboarding({ session, profile, onComplete }) {
   const isClient = profile?.role === 'client'
+  const uid = session.user.id
+
+  const [coach, setCoach] = useState(null)
+  // Targets that already exist, i.e. ones the coach set while this screen was
+  // waiting to be filled in. The estimate must not overwrite them.
+  const [existingTargets, setExistingTargets] = useState(null)
+  const [healthOffered, setHealthOffered] = useState(false)
+  // Held until the coach and the Health check are in, so the first screen
+  // does not say "Welcome to Gardnr" and then swap to the coach's name.
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let live = true
+    async function load() {
+      const [{ data: t }, available] = await Promise.all([
+        supabase.from('targets').select('calories, protein, carbs, fat, weight_goal').eq('user_id', uid).maybeSingle(),
+        appleHealthAvailable(),
+      ])
+      if (!live) return
+      setExistingTargets(t?.calories ? t : null)
+      setHealthOffered(available)
+      if (isClient) {
+        const { data: rel } = await supabase.from('coach_clients').select('coach_id')
+          .eq('client_id', uid).eq('status', 'active').maybeSingle()
+        if (rel?.coach_id) {
+          const { data: c } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', rel.coach_id).maybeSingle()
+          if (live && c) setCoach(c)
+        }
+      }
+      if (live) setReady(true)
+    }
+    load()
+    return () => { live = false }
+  }, [uid, isClient])
+
   const [units, setUnits] = useState('imperial')
   const [sex, setSex] = useState('')
   const [birthDate, setBirthDate] = useState('')
@@ -32,25 +83,25 @@ export default function Onboarding({ session, profile, onComplete }) {
   const [goalWeight, setGoalWeight] = useState('')
   const [activity, setActivity] = useState('moderate')
   const [goal, setGoal] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  // Which fields Apple Health filled in, to say so beside them, and the
+  // weight it filled, so an untouched one is not logged a second time (the
+  // first sync imports it).
+  const [fromHealth, setFromHealth] = useState({})
+  const [healthWeight, setHealthWeight] = useState(null)
+  const [healthWeightDate, setHealthWeightDate] = useState(null)
 
   const metric = units === 'metric'
-  const wUnit = metric ? 'kg' : 'lbs'
+  const wUnit = metric ? 'kg' : 'lb'
+  const storedUnit = metric ? 'kg' : 'lbs'
 
-  // Switching units CONVERTS what is already typed. Without this the toggle
-  // only relabelled the boxes: someone who entered 180 lb and 5'11" and then
-  // changed to metric was left holding "180 kg" and an empty height, with the
-  // label beside it as the only clue. Nothing errored, 180 kg is a plausible
-  // number, and the starting targets below were then computed for someone
+  // Switching units CONVERTS what is typed: a toggle that only relabelled the
+  // boxes left 180 lb reading as 180 kg, and targets computed for someone
   // twice their weight.
   function changeUnits(next) {
     if (next === units) return
     setWeight((w) => convertWeight(w, units, next))
     setGoalWeight((g) => convertWeight(g, units, next))
-    // Height is two fields in one system and one in the other, so it converts
-    // between SHAPES rather than scaling a number. Going metric, the canonical
-    // cm is derived from ft+in; coming back, it is split again.
+    setHealthWeight((h) => (h == null ? h : convertWeight(h, units, next)))
     if (next === 'metric') {
       const cm = ftInToCm(heightFt, heightIn)
       setHeightCm(cm ? String(cm) : '')
@@ -62,197 +113,393 @@ export default function Onboarding({ session, profile, onComplete }) {
     setUnits(next)
   }
 
-  // Canonical height in cm from whichever unit the user is entering.
   const heightInCm = metric ? (Number(heightCm) || 0) : ftInToCm(heightFt, heightIn)
 
-  // Live starting-targets preview — recomputed as the essentials come in.
   const preview = useMemo(() => {
     const age = ageFromBirthDate(birthDate)
     if (!sex || !age || !heightInCm || !weight) return null
     return estimateTargets({
       sex, age, weight, goalWeight,
-      weightUnit: wUnit,
+      weightUnit: storedUnit,
       height: heightInCm, heightUnit: 'cm',
       activity, pace: PACE_FOR_GOAL[goal] || 'moderate',
     })
-  }, [sex, birthDate, heightInCm, weight, goalWeight, wUnit, activity, goal])
+  }, [sex, birthDate, heightInCm, weight, goalWeight, storedUnit, activity, goal])
+
+  // ── Steps ──────────────────────────────────────────────────────────────
+  const steps = ['welcome', ...(healthOffered ? ['health'] : []), 'about', 'weight', 'goal', 'activity', 'targets']
+  const [stepIndex, setStepIndex] = useState(0)
+  const [direction, setDirection] = useState('forward')
+  const step = steps[Math.min(stepIndex, steps.length - 1)]
+  const go = (delta) => {
+    setDirection(delta > 0 ? 'forward' : 'back')
+    setStepIndex((i) => Math.max(0, Math.min(steps.length - 1, i + delta)))
+  }
+  // The page scrolls to the top of each new question.
+  useEffect(() => { window.scrollTo(0, 0); document.getElementById('root')?.scrollTo?.(0, 0) }, [stepIndex])
+
+  // ── Apple Health ───────────────────────────────────────────────────────
+  const [consentCollect, setConsentCollect] = useState(false)
+  const [consentShare, setConsentShare] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [healthError, setHealthError] = useState('')
+  const [connected, setConnected] = useState(false)
+  const [policyOpen, setPolicyOpen] = useState(false)
+
+  async function connectHealth() {
+    setConnecting(true)
+    setHealthError('')
+    try {
+      await connectAppleHealth()
+      setConnected(true)
+      const h = await readHealthProfile()
+      const filled = {}
+      if (h.sex === 'male' || h.sex === 'female') { setSex(h.sex); filled.sex = true }
+      if (h.birthDate) { setBirthDate(h.birthDate); filled.birthDate = true }
+      if (h.heightCm) {
+        filled.height = true
+        setHeightCm(String(h.heightCm))
+        const { ft, in: inches } = cmToFtIn(h.heightCm)
+        setHeightFt(ft)
+        setHeightIn(inches)
+      }
+      if (h.weightKg) {
+        filled.weight = true
+        const w = metric ? String(h.weightKg) : convertWeight(String(h.weightKg), 'metric', 'imperial')
+        setWeight(w)
+        setHealthWeight(w)
+        setHealthWeightDate(h.weightDate || null)
+      }
+      setFromHealth(filled)
+      // The first sync is the history import; it runs while they carry on.
+      syncAppleHealth(uid, { force: true }).catch((err) => console.error('Apple Health first sync failed:', err))
+      go(1)
+    } catch (err) {
+      console.error('Apple Health connect failed:', err)
+      setHealthError("Couldn't connect to Apple Health. Try again, or connect later in Profile.")
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  // ── Save ───────────────────────────────────────────────────────────────
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   async function finish() {
     setError('')
     setSaving(true)
-    const uid = session.user.id
+    try {
+      const { error: pErr } = await supabase.from('profiles').update({
+        onboarded_at: new Date().toISOString(),
+        unit_preference: units,
+        sex: sex || null,
+        birth_date: birthDate || null,
+        height_cm: heightInCm > 0 ? Math.round(heightInCm * 10) / 10 : null,
+        activity_level: activity,
+        primary_goal: goal || null,
+      }).eq('id', uid)
+      if (pErr) throw pErr
 
-    const profilePatch = {
-      onboarded_at: new Date().toISOString(),
-      unit_preference: units,
-      sex: sex || null,
-      birth_date: birthDate || null,
-      height_cm: heightInCm > 0 ? Math.round(heightInCm * 10) / 10 : null,
-      activity_level: activity,
-      primary_goal: goal || null,
+      const goalW = Number(goalWeight) || null
+      if (existingTargets) {
+        // The coach's targets stand. A goal weight is added only where the
+        // coach has not set one.
+        if (goalW && !existingTargets.weight_goal) {
+          const { error: tErr } = await supabase.from('targets')
+            .update({ weight_goal: goalW, weight_goal_unit: storedUnit, updated_at: new Date().toISOString() })
+            .eq('user_id', uid)
+          if (tErr) throw tErr
+        }
+      } else if (preview || goalW) {
+        const { error: tErr } = await supabase.from('targets').upsert({
+          user_id: uid,
+          ...(preview ? { calories: preview.calories, protein: preview.protein, carbs: preview.carbs, fat: preview.fat } : {}),
+          weight_goal: goalW,
+          weight_goal_unit: storedUnit,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+        if (tErr) throw tErr
+      }
+
+      // Today's weigh-in, so Today and the weight chart are not empty on day
+      // one. Not when it is Health's own reading from TODAY, untouched: the
+      // first sync brings that. An older Health reading the client confirmed
+      // as their current weight is today's.
+      const healthHasToday = weight === healthWeight && healthWeightDate === todayStr()
+      if (Number(weight) > 0 && !healthHasToday) {
+        const now = new Date()
+        const weighed_at = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':')
+        const { error: wErr } = await supabase.from('weight_log').insert([{
+          weight: Number(weight), unit: storedUnit, logged_date: todayStr(), user_id: uid, weighed_at,
+        }])
+        if (wErr) throw wErr
+      }
+      onComplete()
+    } catch (err) {
+      console.error('onboarding save:', err)
+      setError("Couldn't save. Check your connection and try again.")
+      setSaving(false)
     }
-    const { error: pErr } = await supabase.from('profiles').update(profilePatch).eq('id', uid)
-    if (pErr) { console.error('onboarding profile save:', pErr); setError('Something went wrong. Try again.'); setSaving(false); return }
-
-    // Auto-apply the suggested macros (+ goal weight) as starting targets. The
-    // coach can override these freely later (ClientView upserts the same row).
-    if (preview) {
-      await supabase.from('targets').upsert({
-        user_id: uid,
-        calories: preview.calories,
-        protein: preview.protein,
-        carbs: preview.carbs,
-        fat: preview.fat,
-        weight_goal: Number(goalWeight) || null,
-        weight_goal_unit: wUnit,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
-    } else if (goalWeight) {
-      await supabase.from('targets').upsert({
-        user_id: uid, weight_goal: Number(goalWeight) || null, weight_goal_unit: wUnit,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
-    }
-
-    // Seed today's weigh-in so the weight chart isn't empty on day one.
-    if (Number(weight) > 0) {
-      const now = new Date()
-      const weighed_at = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-      await supabase.from('weight_log').insert([{
-        weight: Number(weight), unit: wUnit, logged_date: todayStr(), user_id: uid, weighed_at,
-      }])
-    }
-
-    setSaving(false)
-    onComplete()
   }
 
-  async function skip() {
+  async function later() {
     setSaving(true)
     const { error: e } = await supabase.from('profiles')
       .update({ onboarded_at: new Date().toISOString(), unit_preference: units })
-      .eq('id', session.user.id)
-    if (e) { console.error('onboarding skip:', e); setError('Something went wrong. Try again.'); setSaving(false); return }
-    setSaving(false)
+      .eq('id', uid)
+    if (e) { console.error('onboarding skip:', e); setError("Couldn't save. Try again."); setSaving(false); return }
     onComplete()
   }
 
-  // One canonical control style for the whole app (src/components/ui/Field.jsx).
-  const inputStyle = controlStyle
-  const labelStyle = { fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: '6px', display: 'block' }
-
-  const macro = (label, value, unit, color) => (
-    <div style={{ flex: 1, minWidth: 64, textAlign: 'center', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 6px' }}>
-      <div style={{ fontWeight: 700, fontSize: 'var(--text-subhead)', color }}>{value}{unit}</div>
-      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 2 }}>{label}</div>
+  // ── Pieces ─────────────────────────────────────────────────────────────
+  const coachFirst = coach?.full_name?.split(' ')[0]
+  const field = (id, label, input, note) => (
+    <div className="onb-field">
+      <label htmlFor={id} className="onb-label">{label}</label>
+      {input}
+      {note && <p className="onb-note">{note}</p>}
     </div>
   )
+  const healthNote = (key) => (fromHealth[key] ? 'From Apple Health' : null)
+  const choiceRows = (name, options, value, onPick) => (
+    <div className="onb-choices" role="radiogroup" aria-label={name}>
+      {options.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          role="radio"
+          aria-checked={value === o.key}
+          className={`onb-choice ds-control${value === o.key ? ' is-on' : ''}`}
+          onClick={() => onPick(o.key)}
+        >
+          <span>{o.label}</span>
+          {value === o.key && <Icon name="check" size={18} strokeWidth={2.5} />}
+        </button>
+      ))}
+    </div>
+  )
+  // iOS's segmented control: the choices side by side, full width, 44pt
+  // tall. The app's Pill is a 30px filter chip, under the touch minimum for a
+  // screen whose whole job is being tapped through.
+  const segmented = (labelledBy, options, value, onPick) => (
+    <div className="onb-seg" role="radiogroup" aria-labelledby={labelledBy}>
+      {options.map(([v, lbl]) => (
+        <button key={v} type="button" role="radio" aria-checked={value === v}
+          className={`onb-seg-opt ds-control${value === v ? ' is-on' : ''}`} onClick={() => onPick(v)}>
+          {lbl}
+        </button>
+      ))}
+    </div>
+  )
+  const unitSwitch = (
+    <div className="onb-field">
+      <span className="onb-label" id="onb-units">Units</span>
+      {segmented('onb-units', [['imperial', 'lb, ft'], ['metric', 'kg, cm']], units, changeUnits)}
+    </div>
+  )
+  const num = (n) => Number(n).toLocaleString()
+
+  // Each screen: a title, one line under it, and its question.
+  const screens = {
+    welcome: {
+      art: coach
+        ? <Avatar url={coach.avatar_url} name={coach.full_name} size={72} />
+        : <Logo size={56} />,
+      title: coach ? `${coachFirst} invited you to Gardnr` : 'Welcome to Gardnr',
+      sub: coach
+        ? `Log your meals, weight and workouts. ${coachFirst} sees how it is going and sends you a weekly report.`
+        : 'Log your meals, weight and workouts against targets made for you.',
+      body: null,
+      cta: 'Get started',
+    },
+    health: {
+      art: (
+        <span className="onb-health-icon">
+          <img src={appleHealthIcon} alt="" width={64} height={64} />
+        </span>
+      ),
+      title: 'Connect Apple Health',
+      sub: 'Bring in your steps, weigh-ins and workouts, and fill in the next few questions for you.',
+      body: (
+        <>
+          <div>
+            <Checkbox checked={consentCollect} onChange={setConsentCollect}>{CONSENT_TEXT.collect}</Checkbox>
+            <Checkbox checked={consentShare} onChange={setConsentShare}>{CONSENT_TEXT.shareCoach}</Checkbox>
+          </div>
+          <p className="onb-note">
+            Disconnect at any time in Profile. How we handle health data:{' '}
+            {/* A sheet, not a link: this screen renders before the app's
+                router exists, and a page swapped in for it would leave a new
+                client nowhere to come back to. */}
+            <button type="button" className="onb-inline-link" onClick={() => setPolicyOpen(true)}>Consumer Health Data Policy</button>.
+          </p>
+          {healthError && <p className="onb-error" role="alert">{healthError}</p>}
+        </>
+      ),
+      cta: connected ? 'Continue' : 'Connect',
+      ctaDisabled: !connected && !(consentCollect && consentShare),
+      onCta: connected ? () => go(1) : connectHealth,
+      ctaLoading: connecting,
+      secondary: connected ? null : { label: 'Not now', onClick: () => go(1) },
+    },
+    about: {
+      title: 'About you',
+      sub: 'Used to estimate how much energy you burn.',
+      body: (
+        <>
+          {unitSwitch}
+          <div className="onb-field">
+            <span className="onb-label" id="onb-sex">Sex</span>
+            {segmented('onb-sex', [['female', 'Female'], ['male', 'Male']], sex, (v) => { setSex(v); setFromHealth(f => ({ ...f, sex: false })) })}
+            {healthNote('sex') && <p className="onb-note">{healthNote('sex')}</p>}
+          </div>
+          {field('onb-dob', 'Date of birth',
+            // iOS's WebView draws an EMPTY date input as a blank box, so the
+            // field shows a placeholder of its own until a date is picked.
+            <span className="onb-date">
+              <input id="onb-dob" type="date" value={birthDate} max={todayStr()} onChange={(e) => { setBirthDate(e.target.value); setFromHealth(f => ({ ...f, birthDate: false })) }} style={controlStyle} />
+              {!birthDate && <span className="onb-date-ph" aria-hidden="true">Select date</span>}
+            </span>,
+            healthNote('birthDate'))}
+          {metric
+            ? field('onb-hcm', 'Height (cm)',
+              <input id="onb-hcm" type="number" inputMode="decimal" value={heightCm} onChange={(e) => { setHeightCm(e.target.value); setFromHealth(f => ({ ...f, height: false })) }} style={controlStyle} />,
+              healthNote('height'))
+            : (
+              <div className="onb-field">
+                <span className="onb-label" id="onb-height">Height</span>
+                <div className="onb-pair" role="group" aria-labelledby="onb-height">
+                  <label className="onb-unitfield">
+                    <input type="number" inputMode="numeric" aria-label="Feet" value={heightFt} onChange={(e) => { setHeightFt(e.target.value); setFromHealth(f => ({ ...f, height: false })) }} style={controlStyle} />
+                    <span aria-hidden="true">ft</span>
+                  </label>
+                  <label className="onb-unitfield">
+                    <input type="number" inputMode="numeric" aria-label="Inches" value={heightIn} onChange={(e) => { setHeightIn(e.target.value); setFromHealth(f => ({ ...f, height: false })) }} style={controlStyle} />
+                    <span aria-hidden="true">in</span>
+                  </label>
+                </div>
+                {healthNote('height') && <p className="onb-note">{healthNote('height')}</p>}
+              </div>
+            )}
+        </>
+      ),
+    },
+    weight: {
+      title: 'Your weight',
+      sub: isClient && coachFirst ? `Only you and ${coachFirst} see this.` : 'Only you see this.',
+      body: (
+        <>
+          {field('onb-w', `Current weight (${wUnit})`,
+            <input id="onb-w" type="number" inputMode="decimal" value={weight} onChange={(e) => { setWeight(e.target.value); setFromHealth(f => ({ ...f, weight: false })) }} style={controlStyle} />,
+            healthNote('weight'))}
+          {field('onb-gw', `Goal weight (${wUnit})`,
+            <input id="onb-gw" type="number" inputMode="decimal" value={goalWeight} onChange={(e) => setGoalWeight(e.target.value)} style={controlStyle} />,
+            'Optional')}
+        </>
+      ),
+    },
+    goal: {
+      title: 'Your goal',
+      sub: 'Sets the direction of your targets.',
+      body: choiceRows('Goal', GOALS, goal, setGoal),
+    },
+    activity: {
+      title: 'How active are you?',
+      sub: 'Exercise in a typical week.',
+      body: choiceRows('Activity level', ACTIVITY_LEVELS, activity, setActivity),
+    },
+    targets: existingTargets
+      ? {
+        title: coachFirst ? `${coachFirst} set your targets` : 'Your targets',
+        sub: coachFirst ? `${coachFirst} can change them as you go.` : 'You can change them in Profile.',
+        body: <TargetsGrid t={existingTargets} num={num} />,
+        cta: 'Start tracking',
+        onCta: finish,
+      }
+      : preview
+        ? {
+          title: 'Your starting targets',
+          sub: isClient && coachFirst
+            ? `A daily starting point. ${coachFirst} can adjust it.`
+            : `A daily starting point. Maintenance is about ${num(preview.maintenanceCalories)} calories.`,
+          body: <TargetsGrid t={preview} num={num} />,
+          cta: 'Start tracking',
+          onCta: finish,
+        }
+        : {
+          title: "You're set",
+          sub: isClient && coachFirst
+            ? `${coachFirst} will set your targets.`
+            : 'Set your targets any time in Profile, under Daily targets.',
+          body: null,
+          cta: 'Start tracking',
+          onCta: finish,
+        },
+  }
+  if (!ready) return <div className="onb" />
+  const screen = screens[step]
+  const progress = (stepIndex + 1) / steps.length
 
   return (
-    <div className="page-fade-in" style={{ maxWidth: '460px', margin: '0 auto', padding: '40px 16px 64px', display: 'flex', flexDirection: 'column', gap: '22px' }}>
-      <div>
-        <Logo size={40} />
-        <h1 style={{ marginTop: '16px', marginBottom: '6px' }}>Let's set up your tracking</h1>
-        <p style={{ color: 'var(--color-muted)', margin: 0, fontSize: 'var(--text-base)', lineHeight: 1.5 }}>
-          A few details so we can suggest your starting targets.{isClient ? ' Your coach can fine-tune them later.' : ' You can adjust everything later.'}
-        </p>
+    <div className="onb">
+      <div className="onb-top">
+        {stepIndex > 0
+          ? <button type="button" className="onb-back ds-control" onClick={() => go(-1)} aria-label="Back"><Icon name="left" size={22} strokeWidth={2.25} /></button>
+          : <span className="onb-back" aria-hidden="true" />}
+        <div className="onb-progress" role="progressbar" aria-label="Setup" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={stepIndex + 1}>
+          <span style={{ transform: `scaleX(${progress})` }} />
+        </div>
+        <button type="button" className="onb-later ds-control" onClick={later} disabled={saving}>Set up later</button>
       </div>
 
-      {/* Units */}
-      <div>
-        <label style={labelStyle}>Units</label>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {[['imperial', 'lb / ft·in'], ['metric', 'kg / cm']].map(([u, lbl]) => (
-            <Pill key={u} active={units === u} aria-pressed={units === u} onClick={() => changeUnits(u)}>{lbl}</Pill>
-          ))}
-        </div>
+      <div key={step} className={`onb-step onb-go-${direction}`}>
+        {screen.art && <div className="onb-art">{screen.art}</div>}
+        <h1 className="onb-title">{screen.title}</h1>
+        <p className="onb-sub">{screen.sub}</p>
+        {screen.body && <div className="onb-body">{screen.body}</div>}
       </div>
 
-      {/* Sex + DOB */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px' }}>
-        <div>
-          <label style={labelStyle}>Sex <span style={{ color: 'var(--color-faint)' }}>· for metabolism</span></label>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {[['male', 'Male'], ['female', 'Female']].map(([v, lbl]) => (
-              <Pill key={v} active={sex === v} aria-pressed={sex === v} onClick={() => setSex(v)}>{lbl}</Pill>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label style={labelStyle}>Date of birth</label>
-          <input type="date" className="dob-field" value={birthDate} max={todayStr()} onChange={(e) => setBirthDate(e.target.value)} style={{ ...inputStyle, color: 'var(--color-text)', width: '100%', textAlign: 'center', height: '30px' }} />
-        </div>
-      </div>
-
-      {/* Height */}
-      <div>
-        <label style={labelStyle}>Height</label>
-        {metric ? (
-          <input type="number" inputMode="numeric" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="cm" style={inputStyle} />
-        ) : (
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input type="number" inputMode="numeric" value={heightFt} onChange={(e) => setHeightFt(e.target.value)} placeholder="ft" style={inputStyle} />
-            <input type="number" inputMode="numeric" value={heightIn} onChange={(e) => setHeightIn(e.target.value)} placeholder="in" style={inputStyle} />
-          </div>
+      <div className="onb-actions">
+        {error && <p className="onb-error" role="alert">{error}</p>}
+        <Button
+          variant="primary"
+          fullWidth
+          onClick={screen.onCta || (() => go(1))}
+          disabled={screen.ctaDisabled}
+          loading={screen.ctaLoading || (saving && step === 'targets')}
+        >
+          {screen.cta || 'Continue'}
+        </Button>
+        {screen.secondary && (
+          <button type="button" className="onb-secondary ds-control" onClick={screen.secondary.onClick}>{screen.secondary.label}</button>
         )}
       </div>
+      <Modal open={policyOpen} title="Consumer Health Data Policy" onClose={() => setPolicyOpen(false)} maxWidth={720} sheet>
+        <ConsumerHealthData embedded />
+      </Modal>
+    </div>
+  )
+}
 
-      {/* Weights */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-        <div>
-          <label style={labelStyle}>Current weight ({wUnit})</label>
-          <input type="number" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={metric ? 'e.g. 80' : 'e.g. 176'} style={inputStyle} />
+// The day's four numbers, neutral type (B2: a metric hue is a fill, never
+// text) with the hue as a bar's colour, as the Today panel shows them.
+function TargetsGrid({ t, num }) {
+  const cells = [
+    ['Calories', num(t.calories), '', 'var(--color-calories)'],
+    ['Protein', num(t.protein), 'g', 'var(--color-protein)'],
+    ['Carbs', num(t.carbs), 'g', 'var(--color-carbs)'],
+    ['Fat', num(t.fat), 'g', 'var(--color-fat)'],
+  ]
+  return (
+    <div className="onb-targets">
+      {cells.map(([label, value, unit, color]) => (
+        <div key={label} className="onb-target">
+          <span className="onb-target-mark" style={{ backgroundColor: color }} aria-hidden="true" />
+          <span className="onb-target-label">{label}</span>
+          <span className="onb-target-value tnum">{value}{unit}</span>
         </div>
-        <div>
-          <label style={labelStyle}>Goal weight ({wUnit}) <span style={{ color: 'var(--color-faint)' }}>· optional</span></label>
-          <input type="number" inputMode="decimal" value={goalWeight} onChange={(e) => setGoalWeight(e.target.value)} placeholder="optional" style={inputStyle} />
-        </div>
-      </div>
-
-      {/* Goal */}
-      <div>
-        <label style={labelStyle}>Primary goal</label>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {GOALS.map((g) => (
-            <Pill key={g.key} active={goal === g.key} aria-pressed={goal === g.key} onClick={() => setGoal(g.key)}>{g.label}</Pill>
-          ))}
-        </div>
-      </div>
-
-      {/* Activity */}
-      <div>
-        <label style={labelStyle}>Activity level</label>
-        <select value={activity} onChange={(e) => setActivity(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-          {ACTIVITY_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
-        </select>
-      </div>
-
-      {/* Starting targets preview */}
-      {preview && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--color-primary-dim)', borderRadius: 'var(--radius)', padding: '16px' }}>
-          <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-md)' }}>Your starting targets</p>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {macro('Calories', preview.calories, '', 'var(--color-calories)')}
-            {macro('Protein', preview.protein, 'g', 'var(--color-protein)')}
-            {macro('Carbs', preview.carbs, 'g', 'var(--color-carbs)')}
-            {macro('Fat', preview.fat, 'g', 'var(--color-fat)')}
-          </div>
-          <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-muted)', lineHeight: 1.5 }}>
-            Maintenance ≈ {preview.maintenanceCalories} cal. A starting point you{isClient ? ' and your coach' : ''} can adjust anytime.
-          </p>
-        </div>
-      )}
-
-      {error && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)', margin: 0 }}>{error}</p>}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <Button onClick={finish} variant="primary" fullWidth loading={saving}>
-          {preview ? 'Save & get started' : 'Get started'}
-        </Button>
-        <button type="button" onClick={skip} disabled={saving} style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: 'var(--text-sm)', fontFamily: 'inherit', padding: '4px' }}>
-          Skip for now
-        </button>
-      </div>
+      ))}
     </div>
   )
 }

@@ -73,6 +73,7 @@ class GardnrBridgeViewController: CAPBridgeViewController {
         // A plugin compiled into the app, not an npm package, is never found
         // by Capacitor's auto-registration and has to be handed over by hand.
         bridge?.registerPluginInstance(HealthPlugin())
+        bridge?.registerPluginInstance(AppearancePlugin())
         guard let type = QuickActions.pending, let literal = QuickActions.jsLiteral(type) else { return }
         QuickActions.pending = nil
         // The id makes it single-use: a user script re-runs on any reload of
@@ -83,3 +84,27 @@ class GardnrBridgeViewController: CAPBridgeViewController {
         webView?.configuration.userContentController.addUserScript(script)
     }
 }
+
+// The app's own light/dark choice, applied to the native window. The page can
+// be set to light while the phone is in dark mode (Profile > Appearance), and
+// without this iOS kept drawing the status bar and every system sheet for the
+// PHONE's appearance: white clock and battery on a light page.
+@objc(AppearancePlugin)
+public class AppearancePlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "AppearancePlugin"
+    public let jsName = "Appearance"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "setStyle", returnType: CAPPluginReturnPromise),
+    ]
+
+    // setStyle({ theme: 'light' | 'dark' })
+    @objc func setStyle(_ call: CAPPluginCall) {
+        let style: UIUserInterfaceStyle = call.getString("theme") == "light" ? .light : .dark
+        DispatchQueue.main.async {
+            self.bridge?.viewController?.view.window?.overrideUserInterfaceStyle = style
+            self.bridge?.viewController?.setNeedsStatusBarAppearanceUpdate()
+            call.resolve()
+        }
+    }
+}
+

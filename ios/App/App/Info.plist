@@ -27,7 +27,7 @@
 	<!-- Apple Health (App/HealthPlugin.swift). Reads steps, weigh-ins and
 	     workouts; writes only the weigh-ins typed into Gardnr. -->
 	<key>NSHealthShareUsageDescription</key>
-	<string>Gardnr reads your steps, weigh-ins and workouts so they appear in your log and your coach can see them.</string>
+	<string>Gardnr reads your steps, weigh-ins and workouts so they appear in your log and your coach can see them, and your height, sex and date of birth to fill in your profile.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Gardnr saves the weigh-ins you type into it to Apple Health, so your weight history is complete in one place.</string>
 	<!-- Home screen Quick Actions (press and hold the icon). Each type is

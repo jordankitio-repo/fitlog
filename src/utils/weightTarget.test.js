@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeWeightTarget, convertWeight, convertGoalValue, normUnit } from './weightTarget'
+import { computeWeightTarget, convertWeight, convertGoalValue, normUnit, unitLabel } from './weightTarget'
 
 // Ascending series helper: weights on consecutive days from 2026-07-01.
 const series = (weights, unit = 'kg') =>
@@ -86,5 +86,14 @@ describe('computeWeightTarget', () => {
     expect(r.direction).toBe('maintain')
     expect(r.reached).toBe(true)
     expect(r.reachedIndex).toBe(0)
+  })
+})
+
+describe('unitLabel', () => {
+  it('shows pounds as lb, the way Apple Health does, whatever is stored', () => {
+    expect(unitLabel('lbs')).toBe('lb')
+    expect(unitLabel('lb')).toBe('lb')
+    expect(unitLabel(undefined)).toBe('lb')
+    expect(unitLabel('kg')).toBe('kg')
   })
 })

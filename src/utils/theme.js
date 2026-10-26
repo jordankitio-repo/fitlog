@@ -8,7 +8,9 @@
 // size needed the same ones. This file kept its name and its exports, because
 // both are referenced by the design system doc and by every call site; what it
 // no longer keeps is its own copy of the machinery.
+import { registerPlugin } from '@capacitor/core'
 import { createPreference } from './preference'
+import { isNativeApp } from './platform'
 
 export function systemTheme() {
   try {
@@ -22,12 +24,19 @@ export function resolveTheme(pref) {
   return pref === 'auto' || !pref ? systemTheme() : pref
 }
 
+const Appearance = registerPlugin('Appearance')
+
 const theme = createPreference({
   key: 'gardnr-theme',
   values: ['auto', 'light', 'dark'],
   fallback: 'auto',
   resolve: resolveTheme,
-  apply: (resolved) => document.documentElement.setAttribute('data-theme', resolved),
+  apply: (resolved) => {
+    document.documentElement.setAttribute('data-theme', resolved)
+    // In the iPhone app, the status bar and system sheets follow it too
+    // (AppearancePlugin, SceneDelegate.swift) rather than the phone's setting.
+    if (isNativeApp()) Appearance.setStyle({ theme: resolved }).catch(() => {})
+  },
 })
 
 export const getThemePref = theme.read

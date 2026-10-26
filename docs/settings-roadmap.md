@@ -836,3 +836,26 @@ opened from the Coach tab, and every Profile section, on a phone. Sheets
 - The left-edge swipe back (a simulator cannot drag in from the bezel).
 - Typing in a Profile section inside the pushed page with the iOS keyboard up.
 
+### 10.16 Client onboarding (Oct 26 2026)
+
+Rebuilt as one question a screen (welcome from the coach, Apple Health,
+about you, weight, goal, activity, targets) with back, progress and "Set up
+later" on every screen. Apple Health now also reads sex, date of birth and
+height (consent text, NSHealthShareUsageDescription, Consumer Health Data
+Policy and HEALTH_POLICY_VERSION 2026-10-26 changed together) to fill the form.
+A coach's existing targets are never overwritten. Open:
+- Real phone: the full flow with a real Health profile (verified in the
+  simulator with sex, date of birth, height and weight all prefilled).
+- Production: the new consent text and policy version need no migration, but
+  the policy page change ships with the frontend; counsel review of the policy
+  wording is still outstanding (the page is marked draft).
+- Clients who connected Apple Health before this are not asked for the three
+  new types until they reconnect; Settings still uses the old flow.
+- Unit label: done. Stored as 'lbs', shown as "lb" everywhere through
+  utils/weightTarget.js unitLabel().
+- Status bar and system sheets now follow the app's own theme, not the phone's
+  (AppearancePlugin in SceneDelegate.swift): a light page with the phone in
+  dark mode drew a white clock and battery.
+- Real phone: the Apple Health connect FAILURE message (seen only in code). A
+  failed final save was checked: message shown, retry works.
+

@@ -1,4 +1,4 @@
-import { convertWeight, normUnit } from './weightTarget'
+import { convertWeight, normUnit, unitLabel } from './weightTarget'
 
 // The Today panel's cells (components/TodayPanel) for one day. Subs are short
 // ("of 1,850") because four share a phone's width; the bar carries the
@@ -46,7 +46,7 @@ export function todayCells({ totals, targets, hideCalories, cardioMinutes, steps
     {
       key: 'weight', label: 'Weight', color: 'var(--color-weight)',
       value: weight ? `${weight.weight}` : '—',
-      denom: weight ? ` ${weight.unit}` : null,
+      denom: weight ? ` ${unitLabel(weight.unit)}` : null,
       sub: weightSub, subTone: atGoal ? 'success' : null, pct: null,
     },
   ]

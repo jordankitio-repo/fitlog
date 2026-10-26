@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Logo from './Logo'
@@ -77,6 +77,31 @@ function NavBar({ profile }) {
         { to: '/profile', label: 'Profile' },
       ]
 
+  // The bottom bar's selector: ONE pill that glides to the selected tab, the
+  // way iOS's tab bar moves its selection, rather than one pill per tab that
+  // fades out in one place and in at another. Measured from the selected
+  // tab's own pill, so it lands exactly where that pill sits whatever the bar
+  // width or the number of tabs. It snaps into place on first paint (no
+  // glide from nowhere) and glides from then on.
+  const barRef = useRef(null)
+  const activeIndex = links.findIndex(l => isActive(l.to, location.pathname))
+  const [selector, setSelector] = useState(null)
+  useLayoutEffect(() => {
+    const bar = barRef.current
+    if (!isMobile || !bar) return undefined
+    const place = () => {
+      const pill = bar.querySelectorAll('.gnav-tab-pill')[activeIndex]
+      if (!pill) { setSelector(s => (s ? { ...s, hidden: true } : null)); return }
+      const b = bar.getBoundingClientRect()
+      const r = pill.getBoundingClientRect()
+      setSelector(s => ({ x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height, hidden: false, glide: Boolean(s) }))
+    }
+    place()
+    const ro = new ResizeObserver(place)
+    ro.observe(bar)
+    return () => ro.disconnect()
+  }, [isMobile, activeIndex, links.length])
+
   // Desktop pill links: everything except Profile, which lives in the avatar menu.
   const navLinks = links.filter((l) => l.to !== '/profile')
 
@@ -119,7 +144,18 @@ function NavBar({ profile }) {
             </Link>
           </div>
         </nav>
-        <nav className="gnav-bottom" aria-label="Primary">
+        <nav ref={barRef} className="gnav-bottom" aria-label="Primary">
+          {selector && (
+            <span
+              aria-hidden="true"
+              className={`gnav-selector${selector.glide ? ' is-gliding' : ''}`}
+              style={{
+                width: selector.w, height: selector.h,
+                transform: `translate(${selector.x}px, ${selector.y}px)`,
+                opacity: selector.hidden ? 0 : 1,
+              }}
+            />
+          )}
           {links.map((l) => {
             const active = isActive(l.to, location.pathname)
             return (

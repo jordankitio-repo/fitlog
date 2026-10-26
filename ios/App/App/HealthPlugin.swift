@@ -32,6 +32,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "saveWeight", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "deleteSample", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "writeStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readProfile", returnType: CAPPluginReturnPromise),
     ]
 
     private let store = HKHealthStore()
@@ -50,6 +51,20 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         return types
     }
 
+    // Read once, at onboarding, to fill in the details the starting targets
+    // need, so a new client confirms them instead of typing them. Asked for in
+    // the same sheet as the sync types, but kept OUT of `readTypes`: the write
+    // path checks `readTypes` for anything new to ask, and a client who
+    // connected before these existed must not get a permission sheet the next
+    // time they save a weigh-in.
+    private var profileTypes: Set<HKObjectType> {
+        var types: Set<HKObjectType> = []
+        if let sex = HKObjectType.characteristicType(forIdentifier: .biologicalSex) { types.insert(sex) }
+        if let dob = HKObjectType.characteristicType(forIdentifier: .dateOfBirth) { types.insert(dob) }
+        if let height = HKObjectType.quantityType(forIdentifier: .height) { types.insert(height) }
+        return types
+    }
+
     private var bodyMass: HKQuantityType { HKQuantityType.quantityType(forIdentifier: .bodyMass)! }
     private var shareTypes: Set<HKSampleType> { [bodyMass] }
 
@@ -65,7 +80,7 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Apple Health is not available on this device", "unavailable")
             return
         }
-        store.requestAuthorization(toShare: shareTypes, read: readTypes) { ok, error in
+        store.requestAuthorization(toShare: shareTypes, read: readTypes.union(profileTypes)) { ok, error in
             if let error {
                 call.reject(error.localizedDescription, "auth_failed")
             } else {
@@ -99,6 +114,50 @@ public class HealthPlugin: CAPPlugin, CAPBridgedPlugin {
         group.notify(queue: .main) {
             call.resolve(["steps": steps, "weights": weights, "workouts": workouts])
         }
+    }
+
+    // readProfile() -> { sex?, birthDate?, heightCm?, weightKg?, weightDate? }
+    //
+    // Whatever Health has; a field it does not have (or the client declined)
+    // is simply absent, since HealthKit returns nothing rather than an error
+    // for a denied read. Sex is 'male' or 'female' only, the two the target
+    // estimate takes; any other value is left for the client to choose.
+    @objc func readProfile(_ call: CAPPluginCall) {
+        var out: [String: Any] = [:]
+        if let sex = try? store.biologicalSex().biologicalSex {
+            switch sex {
+            case .female: out["sex"] = "female"
+            case .male: out["sex"] = "male"
+            default: break
+            }
+        }
+        if let dob = try? store.dateOfBirthComponents(),
+           let y = dob.year, let m = dob.month, let d = dob.day {
+            out["birthDate"] = String(format: "%04d-%02d-%02d", y, m, d)
+        }
+        latestSample(.height, unit: .meterUnit(with: .centi)) { cm, _ in
+            if let cm { out["heightCm"] = (cm * 10).rounded() / 10 }
+            self.latestSample(.bodyMass, unit: .gramUnit(with: .kilo)) { kg, date in
+                if let kg {
+                    // Two places, not one: the form shows pounds, and 0.1 kg is 0.2 lb,
+                    // so a one-place kg read Health's 168.6 lb back as 168.7.
+                    out["weightKg"] = (kg * 100).rounded() / 100
+                    if let date { out["weightDate"] = Self.dayFormatter.string(from: date) }
+                }
+                DispatchQueue.main.async { call.resolve(out) }
+            }
+        }
+    }
+
+    private func latestSample(_ id: HKQuantityTypeIdentifier, unit: HKUnit,
+                              done: @escaping (Double?, Date?) -> Void) {
+        guard let type = HKQuantityType.quantityType(forIdentifier: id) else { done(nil, nil); return }
+        let newest = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        let q = HKSampleQuery(sampleType: type, predicate: nil, limit: 1, sortDescriptors: [newest]) { _, samples, _ in
+            guard let s = samples?.first as? HKQuantitySample else { done(nil, nil); return }
+            done(s.quantity.doubleValue(for: unit), s.endDate)
+        }
+        store.execute(q)
     }
 
     // MARK: - Steps

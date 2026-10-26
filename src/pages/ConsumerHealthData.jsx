@@ -3,27 +3,36 @@
 // data" laws (Washington's My Health My Data Act, Nevada SB370, Connecticut)
 // require a SEPARATE, distinctly-linked policy covering health data — this is it.
 // Draft for counsel review.
-export default function ConsumerHealthData() {
+// `embedded` is the policy inside a sheet that already titles it (onboarding):
+// no page padding, no second heading.
+export default function ConsumerHealthData({ embedded = false }) {
+  // Embedded, a link would swap the page out from under the setup it sits in,
+  // with nowhere to come back to, so it names the policy instead.
+  const privacyLink = embedded
+    ? <strong style={{ color: 'var(--color-text)' }}>Privacy Policy</strong>
+    : <a href="/privacy" style={link}>Privacy Policy</a>
   return (
     <div
       style={{
         maxWidth: 720,
         margin: '0 auto',
-        padding: '48px 24px 80px',
+        padding: embedded ? 0 : '48px 24px 80px',
         color: 'var(--color-text)',
         lineHeight: 1.8,
         fontSize: 'var(--text-sm)',
       }}
     >
+      {!embedded && (
       <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>
         Consumer Health Data Privacy Policy
       </h1>
-      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated October 25, 2026</p>
+      )}
+      <p style={{ color: 'var(--color-muted)', marginBottom: 48 }}>Effective June 24, 2026 · Last updated October 26, 2026</p>
 
       <section style={{ marginBottom: 40 }}>
         <p style={p}>
           This Consumer Health Data Privacy Policy supplements our{' '}
-          <a href="/privacy" style={link}>Privacy Policy</a> and applies specifically to "consumer health data"
+          {privacyLink} and applies specifically to "consumer health data"
           as defined by U.S. state laws including the Washington My Health My Data Act, Nevada SB 370, and the
           Connecticut Data Privacy Act. It describes how Digigarden LLC ("we," "us") collects, uses, shares, and
           protects health-related information through Gardnr (the "Services").
@@ -42,7 +51,7 @@ export default function ConsumerHealthData() {
           <li style={li}>Body measurements you enter (neck, chest, waist, hips, arm, thigh)</li>
           <li style={li}>Nutrition and diet information (foods, calories, protein, carbs, fat, meals)</li>
           <li style={li}>Cardio activity and daily step counts</li>
-          <li style={li}>If you connect Apple Health: your daily steps and walking distance, weigh-ins, and workouts (type, duration, calories burned, average and maximum heart rate, distance, and the device or app that recorded them)</li>
+          <li style={li}>If you connect Apple Health: your daily steps and walking distance, weigh-ins, and workouts (type, duration, calories burned, average and maximum heart rate, distance, and the device or app that recorded them), and your sex, date of birth and height, read when you connect to fill in your profile</li>
           <li style={li}>Biometric and profile details used to estimate targets: sex, date of birth, height, activity level, and body-composition goals</li>
           <li style={li}>A profile photo, if you choose to upload one</li>
           <li style={li}>Coaching content that reflects the above: check-ins, coach targets and notes, reports, and messages</li>
@@ -143,7 +152,7 @@ export default function ConsumerHealthData() {
           what makes it useful to you and to your coach. Messages between a coach and a client are the one
           exception: they are automatically and permanently deleted 24 months after they are sent, whether or
           not your account is still active. Deleting your account removes everything immediately — see our{' '}
-          <a href="/privacy" style={link}>Privacy Policy</a> for the full list.
+          {privacyLink} for the full list.
         </p>
       </section>
 

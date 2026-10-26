@@ -25,7 +25,7 @@ import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { checkinPeriod, toLocalDateString } from '../utils/dateHelpers'
 import { measurementStatus } from '../utils/measurementCadence'
-import { convertWeight, normUnit } from '../utils/weightTarget'
+import { convertWeight, normUnit, unitLabel } from '../utils/weightTarget'
 import { cadenceLabel } from '../utils/cadence'
 import { blankValue, validateAnswers, buildAnswers, formatAnswer } from '../utils/checkinQuestions'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -813,11 +813,11 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     ...chartOptions,
     plugins: {
       ...chartOptions.plugins,
-      tooltip: { ...chartOptions.plugins.tooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${weightDisplayUnit}` } },
+      tooltip: { ...chartOptions.plugins.tooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} ${unitLabel(weightDisplayUnit)}` } },
     },
     scales: {
       ...chartOptions.scales,
-      y: { ...chartOptions.scales.y, title: { display: true, text: `Weight (${weightDisplayUnit})`, color: CHART.tick } },
+      y: { ...chartOptions.scales.y, title: { display: true, text: `Weight (${unitLabel(weightDisplayUnit)})`, color: CHART.tick } },
     },
   }
   // Value-axis title so every chart names its metric + unit (matches the
@@ -966,8 +966,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       const t = windowTrend(weightHistoryDisplay, 'weight', { days: TREND_DAYS, minMaterial: MIN_MATERIAL.weight })
       return {
         key: 'weight', label: 'Weight', color: 'var(--color-weight)', trend: t,
-        display: t.current != null ? `${t.current.toFixed(1)} ${weightDisplayUnit}` : '—',
-        sub: trendSub(t, ` ${weightDisplayUnit}`, 1),
+        display: t.current != null ? `${t.current.toFixed(1)} ${unitLabel(weightDisplayUnit)}` : '—',
+        sub: trendSub(t, ` ${unitLabel(weightDisplayUnit)}`, 1),
         chart: weightHistory.length > 1 ? rangedChart(weightHistoryDisplay, 'weight', (rows, rangeKey) => (
           <>
             <Line
