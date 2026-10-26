@@ -10,6 +10,7 @@ import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CoachPaywall from './components/CoachPaywall'
 import CoachOnWeb from './components/CoachOnWeb'
 import { isNativeApp, isCoachOnNative } from './utils/platform'
+import { syncAppleHealth } from './utils/healthSync'
 import { resolveLockState } from './utils/lockState'
 import { TabActiveContext } from './hooks/useTabReturn'
 import { QUICK_ACTION_EVENT, quickActionRoute, takeLaunchQuickAction } from './utils/quickActions'
@@ -414,6 +415,23 @@ function App() {
 
     return () => subscription.unsubscribe()
   }, [fetchProfile])
+
+  // Apple Health syncs whenever the app is opened or brought back, for anyone
+  // who has connected it. No background delivery: the phone reads Health only
+  // while Gardnr is on screen, which is also when someone is looking at the
+  // numbers. syncAppleHealth does nothing off the native app, without a
+  // connection, or within ten minutes of the last run.
+  useEffect(() => {
+    const userId = profile?.role && profile.role !== 'coach' ? profile.id : null
+    if (!userId || !isNativeApp()) return
+    const run = () => {
+      if (document.visibilityState !== 'visible') return
+      syncAppleHealth(userId).catch(err => console.error('Apple Health sync failed:', err))
+    }
+    run()
+    document.addEventListener('visibilitychange', run)
+    return () => document.removeEventListener('visibilitychange', run)
+  }, [profile?.id, profile?.role])
 
   // Dismiss the cold-start splash (index.html) once the app shell is ready.
   useEffect(() => {

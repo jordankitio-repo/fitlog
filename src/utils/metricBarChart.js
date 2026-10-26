@@ -45,7 +45,12 @@ function barThickness(points) {
 
 export function metricBarData({ history, valueKey, dateKey = 'date', label, target, fallback, plain = false, bidirectional = false }) {
   // plain = revert to the flat metric color (no target coloring, no target line).
-  const barColor = (value, a) => (target && !plain ? color((value / target) * 100, a, bidirectional) : fallback(a))
+  // An empty day (a window padded by padToWindow) draws no bar, but chart.js
+  // still paints the LEGEND swatch from the first entry's colour -- graded, an
+  // empty first day scored 0% and turned the swatch red. It takes the metric's
+  // own hue, which is what the swatch is there to name.
+  const barColor = (value, a) => (value == null ? fallback(a)
+    : target && !plain ? color((value / target) * 100, a, bidirectional) : fallback(a))
   const datasets = [{
     label,
     data: history.map((d) => d[valueKey]),

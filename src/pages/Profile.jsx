@@ -12,7 +12,9 @@ import CheckinBuilder from '../components/CheckinBuilder'
 import AppearanceControls from '../components/AppearanceControls'
 import { getPasswordValidationError } from '../utils/passwordValidation'
 import { SOLO_BILLING_ENABLED } from '../App'
-import { hidesPaymentUI } from '../utils/platform'
+import { hidesPaymentUI, isNativeApp } from '../utils/platform'
+import { fetchAppleHealthConnection } from '../utils/healthSync'
+import AppleHealthSettings from '../components/AppleHealthSettings'
 import { SECTION_ICONS } from '../utils/sectionIcons'
 import ConfirmDialog from '../components/ConfirmDialog'
 import TargetCalculator from '../components/TargetCalculator'
@@ -118,6 +120,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // with a copy in each that drift.
   const showSoloBilling =
     profile?.role === 'solo' && (soloSubActive || SOLO_BILLING_ENABLED) && !hidesPaymentUI()
+  // Apple Health. `undefined` until read, so the rail entry does not flicker
+  // in on the web for someone who turns out to have a connection.
+  const [healthConnection, setHealthConnection] = useState(undefined)
   const [name, setName] = useState(profile?.full_name || '')
   const [syncedName, setSyncedName] = useState(profile?.full_name || '')
   const [nameSaved, setNameSaved] = useState(false)
@@ -211,6 +216,22 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { section: routeSection } = useParams()
+
+  const reloadHealthConnection = () => fetchAppleHealthConnection(session.user.id)
+    .then(setHealthConnection)
+    .catch(err => {
+      console.error('Error fetching Apple Health connection:', err)
+      setHealthConnection(null)
+    })
+  useEffect(() => {
+    if (profile?.role === 'coach') return
+    fetchAppleHealthConnection(session.user.id)
+      .then(setHealthConnection)
+      .catch(err => {
+        console.error('Error fetching Apple Health connection:', err)
+        setHealthConnection(null)
+      })
+  }, [session.user.id, profile?.role])
 
   useEffect(() => {
     async function loadTargets() {
@@ -602,6 +623,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         { key: 'account', label: 'Account', show: true },
         { key: 'appearance', label: 'Appearance', show: true },
         { key: 'notifications', label: 'Notifications', show: emailCategories.length > 0 },
+        // Connecting is phone-only (Health lives on the phone); a web visitor
+        // sees the entry only to manage a connection that already exists.
+        { key: 'health', label: 'Apple Health', show: profile?.role !== 'coach' && (isNativeApp() || Boolean(healthConnection)) },
       ],
     },
     {
@@ -1237,6 +1261,18 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           </Button>
         </SettingRow>
       </SectionPanel>
+
+      {profile?.role !== 'coach' && (
+        <SectionPanel hideTitle={isMobile} active={isVisible('health')} id="section-health" title="Apple Health">
+          {healthConnection !== undefined && (
+            <AppleHealthSettings
+              userId={session.user.id}
+              connection={healthConnection}
+              onChange={reloadHealthConnection}
+            />
+          )}
+        </SectionPanel>
+      )}
 
       {/* Data */}
       <SectionPanel hideTitle={isMobile} active={isVisible('data')} id="section-data" title="Data">

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useContext } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
+import PullToRefresh from '../components/PullToRefresh'
+import { syncAppleHealth } from '../utils/healthSync'
 import TodayPanel from '../components/TodayPanel'
 import TrendsPanel from '../components/TrendsPanel'
 import Button from '../components/Button'
@@ -15,7 +17,7 @@ import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
 import { windowTrend, hasTrend } from '../utils/progressTrends'
-import { bucketHistory, rangeByKey, DEFAULT_RANGE, historyWindow, LONGEST_RANGE_DAYS } from '../utils/chartRange'
+import { bucketHistory, padToWindow, rangeByKey, DEFAULT_RANGE, historyWindow, LONGEST_RANGE_DAYS } from '../utils/chartRange'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
 import { CHART } from '../utils/chartTheme'
@@ -169,12 +171,15 @@ function IdentityStat({ label, value, unit, sub, subTone, icon, reserveSub = tru
   )
 }
 
+// The chart's series is one slot per DAY now (padToWindow), so a window of
+// seven slots is seven calendar days. It used to be the last seven weigh-ins,
+// which for someone weighing in twice a week was a month labelled "7-day".
+// Empty days are skipped, and draw no point of their own.
 function computeRollingAverage(data, window = 7) {
-  return data.map((_, i) => {
-    const start = Math.max(0, i - window + 1)
-    const slice = data.slice(start, i + 1)
-    const avg = slice.reduce((sum, d) => sum + d.weight, 0) / slice.length
-    return Math.round(avg * 10) / 10
+  return data.map((d, i) => {
+    if (d.weight == null) return null
+    const vals = data.slice(Math.max(0, i - window + 1), i + 1).map(x => x.weight).filter(v => v != null)
+    return Math.round((vals.reduce((sum, v) => sum + v, 0) / vals.length) * 10) / 10
   })
 }
 
@@ -302,6 +307,15 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [reloadTick, setReloadTick] = useState(0)
   const silentReload = useRef(false)
   useTabReturn(() => { silentReload.current = true; setReloadTick(t => t + 1) })
+
+  // Pull to refresh: Apple Health first, then the same silent reload a tab
+  // return does, so the page updates in place rather than blanking.
+  async function pullRefresh() {
+    await syncAppleHealth(profile?.id, { force: true })
+      .catch(err => console.error('Apple Health sync failed:', err))
+    silentReload.current = true
+    setReloadTick(t => t + 1)
+  }
 
   useEffect(() => {
     async function loadPage() {
@@ -517,7 +531,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
   async function fetchCardioToday() {
     const { data, error } = await supabase
-      .from('cardio_log').select('duration').eq('logged_date', selectedDate)
+      .from('cardio_log').select('duration').eq('logged_date', selectedDate).eq('counts_as_cardio', true)
     if (error) console.error(error)
     else setCardioToday({
       minutes: data.reduce((sum, e) => sum + (e.duration || 0), 0),
@@ -536,6 +550,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     const { from, to } = historyWindow(HISTORY_DAYS)
     const { data, error } = await supabase
       .from('cardio_log').select('logged_date, duration')
+      .eq('counts_as_cardio', true)
       .gte('logged_date', from).lte('logged_date', to)
     if (error) console.error(error)
     else {
@@ -1033,7 +1048,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         </p>
       )
     }
-    return render(rows, rangeKey)
+    // Drawn over the whole window, empty days and all, so W and M are
+    // visibly different spans even for a client who logs now and then.
+    return render(padToWindow(rows, valueKey, rangeKey), rangeKey)
   }
   const fmtDelta = (t, unit, digits = 0) => {
     if (!hasTrend(t)) return null
@@ -1135,6 +1152,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                     pointRadius: 3,
                     tension: 0.3,
                     fill: true,
+                    // Weigh-ins are days apart; the line joins them across the
+                    // empty days rather than breaking into dots.
+                    spanGaps: true,
                   },
                   // The 7-day average is dropped on the YEAR view, deliberately.
                   // Those points are already monthly means, so a 7-point rolling
@@ -1151,6 +1171,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                     pointRadius: 0,
                     tension: 0.3,
                     fill: false,
+                    spanGaps: true,
                   }] : []),
                 ]
               }}
@@ -1180,6 +1201,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     !loggedToday
 
   return (
+    <PullToRefresh onRefresh={pullRefresh}>
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
       {pageLoading ? (
         <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
@@ -1745,6 +1767,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         onConfirm={() => setNotice(null)}
       />
     </div>
+    </PullToRefresh>
   )
 }
 

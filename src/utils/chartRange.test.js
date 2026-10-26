@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bucketHistory, rangeByKey, RANGES, DEFAULT_RANGE } from './chartRange'
+import { bucketHistory, hasValues, padToWindow, rangeByKey, RANGES, DEFAULT_RANGE } from './chartRange'
 
 const ASOF = new Date(2026, 9, 15, 12, 0, 0) // 15 Oct 2026
 
@@ -118,5 +118,50 @@ describe('bucketHistory — edges', () => {
   it('handles an empty or missing history', () => {
     expect(bucketHistory([], 'steps', 'M', { asOf: ASOF })).toEqual([])
     expect(bucketHistory(undefined, 'steps', 'Y', { asOf: ASOF })).toEqual([])
+  })
+})
+
+describe('padToWindow', () => {
+  const asOf = new Date(2026, 9, 25, 9)
+  const rows = [
+    { iso: '2026-10-24', date: '10-24', steps: 8432 },
+    { iso: '2026-10-25', date: '10-25', steps: 855 },
+  ]
+
+  // The bug this exists for: two logged days drew the same chart on W and M.
+  it('gives W and M different axes even when only two days are logged', () => {
+    const w = padToWindow(rows, 'steps', 'W', { asOf })
+    const m = padToWindow(rows, 'steps', 'M', { asOf })
+    expect(w).toHaveLength(7)
+    expect(m).toHaveLength(30)
+    expect(w[0].iso).toBe('2026-10-19')
+    expect(m[0].iso).toBe('2026-09-26')
+  })
+
+  it('keeps logged days as they are and leaves the rest empty', () => {
+    const w = padToWindow(rows, 'steps', 'W', { asOf })
+    expect(w.at(-1)).toBe(rows[1])
+    expect(w.at(-2)).toBe(rows[0])
+    expect(w[0]).toEqual({ iso: '2026-10-19', date: '10-19', steps: null })
+  })
+
+  it('keeps every weigh-in on a day with more than one', () => {
+    const two = [
+      { iso: '2026-10-25', date: '10-25', weight: 170 },
+      { iso: '2026-10-25', date: '10-25', weight: 169 },
+    ]
+    const w = padToWindow(two, 'weight', 'W', { asOf })
+    expect(w).toHaveLength(8)
+    expect(w.slice(-2).map((r) => r.weight)).toEqual([170, 169])
+  })
+
+  it('leaves the year view alone', () => {
+    const months = [{ iso: '2026-10-01', date: 'Oct', steps: 4000 }]
+    expect(padToWindow(months, 'steps', 'Y', { asOf })).toBe(months)
+  })
+
+  it('tells an empty window from one with data', () => {
+    expect(hasValues(padToWindow([], 'steps', 'W', { asOf }), 'steps')).toBe(false)
+    expect(hasValues(padToWindow(rows, 'steps', 'W', { asOf }), 'steps')).toBe(true)
   })
 })

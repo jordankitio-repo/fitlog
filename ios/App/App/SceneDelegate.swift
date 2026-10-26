@@ -70,6 +70,9 @@ class GardnrBridgeViewController: CAPBridgeViewController {
     // find it.
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
+        // A plugin compiled into the app, not an npm package, is never found
+        // by Capacitor's auto-registration and has to be handed over by hand.
+        bridge?.registerPluginInstance(HealthPlugin())
         guard let type = QuickActions.pending, let literal = QuickActions.jsLiteral(type) else { return }
         QuickActions.pending = nil
         // The id makes it single-use: a user script re-runs on any reload of
