@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useCallback, useRef, useContext } from 'react'
+import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useRef, useContext } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
@@ -107,7 +107,16 @@ export default function Coach({ profile, archiveOpen = false }) {
   const [messageCount, setMessageCount] = useState(0)
   const [messageTotal, setMessageTotal] = useState(0)
   const [loadingOlder, setLoadingOlder] = useState(false)
-  const [draft, setDraft] = useState('')
+  // An unsent message survives the app closing, the way every messaging app
+  // keeps a draft. On this device only; storage can throw (private mode), in
+  // which case the draft simply is not kept. Keyed by the signed-in person, so
+  // a shared phone never shows one client's half-written message to another.
+  const DRAFT_KEY = `gardnr-coach-draft:${profile?.id || 'anon'}`
+  const [draft, setDraftState] = useState(() => { try { return localStorage.getItem(DRAFT_KEY) || '' } catch { return '' } })
+  const setDraft = (v) => {
+    setDraftState(v)
+    try { if (v) localStorage.setItem(DRAFT_KEY, v); else localStorage.removeItem(DRAFT_KEY) } catch { /* not kept */ }
+  }
   const [sending, setSending] = useState(false)
   const [noCoach, setNoCoach] = useState(false)
   // False until the thread's first load lands. Until then the page shows
@@ -115,6 +124,7 @@ export default function Coach({ profile, archiveOpen = false }) {
   // yet. Say hello." for a beat on every visit, to a client mid-conversation.
   const [threadLoaded, setThreadLoaded] = useState(false)
   const endRef = useRef(null)
+  const msgsRef = useRef(null)
 
   // One fetch for the surface, because the surface is one list. Messages and
   // reports are two tables and one timeline; they are merged here rather than
@@ -217,7 +227,23 @@ export default function Coach({ profile, archiveOpen = false }) {
   // the list without changing its end, and scrolling to the bottom there would
   // undo the thing the reader just asked for.
   const lastItemKey = items.length ? items[items.length - 1].key : null
-  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [lastItemKey])
+  //
+  // The list's own scrollTop, set before paint, rather than scrollIntoView
+  // after it: scrollIntoView ran while the report cards were still laying out,
+  // so the thread opened at its OLDEST item -- the opposite of every messaging
+  // app -- and it also scrolled the page around it. A second pass on the next
+  // frame catches content that grows once (fonts, card text wrapping).
+  const toNewest = useCallback(() => {
+    const el = msgsRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [])
+  useLayoutEffect(() => {
+    toNewest()
+    const raf = requestAnimationFrame(toNewest)
+    return () => cancelAnimationFrame(raf)
+  }, [lastItemKey, threadLoaded, toNewest])
+  // Back on the tab, the reader lands on the newest message again.
+  useTabReturn(toNewest)
 
   async function loadOlder() {
     setLoadingOlder(true)
@@ -335,7 +361,7 @@ export default function Coach({ profile, archiveOpen = false }) {
                 No messages yet. Say hello.
               </p>
             ) : (
-              <div className="coach-msgs">
+              <div className="coach-msgs" ref={msgsRef}>
                 {hasOlderMessages(messageTotal, messageCount) && (
                   <button
                     type="button"
@@ -389,11 +415,11 @@ export default function Coach({ profile, archiveOpen = false }) {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send() } }}
-                rows={3}
+                rows={1}
                 placeholder={`Message ${coach?.full_name?.split(' ')[0] || 'your coach'}…`}
                 aria-label="Message your coach"
               />
-              <Button onClick={send} variant="primary" size="sm" loading={sending} disabled={!draft.trim()}>
+              <Button onClick={send} variant="primary" loading={sending} disabled={!draft.trim()} style={{ flex: '0 0 auto', minHeight: 44 }}>
                 Send
               </Button>
             </div>
