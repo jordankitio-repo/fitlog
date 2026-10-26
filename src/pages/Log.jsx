@@ -1698,7 +1698,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           (the title wrapped), and on a row of its own it left a lone pill
           under the title. The calendar, or `›`, is the way back. Shared with
           My Progress and the client record: components/DayStepper. */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)', flexWrap: 'wrap', rowGap: 'var(--space-8)' }}>
         <h1 style={{ whiteSpace: 'nowrap' }}>Daily Log</h1>
         <DayStepper value={selectedDate} onChange={setSelectedDate} />
       </div>

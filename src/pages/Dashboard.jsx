@@ -1326,7 +1326,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	            before it became "Clients". NavBar carries the matching label. */}
 	        {/* The Log's header, so the two pages pick a day the same way: the
 	            title, and ONE date control at the right (components/DayStepper). */}
-	        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)' }}>
+	        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)', flexWrap: 'wrap', rowGap: 'var(--space-8)' }}>
 	          <h1 style={{ whiteSpace: 'nowrap' }}>My Progress</h1>
 	          <DayStepper value={selectedDate} onChange={setSelectedDate} />
 	        </div>

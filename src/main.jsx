@@ -5,7 +5,7 @@ import { Sentry } from './sentry'
 import App from './App.jsx'
 import { initThemeWatcher } from './utils/theme'
 import { initMotion } from './utils/motion'
-import { initTextScale } from './utils/textScale'
+import { initSystemTextScale, initTextScale } from './utils/textScale'
 import { initIosInputZoomGuard } from './utils/iosInputZoom'
 import { isNativeApp } from './utils/platform'
 
@@ -20,6 +20,7 @@ initThemeWatcher()
 // subscribe to the OS setting so a change there lands without a reload.
 initMotion()
 initTextScale()
+initSystemTextScale()
 initIosInputZoomGuard()
 
 createRoot(document.getElementById('root')).render(
