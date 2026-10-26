@@ -1,5 +1,5 @@
 // Full-screen branded loader — the in-app echo of the cold-start splash
-// (index.html): the Gardnr mark pulsing on the themed background, instead of
+// (index.html): the Gardnr mark on the themed background, instead of
 // bare "Loading..." text. Used for route/page-level waits.
 //
 // `inline` is for waits that happen INSIDE an app that is already on screen.
@@ -30,8 +30,8 @@ export default function LoadingScreen({ inline = false }) {
       <img
         src="/logo-icon.svg"
         alt="Gardnr"
-        width={104}
-        height={104}
+        width={96}
+        height={96}
         className="brand-loader-mark"
       />
     </div>

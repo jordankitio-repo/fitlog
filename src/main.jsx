@@ -8,11 +8,22 @@ import { initMotion } from './utils/motion'
 import { initSystemTextScale, initTextScale } from './utils/textScale'
 import { initIosInputZoomGuard } from './utils/iosInputZoom'
 import { isNativeApp } from './utils/platform'
+import { SplashScreen } from '@capacitor/splash-screen'
 
 // The native shell scrolls differently from a browser: the body must not
 // scroll or the fixed tab bar drifts with the content. See `.native-app` in
 // index.css. Set before render so the shell is never painted scrollable.
 if (isNativeApp()) document.documentElement.classList.add('native-app')
+
+// iOS's launch screen stays up (capacitor.config.json: launchAutoHide false)
+// until the page has painted its own splash, which is the same picture. Taken
+// down sooner, the web view's first, empty frame showed between the two and
+// the mark blinked out and back. Two frames: the second runs after a paint.
+if (isNativeApp()) {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    SplashScreen.hide({ fadeOutDuration: 0 }).catch(() => {})
+  }))
+}
 
 initThemeWatcher()
 // The inline script in index.html has already applied all three before first

@@ -97,9 +97,10 @@ public class AppearancePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setStyle", returnType: CAPPluginReturnPromise),
     ]
 
-    // setStyle({ theme: 'light' | 'dark' })
+    // setStyle({ theme: 'light' | 'dark' | 'auto' }). 'auto' follows the phone.
     @objc func setStyle(_ call: CAPPluginCall) {
-        let style: UIUserInterfaceStyle = call.getString("theme") == "light" ? .light : .dark
+        let theme = call.getString("theme")
+        let style: UIUserInterfaceStyle = theme == "light" ? .light : theme == "dark" ? .dark : .unspecified
         DispatchQueue.main.async {
             self.bridge?.viewController?.view.window?.overrideUserInterfaceStyle = style
             self.bridge?.viewController?.setNeedsStatusBarAppearanceUpdate()

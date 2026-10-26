@@ -94,7 +94,10 @@ function NavBar({ profile }) {
       if (!pill) { setSelector(s => (s ? { ...s, hidden: true } : null)); return }
       const b = bar.getBoundingClientRect()
       const r = pill.getBoundingClientRect()
-      setSelector(s => ({ x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height, hidden: false, glide: Boolean(s) }))
+      // No glide while the launch splash is still up: the landing redirect
+      // (Progress to Today) happens under it and must not be seen sliding.
+      const launching = Boolean(document.getElementById('splash'))
+      setSelector(s => ({ x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height, hidden: false, glide: Boolean(s) && !launching }))
     }
     place()
     const ro = new ResizeObserver(place)

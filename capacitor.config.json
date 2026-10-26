@@ -4,5 +4,11 @@
   "webDir": "dist",
   "ios": {
     "contentInset": "never"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "launchFadeOutDuration": 0
+    }
   }
 }

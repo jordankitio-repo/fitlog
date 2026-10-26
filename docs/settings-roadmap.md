@@ -859,3 +859,16 @@ A coach's existing targets are never overwritten. Open:
 - Real phone: the Apple Health connect FAILURE message (seen only in code). A
   failed final save was checked: message shown, retry works.
 
+### 10.17 App launch (Oct 26 2026)
+
+The launch screen (LaunchScreen.storyboard: LaunchBackground colour, 96pt
+LaunchMark) and the page's splash (index.html) are now the same picture, held
+by @capacitor/splash-screen until the page has painted, so the hand-over is not
+seen. No minimum wait, no 1.5s zoom; a 250ms fade once the landing screen is
+decided (HomeLanding holds it). The tab selector snaps, not glides, under it.
+Fixed on the way: Automatic theme stayed stuck on dark after the status-bar
+fix (AppearancePlugin now hands 'auto' back to the phone).
+Open: the launch screen follows the PHONE's appearance (iOS gives it no other
+input), so a client who chose Light in Gardnr with the phone in dark mode sees
+a dark launch screen fade to a light app. Real phone: launch timing on device.
+

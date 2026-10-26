@@ -109,6 +109,10 @@ function HomeLanding({ profile, hasSoloPremium }) {
   const navigate = useNavigate()
   useEffect(() => {
     if (decision !== 'pending') return
+    // The launch splash stays up while the landing is decided (App reads
+    // this), so the app is first seen on the screen it opens on. It used to
+    // fade into a second loading mark, then Progress, then slide to Today.
+    window.__splashHold = true
     let active = true
     resolveClientLanding().then((target) => {
       if (!active) return
@@ -118,6 +122,8 @@ function HomeLanding({ profile, hasSoloPremium }) {
       // Progress a blank <Navigate> the next time its tab was opened.
       if (target === 'log') navigate('/log', { replace: true })
       setDecision('dashboard')
+      window.__splashHold = false
+      window.hideSplash?.()
     })
     return () => { active = false }
   }, [decision, navigate])
@@ -434,8 +440,10 @@ function App() {
   }, [profile?.id, profile?.role])
 
   // Dismiss the cold-start splash (index.html) once the app shell is ready.
+  // Not while a landing is still being decided (HomeLanding's hold): its
+  // effect runs before this one, as a child's does, so the hold is already set.
   useEffect(() => {
-    if (!loading) window.hideSplash?.()
+    if (!loading && !window.__splashHold) window.hideSplash?.()
   }, [loading])
 
   useEffect(() => {

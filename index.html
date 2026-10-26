@@ -78,9 +78,16 @@
     <script type="application/ld+json">__SOFTWARE_APPLICATION_JSON__</script>
 
     <style>
-      /* Cold-start splash (esp. the mobile PWA): a black screen with the Gardnr
-         mark that pulses while the app boots, then grows toward the viewer and
-         fades to reveal the ready app — Netflix-style. */
+      /* Cold-start splash (the iPhone app and the installed PWA).
+         It is the native launch screen continued, pixel for pixel
+         (ios/App/App/Base.lproj/LaunchScreen.storyboard): the theme's
+         background and the 96px mark dead centre, so iOS handing over to the
+         web view is not seen. It used to be a black screen at another size
+         and position, held for at least 0.9s, ending in a 1.5s zoom of the
+         mark to ten times its size over the app: a jump, a wait and a wash of
+         green over the sign-in form. Apple's own apps go straight in.
+         Now: still while it is quick, a slow breath only if loading runs past
+         a second, and a 250ms fade the moment the app is ready. */
       #splash {
         position: fixed;
         inset: 0;
@@ -89,34 +96,26 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: opacity 1.5s ease;
+        transition: opacity 250ms ease-out;
       }
+      :root[data-theme="light"] #splash { background: #f4f5f4; }
       #splash img {
-        width: 132px;
-        height: 132px;
-        animation: splashPulse 1.8s ease-in-out infinite;
-        will-change: transform, opacity;
+        width: 96px;
+        height: 96px;
+        animation: splashBreath 1.8s ease-in-out 1s infinite;
       }
-      @keyframes splashPulse {
-        0%, 100% { transform: scale(1); opacity: 0.8; }
-        50% { transform: scale(1.08); opacity: 1; }
+      @keyframes splashBreath {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
       }
       #splash.splash-done { opacity: 0; pointer-events: none; }
-      #splash.splash-done img {
-        animation: splashReveal 1.5s cubic-bezier(0.45, 0, 0.75, 0.4) forwards;
-      }
-      @keyframes splashReveal {
-        0% { transform: scale(1.08); opacity: 1; }
-        60% { opacity: 1; }
-        100% { transform: scale(10); opacity: 0; }
-      }
       @media (prefers-reduced-motion: reduce) {
-        #splash img, #splash.splash-done img { animation: none; }
+        #splash img { animation: none; }
       }
     </style>
   </head>
   <body>
-    <div id="splash" hidden><img src="/logo-icon.svg" alt="Gardnr" width="132" height="132" /></div>
+    <div id="splash" hidden><img src="/logo-icon.svg" alt="Gardnr" width="96" height="96" /></div>
     <div id="root"></div>
     <script>
       (function () {
@@ -130,24 +129,55 @@
             }
           }
         } catch (e) {}
+        // The iPhone app always shows it: it is what covers the launch screen
+        // until the first page is drawn, signed in or not.
+        var native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
         var splash = document.getElementById('splash');
-        if (!standalone && !hasAuth) {
+        if (!standalone && !hasAuth && !native) {
           if (splash) splash.remove();
           window.hideSplash = function () {};
           return;
         }
         if (splash) splash.hidden = false;
-        var start = Date.now();
-        var MIN = 900; // show the pulse at least this long before the zoom-reveal
         function reveal() {
           var s = document.getElementById('splash');
           if (!s || s.classList.contains('splash-done')) return;
           clearTimeout(window.__splashTimer);
           s.classList.add('splash-done');
-          setTimeout(function () { if (s.parentNode) s.remove(); }, 1600);
+          setTimeout(function () { if (s.parentNode) s.remove(); }, 300);
+        }
+        // No minimum: an app that is ready is shown, once the screen it opens
+        // on is there, so the page's own fade-in runs under this one and the
+        // two read as one crossfade. "There" is anything visible in <main>
+        // (or, for the screens drawn without one, in #root) that is not a
+        // loader (role=status): a rule about the page, not a list of pages.
+        // Hidden kept-alive tabs do not count. Never waited on past 1.5s.
+        // A display:contents wrapper (the kept tabs) has no box of its own,
+        // so it is looked through to what it holds.
+        function shown(el) {
+          if (el.getAttribute('role') === 'status') return false;
+          if (getComputedStyle(el).display === 'contents') return [].some.call(el.children, shown);
+          return el.getClientRects().length > 0;
+        }
+        function screenReady() {
+          var root = document.getElementById('root');
+          if (!root) return false;
+          var mains = root.querySelectorAll('main');
+          var parents = mains.length ? mains : [root];
+          for (var i = 0; i < parents.length; i++) {
+            if ([].some.call(parents[i].children, shown)) return true;
+          }
+          return false;
         }
         window.hideSplash = function () {
-          setTimeout(reveal, Math.max(0, MIN - (Date.now() - start)));
+          var t0 = Date.now();
+          (function poll() {
+            if (screenReady() || Date.now() - t0 > 1500) {
+              requestAnimationFrame(function () { requestAnimationFrame(reveal); });
+            } else {
+              requestAnimationFrame(poll);
+            }
+          })();
         };
         // Safety net: never trap the user on the splash if the app stalls.
         window.__splashTimer = setTimeout(reveal, 8000);

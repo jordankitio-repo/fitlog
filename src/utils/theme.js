@@ -35,7 +35,10 @@ const theme = createPreference({
     document.documentElement.setAttribute('data-theme', resolved)
     // In the iPhone app, the status bar and system sheets follow it too
     // (AppearancePlugin, SceneDelegate.swift) rather than the phone's setting.
-    if (isNativeApp()) Appearance.setStyle({ theme: resolved }).catch(() => {})
+    // Automatic hands the window back to the phone ('auto'), never the
+    // resolved value: a window forced dark makes the web view report dark as
+    // the phone's appearance, and Automatic would then never come back.
+    if (isNativeApp()) Appearance.setStyle({ theme: theme.read() === 'auto' ? 'auto' : resolved }).catch(() => {})
   },
 })
 
