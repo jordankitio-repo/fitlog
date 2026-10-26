@@ -35,6 +35,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import Reorderable from '../components/Reorderable'
 import SectionRail from '../components/SectionRail'
 import { SECTION_ICONS } from '../utils/sectionIcons'
+import DayStepper from '../components/DayStepper'
 import TargetCalculator from '../components/TargetCalculator'
 import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
@@ -49,7 +50,6 @@ import { nudgeReason } from '../utils/nudgeReason'
 import { CADENCE_OPTIONS } from '../utils/cadence'
 import { formatAnswer } from '../utils/checkinQuestions'
 import {
-  addDays,
   checkinPeriod,
   getDatesInRange,
   getWeeklyReportRange,
@@ -1531,16 +1531,6 @@ async function sendMessage(text) {
   }
 
 
-  function goToPrevDay() {
-    const d = addDays(parseLocalDateString(selectedDate), -1)
-    setSelectedDate(toLocalDateString(d))
-  }
-
-  function goToNextDay() {
-    const d = addDays(parseLocalDateString(selectedDate), 1)
-    setSelectedDate(toLocalDateString(d))
-  }
-
   const isToday = selectedDate === toLocalDateString(new Date())
 
   // Both of these are Dashboard's, deliberately: the client's own day panel
@@ -2451,21 +2441,10 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div style={{ display: isVisible('stats') ? 'flex' : 'none', alignItems: 'center', gap: 'var(--space-12)' }}>
-        <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
-
-        <Field
-          type="date"
-          value={selectedDate}
-          max={toLocalDateString(new Date())}
-          aria-label="Day to view"
-          onChange={(e) => setSelectedDate(e.target.value)}
-          style={{ width: 'auto' }}
-        />
-
-        <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
-
-        {!isToday && <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">Today</Button>}
+      {/* The same `‹ Today ›` as the client's Log and My Progress, so a coach
+          and the client pick a day the same way (components/DayStepper). */}
+      <div style={{ display: isVisible('stats') ? 'flex' : 'none', alignItems: 'center' }}>
+        <DayStepper value={selectedDate} onChange={setSelectedDate} />
       </div>
 
       <div id="section-stats" style={sectionStyle('stats')}>

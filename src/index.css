@@ -2689,3 +2689,54 @@ html.native-app .gnav {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* ---- Checkbox (components/ui/Checkbox.jsx) -------------------------------
+   The real input stays in the row, invisible, so focus, keyboard and screen
+   readers work as they always did; the box drawn beside it is the control's
+   face. Raised at rest (D1's surface, not a flat outline), brand green when
+   ticked, a focus ring only for keyboard focus. */
+.ds-checkrow {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  min-height: 44px;
+  padding: var(--space-10) 0;
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+.ds-checkrow.is-disabled { cursor: default; opacity: 0.5; }
+.ds-checkrow.is-small { font-size: var(--text-sm); color: var(--color-muted); }
+.ds-check-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+.ds-check {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 0.5px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--color-control-border);
+  background-color: var(--control-bg);
+  box-shadow: var(--control-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-on-accent);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.ds-check.is-checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.ds-checkrow:active .ds-check { box-shadow: var(--control-shadow-active); transform: translateY(0.5px); }
+.ds-check-input:focus-visible + .ds-check {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

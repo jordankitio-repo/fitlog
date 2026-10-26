@@ -10,7 +10,10 @@ vi.mock('@capacitor/core', () => ({
 }))
 vi.mock('../supabase', () => ({ supabase: {} }))
 
-const { syncWindows, toSyncPayload, deviceDedupeKey, isTypedWeighIn } = await import('./healthSync.js')
+const {
+  syncWindows, toSyncPayload, deviceDedupeKey, isTypedWeighIn,
+  savesWeighInsToHealth, setSavesWeighInsToHealth, CONSENT_TEXT,
+} = await import('./healthSync.js')
 
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1
 
@@ -125,5 +128,27 @@ describe('isTypedWeighIn', () => {
 
   it('handles a missing row', () => {
     expect(isTypedWeighIn(null)).toBe(false)
+  })
+})
+
+// The client's switch for writing weigh-ins to Health.
+describe('savesWeighInsToHealth', () => {
+  it('is on until the client turns it off', () => {
+    localStorage.clear()
+    expect(savesWeighInsToHealth()).toBe(true)
+    setSavesWeighInsToHealth(false)
+    expect(savesWeighInsToHealth()).toBe(false)
+    setSavesWeighInsToHealth(true)
+    expect(savesWeighInsToHealth()).toBe(true)
+  })
+})
+
+// What connect records is what the checkboxes show. Pinned so an edit to the
+// wording is a deliberate change to the consent record, not a drive-by.
+describe('CONSENT_TEXT', () => {
+  it('is two separate sentences, one per consent', () => {
+    expect(Object.keys(CONSENT_TEXT)).toEqual(['collect', 'shareCoach'])
+    expect(CONSENT_TEXT.collect).toMatch(/^Allow Gardnr to read/)
+    expect(CONSENT_TEXT.shareCoach).toMatch(/coach/)
   })
 })

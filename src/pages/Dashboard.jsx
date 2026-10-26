@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
 import PullToRefresh from '../components/PullToRefresh'
+import DayStepper from '../components/DayStepper'
 import { syncAppleHealth } from '../utils/healthSync'
 import TodayPanel from '../components/TodayPanel'
 import TrendsPanel from '../components/TrendsPanel'
@@ -45,7 +46,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { controlStyle, Icon, Notice, Pill, Textarea, Field, IconButton } from '../components/ui'
+import { Icon, Notice, Pill, Textarea, Field, IconButton } from '../components/ui'
 import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
@@ -843,11 +844,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   const isToday = selectedDate === toLocalDateString(new Date())
-  function goToPrevDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(toLocalDateString(d)) }
-  function goToNextDay() { const d = parseLocalDateString(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(toLocalDateString(d)) }
 
-  // One canonical control style for the whole app (src/components/ui/Field.jsx).
-  const inputStyle = controlStyle
   const chartOptions = {
     responsive: true,
     animation: false,
@@ -1208,13 +1205,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           {/* Streak skeleton */}
           <Skeleton height="100px" />
 
-          {/* Date nav skeleton */}
-          <div style={{ display: 'flex', gap: 'var(--space-12)', alignItems: 'center' }}>
-            <Skeleton width="40px" height="38px" />
-            <Skeleton width="140px" height="38px" />
-            <Skeleton width="40px" height="38px" />
-          </div>
-
           {/* Stats skeleton */}
           <div style={cardStyle}>
             <Skeleton height="22px" width="120px" />
@@ -1334,7 +1324,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	            both sides and for both roles — "Dashboard" was a placeholder word
 	            for the solo view, the way "Coach Dashboard" was for the roster
 	            before it became "Clients". NavBar carries the matching label. */}
-	        <h1>My Progress</h1>
+	        {/* The Log's header, so the two pages pick a day the same way: the
+	            title, and ONE date control at the right (components/DayStepper). */}
+	        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)' }}>
+	          <h1 style={{ whiteSpace: 'nowrap' }}>My Progress</h1>
+	          <DayStepper value={selectedDate} onChange={setSelectedDate} />
+	        </div>
 
         {/* THE IDENTITY STRIP (roadmap 6.1).
             Three facts about one subject is a StatCell strip (C1), and these
@@ -1404,45 +1399,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             reserveSub={Boolean(streakSub)}
           />
         </div>
-
-        {/* A3, and the reason it is two nested flexes rather than one row:
-            `‹ date ›` is ONE control — stepping and picking set the same value —
-            so it clusters at 8px. The Today slot is a different thing and sits a
-            group-gap out.
-
-            As one evenly-spaced row it fell apart, because controlStyle is
-            `width: 100%` and a date input given a whole page takes it: the
-            field stretched ~1450px for a value that needs ~150, and the arrows
-            and the Today slot ended up pinned to opposite margins. Evenly
-            spaced reads flat (A3) — here it also stopped the four parts reading
-            as one date control at all. `width: auto` lets the field size to its
-            own content, which is what a date field wants. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-24)', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
-            <Button onClick={goToPrevDay} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
-            <input
-              type="date"
-              aria-label="Selected date"
-              value={selectedDate}
-              max={toLocalDateString(new Date())}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              style={{ ...inputStyle, width: 'auto' }}
-            />
-            <Button onClick={goToNextDay} disabled={isToday} variant="muted" size="sm" ariaLabel="Next day"><Icon name="right" /></Button>
-          </div>
-          {/* Appears ONLY once the date has moved, which is the only time it has
-              anything to do. It began as a 999px "TODAY" pill you cannot press —
-              decoration, a pixel away from two real controls (C1) — and the
-              muted text that replaced it was no better: a word that just sat
-              there restating the date beside it, in the slot a real button
-              takes the moment you step off today. Nothing at today; a Button
-              when there is somewhere to go. Same rule as the Log header. */}
-          {!isToday && (
-            <Button onClick={() => setSelectedDate(toLocalDateString(new Date()))} variant="muted" size="sm">
-              Today
-            </Button>
-          )}
-	        </div>
 	      </div>
 
       {isEmptyAccount && (
