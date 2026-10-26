@@ -21,3 +21,8 @@ export const GOAL_KEYS = GOALS.map(g => g.key)
 export function goalLabel(key) {
   return GOALS.find(g => g.key === key)?.label ?? null
 }
+
+// The starting pace each goal implies for the target estimate. The goal sets
+// direction; this sets the rate (fat loss tolerates a faster one than lean
+// gain). Setup and the coach's calculator both start here.
+export const PACE_FOR_GOAL = { lose: 'moderate', gain: 'gentle', maintain: 'moderate', recomp: 'gentle' }

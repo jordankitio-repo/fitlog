@@ -872,3 +872,26 @@ Open: the launch screen follows the PHONE's appearance (iOS gives it no other
 input), so a client who chose Light in Gardnr with the phone in dark mode sees
 a dark launch screen fade to a light app. Real phone: launch timing on device.
 
+### 10.18 Coach sets client targets (Oct 26 2026)
+
+Reviewed the coach's Client targets form end to end. Fixed:
+- A coached client could PATCH their own targets and goal past the read-only
+  screens. Migration 20261026010000_coach_owned_targets: once a client with an
+  active coach has finished setup, targets are read-only to them and
+  primary_goal is guarded by a trigger; setup can still write starting
+  targets; solo users unaffected. tests/rls/coachOwnedTargets.test.js.
+  MUST be applied to prod before the frontend ships (Onboarding now writes
+  targets before stamping onboarded_at).
+- Failed saves were silent; now a toast, edits kept.
+- Negative/absurd values were saved; utils/targetChecks bounds them, and shows
+  the macros' calorie total ("Use 1,340") on the coach's and the solo form.
+- The client was never told; targets.updated_by feeds "Marta updated your
+  targets" in the bell.
+- The calculator asked for the current weight the client logs; it now takes
+  the latest weigh-in and the pace the goal implies (PACE_FOR_GOAL, shared).
+- Save is muted until something changes; leaving the tab with unsaved edits
+  asks first.
+Open: leaving by an in-app link with unsaved edits does not ask (the router
+is not a data router, so there is no navigation blocker); edits survive
+switching sections of the same client.
+

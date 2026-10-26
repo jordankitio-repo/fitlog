@@ -162,11 +162,20 @@ export default function NotificationCenter({ profile }) {
       // while the bell still claims three. What stays is what has nowhere
       // else to point.
       const floor = eventFloor()
-      const [rev] = await Promise.all([
+      const [rev, tgt] = await Promise.all([
         // Filtered on reviewed_at, not created_at: the event is the review, and
         // a coach catching up on a month-old check-in IS news to the client.
         supabase.from('check_ins').select('id, coach_comment, reviewed_at').eq('client_id', uid).not('reviewed_at', 'is', null).gte('reviewed_at', floor).order('reviewed_at', { ascending: false }).limit(15),
+        // The coach changing the plan. It used to change on Today with no word
+        // to the client. targets.updated_by (coach_owned_targets) says whose
+        // hand it was; the client's own writes (setup) are not news to them.
+        // Keyed on the write's time, so a second change is a second notice.
+        supabase.from('targets').select('updated_at, updated_by').eq('user_id', uid).gte('updated_at', floor).maybeSingle(),
       ])
+      if (tgt.data?.updated_by && tgt.data.updated_by !== uid) {
+        const changedAt = +new Date(tgt.data.updated_at)
+        ev.push({ id: 'tgt' + changedAt, kind: 'targets', title: `${coachFirst} updated your targets`, sub: null, time: changedAt, href: '/profile/targets', avatarUrl: coachAvatar, avatarName: coachName })
+      }
       ;(rev.data || []).forEach((c) => ev.push({ id: 'rev' + c.id, kind: 'review', title: `${coachFirst} reviewed your check-in`, sub: c.coach_comment ? trim(c.coach_comment) : null, time: +new Date(c.reviewed_at), href: '/?focus=checkin', avatarUrl: coachAvatar, avatarName: coachName }))
 
       // Alerts — the client's own action-items (lock, due check-in, coach nudge).

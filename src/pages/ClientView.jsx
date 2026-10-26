@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { refreshNotifications } from '../utils/notifyRefresh'
@@ -19,7 +19,7 @@ import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
 import { fetchMessageWindow, refreshSize, growSize, hasOlderMessages } from '../utils/messageThread'
-import { GOALS } from '../utils/goals'
+import { GOALS, PACE_FOR_GOAL } from '../utils/goals'
 import InfoTip from '../components/InfoTip'
 import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
@@ -37,6 +37,7 @@ import SectionRail from '../components/SectionRail'
 import { SECTION_ICONS } from '../utils/sectionIcons'
 import DayStepper from '../components/DayStepper'
 import TargetCalculator from '../components/TargetCalculator'
+import { checkTargets } from '../utils/targetChecks'
 import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
 import { ageFromBirthDate } from '../utils/biometrics'
@@ -248,6 +249,11 @@ function checkInPayload(c) {
   return { adherence: c.adherence_rating, energy: c.energy_level, obstacles: c.obstacles, notes: c.notes }
 }
 
+const EMPTY_CLIENT_TARGETS = {
+  calories: '', protein: '', carbs: '', fat: '',
+  cardio_minutes: '', steps: '', weight_goal: '', weight_goal_unit: 'lbs',
+}
+
 function ClientView({ profile }) {
   // `section` is the mobile detail route: /client/:id/:section. Absent = the
   // summary. On a desktop it is only a scroll target — the rail is on screen,
@@ -350,11 +356,11 @@ function ClientView({ profile }) {
   const [daySteps, setDaySteps] = useState(null)
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
-  const [clientTargets, setClientTargets] = useState({
-    calories: '', protein: '', carbs: '', fat: '',
-    cardio_minutes: '', steps: '', weight_goal: '', weight_goal_unit: 'lbs'
-  })
+  const [clientTargets, setClientTargets] = useState(EMPTY_CLIENT_TARGETS)
   const [targetsSaved, setTargetsSaved] = useState(false)
+  // What is stored, to tell an edited form from an untouched one.
+  const [savedClientTargets, setSavedClientTargets] = useState(null)
+  const [targetsSaving, setTargetsSaving] = useState(false)
   const [showTargetCalc, setShowTargetCalc] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
 
@@ -592,6 +598,21 @@ function ClientView({ profile }) {
     fetchWeight()
     fetchDayActivity()
   }, [clientId, selectedDate])
+
+  // The targets form: what is wrong with it, and whether it differs from what
+  // is stored. Edits survive moving between sections (this page stays
+  // mounted); closing or reloading the tab with edits unsaved asks first.
+  const targetCheck = checkTargets(clientTargets)
+  const targetsDirty = savedClientTargets !== null && (
+    Object.keys(EMPTY_CLIENT_TARGETS).some(k => String(clientTargets[k] ?? '') !== String(savedClientTargets[k] ?? ''))
+    || clientGoal !== (clientProfile?.primary_goal || '')
+  )
+  useEffect(() => {
+    if (!targetsDirty) return undefined
+    const warn = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [targetsDirty])
 
   // Its own effect, beside the page's other two, so the heatmap is not tied to
   // the fifteen queries that load with the page.
@@ -1164,7 +1185,7 @@ async function addNoteEntry() {
     .maybeSingle()
   if (error) console.error(error)
   else if (data) {
-    setClientTargets({
+    const loaded = {
       calories: data.calories?.toString() || '',
       protein: data.protein?.toString() || '',
       carbs: data.carbs?.toString() || '',
@@ -1173,11 +1194,17 @@ async function addNoteEntry() {
       steps: data.steps?.toString() || '',
       weight_goal: data.weight_goal?.toString() || '',
       weight_goal_unit: data.weight_goal_unit || 'lbs'
-    })
+    }
+    setClientTargets(loaded)
+    setSavedClientTargets(loaded)
+  } else {
+    setSavedClientTargets(EMPTY_CLIENT_TARGETS)
   }
 }
 
   async function saveClientTargets() {
+  if (Object.keys(targetCheck.errors).length) return
+  setTargetsSaving(true)
   const { error } = await supabase
     .from('targets')
     .upsert({
@@ -1193,7 +1220,14 @@ async function addNoteEntry() {
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' })
 
-  if (error) { console.error(error); return }
+  // A failed save used to go to the console only: the button still read "Save
+  // targets", the coach believed it had saved, and the client kept the old plan.
+  if (error) {
+    console.error(error)
+    showToast("Couldn't save the targets. Try again.", 'error')
+    setTargetsSaving(false)
+    return
+  }
 
   // The goal lives on `profiles`, which a coach cannot write directly (only
   // profiles_update_self exists), so it goes through the narrow
@@ -1204,10 +1238,17 @@ async function addNoteEntry() {
       p_client_id: clientId,
       p_goal: clientGoal || null,
     })
-    if (goalError) { console.error(goalError); return }
+    if (goalError) {
+      console.error(goalError)
+      showToast("Targets saved, but the goal didn't. Try again.", 'error')
+      setTargetsSaving(false)
+      return
+    }
     await fetchClientProfile()
   }
 
+  setSavedClientTargets(clientTargets)
+  setTargetsSaving(false)
   setTargetsSaved(true); setTimeout(() => setTargetsSaved(false), 2000)
 }
 
@@ -2795,6 +2836,16 @@ async function sendMessage(text) {
                     units: clientProfile?.unit_preference || undefined,
                     goalWeight: clientTargets.weight_goal || undefined,
                     activity: clientProfile?.activity_level || undefined,
+                    // The latest weigh-in, in the calculator's units, so the
+                    // coach is not asked for a number the client logs daily.
+                    // And the pace the client's goal implies, as setup uses.
+                    weight: (() => {
+                      const last = weightHistory[weightHistory.length - 1]
+                      if (!last) return undefined
+                      const to = (clientProfile?.unit_preference || (clientTargets.weight_goal_unit === 'kg' ? 'metric' : 'imperial')) === 'metric' ? 'kg' : 'lbs'
+                      return Math.round(convertWeight(last.weight, normUnit(last.unit), to) * 10) / 10
+                    })(),
+                    pace: PACE_FOR_GOAL[clientGoal] || undefined,
                   }}
                   onApply={(t) => {
                     setClientTargets(prev => ({ ...prev, calories: String(t.calories), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) }))
@@ -2804,28 +2855,48 @@ async function sendMessage(text) {
               </div>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
-            {[
-              { label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
+          {/* Two groups, as the client sees them on Today: the four nutrition
+              numbers with the macros' own total beneath them, then activity. */}
+          {[
+            [{ label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
               { label: 'Protein (g)', key: 'protein', placeholder: 'e.g. 150' },
               { label: 'Carbs (g)', key: 'carbs', placeholder: 'e.g. 200' },
-              { label: 'Fat (g)', key: 'fat', placeholder: 'e.g. 65' },
-              { label: 'Cardio (min/day)', key: 'cardio_minutes', placeholder: 'e.g. 30' },
-              { label: 'Steps/day', key: 'steps', placeholder: 'e.g. 10000' },
-            ].map(f => (
-              /* ui/Field, not a local input. These had drifted from controlStyle
-                 on both axes the primitive exists to hold still: 10px 14px
-                 against its 10px 12px, and --text-body against its --text-base. */
-              <Field
-                key={f.key}
-                label={f.label}
-                type="number"
-                placeholder={f.placeholder}
-                value={clientTargets[f.key]}
-                onChange={(e) => setClientTargets({ ...clientTargets, [f.key]: e.target.value })}
-              />
-            ))}
-          </div>
+              { label: 'Fat (g)', key: 'fat', placeholder: 'e.g. 65' }],
+            [{ label: 'Cardio (min/day)', key: 'cardio_minutes', placeholder: 'e.g. 30' },
+              { label: 'Steps/day', key: 'steps', placeholder: 'e.g. 10000' }],
+          ].map((group, gi) => (
+            <Fragment key={gi}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
+                {group.map(f => (
+                  /* ui/Field, not a local input. These had drifted from
+                     controlStyle on both axes the primitive exists to hold still:
+                     10px 14px against its 10px 12px, and --text-body against
+                     its --text-base. */
+                  <Field
+                    key={f.key}
+                    label={f.label}
+                    type="number"
+                    inputMode="numeric"
+                    placeholder={f.placeholder}
+                    value={clientTargets[f.key]}
+                    error={targetCheck.errors[f.key]}
+                    aria-invalid={Boolean(targetCheck.errors[f.key])}
+                    onChange={(e) => setClientTargets({ ...clientTargets, [f.key]: e.target.value })}
+                  />
+                ))}
+              </div>
+              {/* The macros' own total, under the macros, so calories and
+                  macros cannot quietly disagree. A note, not an error: a coach
+                  may round on purpose. */}
+              {gi === 0 && targetCheck.macroCalories != null && (
+                <p style={{ margin: '0 0 var(--space-8)', fontSize: 'var(--text-sm)', color: targetCheck.mismatch ? 'var(--color-warning)' : 'var(--color-muted)' }}>
+                  {targetCheck.mismatch
+                    ? <>Macros add up to {targetCheck.macroCalories.toLocaleString()} cal, not {Number(clientTargets.calories).toLocaleString()}. <button type="button" className="ds-control" onClick={() => setClientTargets(prev => ({ ...prev, calories: String(targetCheck.macroCalories) }))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--color-primary)', fontWeight: 'var(--weight-medium)', cursor: 'pointer' }}>Use {targetCheck.macroCalories.toLocaleString()}</button></>
+                    : `Macros add up to ${targetCheck.macroCalories.toLocaleString()} cal`}
+                </p>
+              )}
+            </Fragment>
+          ))}
           <div style={{ marginTop: 'var(--space-4)' }}>
             <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', color: 'var(--color-muted)' }}>Weight goal</p>
             <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
@@ -2858,6 +2929,9 @@ async function sendMessage(text) {
                 <option value="kg">kg</option>
               </Select>
             </div>
+            {targetCheck.errors.weight_goal && (
+              <p style={{ margin: 'var(--space-6) 0 0', fontSize: 'var(--text-xs)', color: 'var(--color-error)' }}>{targetCheck.errors.weight_goal}</p>
+            )}
           </div>
           <div style={{ marginTop: 'var(--space-12)' }}>
             <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', color: 'var(--color-muted)' }}>Primary goal</p>
@@ -2885,7 +2959,15 @@ async function sendMessage(text) {
             </p>
           </div>
           <div style={{ marginTop: 'var(--space-8)' }}>
-            <Button onClick={saveClientTargets} variant="primary" size="sm">
+            {/* Muted until something changed, as the client's own Daily
+                targets page does; never pressable over an invalid field. */}
+            <Button
+              onClick={saveClientTargets}
+              variant={targetsDirty ? 'primary' : 'muted'}
+              size="sm"
+              disabled={!targetsDirty || Object.keys(targetCheck.errors).length > 0}
+              loading={targetsSaving}
+            >
               {targetsSaved ? <>Saved <Icon name="check" /></> : 'Save targets'}
             </Button>
           </div>

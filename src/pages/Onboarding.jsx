@@ -8,7 +8,7 @@ import ConsumerHealthData from './ConsumerHealthData'
 import { Checkbox, Icon, controlStyle } from '../components/ui'
 import { estimateTargets, ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, convertWeight, ftInToCm, todayStr } from '../utils/biometrics'
-import { GOALS } from '../utils/goals'
+import { GOALS, PACE_FOR_GOAL } from '../utils/goals'
 import {
   CONSENT_TEXT, appleHealthAvailable, connectAppleHealth, readHealthProfile, syncAppleHealth,
 } from '../utils/healthSync'
@@ -35,7 +35,6 @@ import appleHealthIcon from '../assets/apple-health-icon.png'
 //
 // "Set up later" on any screen stamps onboarded_at and lets them in; nothing
 // typed is required. The gate that mounts this lives in App.
-const PACE_FOR_GOAL = { lose: 'moderate', gain: 'gentle', maintain: 'moderate', recomp: 'gentle' }
 
 export default function Onboarding({ session, profile, onComplete }) {
   const isClient = profile?.role === 'client'
@@ -190,16 +189,6 @@ export default function Onboarding({ session, profile, onComplete }) {
     setError('')
     setSaving(true)
     try {
-      const { error: pErr } = await supabase.from('profiles').update({
-        onboarded_at: new Date().toISOString(),
-        unit_preference: units,
-        sex: sex || null,
-        birth_date: birthDate || null,
-        height_cm: heightInCm > 0 ? Math.round(heightInCm * 10) / 10 : null,
-        activity_level: activity,
-        primary_goal: goal || null,
-      }).eq('id', uid)
-      if (pErr) throw pErr
 
       const goalW = Number(goalWeight) || null
       if (existingTargets) {
@@ -221,6 +210,21 @@ export default function Onboarding({ session, profile, onComplete }) {
         }, { onConflict: 'user_id' })
         if (tErr) throw tErr
       }
+
+      // The profile LAST: stamping onboarded_at is what hands a coached
+      // client's targets to the coach (client_plan_locked in the
+      // coach_owned_targets migration), so the starting targets above have to
+      // be written before it.
+      const { error: pErr } = await supabase.from('profiles').update({
+        onboarded_at: new Date().toISOString(),
+        unit_preference: units,
+        sex: sex || null,
+        birth_date: birthDate || null,
+        height_cm: heightInCm > 0 ? Math.round(heightInCm * 10) / 10 : null,
+        activity_level: activity,
+        primary_goal: goal || null,
+      }).eq('id', uid)
+      if (pErr) throw pErr
 
       // Today's weigh-in, so Today and the weight chart are not empty on day
       // one. Not when it is Health's own reading from TODAY, untouched: the

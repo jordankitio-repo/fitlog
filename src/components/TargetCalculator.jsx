@@ -32,7 +32,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
   const [heightIn, setHeightIn] = useState(h0.in)
   const [bodyFat, setBodyFat] = useState('')
   const [activity, setActivity] = useState(initial.activity || 'moderate')
-  const [pace, setPace] = useState('moderate')
+  const [pace, setPace] = useState(initial.pace || 'moderate')
 
   const metric = units === 'metric'
   const wUnit = metric ? 'kg' : 'lb'
@@ -81,9 +81,13 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
     })
   }, [metric, heightCm, heightFt, heightIn, sex, age, weight, goalWeight, activity, pace, bodyFat])
 
+  // The number in the text colour, the metric's hue as a short bar above it:
+  // metric tokens are fill colours and fail contrast as type (B2), the rule
+  // the setup screen's target tiles already follow.
   const macro = (label, value, unit, color) => (
     <div style={{ flex: 1, minWidth: 64, textAlign: 'center', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 6px' }}>
-      <div style={{ fontWeight: 700, fontSize: 'var(--text-subhead)', color }}>{value}{unit}</div>
+      <div aria-hidden="true" style={{ width: 20, height: 3, borderRadius: 999, background: color, margin: '0 auto 6px' }} />
+      <div className="tnum" style={{ fontWeight: 700, fontSize: 'var(--text-subhead)', color: 'var(--color-text)' }}>{Number(value).toLocaleString()}{unit}</div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: 2 }}>{label}</div>
     </div>
   )
@@ -182,7 +186,7 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
             {macro('Fat', result.fat, 'g', 'var(--color-fat)')}
           </div>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.5 }}>
-            Maintenance ≈ <strong style={{ color: 'var(--color-text)' }}>{result.maintenanceCalories}</strong> cal.{' '}
+            Maintenance ≈ <strong style={{ color: 'var(--color-text)' }}>{Number(result.maintenanceCalories).toLocaleString()}</strong> cal.{' '}
             {result.direction === 'maintain'
               ? 'Set to maintain / recomp.'
               : `${result.direction === 'lose' ? 'Lose' : 'Gain'} ~${result.weeklyChange} ${wUnit}/wk to start` +
