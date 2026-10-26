@@ -3,9 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
 import PullToRefresh from '../components/PullToRefresh'
-import DayStepper from '../components/DayStepper'
 import { syncAppleHealth } from '../utils/healthSync'
-import TodayPanel from '../components/TodayPanel'
 import TrendsPanel from '../components/TrendsPanel'
 import Button from '../components/Button'
 import Skeleton from '../components/Skeleton'
@@ -25,7 +23,7 @@ import { CHART } from '../utils/chartTheme'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
-import { checkinPeriod, toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
+import { checkinPeriod, toLocalDateString } from '../utils/dateHelpers'
 import { measurementStatus } from '../utils/measurementCadence'
 import { convertWeight, normUnit } from '../utils/weightTarget'
 import { cadenceLabel } from '../utils/cadence'
@@ -185,17 +183,12 @@ function computeRollingAverage(data, window = 7) {
 }
 
 function Dashboard({ profile, hasSoloPremium = true }) {
-  const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
-  const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
-  const [weightEntry, setWeightEntry] = useState(null)
   const [weightHistory, setWeightHistory] = useState([])
   const [plainCharts, togglePlain] = usePlainCharts()
   // The Trends window. One per card, chosen by the reader in the panel header.
   const [trendRangeKey, setTrendRangeKey] = useState(DEFAULT_RANGE)
   const [calorieHistory, setCalorieHistory] = useState([])
   const [targets, setTargets] = useState(null)
-  const [cardioToday, setCardioToday] = useState({ minutes: 0, sessions: 0 })
-  const [stepsToday, setStepsToday] = useState(null)
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
   const [showCheckIn, setShowCheckIn] = useState(false)
@@ -245,9 +238,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   // just on the Log page. Steady ~monthly cadence — a gentle prompt, never nags.
   const [lastMeasuredIso, setLastMeasuredIso] = useState(null)
   const [showMeasReminder, setShowMeasReminder] = useState(false)
-  const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
-  const [selfOffboarding, setSelfOffboarding] = useState(false)
-  const [selfOffboardError, setSelfOffboardError] = useState('')
 
   // Section collapse state.
   //
@@ -261,15 +251,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     checkin: false,
     consistency: false,
   })
-
-  function formatTime(timeStr) {
-    if (!timeStr) return null
-    const [hours, minutes] = timeStr.split(':')
-    const h = parseInt(hours)
-    const ampm = h >= 12 ? 'PM' : 'AM'
-    const hour = h % 12 || 12
-    return `${hour}:${minutes} ${ampm}`
-  }
 
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -324,13 +305,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       silentReload.current = false
       if (!silent) setPageLoading(true)
       await Promise.all([
-        fetchTotals(),
-        fetchWeight(),
         fetchWeightHistory(),
         fetchCalorieHistory(),
         fetchTargets(),
-        fetchCardioToday(),
-        fetchStepsToday(),
         fetchCardioHistory(),
         fetchStepsHistory(),
         fetchStreak(),
@@ -348,7 +325,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       setPageLoading(false)
     }
     loadPage()
-  }, [selectedDate, reloadTick])
+  }, [reloadTick])
 
   useEffect(() => {
     const MILESTONES = [7, 14, 30, 60, 90]
@@ -384,35 +361,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
     fireMilestone()
   }, [streak, profile?.role])
-
-  async function fetchTotals() {
-    const { data, error } = await supabase
-      .from('nutrition_log').select('calories, protein, carbs, fat')
-      .eq('logged_date', selectedDate)
-    if (error) { console.error(error); return }
-    const totals = data.reduce((acc, e) => ({
-      calories: acc.calories + (e.calories || 0),
-      protein: acc.protein + (e.protein || 0),
-      carbs: acc.carbs + (e.carbs || 0),
-      fat: acc.fat + (e.fat || 0),
-    }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
-    setTotals(totals)
-  }
-
-  async function fetchWeight() {
-    const { data, error } = await supabase
-      .from('weight_log')
-      .select('*')
-      .eq('logged_date', selectedDate)
-      .order('created_at', { ascending: false })
-      .limit(1)
-    if (error) { console.error(error); return }
-    setWeightEntry(data?.[0] ?? null)
-  }
-
-
-
-
 
   // The 30 MOST RECENT weigh-ins, not the 30 oldest.
   //
@@ -528,23 +476,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       .maybeSingle()
     if (error) console.error(error)
     else setTargets(data)
-  }
-
-  async function fetchCardioToday() {
-    const { data, error } = await supabase
-      .from('cardio_log').select('duration').eq('logged_date', selectedDate).eq('counts_as_cardio', true)
-    if (error) console.error(error)
-    else setCardioToday({
-      minutes: data.reduce((sum, e) => sum + (e.duration || 0), 0),
-      sessions: data.length
-    })
-  }
-
-  async function fetchStepsToday() {
-    const { data, error } = await supabase
-      .from('steps_log').select('*').eq('logged_date', selectedDate).maybeSingle()
-    if (error) console.error(error)
-    else setStepsToday(data)
   }
 
   async function fetchCardioHistory() {
@@ -827,24 +758,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     setShowNudgeNotice(!todayLog)
   }
 
-  async function selfOffboard() {
-    setSelfOffboarding(true)
-    setSelfOffboardError('')
-
-    const { error } = await supabase.functions.invoke('offboard-self')
-
-    if (error) {
-      setSelfOffboardError(error.message)
-      setSelfOffboarding(false)
-      return
-    }
-
-    await supabase.auth.refreshSession()
-    setTimeout(() => window.location.reload(), 800)
-  }
-
-  const isToday = selectedDate === toLocalDateString(new Date())
-
   const chartOptions = {
     responsive: true,
     animation: false,
@@ -918,88 +831,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const stepsChartOptions = withYTitle(chartOptions, 'Steps')
 
 
-  // ── The Today panel ────────────────────────────────────────────────────
-  //
-  // One cell per metric, carrying its target. This replaces "Today's stats"
-  // and "Today vs target", which were the same six facts rendered twice —
-  // once bare and once with the denominator that makes them mean something.
-  //
-  // F2's grouping: calories/protein/carbs/fat are four parts of one number (a
-  // block), cardio/steps/weight are three independent readings (a strip).
-  const num = (n) => Number(n || 0).toLocaleString()
-  const pctOf = (actual, target) => (target ? Math.round((actual / target) * 100) : null)
-
-  // The sub-line always says something (F3): the target, or why there isn't one.
-  const targetSub = (target, unit, pct) =>
-    target ? `of ${num(target)}${unit} · ${pct}%` : 'No target set'
-
-  const macroCells = [
-    ...(hideCalories ? [] : [{ key: 'calories', label: 'Calories', color: 'var(--color-calories)', value: num(totals.calories), target: targets?.calories, unit: ' cal' }]),
-    { key: 'protein', label: 'Protein', color: 'var(--color-protein)', value: `${num(totals.protein)}g`, target: targets?.protein, unit: 'g' },
-    { key: 'carbs', label: 'Carbs', color: 'var(--color-carbs)', value: `${num(totals.carbs)}g`, target: targets?.carbs, unit: 'g' },
-    { key: 'fat', label: 'Fat', color: 'var(--color-fat)', value: `${num(totals.fat)}g`, target: targets?.fat, unit: 'g' },
-  ].map((m) => {
-    const actual = m.key === 'calories' ? totals.calories : totals[m.key]
-    const pct = pctOf(actual, m.target)
-    return { ...m, sub: targetSub(m.target, m.unit, pct), pct }
-  })
-
-  const cardioMinutes = cardioToday?.minutes || 0
-  const stepsCount = stepsToday?.steps || 0
-  const cardioPct = pctOf(cardioMinutes, targets?.cardio_minutes)
-  const stepsPct = pctOf(stepsCount, targets?.steps)
-
-  // Weight carries a GOAL, not a daily target, so it takes no bar: a track
-  // running from zero to a goal weight measures nothing a person can act on.
-  // The delta is the fact, graded by the rule the old panel already stated —
-  // within 1 unit IS the goal (tape and scale noise exceed that), anything
-  // further is still travelling and takes no grade at all (B1).
-  const weightGoalUnit = targets?.weight_goal ? normUnit(targets.weight_goal_unit) : null
-  const weightCurrent = weightEntry && weightGoalUnit
-    ? Math.round(convertWeight(weightEntry.weight, normUnit(weightEntry.unit), weightGoalUnit) * 10) / 10
-    : null
-  const weightDiff = weightCurrent != null ? Math.round((weightCurrent - Number(targets.weight_goal)) * 10) / 10 : null
-  const weightSub = (() => {
-    if (!weightEntry) return 'No weight logged'
-    if (weightDiff == null) return weightEntry.weighed_at ? `Logged ${formatTime(weightEntry.weighed_at)}` : 'No goal set'
-    const phrase = weightDiff > 0 ? `${weightDiff.toFixed(1)} to go` : weightDiff < 0 ? `${Math.abs(weightDiff).toFixed(1)} below goal` : 'Goal reached'
-    return (
-      <>
-        Goal {targets.weight_goal} {weightGoalUnit} ·{' '}
-        <span style={Math.abs(weightDiff) < 1
-          ? { color: 'var(--color-success)', fontWeight: 'var(--weight-medium)' }
-          : { color: 'var(--color-text-dim)' }}>{phrase}</span>
-      </>
-    )
-  })()
-
-  const activityCells = [
-    {
-      key: 'cardio', label: 'Cardio', color: 'var(--color-cardio)',
-      value: cardioMinutes > 0 ? `${cardioMinutes}` : '—',
-      denom: cardioMinutes > 0 ? ' min' : null,
-      sub: targetSub(targets?.cardio_minutes, ' min', cardioPct), pct: cardioPct,
-    },
-    {
-      key: 'steps', label: 'Steps', color: 'var(--color-steps)',
-      value: stepsToday ? num(stepsCount) : '—',
-      sub: targetSub(targets?.steps, '', stepsPct), pct: stepsPct,
-    },
-    {
-      key: 'weight', label: 'Weight', color: 'var(--color-weight)',
-      value: weightEntry ? `${weightEntry.weight}` : '—',
-      denom: weightEntry ? ` ${weightEntry.unit}` : null,
-      sub: weightSub, pct: null,
-    },
-  ]
-
-  // The heading must not say "Today" when the stepper has moved off today —
-  // it did, and the panel then printed a past day's numbers under a word that
-  // contradicted the date control directly above it.
-  const todayHeading = isToday
-    ? 'Today'
-    : parseLocalDateString(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-
   // ── The Trends panel ───────────────────────────────────────────────────
   //
   // Replaces three full-width 30-day bar charts and the weight line chart —
@@ -1011,7 +842,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const trendRange = rangeByKey(trendRangeKey)
   const TREND_DAYS = trendRange.days
   const TREND_SPAN = trendRange.span
-  const TREND_ADJ = trendRange.adj
 
   // The chart-colour toggle moved with its chart. It used to sit in each chart
   // panel's SectionHeader, and those panels are gone; dropping it would have
@@ -1055,14 +885,17 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     // drifting 0.4 of a minute rendered "−0 min vs previous 14 days", a signed
     // zero that reads as a rounding bug rather than as steadiness. The flat
     // band already decided this is not a trend, so the row says so in words.
-    if (t.direction === 'flat') return `Holding steady · ${TREND_ADJ} average`
+    if (t.direction === 'flat') return 'Steady'
     const sign = t.delta > 0 ? '+' : '−'
     const size = Math.abs(t.delta)
     // Thousands separator, or a step delta reads "−1358".
     const shown = digits > 0
       ? size.toFixed(digits)
       : Math.round(size).toLocaleString()
-    return `${sign}${shown}${unit} vs previous ${TREND_SPAN}`
+    // No "vs previous 30 days": the W/M/Y control above the rows already
+    // names the window, and the arrow already names the direction. Apple's
+    // Health trends say the change and nothing else.
+    return `${sign}${shown}${unit}`
   }
   // The smallest change in each metric a person could actually act on, in that
   // metric's own unit. A move must clear this AND the client's own day-to-day
@@ -1086,8 +919,11 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const trendSub = (t, unit, digits = 0) => {
     const delta = fmtDelta(t, unit, digits)
     if (delta) return delta
-    if (t.nCurrent === 0) return `Nothing logged in the last ${TREND_SPAN}`
-    return `Average of ${t.nCurrent} logged ${t.nCurrent === 1 ? 'day' : 'days'} · no comparison yet`
+    // One word, as Apple's Health rows do ("Average"): the window is the
+    // W/M/Y control's job, and how many days fed it is not a question anyone
+    // opening this card is asking.
+    if (t.nCurrent === 0) return 'No data'
+    return 'Average'
   }
 
   const trendMetrics = [
@@ -1118,7 +954,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       return {
         key: 'steps', label: 'Steps', color: 'var(--color-steps)', trend: t,
         display: t.current != null ? Math.round(t.current).toLocaleString() : '—',
-        sub: trendSub(t, ''),
+        sub: trendSub(t, ' steps'),
         chart: stepsHistory.length > 0 ? rangedChart(stepsHistory, 'steps', (rows) => gradedChart('stepsChart',
           <Bar data={metricBarData({ history: rows, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
         )) : null,
@@ -1319,17 +1155,16 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 	      )}
 
 	      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-	        {/* E1: the nav said "Dashboard" and the page said "My Progress", so a
+	        {/* E1: the nav said "Dashboard" and the page said "Progress", so a
 	            client had to check they were in the right place. One name now, on
 	            both sides and for both roles — "Dashboard" was a placeholder word
 	            for the solo view, the way "Coach Dashboard" was for the roster
 	            before it became "Clients". NavBar carries the matching label. */}
-	        {/* The Log's header, so the two pages pick a day the same way: the
-	            title, and ONE date control at the right (components/DayStepper). */}
-	        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)', flexWrap: 'wrap', rowGap: 'var(--space-8)' }}>
-	          <h1 style={{ whiteSpace: 'nowrap' }}>My Progress</h1>
-	          <DayStepper value={selectedDate} onChange={setSelectedDate} />
-	        </div>
+	        {/* No date control: this page is trends and history, read back from
+	            today. Picking a day, and that day against its targets, is the
+	            Today tab's (components/TodayPanel), and the panel that used to
+	            sit here repeated it one tab over. */}
+	        <h1>Progress</h1>
 
         {/* THE IDENTITY STRIP (roadmap 6.1).
             Three facts about one subject is a StatCell strip (C1), and these
@@ -1418,8 +1253,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           </div>
           <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-base)', lineHeight: 1.6, maxWidth: '54ch' }}>
             {profile?.role === 'client'
-              ? 'Your coach is all set up. Log your first meal to start your streak and share your progress. Your targets are already set for you.'
-              : 'Nothing logged yet. Log your first meal to start your charts and streak, then set your daily targets so we can track how you’re trending.'}
+              ? 'Your coach has set your targets. Log a meal to start your streak.'
+              : 'Log a meal to start your streak, then set your daily targets.'}
           </p>
           <div style={{ display: 'flex', gap: 'var(--space-10)', flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal <Icon name="right" /></Button>
@@ -1562,15 +1397,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         </div>
       )}
 
-      {/* Today — one cell per metric, each carrying its own target.
-          Was two panels: "Today's stats" (seven bare numerals) immediately
-          followed by "Today vs target" (the same six with denominators). */}
-      <div style={cardStyle}>
-        <SectionHeader title={todayHeading}>
-          <TodayPanel macros={macroCells} activity={activityCells} />
-        </SectionHeader>
-      </div>
-
       <Reorderable order={cardOrder} onReorder={saveCardOrder} enabled={profile?.role === 'solo' && hasSoloPremium}>
 
       {/* Trends — the question this page never answered: which way am I going?
@@ -1686,34 +1512,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
       </Reorderable>
 
-      {profile?.role === 'client' && (
-        <div style={cardStyle}>
-          <h2 style={sectionHeadingStyle}>Coaching</h2>
-          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>
-            Leave your current coaching plan and return to an individual account. Your data is preserved.
-          </p>
-          {!showSelfOffboardConfirm ? (
-            <Button onClick={() => setShowSelfOffboardConfirm(true)} variant="danger" size="sm">
-              Leave coaching plan
-            </Button>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-10)' }}>
-              <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
-                Are you sure? You'll return to a solo account.
-              </p>
-              {selfOffboardError && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)', margin: 0 }}>{selfOffboardError}</p>}
-              <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
-                <Button onClick={selfOffboard} variant="danger-solid" size="sm" loading={selfOffboarding}>
-                  Confirm
-                </Button>
-                <Button onClick={() => { setShowSelfOffboardConfirm(false); setSelfOffboardError('') }} variant="ghost" size="sm">
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* "Leave coaching plan" moved to Profile > Account, beside the coach
+          it ends the relationship with. A destructive account action at the
+          foot of a progress page was in nobody's path for the right reason
+          and in everyone's for the wrong one. */}
       </>
       )}
       <ConfirmDialog

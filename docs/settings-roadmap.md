@@ -676,6 +676,64 @@ Open:
    the same RLS as messages.
 3. **No alert for a new message** (see 10.4).
 
+### 10.10 Log — done (Oct 26 2026)
+Nutrition totals now carry today's targets ("2,262 of 1,850"), ungraded, so
+the Log does its one comparison (today vs today's goals) for food as it
+already did for steps. Each meal has its own "+ Add" (44pt target) opening the
+form with that meal chosen, so adding dinner no longer means scrolling past
+the day. "Mark day complete" moved after the entries; thousands separators;
+sentence-case buttons ("Log weight", "Log steps" too). "Mark day complete"
+is full width on a phone only; on a desktop it was a 1,200px bar.
+
+Checked: light and dark; iPhone at the largest accessibility text size; a
+client with calories hidden by the coach (three columns); an empty day; every
+form (weight, steps, workout, measurements, add food), copy day, select mode,
+quick add; desktop at 1280px in both themes. No console errors.
+
+### 10.11 My Progress — done (Oct 26 2026)
+- Today card labels are neutral; the metric hue stays on the bars (labels in
+  the metric colours failed WCAG on the light card).
+- "Leave coaching plan" moved from the foot of this page to Profile > Account,
+  under Coach, with a confirm naming the coach.
+- With calories hidden, the three macros are one row of three at every width
+  (Fat sat alone in a 2x2; desktop left an empty fourth column).
+- Trends say "logged days" from distinct days, and claim a trend only on 3+
+  days a side (weight has a row per weigh-in, so rows overcounted).
+- "30-day" uses a non-breaking hyphen so large text does not split it.
+- Trend rows rewritten to Apple Health's brevity after the user caught the
+  wording: one word ("Average", "Steady", "No data") or the change with its
+  unit ("+146 cal", "−647 steps"). The W/M/Y control names the window and the
+  arrow names the direction, so the row repeats neither; the explanation lives
+  in the info tip. The arrow only shows when there is a trend (Cardio drew a
+  down arrow beside "Average"). Welcome card cut from three sentences to one.
+
+Checked: light/dark, phone and desktop, largest iPhone text, client / solo /
+hidden-calories / empty account, a past date, an opened trend, W/M/Y, the
+leave-plan confirm. No console errors. Open: the red "To do" check-in badge
+is 8.3's pending colour decision.
+
+### 10.12 Copy re-audit of every reviewed page (Oct 26 2026)
+The earlier reviews (10.2–10.10) checked rendering, not wording against the
+reference apps. Every user-facing string over ~45 characters on Profile, Apple
+Health, Coach and Log was extracted and held against Apple Health/Fitness
+brevity; 14 rewritten (export, sign-out, delete, notification and Apple Health
+descriptions, Log's grouping errors, Coach empty state, an em dash in the
+Solo upgrade line). Log's Select button lost its native `title` tooltip (D5).
+
+### 10.13 Notifications (the bell) — done (Oct 26 2026)
+- Phone: a bottom sheet (ActionSheet's frame, 85dvh, dimmed backdrop, Done)
+  instead of a dropdown laid over the top bar with nothing dimmed and no close.
+  Desktop keeps the dropdown, the norm there.
+- Copy named and short: "Alex reviewed your check-in", "Alex sent a reminder /
+  Log your meals today", "Progress view reopened / Log within 48 hours to keep
+  it open", and the check-in alert says the client's real cadence
+  ("Biweekly check-in due"), not always "Weekly".
+- Group headings only when there are two groups; rows light on hover/press.
+
+Checked: coach and client (event list, lock state), light/dark, phone and
+desktop, largest iPhone text, Done, row navigation; no console errors. Open:
+push notifications and new-message alerts (10.4).
+
 ## 9. Navigation & identity (from the app, not the settings screens)
 
 Added after a second look. Three of the reference screenshots were not settings
@@ -757,3 +815,15 @@ Slot **9.1 roster search** and **9.2 pin a client** in wherever there is a gap �
 both are small, neither blocks anything, and they are the two items a coach
 would feel immediately. **9.3 client groups** after those two, once it is clear
 how much of the need they already absorbed.
+
+### 10.14 Today and Progress split (Oct 26 2026)
+
+The Today panel repeated the Log's totals one tab over. It moved to the top of
+the Log (now the **Today** tab): each part opens its records below it (macros
+open the meals, Cardio the workouts, Steps and Weight their editor). **Progress**
+(was My Progress) is trends and history only, with no day picker. Leftovers:
+- Tab order is still Progress, Today. The app opens on Progress (`/`); making
+  Today the first tab and the landing screen is a routing change, not yet asked.
+- With one workout, its row repeats the Cardio total in the panel; accepted,
+  since the row is the session record.
+

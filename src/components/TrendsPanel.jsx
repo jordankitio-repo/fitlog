@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Icon from './ui/Icon'
+import { hasTrend } from '../utils/progressTrends'
 
 // The question the page never answered: which way am I going?
 //
@@ -31,7 +32,9 @@ const DIRECTION_GLYPH = { up: 'up', down: 'down', flat: 'flat' }
 
 function TrendRow({ metric, open, onToggle, range }) {
   const { key, label, color, display, sub, trend, chart } = metric
-  const dir = trend?.direction
+  // The mark follows the same rule as the words beside it: no arrow unless
+  // there is a trend to point. Cardio drew a down arrow beside "Average".
+  const dir = hasTrend(trend) ? trend.direction : 'flat'
   const glyph = DIRECTION_GLYPH[dir]
 
   // A row with no chart is NOT a button.

@@ -16,10 +16,12 @@
 // grammatical slots: the comparison reads "vs previous 7 days" (a noun) while
 // the average reads "7-day average" (an adjective). Interpolating `span` into
 // both produced "7 days average".
+// `adj` uses a NON-BREAKING hyphen (U+2011): at large text sizes "30-day"
+// broke after its hyphen and left "30-" ending one line.
 export const RANGES = [
-  { key: 'W', label: 'W', days: 7, name: 'Last 7 days', span: '7 days', adj: '7-day' },
-  { key: 'M', label: 'M', days: 30, name: 'Last 30 days', span: '30 days', adj: '30-day' },
-  { key: 'Y', label: 'Y', days: 365, name: 'Last 12 months', span: '12 months', adj: '12-month' },
+  { key: 'W', label: 'W', days: 7, name: 'Last 7 days', span: '7 days', adj: '7\u2011day' },
+  { key: 'M', label: 'M', days: 30, name: 'Last 30 days', span: '30 days', adj: '30\u2011day' },
+  { key: 'Y', label: 'Y', days: 365, name: 'Last 12 months', span: '12 months', adj: '12\u2011month' },
 ]
 
 // The range governs the SENTENCE as well as the chart, which is why it sits

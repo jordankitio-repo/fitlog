@@ -170,7 +170,7 @@ export default function AppleHealthSettings({ userId, connection, onChange }) {
       </SettingRow>
       {native && (
         <ul style={notes}>
-          <li>Anything you edit or delete in Gardnr stays the way you left it.</li>
+          <li>Your edits in Gardnr are never overwritten.</li>
           <li>Missing data? {HEALTH_APPS_PATH}</li>
         </ul>
       )}
@@ -203,7 +203,7 @@ export default function AppleHealthSettings({ userId, connection, onChange }) {
         <SettingRow
           keepInline
           label="Stop syncing"
-          description="Your imported history stays unless you choose to delete it."
+          description="Imported data stays unless you delete it."
         >
           {stage === 'idle' && (
             <Button variant="danger" size="sm" onClick={() => { setStage('confirm'); setError('') }}>Disconnect</Button>
@@ -212,7 +212,7 @@ export default function AppleHealthSettings({ userId, connection, onChange }) {
         {stage === 'confirm' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
             <Checkbox checked={purge} onChange={setPurge}>
-              Also delete the data imported from Apple Health. Entries you typed or edited are kept.
+              Also delete imported data. Your own entries stay.
             </Checkbox>
             <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
               <Button variant="danger-solid" size="sm" onClick={disconnect} loading={busy === 'disconnect'}>

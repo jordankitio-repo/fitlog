@@ -140,6 +140,11 @@ export function windowTrend(history, valueKey, { days = 14, asOf = new Date(), m
     days,
     nCurrent: currentRows.length,
     nPrior: priorRows.length,
+    // Distinct DAYS, for the words "logged days". Weight has a row per
+    // weigh-in, so counting rows called three weigh-ins on two days "3
+    // logged days".
+    daysCurrent: new Set(currentRows.map((r) => r.iso)).size,
+    daysPrior: new Set(priorRows.map((r) => r.iso)).size,
   }
 }
 
@@ -149,5 +154,10 @@ export function windowTrend(history, valueKey, { days = 14, asOf = new Date(), m
 // reports the difference between two single readings as a trend. Three is the
 // floor at which a mean starts absorbing a single odd day.
 export function hasTrend(t) {
-  return Boolean(t) && t.nCurrent >= 3 && t.nPrior >= 3 && t.direction !== 'none'
+  // Three DAYS a side, not three rows: three weigh-ins on one morning are one
+  // day of evidence, not a trend. Falls back to rows for a caller without
+  // the day counts.
+  const cur = t?.daysCurrent ?? t?.nCurrent
+  const pri = t?.daysPrior ?? t?.nPrior
+  return Boolean(t) && cur >= 3 && pri >= 3 && t.direction !== 'none'
 }

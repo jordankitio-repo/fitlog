@@ -7,6 +7,7 @@
 // inline with text scales with that text.
 const PATHS = {
   check:    <polyline points="20 6 9 17 4 12" />,
+  plus:     <><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>,
   x:        <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>,
   pencil:   <><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></>,
   repeat:   <><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></>,
@@ -91,6 +92,7 @@ const PATHS = {
   weight:     <><circle cx="12" cy="5.5" r="2.75" /><path d="M6.8 8.25h10.4a1.6 1.6 0 0 1 1.55 1.2l2.3 9.2a1.6 1.6 0 0 1-1.55 2H4.5a1.6 1.6 0 0 1-1.55-2l2.3-9.2a1.6 1.6 0 0 1 1.55-1.2z" /></>,
   // Marks a saved meal — a group of entries logged together. Replaces a 🍽
   // emoji, which rendered in the OS font and was the app's last emoji-as-icon.
+  calendar: <><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>,
   utensils: <><path d="M7 2v8a2 2 0 0 0 2 2v10" /><path d="M4 2v5" /><path d="M10 2v5" /><path d="M18 2c-1.7 1.5-2.5 3.7-2.5 6 0 1.7.6 2.7 1.8 3.1V22" /></>,
 }
 
