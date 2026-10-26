@@ -658,6 +658,24 @@ logs; no "JSON"), no em dashes. Delete account is a plain row whose red
 arrives on confirm; the confirm step names the email the code goes to and
 offers the export first, instead of repeating "are you sure".
 
+### 10.9 Coach tab (client) — done (Oct 26 2026)
+**Fixed in the iPhone app:** the column was sized for a browser, so it ran
+taller than the screen. The whole page scrolled, the composer sat half under
+the tab bar (Send hidden), and the thread opened at its oldest item. Now sized
+from the same safe-area terms as the bars, the composer is pinned, and the
+thread opens on the newest message (scrollTop before paint, and again on tab
+return). Composer is one growing field with Send beside it; an unsent draft
+survives closing the app (per user, per device).
+
+Open:
+1. **Keyboard on a real iPhone.** The simulator here types with the Mac's
+   keyboard, so the on-screen keyboard was never shown. Confirm the composer
+   stays visible above it; if not, `@capacitor/keyboard` with resize mode.
+2. **Photos in messages.** Every coaching app (Trainerize, TrueCoach, Everfit)
+   lets a client send a meal or progress photo. Needs a storage bucket with
+   the same RLS as messages.
+3. **No alert for a new message** (see 10.4).
+
 ## 9. Navigation & identity (from the app, not the settings screens)
 
 Added after a second look. Three of the reference screenshots were not settings

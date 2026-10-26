@@ -592,6 +592,18 @@ html[data-text-grown] .ds-statcell > :first-child { white-space: normal; overflo
 /* Below the breakpoint the fixed bottom tab bar takes 80px of <main>'s
    padding (see body.has-bottom-nav), so the column has that much less to fill. */
 @media (max-width: 600px) { .coach-page { height: calc(100dvh - 160px); } }
+/* The iPhone app also gives up the notch and the home-indicator strip, which
+   the 160px above (measured in a browser) does not know about. Without this the
+   column came out taller than the screen, so the whole page scrolled instead of
+   the thread, the composer slid under the tab bar, and the thread opened at its
+   oldest message. Written from the same terms as the fixed top bar and the
+   bottom-nav clearance, so it cannot drift from them. */
+html.native-app .coach-page {
+  height: calc(100dvh
+    - (56px + env(safe-area-inset-top, 0px))
+    - (69px + max(0px, calc(env(safe-area-inset-bottom, 0px) - 10px)))
+    - var(--space-24));
+}
 .coach-msg {
   max-width: 78%; align-self: flex-start;
   background-color: var(--color-surface);
@@ -625,7 +637,18 @@ html[data-text-grown] .ds-statcell > :first-child { white-space: normal; overflo
   align-self: flex-end; margin: 0;
   font-size: var(--text-xs); color: var(--color-faint);
 }
-.coach-compose { display: flex; flex-direction: column; gap: var(--space-12); align-items: flex-start; }
+.coach-compose { display: flex; gap: var(--space-8); align-items: flex-end; }
+/* One field that grows with what is typed (up to ~5 lines, then it scrolls),
+   Send beside it: the shape of every messaging app. A fixed three-line box
+   with Send underneath took a fifth of a phone screen before anything was
+   typed. */
+.coach-compose textarea {
+  flex: 1 1 auto; min-width: 0;
+  resize: none;
+  field-sizing: content;
+  min-height: 44px; max-height: 140px;
+  overflow-y: auto;
+}
 
 /* The coach identity, and the way to the archive. The link sits on this row
    rather than on one of its own: horizontally it reads as "something about this
