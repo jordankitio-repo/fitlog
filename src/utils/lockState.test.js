@@ -180,3 +180,19 @@ describe('resolveLockState', () => {
     })
   })
 })
+
+describe('a paused client', () => {
+  function daysAhead(n) { return daysAgo(-n) }
+  it('is never locked during the pause, however long since they logged', () => {
+    const r = resolveLockState({ lastNutritionDate: daysAgo(6), connectionCreatedAt: daysAgo(60), lockClearedAt: null, pausedUntil: daysAhead(3) })
+    expect(r).toMatchObject({ locked: false, reason: 'paused' })
+  })
+  it('gets the coach-unlock grace when the pause ends, not an instant lock', () => {
+    const r = resolveLockState({ lastNutritionDate: daysAgo(5), connectionCreatedAt: daysAgo(60), lockClearedAt: null, pausedUntil: daysAgo(1) })
+    expect(r).toMatchObject({ locked: false, reason: 'coach-unlocked' })
+  })
+  it('a pause that ended long ago no longer protects them', () => {
+    const r = resolveLockState({ lastNutritionDate: daysAgo(8), connectionCreatedAt: daysAgo(60), lockClearedAt: null, pausedUntil: daysAgo(5) })
+    expect(r.locked).toBe(true)
+  })
+})

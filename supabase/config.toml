@@ -157,3 +157,11 @@ import_map = "./functions/device-sync/deno.json"
 # Off for local dev: the vector container mounts the Docker socket, which Colima
 # cannot do ("operation not supported"). Nothing local depends on it.
 enabled = false
+
+[functions.auto-nudge]
+enabled = true
+# Gateway verifies the JWT signature; the function then requires role=service_role
+# (called once a day by the pg_cron auto-nudge job, like weekly-digest).
+verify_jwt = true
+import_map = "./functions/auto-nudge/deno.json"
+entrypoint = "./functions/auto-nudge/index.ts"

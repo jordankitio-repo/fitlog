@@ -2,16 +2,21 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useTabReturn } from '../hooks/useTabReturn'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../components/Button'
 import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import Toast from '../components/Toast'
+import Modal from '../components/Modal'
+import ActionSheet from '../components/ActionSheet'
+import PushPanel from '../components/PushPanel'
+import CheckinQueue from './CheckinQueue'
+import { toLocalDateString } from '../utils/dateHelpers'
 import Skeleton from '../components/Skeleton'
 import InfoTip from '../components/InfoTip'
 import { computeClientStats } from '../utils/clientStats'
 import { getInviteBlockReason } from '../utils/inviteValidation'
-import { compareByAttention, summarizeRoster } from '../utils/attentionLevel'
+import { attentionLevel, summarizeRoster, TONE_RANK } from '../utils/attentionLevel'
 import { nudgeReason } from '../utils/nudgeReason'
 import { waitingFrom } from '../utils/reviewQueue'
 import { rosterStatus, LENS_HEADERS, LENS_GRADERS, lensToneRank } from '../utils/rosterStatus'
@@ -23,7 +28,7 @@ function complianceRatio(s) {
   return items.reduce((t, i) => t + i.value, 0) / (items.length * 7)
 }
 import { cardStyle } from '../utils/styles'
-import { Pill, Field, Icon, Panel, Row } from '../components/ui'
+import { Pill, Field, Icon, Panel, Row, Checkbox, Textarea } from '../components/ui'
 import { scrollBehavior } from '../utils/motion'
 import { formatAnswer } from '../utils/checkinQuestions'
 
@@ -39,55 +44,79 @@ const STATUS_TONES = {
   yellow: 'var(--color-warning)', // watch this client
   green: 'var(--color-success)',  // graded, and the grade is good
   setup: 'var(--color-muted)',    // NOT a grade — nothing to measure against
+  paused: 'var(--color-muted)',   // NOT a grade — the coach paused them
 }
+
+const PAUSE_REASONS = ['Holiday', 'Injury', 'Illness', 'Other']
+
 
 
 // Page-level triage headline — NOT a card. Rule 1: the page itself is never a
 // box, so this sits on the page ground with space separating it, not a border.
-function RosterBanner({ roster, checkedIn, total, onReviewClick }) {
-  const seg = (color, n, label) => (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-6)' }}>
-      <span className="tnum" style={{ fontWeight: 'var(--weight-semibold)', color, fontSize: 'var(--text-lg)' }}>{n}</span>
-      <span style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>{label}</span>
-    </span>
+// The roster's counts, as tiles (Apple Fitness's Summary): a label, the
+// number large beneath it. The three grades and Paused are also the roster's
+// filters, Everfit's "views with live counts": tap one to see only those
+// clients, tap it again for everyone. "Needs attention", not "needs review":
+// "review" belongs to the check-ins button, and two numbers both said it.
+function RosterBanner({ roster, checkedIn, total, filter, onFilter }) {
+  const tile = (level, color, n, label) => (
+    <button
+      key={level}
+      type="button"
+      className={`rost-tile rost-tile-${level} ds-control`}
+      aria-pressed={filter === level}
+      disabled={n === 0 && filter !== level}
+      onClick={() => onFilter(filter === level ? null : level)}
+    >
+      <span className="rost-tile-label">{label}</span>
+      <span className="rost-tile-n tnum" style={{ color }}>{n}</span>
+    </button>
   )
+  const showPaused = roster.paused > 0 || filter === 'paused'
   return (
-    <div className="rost-banner" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-16)' }}>
-      {seg(attentionColors.red, roster.atRisk, 'at risk')}
-      {seg(attentionColors.yellow, roster.review, 'needs review')}
-      {seg(attentionColors.green, roster.onTrack, 'on track')}
-      {/* A ratio, not a count — but still a peer of the three segments beside
-          it, so it goes through seg() rather than being hand-built. The
-          denominator is context: same size, muted colour. Colour separates it
-          from the numerator, not size (A5: size and colour before weight). */}
-      {seg('var(--color-text)', <>{checkedIn}<span style={{ color: 'var(--color-muted)' }}>/{total}</span></>, 'checked in')}
-      <span className="rost-banner-cta" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-10)', flexWrap: 'wrap' }}>
-        {/* Just a Button. It is a COMMIT action — it opens work that ends in a
-            message to a real person — so it takes the filled brand green, the
-            same green as the active View pill below it. Nudge stays `action`
-            (neutral until hover) because it fires on a single row and appears
-            on several at once; a column of green would be noise. Only the pill
-            radius differs here, because it sits on the page not in a row. */}
-        {roster.checkInsToReview > 0 && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onReviewClick}
-            disabled={!onReviewClick}
-            style={{ borderRadius: '999px' }}
-          >
-            {roster.checkInsToReview} check-in{roster.checkInsToReview === 1 ? '' : 's'} to review
-            <Icon name="right" />
-          </Button>
-        )}
-      </span>
+    <div className={`rost-banner${showPaused ? ' has-paused' : ''}`}>
+      {tile('red', attentionColors.red, roster.atRisk, 'At risk')}
+      {tile('yellow', attentionColors.yellow, roster.review, 'Needs attention')}
+      {tile('green', attentionColors.green, roster.onTrack, 'On track')}
+      {showPaused && tile('paused', 'var(--color-text)', roster.paused, 'Paused')}
+      {/* A ratio, not a filter: a tile you cannot press, so it has no
+          pressed state and is not a button. */}
+      <div className="rost-tile rost-tile-static">
+        <span className="rost-tile-label">Checked in this week</span>
+        <span className="rost-tile-n tnum">{checkedIn}<span style={{ color: 'var(--color-muted)' }}>/{total}</span></span>
+      </div>
     </div>
+  )
+}
+
+// The one commit on the page: it opens work that ends in a message to a real
+// person, so it takes the filled brand green. Beside Invite on a desktop;
+// full width under the tiles on a phone.
+function ReviewButton({ count, onClick }) {
+  if (!count) return null
+  return (
+    <Button variant="primary" size="sm" onClick={onClick} disabled={!onClick} className="rost-review">
+      {count} check-in{count === 1 ? '' : 's'} to review
+      <Icon name="right" />
+    </Button>
   )
 }
 
 // One cell of a stat strip: mono label over a tabular value, hairline divider
 // between cells. The shape for "several facts about one subject" — a pill holds
 // exactly one fact.
+// The phone row's check-in line: only the ratings the client gave (a blank
+// one printed "null/10"). "Adh" so it fits one line; the desktop header and
+// the help spell it out.
+function checkinLine(s) {
+  const c = s?.checkIn
+  if (!c || (c.adherence_rating == null && c.energy_level == null)) return ''
+  return [
+    c.adherence_rating != null && `Adh ${c.adherence_rating}/10`,
+    c.energy_level != null && `Energy ${c.energy_level}/10`,
+  ].filter(Boolean).join(' · ')
+}
+
 function StatCell({ k, v }) {
   return (
     <span className="ds-statcell">
@@ -119,6 +148,27 @@ function CoachDashboard({ profile }) {
   // asc/desc, because "ascending" means nothing for a column that can read
   // "Never logged" or "No targets set".
   const [sortDir, setSortDir] = useState('worst')
+  // Narrowing the list: a banner count (attention level) and a name search.
+  const [levelFilter, setLevelFilter] = useState(null)
+  const [query, setQuery] = useState('')
+  // Invites sent and not yet accepted: who to chase, and the link to resend.
+  const [pendingInvites, setPendingInvites] = useState([])
+  const [resentIds, setResentIds] = useState(() => new Set())
+  // Groups: the coach's labels, and who is in each.
+  const [groups, setGroups] = useState([])
+  const [members, setMembers] = useState([]) // [{ group_id, client_id }]
+  const [groupFilter, setGroupFilter] = useState('')
+  // The row's ⋯ menu and the sheets it opens.
+  const [menuFor, setMenuFor] = useState(null)
+  const [pauseFor, setPauseFor] = useState(null)
+  const [pauseUntil, setPauseUntil] = useState('')
+  const [pauseReason, setPauseReason] = useState('Holiday')
+  const [groupsFor, setGroupsFor] = useState(null)
+  const [newGroup, setNewGroup] = useState('')
+  const [broadcastOpen, setBroadcastOpen] = useState(false)
+  const [broadcastText, setBroadcastText] = useState('')
+  const [broadcasting, setBroadcasting] = useState(false)
+  const lastBroadcastAt = useRef(0)
   const [linkCopied, setLinkCopied] = useState(false)
   const navigate = useNavigate()
   // The roster is a TABLE on a desktop and a LIST on a phone. Collapsing the
@@ -126,20 +176,138 @@ function CoachDashboard({ profile }) {
   // no longer existed, an email truncated mid-domain, and a bare dash holding
   // a line. Below this width the row is rebuilt, not re-flowed.
   const compact = useMediaQuery('(max-width: 900px)')
+  // On a phone the check-in queue is PUSHED over the roster, sliding in from
+  // the right like every other page a chevron opens (components/PushPanel).
+  // Its state is in the roster's own URL, so the back gesture closes it and
+  // the roster underneath never unmounts.
+  const [searchParams] = useSearchParams()
+  const queueOpen = compact && searchParams.get('panel') === 'checkins'
+  const queueItem = searchParams.get('ci') || null
+  const openQueue = () => (compact ? navigate('/?panel=checkins') : navigate('/check-ins'))
 
   useEffect(() => {
     fetchClients()
+    fetchPendingInvites()
+    fetchGroups()
   }, [])
   // Back on this tab (kept alive): refresh the roster in place, without the
   // loading state, so the list the coach left stays put while it updates.
-  useTabReturn(() => { fetchClients({ silent: true }) })
+  useTabReturn(() => { fetchClients({ silent: true }); fetchPendingInvites() })
+
+  async function fetchGroups() {
+    const [{ data: g, error: ge }, { data: m, error: me }] = await Promise.all([
+      supabase.from('coach_groups').select('id, name').eq('coach_id', profile.id).order('name'),
+      supabase.from('coach_group_members').select('group_id, client_id'),
+    ])
+    if (ge || me) { console.error(ge || me); return }
+    setGroups(g || [])
+    setMembers(m || [])
+  }
+
+  async function savePause() {
+    const c = pauseFor
+    const { error } = await supabase.from('coach_clients')
+      .update({ paused_until: pauseUntil, pause_reason: pauseReason, paused_at: new Date().toISOString() })
+      .eq('id', c.id)
+    if (error) { showToast("Couldn't pause. Try again.", 'error'); return }
+    setPauseFor(null)
+    showToast(`${c.client?.full_name || 'Client'} paused until ${new Date(pauseUntil + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`, 'success')
+    fetchClients({ silent: true })
+  }
+
+  async function resumeClient(c) {
+    const { error } = await supabase.from('coach_clients')
+      .update({ paused_until: null, pause_reason: null, paused_at: null }).eq('id', c.id)
+    if (error) { showToast("Couldn't resume. Try again.", 'error'); return }
+    showToast(`${c.client?.full_name || 'Client'} is back on the roster.`, 'success')
+    fetchClients({ silent: true })
+  }
+
+  async function toggleMember(groupId, clientId, on) {
+    const q = on
+      ? supabase.from('coach_group_members').insert({ group_id: groupId, client_id: clientId })
+      : supabase.from('coach_group_members').delete().eq('group_id', groupId).eq('client_id', clientId)
+    const { error } = await q
+    if (error) { showToast("Couldn't update the group. Try again.", 'error'); return }
+    setMembers(prev => on ? [...prev, { group_id: groupId, client_id: clientId }] : prev.filter(m => !(m.group_id === groupId && m.client_id === clientId)))
+  }
+
+  async function createGroup(clientId) {
+    const name = newGroup.trim()
+    if (!name) return
+    if (groups.some(g => g.name.toLowerCase() === name.toLowerCase())) { showToast('You already have a group with that name.', 'error'); return }
+    const { data, error } = await supabase.from('coach_groups').insert({ coach_id: profile.id, name }).select('id, name').single()
+    if (error) { showToast("Couldn't create the group. Try again.", 'error'); return }
+    setGroups(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setNewGroup('')
+    if (clientId) toggleMember(data.id, clientId, true)
+  }
+
+  async function deleteGroup(g) {
+    const { error } = await supabase.from('coach_groups').delete().eq('id', g.id)
+    if (error) { showToast("Couldn't delete the group. Try again.", 'error'); return }
+    setGroups(prev => prev.filter(x => x.id !== g.id))
+    setMembers(prev => prev.filter(m => m.group_id !== g.id))
+    if (groupFilter === g.id) setGroupFilter('')
+  }
+
+  // One message to each client in the group, each a normal message in their
+  // own thread ("{first name}" filled in per client). Everfit's broadcast,
+  // with its two-minute gap between sends.
+  async function sendBroadcast(recipients) {
+    const text = broadcastText.trim()
+    if (!text || !recipients.length) return
+    if (Date.now() - lastBroadcastAt.current < 2 * 60 * 1000) { showToast('Wait two minutes between group messages.', 'error'); return }
+    setBroadcasting(true)
+    const rows = recipients.map(c => ({
+      coach_id: profile.id, client_id: c.client_id, sender_id: profile.id,
+      content: text.replace(/\{first name\}/gi, (c.client?.full_name || '').split(' ')[0] || 'there'),
+    }))
+    const { error } = await supabase.from('messages').insert(rows)
+    setBroadcasting(false)
+    if (error) { showToast("Couldn't send. Nothing was sent. Try again.", 'error'); return }
+    lastBroadcastAt.current = Date.now()
+    setBroadcastOpen(false); setBroadcastText('')
+    showToast(`Sent to ${recipients.length} client${recipients.length === 1 ? '' : 's'}.`, 'success')
+  }
+
+  async function fetchPendingInvites() {
+    const { data, error } = await supabase
+      .from('invitations').select('id, client_email, token, created_at')
+      .eq('coach_id', profile.id).eq('status', 'pending')
+      .order('created_at', { ascending: false })
+    if (error) { console.error(error); return }
+    setPendingInvites(data || [])
+  }
+
+  async function resendInvite(inv) {
+    const { data: res, error } = await supabase.functions.invoke('notify-invite', { body: { invitationId: inv.id } })
+    if (error || !res?.success) { showToast("Couldn't resend. Copy the link instead.", 'error'); return }
+    setResentIds(prev => new Set(prev).add(inv.id))
+    showToast(`Invite resent to ${inv.client_email}`, 'success')
+  }
+
+  async function cancelInvite(inv) {
+    const { error } = await supabase.from('invitations').delete().eq('id', inv.id)
+    if (error) { showToast("Couldn't cancel the invite. Try again.", 'error'); return }
+    setPendingInvites(prev => prev.filter(i => i.id !== inv.id))
+  }
+
+  async function copyInviteLink(inv) {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/join?token=${inv.token}`)
+      showToast('Invite link copied', 'success')
+    } catch {
+      showToast("Couldn't copy the link.", 'error')
+    }
+  }
 
   async function fetchClients({ silent = false } = {}) {
     if (!silent) setLoading(true)
 
     const { data: relationships, error } = await supabase
       .from('coach_clients')
-      .select('id, coach_id, client_id, status, created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks')
+      .select('id, coach_id, client_id, status, created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks, paused_until, pause_reason')
       .eq('coach_id', profile.id)
       .eq('status', 'active')
 
@@ -290,6 +458,7 @@ function CoachDashboard({ profile }) {
       }
       else {
         setInviteLink(`${window.location.origin}/join?token=${data.token}`)
+        fetchPendingInvites()
         setInviteError('')
         setInviteEmail('')
         setSoloAccountDetected(false)
@@ -332,7 +501,12 @@ function CoachDashboard({ profile }) {
   // One direction multiplier over every lens, so a new lens can never forget to
   // honour it.
   const dirMul = sortDir === 'best' ? -1 : 1
-  const sortedClients = [...clients].sort((a, b) => dirMul * compareForLens(a, b))
+  const q = query.trim().toLowerCase()
+  const sortedClients = [...clients]
+    .filter(c => !levelFilter || attentionLevel(clientStats[c.client_id]).level === levelFilter)
+    .filter(c => !groupFilter || members.some(m => m.group_id === groupFilter && m.client_id === c.client_id))
+    .filter(c => !q || (c.client?.full_name || '').toLowerCase().includes(q) || (c.client?.email || '').toLowerCase().includes(q))
+    .sort((a, b) => dirMul * compareForLens(a, b))
 
   // Every lens sorts by the SAME grade the column shows, worst first. The old
   // per-lens comparators had drifted: compliance sorted by descending score and
@@ -343,9 +517,18 @@ function CoachDashboard({ profile }) {
     const sb = clientStats[b.client_id]
 
     if (sortBy === 'attention') {
-      const diff = compareByAttention(sa, sb)
-      if (diff !== 0) return diff
-      return (sb?.daysSinceLog ?? -1) - (sa?.daysSinceLog ?? -1)
+      // Grade first (red, grey, amber, green, paused). Within a grade, the
+      // longest silence first: a client who stopped logging needs the coach
+      // before one who logs daily and misses targets. "Never logged" counts
+      // from the day they joined, so a client silent since joining three
+      // weeks ago ranks above one quiet for six days, not below everyone.
+      const ta = attentionLevel(sa), tb = attentionLevel(sb)
+      const byTone = TONE_RANK[ta.tone] - TONE_RANK[tb.tone]
+      if (byTone !== 0) return byTone
+      const quiet = (s, c) => s?.daysSinceLog ?? Math.floor((Date.now() - new Date(c.created_at)) / 86400000)
+      const byQuiet = quiet(sb, b) - quiet(sa, a)
+      if (byQuiet !== 0) return byQuiet
+      return tb.reasons.length - ta.reasons.length
     }
 
     const grade = LENS_GRADERS[sortBy]
@@ -360,8 +543,11 @@ function CoachDashboard({ profile }) {
   }
 
   return (
-    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
-      <div>
+    <div className="page-fade-in roster-page" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
+      {/* Title and the one way to grow the roster, where every coaching app
+          puts it. "Welcome, <name>" is gone: the coach knows who they are, and
+          it pushed the triage line down on the screen that exists for it. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)' }}>
         {/* The roster's "how to read a row" help hangs off the page TITLE.
             It used to be a bare mark floating at the end of the lens bar,
             which is the shape F12 argues against — and this one had nothing to
@@ -377,16 +563,23 @@ function CoachDashboard({ profile }) {
             spaces, so every column landed one space after its label. The
             examples are inline prose now, which is what it was displaying
             anyway, at half the height. */}
-        <h1><InfoTip text={`How to read a row
+        <h1><InfoTip text={`How to read the list
 
-ATTENTION is the single most pressing thing about that client, whichever kind it is: "5 days no log", "No check-in", "Calories 2/7 days", "No targets set", or "Logged today" when nothing needs you.
+STATUS is the one thing about each client that most needs you: "5 days no log", "No check-in", "Calories 2/7 days". Read down it for who to start with.
 
-Read DOWN that column for who needs you, not across to compare clients.
+Colour is the grade: red now, amber soon, green on track. Grey has nothing to grade: no targets set, or paused.
 
-COLOUR IS A GRADE: red intervene now, amber watch, green on track. Grey means no targets set, so nothing to grade.
+Tap a tile to see only those clients.
 
-CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients</InfoTip></h1>
-        <p style={{ marginTop: 'var(--space-4)', color: 'var(--color-muted)' }}>Welcome, {profile.full_name}</p>
+CHECK-IN is their latest adherence and energy, out of 10.`}>Clients</InfoTip></h1>
+        {clients.length > 0 && (
+          <span style={{ display: 'inline-flex', gap: 'var(--space-8)', alignItems: 'center' }}>
+            {!compact && !loading && (
+              <ReviewButton count={summarizeRoster(clientStats).checkInsToReview} onClick={reviewClientIds.length ? openQueue : undefined} />
+            )}
+            <Button variant="muted" size="sm" onClick={focusInvite}><Icon name="plus" /> Invite</Button>
+          </span>
+        )}
       </div>
 
       {/* Roster triage headline */}
@@ -399,8 +592,12 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
              the coach treated clients as interchangeable — they are not, and a
              coach who knows which one is drifting wants to start there. The
              chain is still available, inside the pop-up. */
-          onReviewClick={reviewClientIds.length ? () => navigate('/check-ins') : undefined}
+          filter={levelFilter}
+          onFilter={setLevelFilter}
         />
+      )}
+      {compact && clients.length > 0 && !loading && (
+        <ReviewButton count={summarizeRoster(clientStats).checkInsToReview} onClick={reviewClientIds.length ? openQueue : undefined} />
       )}
 
       {/* Client list */}
@@ -429,9 +626,13 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
             )}
-            title="Add your first client"
-            description="Invite by email. They join, and their logging appears here."
-            action={<Button variant="primary" onClick={focusInvite}>Invite your first client <Icon name="right" /></Button>}
+            /* No button: the invite form is directly below, and a button that
+               only scrolled to it was a second control for one job. Once an
+               invite is out, the empty list is a wait, not a to-do. */
+            title={pendingInvites.length ? 'Waiting for your clients to join' : 'Add your first client'}
+            description={pendingInvites.length
+              ? 'They appear here once they accept their invite.'
+              : 'Invite by email below. Their logging appears here once they join.'}
           />
         ) : (
           <>
@@ -477,7 +678,49 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                     <Icon name={sortDir === 'worst' ? 'down' : 'up'} size={13} strokeWidth={2.5} />
                   </button>
                 )}
+                {/* Find one client by name or email. Scrolling stops working as
+                    the way to find someone somewhere past a screenful. */}
+                {clients.length > 1 && (
+                  <label className="rost-search">
+                    <Icon name="search" size={15} />
+                    <input
+                      type="search"
+                      placeholder="Search clients"
+                      aria-label="Search clients"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                    />
+                  </label>
+                )}
+                {groups.length > 0 && (
+                  <select
+                    className="rost-groupsel"
+                    aria-label="Group"
+                    value={groupFilter}
+                    onChange={(e) => setGroupFilter(e.target.value)}
+                  >
+                    <option value="">All groups</option>
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({members.filter(m => m.group_id === g.id).length})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {groupFilter && sortedClients.length > 0 && (
+                  <Button variant="muted" size="sm" onClick={() => setBroadcastOpen(true)}>
+                    <Icon name="message" /> Message group
+                  </Button>
+                )}
               </div>
+            {sortedClients.length === 0 ? (
+              <div style={{ ...cardStyle, textAlign: 'center', padding: 'var(--space-24)' }}>
+                <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-base)' }}>
+                  {q ? `No clients match "${query.trim()}"` : 'No clients here'}
+                </p>
+                <Button variant="ghost" size="sm" style={{ marginTop: 'var(--space-8)' }} onClick={() => { setQuery(''); setLevelFilter(null) }}>Show all clients</Button>
+              </div>
+            ) : (
             <Panel flush density="compact">
               {/* Column header. One row, not per-row noise — and it earns its
                   place by anchoring the tracker in TIME. Seven cells with no
@@ -485,7 +728,7 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                   who just started or one who stopped four days ago, and a coach
                   cannot tell which end is today. */}
               {!compact && (
-              <Row className="roster-row roster-head" cols="minmax(0, 1fr) 200px 104px 152px">
+              <Row className="roster-row roster-head" cols="minmax(160px, 280px) minmax(160px, 1fr) 176px 212px">
                 <span className="ds-colhead">Client</span>
                 <button
                   type="button"
@@ -503,7 +746,7 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
               {sortedClients.map((c) => {
                 const s = clientStats[c.client_id]
                 const status = rosterStatus(sortBy, s)
-                const nudge = nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkInCurrent, checkinDue: s?.checkinDue })
+                const nudge = s?.pausedUntil ? null : nudgeReason({ daysSinceLog: s?.daysSinceLog, hasCheckIn: !!s?.checkInCurrent, checkinDue: s?.checkinDue })
                 return (
                   compact ? (
                   <Row key={c.id} className="roster-row rost-m" cols="minmax(0, 1fr) auto">
@@ -523,7 +766,7 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                         <span
                           className="rost-m-state"
                           style={{
-                            fontWeight: status.tone === 'green' || status.tone === 'setup' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
+                            fontWeight: ['green', 'setup', 'paused'].includes(status.tone) ? 'var(--weight-normal)' : 'var(--weight-semibold)',
                             color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
                           }}
                         >
@@ -535,14 +778,7 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                         {/* Only the ratings the client actually gave: a check-in
                             can arrive with either one blank, and printing the raw
                             value wrote "null/10". */}
-                        {s?.checkIn && (s.checkIn.adherence_rating != null || s.checkIn.energy_level != null) && (
-                          <span className="rost-m-meta tnum">
-                            {[
-                              s.checkIn.adherence_rating != null && `Adh ${s.checkIn.adherence_rating}/10`,
-                              s.checkIn.energy_level != null && `Nrg ${s.checkIn.energy_level}/10`,
-                            ].filter(Boolean).join(' · ')}
-                          </span>
-                        )}
+                        {checkinLine(s) && <span className="sr-only">{checkinLine(s)}</span>}
                         {/* Only when the status is not already saying it. The
                             triage line surfaces "Locked" as its own reason, so
                             a locked client read Locked twice, once in red and
@@ -560,6 +796,9 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                         cue it needs is behaviour rather than a mark that lies
                         about where to aim. */}
                     <span className="rost-m-tail">
+                      <button type="button" className="rost-m-more ds-control" onClick={() => setMenuFor(c)} aria-label={`More for ${c.client?.full_name || 'client'}`}>
+                        <Icon name="more" />
+                      </button>
                       {nudge && (
                         <Button
                           onClick={() => nudgeClient(c, nudge)}
@@ -571,19 +810,47 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                         </Button>
                       )}
                     </span>
+                    {/* The ratings get the row's full width on a line of their
+                        own, under Nudge too, so they never wrap or cut off
+                        beside it. A second link to the same place, hidden from
+                        screen readers (the main link carries the text). */}
+                    {checkinLine(s) && (
+                      <Link
+                        to={`/client/${c.client_id}${status.fix ? `?focus=${status.fix}` : ''}`}
+                        className="rost-m-metarow tnum"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      >
+                        {checkinLine(s)}
+                      </Link>
+                    )}
                   </Row>
                   ) : (
-                  <Row key={c.id} className="roster-row" cols="minmax(0, 1fr) 200px 104px 152px">
+                  <Row
+                    key={c.id}
+                    className="roster-row roster-row-link"
+                    cols="minmax(160px, 280px) minmax(160px, 1fr) 176px 212px"
+                    /* The whole row opens the client, as a list row does in
+                       every roster on the market; it was one small "Open"
+                       button at the far edge. The name is the real link, for
+                       the keyboard and screen readers; the buttons inside the
+                       row stop the click from also opening the record. */
+                    onClick={(e) => { if (!e.target.closest('button, a')) navigate(`/client/${c.client_id}`) }}
+                  >
                     {/* who */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)', minWidth: 0 }}>
                       <Avatar url={c.client?.avatar_url} name={c.client?.full_name || ''} size={30} />
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {/* Name only. The email under every name was half of each
+                            row's text on a screen read for who needs you; it
+                            stays on the client record and in search. */}
+                        <Link
+                          to={`/client/${c.client_id}`}
+                          className="roster-name"
+                          style={{ display: 'block', fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text)', textDecoration: 'none' }}
+                        >
                           {c.client?.full_name || 'Unnamed'}
-                        </p>
-                        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.client?.email}
-                        </p>
+                        </Link>
                       </div>
                     </div>
 
@@ -608,7 +875,7 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                       ) : (
                         <span style={{
                           fontSize: 'var(--text-sm)',
-                          fontWeight: status.tone === 'green' || status.tone === 'setup' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
+                          fontWeight: ['green', 'setup', 'paused'].includes(status.tone) ? 'var(--weight-normal)' : 'var(--weight-semibold)',
                           color: STATUS_TONES[status.tone] ?? 'var(--color-muted)',
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}>
@@ -626,8 +893,10 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                         <>
                           {/* A column holds its place, so a blank rating reads as
                               a dash (formatAnswer), never "null/10". */}
-                          <StatCell k="Adh" v={formatAnswer({ type: 'rating', value: s.checkIn.adherence_rating })} />
-                          <StatCell k="Nrg" v={formatAnswer({ type: 'rating', value: s.checkIn.energy_level })} />
+                          {/* Words, not "ADH" and "NRG": an abbreviation the
+                              coach has to decode on every row. */}
+                          <StatCell k="Adherence" v={formatAnswer({ type: 'rating', value: s.checkIn.adherence_rating })} />
+                          <StatCell k="Energy" v={formatAnswer({ type: 'rating', value: s.checkIn.energy_level })} />
                         </>
                       ) : (
                         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-faint)' }}>—</span>
@@ -652,18 +921,109 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
                           Nudge
                         </Button>
                       )}
-                      <Button onClick={() => navigate(`/client/${c.client_id}`)} variant="muted" size="sm">
-                        Open <Icon name="right" />
+                      {/* Messaging, the task coaches do most after reading this
+                          list, one click from the row (TrueCoach's chat icon). */}
+                      <Button onClick={() => navigate(`/client/${c.client_id}?focus=chat`)} variant="muted" size="sm" ariaLabel={`Message ${c.client?.full_name || 'client'}`}>
+                        <Icon name="message" size={17} />
                       </Button>
+                      <Button onClick={() => setMenuFor(c)} variant="muted" size="sm" ariaLabel={`More for ${c.client?.full_name || 'client'}`}>
+                        <Icon name="more" />
+                      </Button>
+                      <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--color-faint)' }}><Icon name="right" /></span>
                     </div>
                   </Row>
                   )
                 )
               })}
             </Panel>
+            )}
           </>
         )}
       </div>
+
+      <PushPanel
+        id="push-checkins"
+        open={queueOpen}
+        title="Check-ins to review"
+        backLabel="Clients"
+        onBack={() => { navigate('/', { replace: true }); fetchClients({ silent: true }) }}
+        under=".roster-page"
+      >
+        <CheckinQueue
+          profile={profile}
+          embedded
+          openId={queueItem}
+          onOpen={(id, opts) => navigate(`/?panel=checkins&ci=${id}`, opts)}
+          onCloseItem={() => navigate('/?panel=checkins', { replace: true })}
+        />
+      </PushPanel>
+
+      <ActionSheet
+        open={Boolean(menuFor)}
+        title={menuFor?.client?.full_name}
+        onClose={() => setMenuFor(null)}
+        actions={menuFor ? [
+          clientStats[menuFor.client_id]?.pausedUntil
+            ? { label: 'Resume coaching', icon: 'repeat', onSelect: () => resumeClient(menuFor) }
+            : { label: 'Pause coaching', icon: 'calendar', onSelect: () => {
+                const d = new Date(); d.setDate(d.getDate() + 7)
+                setPauseUntil(toLocalDateString(d)); setPauseReason('Holiday'); setPauseFor(menuFor)
+              } },
+          { label: 'Groups', icon: 'grip', onSelect: () => { setNewGroup(''); setGroupsFor(menuFor) } },
+        ] : []}
+      />
+
+      <Modal open={Boolean(pauseFor)} title={`Pause ${pauseFor?.client?.full_name?.split(' ')[0] || 'client'}`} onClose={() => setPauseFor(null)} maxWidth={420} sheet>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+          <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>
+            No grades, nudges or check-in reminders until then, and their progress view stays open. Coaching resumes by itself.
+          </p>
+          <Field label="Until" type="date" value={pauseUntil} min={toLocalDateString(new Date())} onChange={(e) => setPauseUntil(e.target.value)} />
+          <div>
+            <p style={{ margin: '0 0 var(--space-6)', fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Reason</p>
+            <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
+              {PAUSE_REASONS.map(r => <Pill key={r} active={pauseReason === r} aria-pressed={pauseReason === r} onClick={() => setPauseReason(r)}>{r}</Pill>)}
+            </div>
+          </div>
+          <Button variant="primary" onClick={savePause} disabled={!pauseUntil}>Pause coaching</Button>
+        </div>
+      </Modal>
+
+      <Modal open={Boolean(groupsFor)} title="Groups" onClose={() => setGroupsFor(null)} maxWidth={420} sheet>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+          {groups.length === 0 && (
+            <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>Label clients to filter the list and message them together, like "Online" or "In person".</p>
+          )}
+          {groups.map(g => {
+            const on = groupsFor && members.some(m => m.group_id === g.id && m.client_id === groupsFor.client_id)
+            return (
+              <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+                <div style={{ flex: 1 }}><Checkbox checked={Boolean(on)} onChange={(v) => toggleMember(g.id, groupsFor.client_id, v)}>{g.name}</Checkbox></div>
+                <Button variant="ghost" size="sm" ariaLabel={`Delete group ${g.name}`} onClick={() => deleteGroup(g)}><Icon name="trash" /></Button>
+              </div>
+            )
+          })}
+          <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
+            <Field placeholder="New group" aria-label="New group" value={newGroup} maxLength={40}
+              onChange={(e) => setNewGroup(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') createGroup(groupsFor?.client_id) }}
+              style={{ flex: 1, width: 'auto' }} />
+            <Button variant="muted" size="md" onClick={() => createGroup(groupsFor?.client_id)} disabled={!newGroup.trim()}>Add</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={broadcastOpen} title={`Message ${groups.find(g => g.id === groupFilter)?.name || 'group'}`} onClose={() => setBroadcastOpen(false)} maxWidth={480} sheet>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+          <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>
+            Each of the {sortedClients.length} gets it in their own conversation. "{'{first name}'}" becomes each client's first name.
+          </p>
+          <Textarea rows={5} value={broadcastText} maxLength={2000} onChange={(e) => setBroadcastText(e.target.value)} placeholder="Hi {first name}, ..." aria-label="Message" />
+          <Button variant="primary" onClick={() => sendBroadcast(sortedClients)} loading={broadcasting} disabled={!broadcastText.trim()}>
+            Send to {sortedClients.length}
+          </Button>
+        </div>
+      </Modal>
 
       {/* Invite section */}
       <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
@@ -689,6 +1049,29 @@ CHECK-IN is their latest self-ratings, adherence and energy out of 10.`}>Clients
           />
           <Button onClick={checkAndInvite} variant="primary" size="md" loading={inviting} disabled={inviting}>Send invite</Button>
         </div>
+        {/* Sent and not yet accepted. There was no trace of an invite once the
+            field cleared: a coach could not see who had not joined, chase them,
+            or take an invite back (Everfit's "Waiting activation"). */}
+        {pendingInvites.length > 0 && (
+          <div>
+            <p className="ds-colhead" style={{ margin: 'var(--space-8) 0 var(--space-4)' }}>Not joined yet</p>
+            {pendingInvites.map((inv, i) => (
+              <div key={inv.id} className="rost-invite" style={{ borderTop: i ? '1px solid var(--color-border)' : 'none' }}>
+                <div className="rost-invite-who">
+                  <p style={{ margin: 0, fontSize: 'var(--text-base)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.client_email}</p>
+                  <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+                    Invited {new Date(inv.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </p>
+                </div>
+                <div className="rost-invite-actions">
+                  <Button variant="ghost" size="sm" onClick={() => copyInviteLink(inv)}>Copy link</Button>
+                  <Button variant="muted" size="sm" disabled={resentIds.has(inv.id)} onClick={() => resendInvite(inv)}>{resentIds.has(inv.id) ? 'Sent' : 'Resend'}</Button>
+                  <Button variant="ghost" size="sm" onClick={() => cancelInvite(inv)}>Cancel</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {soloAccountDetected && (
           <div style={{
             padding: 'var(--space-16)',

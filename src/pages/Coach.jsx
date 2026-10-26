@@ -104,6 +104,7 @@ export default function Coach({ profile, archiveOpen = false }) {
   const wide = useMediaQuery('(min-width: 1024px)')
   const phone = useMediaQuery('(max-width: 600px)')
   const [coach, setCoach] = useState(null)
+  const [pausedUntil, setPausedUntil] = useState(null)
   const [items, setItems] = useState([])
   const [reportCount, setReportCount] = useState(0)
   const [messageCount, setMessageCount] = useState(0)
@@ -191,9 +192,11 @@ export default function Coach({ profile, archiveOpen = false }) {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { setThreadLoaded(true); return }
       const { data: rel } = await supabase
-        .from('coach_clients').select('coach_id')
+        .from('coach_clients').select('coach_id, paused_until')
         .eq('client_id', session.user.id).eq('status', 'active').maybeSingle()
       if (!rel) { setNoCoach(true); return }
+      const todayIso = new Date().toLocaleDateString('en-CA')
+      setPausedUntil(rel.paused_until && rel.paused_until >= todayIso ? rel.paused_until : null)
       const { data: c } = await supabase
         .from('profiles').select('full_name, avatar_url')
         .eq('id', rel.coach_id).maybeSingle()
@@ -378,7 +381,13 @@ export default function Coach({ profile, archiveOpen = false }) {
             <Avatar url={coach?.avatar_url} name={coach?.full_name || 'Coach'} size={44} />
             <div>
               <h1 style={{ margin: 0 }}>{coach?.full_name || 'Your coach'}</h1>
-              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Your coach</p>
+              {/* Paused by the coach: said under their name, where the client
+                  looks for who their coach is and what is going on. */}
+              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+                {pausedUntil
+                  ? `Coaching paused until ${new Date(pausedUntil + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                  : 'Your coach'}
+              </p>
             </div>
             {/* The archive is a destination, not a channel. Same shape as the
                 "Show older reports" control it leads to: label, muted count, the
@@ -528,6 +537,7 @@ export default function Coach({ profile, archiveOpen = false }) {
         onClose={sheetReportId ? closeSheet : () => (location.key === 'default' ? navigate('/coach') : navigate(-1))}
         maxWidth={560}
         sheet
+        tall
       >
         <ReportReader
           inModal

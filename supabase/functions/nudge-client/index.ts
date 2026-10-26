@@ -1,4 +1,5 @@
 import { wantsEmail } from '../_shared/notifications.ts'
+import { buildNudgeEmail } from '../_shared/nudgeEmail.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -11,15 +12,6 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
-}
-
-function escapeHtml(value: unknown) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
 
 Deno.serve(async (req) => {
@@ -91,44 +83,10 @@ Deno.serve(async (req) => {
 
     const coachName = coachProfile?.full_name || 'Your coach'
     const clientName = clientProfile?.full_name || 'there'
-    const safeCoachName = escapeHtml(coachName)
-    const safeClientName = escapeHtml(clientName)
-
-    // Tailor the nudge to WHY it's being sent (the coach's app picks the reason).
-    const GREEN = '#22c55e'
-    const dayCount = typeof days === 'number' ? days : null
-    let subject, heading, body, ctaLabel, ctaHref
-    if (reason === 'checkin') {
-      subject = 'Time for your weekly check-in'
-      heading = 'Your weekly check-in is waiting'
-      body = `${safeCoachName} is waiting on this week's check-in. It takes two minutes and helps them tune your plan.`
-      ctaLabel = 'Check in'
-      ctaHref = 'https://www.gardnr.fit/'
-    } else if (reason === 'measurements') {
-      // Asked ON DEMAND, outside the tape cadence. measurementCadence.js keeps
-      // the routine (14 days cutting, 28 otherwise) and deliberately refuses to
-      // go tighter, because tape error is ~1-1.5cm and asking more often is
-      // noise. This is the exception to that: a coach who needs numbers before
-      // a call, or after a phase change, should not have to wait out a cadence
-      // built for the steady case.
-      //
-      // No day count — "you haven't measured in 9 days" would be nagging about
-      // a schedule the client is not behind on. The coach asked; that is the
-      // whole reason.
-      subject = 'Your coach asked for body measurements'
-      heading = 'Time for a tape check'
-      body = `${safeCoachName} would like your latest body measurements. Grab a tape measure when you get a moment — it takes a couple of minutes, and it shows the progress the scale misses.`
-      ctaLabel = 'Add measurements'
-      ctaHref = 'https://www.gardnr.fit/log'
-    } else {
-      // 'log' (default): re-engage a client who's gone quiet.
-      subject = 'Time to log your day'
-      heading = "Let's get back to it"
-      const gap = dayCount === null ? "haven't logged yet" : dayCount >= 2 ? `haven't logged in ${dayCount} days` : "haven't logged today"
-      body = `${safeCoachName} noticed you ${gap}. A quick log today keeps your momentum going.`
-      ctaLabel = 'Log now'
-      ctaHref = 'https://www.gardnr.fit/log'
-    }
+    // The copy lives in _shared/nudgeEmail.ts, shared with auto-nudge.
+    const { subject, html } = buildNudgeEmail({
+      reason, days: typeof days === 'number' ? days : null, coachName, clientName,
+    })
 
     // Only the EMAIL is optional. `last_nudged_at` below is written either way:
     // it drives the client's in-app nudge notice (the channel that survives an
@@ -155,17 +113,7 @@ Deno.serve(async (req) => {
         from: 'Gardnr <noreply@gardnr.fit>',
         to: [clientProfile.email],
         subject,
-        html: `
-          <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
-            <h2 style="color: ${GREEN};">${heading}</h2>
-            <p>Hi ${safeClientName},</p>
-            <p>${body}</p>
-            <a href="${ctaHref}" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background-color: ${GREEN}; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
-              ${ctaLabel} &rarr;
-            </a>
-            <p style="margin-top: 24px; color: #888; font-size: 0.875rem;">Gardnr — your nutrition coaching platform</p>
-          </div>
-        `,
+        html,
       }),
     }) : null
     if (emailRes && !emailRes.ok) {

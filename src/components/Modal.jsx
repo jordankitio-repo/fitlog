@@ -12,7 +12,9 @@ import { Icon } from './ui'
 // `sheet` takes the notifications' frame instead (.sheet-backdrop and
 // .sheet-panel): on a phone it rises from the bottom edge, full width, the
 // way an iOS sheet does; on a desktop it is still the centred tile.
-export default function Modal({ open, title, onClose, children, maxWidth = 520, sheet = false }) {
+// `tall` fixes a phone sheet at iOS's large height, for content that arrives
+// after the sheet starts to rise (a report); a form sizes to itself.
+export default function Modal({ open, title, onClose, children, maxWidth = 520, sheet = false, tall = false }) {
   // Focus trap + Esc + focus restore (a11y); the hook owns Esc now.
   const dialogRef = useFocusTrap(open, onClose)
 
@@ -42,7 +44,7 @@ export default function Modal({ open, title, onClose, children, maxWidth = 520, 
           aria-modal="true"
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
-          className="sheet-panel modal-sheet"
+          className={`sheet-panel modal-sheet${tall ? ' is-tall' : ''}`}
           style={{ '--sheet-max': `${maxWidth}px` }}
         >
           {header}

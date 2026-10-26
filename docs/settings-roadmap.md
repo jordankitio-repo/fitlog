@@ -895,3 +895,68 @@ Open: leaving by an in-app link with unsaved edits does not ask (the router
 is not a data router, so there is no navigation blocker); edits survive
 switching sections of the same client.
 
+### 10.19 What a page review means (fixed Oct 26 2026)
+
+Every page review, in this order, the same every time:
+1. Market: the equivalent screen in Trainerize, TrueCoach, Everfit, Kahunas
+   (coach) / MyFitnessPal, MacroFactor, Apple Health & Fitness (client); a gap
+   list, must-have / nice-to-have.
+2. Trend: what the page should already have or be ready for.
+3. Best practices: the main tasks timed in steps, urgent first, error
+   prevention, consistency, HIG / WCAG.
+4. Finish line: light and dark, largest text, every role, empty / loading /
+   error, every form, phone and desktop, copy at the reference apps' brevity,
+   no crowding or duplication, web checked in Safari on the simulator.
+Pages reviewed before this (Profile, Coach tab, Log/Today, Progress, bell,
+setup) had only 3-4; they owe one market/trend catch-up pass.
+
+### 10.19 Coach: Clients roster (Oct 26 2026), full review
+
+**Market** (Everfit check-in dashboard, TrueCoach, Trainerize, Kahunas):
+- Must-have, done: search by name/email; status counts that filter the list
+  (Everfit's views with live counts); whole row opens the client; message from
+  the row (TrueCoach's chat icon); invite button in the header; invites sent
+  but not joined, with copy link / resend / cancel (Everfit "waiting
+  activation").
+- Must-have, built (20261026020000_roster_tools): groups (label, filter,
+  message the group with {first name}, two minutes between sends: Everfit's
+  level); pause with an end date (7 days by default) and a reason, a Paused
+  count and view, no grades / nudges / check-in reminders / lock while paused,
+  ends by itself with 48 hours' grace, coach reminded 2 days before, client
+  told on their Coach tab (Everfit's level).
+- Nice-to-have, open: saved custom views; a column picker; editing a group's
+  name (delete and recreate today).
+**Trend**, built: automatic nudges by rule ("quiet for N days", daily,
+auto-nudge function + pg_cron, same cooldown and opt-outs as the button;
+set in Profile > Coaching > Nudges, not on the roster, at the user's call).
+Not confirmed at any competitor; Trainerize users have asked for it for
+years. A daily AI brief at the top of the roster was built and REMOVED at
+the user's call (Oct 26): do not reintroduce a prose summary above the list.
+**Security fixed with them:** a client could update their own coach_clients
+row (self-unlock, un-hide calories); a coach could message any user. Both
+refused in the database now (tests/rls/rosterTools.test.js).
+**Open:** the auto-nudge emails are untested end to end
+locally (no Resend key); the auto-nudge job needs its pg_cron
+entry created with the service key, as weekly-digest's was.
+**Best practices, steps for the main tasks:** see who needs you 0 (as before);
+open a client 1, now any part of the row; message a client 1 (was 3 or more);
+see only at-risk clients 1 (was impossible); find a client by name: type (was
+scroll); invite 1 from the header (was scroll to the foot); see who has not
+joined 0 (was impossible).
+**Fixed on the way:** "Welcome, <name>" removed; "needs review" renamed
+"needs attention" (it collided with "check-ins to review"); "checked in" now
+"checked in this week"; ADH/NRG spelled out; email dropped from rows (still
+searchable); status sits beside the name instead of across the page; the
+empty state's second invite button removed, and it says "Waiting for your
+clients to join" once an invite is out.
+**Leftovers:** Resend has no server-side rate limit (notify-invite); the
+phone row has no message button (row opens the record, Message is one tap
+there); Resend cannot be exercised locally (no email key).
+**Checklist pass (Oct 26):** light, dark, largest text, phone and desktop;
+empty roster; failures for pause and groups (toast, sheet stays open). Fixed
+on the way: the "i" help still described an "ATTENTION column"; the check-in
+stat boxes vanished on the pushed page; small sheets (Pause, Groups) filled
+the phone screen (only a report sheet is tall now).
+**Leftovers:** no message button on the phone row; group names cannot be
+renamed (delete and recreate); a row does not show its groups.
+

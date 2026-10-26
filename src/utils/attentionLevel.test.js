@@ -209,3 +209,13 @@ describe('summarizeRoster', () => {
     })
   })
 })
+
+describe('paused clients', () => {
+  it('are not graded, and are counted apart from at risk / attention / on track', () => {
+    const paused = stats({ daysSinceLog: 12, pausedUntil: '2099-01-01' })
+    expect(attentionLevel(paused).level).toBe('paused')
+    const r = summarizeRoster({ a: paused, b: stats(), c: stats({ daysSinceLog: 9 }) })
+    expect(r.paused).toBe(1)
+    expect(r.atRisk + r.review + r.onTrack).toBe(2)
+  })
+})

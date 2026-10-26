@@ -586,6 +586,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         { key: 'details', label: 'Your details', show: profile?.role !== 'coach' },
         { key: 'targets', label: 'Daily targets', show: profile?.role !== 'coach' },
         { key: 'questionnaire', label: 'Check-in questions', show: profile?.role === 'coach' },
+        { key: 'nudges', label: 'Nudges', show: profile?.role === 'coach' },
         { key: 'charts', label: 'Charts', show: profile?.role === 'coach' },
       ],
     },
@@ -630,6 +631,23 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // The same checks the coach's form runs (utils/targetChecks): no negative or
   // absurd target, and the macros' own calorie total beside the calorie target.
   const targetCheck = checkTargets(targets)
+
+  // Coach: the automatic-nudge rule (coach_automations). null = off.
+  const [autoNudgeDays, setAutoNudgeDays] = useState(null)
+  const [autoNudgeSaved, setAutoNudgeSaved] = useState(false)
+  useEffect(() => {
+    if (profile?.role !== 'coach' || !profile?.id) return
+    supabase.from('coach_automations').select('nudge_after_days').eq('coach_id', profile.id).maybeSingle()
+      .then(({ data, error }) => { if (error) console.error(error); else setAutoNudgeDays(data?.nudge_after_days ?? null) })
+  }, [profile?.id, profile?.role])
+  async function saveAutoNudge(days) {
+    const prev = autoNudgeDays
+    setAutoNudgeDays(days)
+    const { error } = await supabase.from('coach_automations')
+      .upsert({ coach_id: profile.id, nudge_after_days: days, updated_at: new Date().toISOString() }, { onConflict: 'coach_id' })
+    if (error) { setAutoNudgeDays(prev); setNotice("Couldn't save automatic nudges. Try again."); return }
+    setAutoNudgeSaved(true); setTimeout(() => setAutoNudgeSaved(false), 2000)
+  }
   const fieldError = (key) => targetCheck.errors[key]
     ? <p style={{ margin: '4px 0 0', fontSize: 'var(--text-xs)', color: 'var(--color-error)' }}>{targetCheck.errors[key]}</p>
     : null
@@ -1032,6 +1050,29 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       {profile?.role === 'coach' && (
         <SectionPanel hideTitle={isMobile} active={isVisible('questionnaire')} id="section-questionnaire" title="Check-in questionnaire">
           <CheckinBuilder coachId={profile.id} />
+        </SectionPanel>
+      )}
+
+      {profile?.role === 'coach' && (
+        <SectionPanel hideTitle={isMobile} active={isVisible('nudges')} id="section-nudges" title="Nudges">
+          {/* A rule set once and left alone, so it lives here, with the other
+              coaching settings, not under the roster a coach reads daily. */}
+          <SettingRow
+            label="Automatic nudges"
+            description="Each morning, remind clients who stopped logging. Paused clients are skipped."
+            stacked={isMobile}
+          >
+            <select
+              aria-label="Automatic nudges"
+              value={autoNudgeDays ?? ''}
+              onChange={(e) => saveAutoNudge(e.target.value ? Number(e.target.value) : null)}
+              style={{ ...controlStyle, width: 'auto', minWidth: 120, cursor: 'pointer' }}
+            >
+              <option value="">Off</option>
+              {[2, 3, 5, 7].map(d => <option key={d} value={d}>After {d} days</option>)}
+            </select>
+          </SettingRow>
+          {autoNudgeSaved && <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>Saved <Icon name="check" /></p>}
         </SectionPanel>
       )}
 

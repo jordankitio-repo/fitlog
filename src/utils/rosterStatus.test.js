@@ -82,3 +82,15 @@ describe('rosterStatus', () => {
     expect(rosterStatus('attention', null)).toEqual({ text: '—', tone: 'setup' })
   })
 })
+
+describe('a paused client', () => {
+  it('reads "Paused until <day>" on every lens, ungraded', () => {
+    for (const lens of ['attention', 'compliance', 'recent', 'checkin']) {
+      const r = rosterStatus(lens, stats({ daysSinceLog: 9, pausedUntil: '2026-11-03' }))
+      expect(r).toEqual({ text: 'Paused until Nov 3', tone: 'paused' })
+    }
+  })
+  it('sorts after every graded client', () => {
+    expect(lensToneRank('attention', 'paused')).toBeGreaterThan(lensToneRank('attention', 'green'))
+  })
+})

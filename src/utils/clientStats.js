@@ -53,7 +53,8 @@ export async function computeClientStats(clientIds, relationships = []) {
     const lockInfo = relationship ? resolveLockState({
       lastNutritionDate: lastLogDate,
       connectionCreatedAt: relationship.created_at?.split('T')[0],
-      lockClearedAt: relationship.lock_cleared_at
+      lockClearedAt: relationship.lock_cleared_at,
+      pausedUntil: relationship.paused_until || null,
     }) : { locked: false, days: 0, reason: 'active' }
     const todayStr = toLocalDateString(new Date())
     let daysSinceLog = null
@@ -117,7 +118,10 @@ export async function computeClientStats(clientIds, relationships = []) {
       complianceItems.push({ label: 'Steps', value: count, logged, hasData: logged > 0 })
     }
 
-    stats[id] = { lastLogDate, daysSinceLog, checkIn, checkInCurrent, complianceItems, lockInfo, checkinInterval: interval, checkinDue: period.dueWindow }
+    // Paused by the coach (coach_clients.paused_until, today or later): not
+    // graded, not nudged, and listed apart. Ends on its own.
+    const pausedUntil = relationship?.paused_until && relationship.paused_until >= todayStr ? relationship.paused_until : null
+    stats[id] = { lastLogDate, daysSinceLog, checkIn, checkInCurrent, complianceItems, lockInfo, checkinInterval: interval, checkinDue: period.dueWindow, pausedUntil }
   })
 
   return stats
@@ -132,7 +136,7 @@ const NUDGE_WINDOW_MS = 48 * 60 * 60 * 1000
 export async function computeClientAlerts(userId) {
   const { data: connection } = await supabase
     .from('coach_clients')
-    .select('created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks')
+    .select('created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks, paused_until')
     .eq('client_id', userId)
     .eq('status', 'active')
     .maybeSingle()
@@ -156,13 +160,16 @@ export async function computeClientAlerts(userId) {
     lastNutritionDate: lastLogDate,
     connectionCreatedAt: connection.created_at.split('T')[0],
     lockClearedAt: connection.lock_cleared_at || null,
+    pausedUntil: connection.paused_until || null,
   })
 
   // Only prompt in the period's due window (its last 3 days) — the same
   // restraint as the coach's Nudge button, so we don't nag at the start.
-  const checkInDue = !coversPeriod(latestCheckIn(checkInRes.data || []), period) && period.dueWindow
+  // A paused client owes no check-in: the pause is the coach saying so.
+  const paused = Boolean(connection.paused_until && connection.paused_until >= today)
+  const checkInDue = !paused && !coversPeriod(latestCheckIn(checkInRes.data || []), period) && period.dueWindow
   const nudgedRecently = connection.last_nudged_at &&
     (Date.now() - new Date(connection.last_nudged_at).getTime() < NUDGE_WINDOW_MS)
 
-  return { hasCoach: true, lock, checkInDue, checkinIntervalWeeks: connection.checkin_interval_weeks || 1, nudged: Boolean(nudgedRecently && !loggedToday) }
+  return { hasCoach: true, lock, checkInDue, checkinIntervalWeeks: connection.checkin_interval_weeks || 1, nudged: Boolean(nudgedRecently && !loggedToday), pausedUntil: paused ? connection.paused_until : null }
 }

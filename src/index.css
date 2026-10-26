@@ -1126,7 +1126,7 @@ html.native-app .coach-page {
   /* The phone roster row: one tappable link plus, sometimes, one button.
      A2 compact density, and the vertical rhythm is A3's — 2px inside the
      name/state/meta group, the row's own padding between groups. */
-  .rost-m { align-items: center; column-gap: var(--space-12); }
+  .rost-m { align-items: center; column-gap: var(--space-12); row-gap: 0 !important; }
   .rost-m-main {
     display: grid; grid-template-columns: auto minmax(0, 1fr);
     align-items: center; gap: var(--space-12);
@@ -1148,7 +1148,13 @@ html.native-app .coach-page {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .rost-m-state { font-size: var(--text-sm); }
-  .rost-m-meta { font-size: var(--text-xs); color: var(--color-muted); }
+  /* Its own grid row under the name, the full width of the row: indented to
+     the name's column (34px avatar + the 12px gap). */
+  .rost-m-metarow {
+    grid-column: 1 / -1; padding-left: calc(34px + var(--space-12));
+    margin-top: var(--space-2);
+    font-size: var(--text-xs); color: var(--color-muted); text-decoration: none;
+  }
   .rost-m-locked { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-error); }
   .rost-m-tail { display: flex; align-items: center; gap: var(--space-10); flex-shrink: 0; }
 
@@ -1156,11 +1162,6 @@ html.native-app .coach-page {
      one bar WRAPPED, which is a different thing: the ratio ended up beside the
      CTA, a lone chip sat on a row by itself, and the sort control read as a
      fifth chip. Three stacked rows instead, each with one job. */
-  .rost-banner { gap: var(--space-12) var(--space-16); }
-  /* The one commit on the view gets its own full-width row rather than
-     competing with the counts for the end of their line. */
-  .rost-banner-cta { margin-left: 0 !important; flex: 1 0 100%; }
-  .rost-banner-cta > button { width: 100%; justify-content: center; }
 
   /* "View:" goes: four chips in a row are self-evidently a chooser, and the
      label was costing a quarter of the line it had to share. */
@@ -2958,7 +2959,8 @@ html.native-app .gnav {
    and a sheet sized to its content grew mid-flight from a placeholder's height
    to the report's. */
 @media (max-width: 600px) {
-  .modal-sheet { max-width: none; height: 92dvh; max-height: none; padding-bottom: 0; }
+  .modal-sheet { max-width: none; max-height: 92dvh; padding-bottom: 0; }
+  .modal-sheet.is-tall { height: 92dvh; max-height: none; }
   .modal-sheet-body { flex: 1; min-height: 0; }
 }
 
@@ -3078,6 +3080,101 @@ html.native-app .onb { min-height: calc(100dvh - env(safe-area-inset-top, 0px));
 .onb-target-mark { width: 24px; height: 4px; border-radius: 999px; }
 .onb-target-label { font-size: var(--text-sm); color: var(--color-muted); margin-top: var(--space-4); }
 .onb-target-value { font-size: var(--text-xl); font-weight: var(--weight-semibold); color: var(--color-text); line-height: 1.1; }
+
+/* Read by screen readers, not drawn. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---- Clients roster (pages/CoachDashboard) ------------------------------
+   The counts are tiles, Apple Fitness's Summary and the client's own Today
+   tiles: a label, the number large under it. The grades and Paused are
+   buttons that filter the list; the one pressed keeps the pressed tint. A count of nobody cannot be pressed.
+   One row on a desktop; on a phone the three grades fill a row and the rest
+   fill the next, so no row is left with a hole (F2). */
+.rost-banner { display: grid; gap: var(--space-12); grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.rost-banner.has-paused { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.rost-tile {
+  appearance: none; font: inherit; color: inherit; text-align: left;
+  display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-6);
+  min-width: 0; min-height: 88px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-12) var(--space-16);
+  transition: background-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+button.rost-tile { cursor: pointer; }
+button.rost-tile:disabled { cursor: default; }
+@media (hover: hover) { button.rost-tile:not(:disabled):hover { background-color: color-mix(in srgb, var(--color-text) 3%, var(--color-surface)); } }
+button.rost-tile:active:not(:disabled) { background-color: color-mix(in srgb, var(--color-text) 6%, var(--color-surface)); }
+/* Selected reads exactly as the client's Today tiles do (.tp-tile): the
+   pressed tint, kept. No ring. */
+.rost-tile[aria-pressed="true"] { background-color: color-mix(in srgb, var(--color-text) 6%, var(--color-surface)); }
+.rost-tile:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.rost-tile-label { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text); line-height: 1.3; }
+.rost-tile-n { font-size: var(--text-xl); font-weight: var(--weight-semibold); line-height: 1.1; }
+.rost-review { border-radius: 999px !important; }
+@media (max-width: 900px) {
+  .rost-banner, .rost-banner.has-paused { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-8); }
+  /* Row two: Checked in fills whatever Paused leaves. */
+  .rost-banner .rost-tile-static { grid-column: span 3; }
+  .rost-banner.has-paused .rost-tile-static { grid-column: span 2; }
+  .rost-tile { min-height: 80px; padding: var(--space-10) var(--space-12); }
+  .rost-review { width: 100% !important; justify-content: center !important; margin-top: calc(-1 * var(--space-8)); }
+}
+html[data-text-grown] .rost-banner, html[data-text-grown] .rost-banner.has-paused { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Two across: four tiles fill two rows; with Paused, Checked in takes a row. */
+html[data-text-grown] .rost-banner .rost-tile-static { grid-column: span 1; }
+html[data-text-grown] .rost-banner.has-paused .rost-tile-static { grid-column: span 2; }
+.rost-search {
+  margin-left: auto; display: inline-flex; align-items: center; gap: var(--space-6);
+  min-width: 0; width: 220px; padding: 0 var(--space-10); height: 34px;
+  border: 1px solid var(--color-border); border-radius: 999px;
+  background-color: var(--color-surface); color: var(--color-muted);
+}
+.rost-search input {
+  border: none; outline: none; background: transparent; font: inherit; color: var(--color-text);
+  font-size: var(--text-sm); width: 100%; min-width: 0;
+}
+.rost-search:focus-within { border-color: var(--color-primary); }
+@media (max-width: 900px) { .rost-search { margin-left: 0; width: 100%; order: 10; } }
+.roster-row-link { cursor: pointer; transition: background-color 140ms ease; }
+@media (hover: hover) { .roster-row-link:hover { background-color: color-mix(in srgb, var(--color-text) 3%, transparent); } }
+.roster-name:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
+.rost-invite { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-10) 0; }
+.rost-groupsel {
+  height: 34px; padding: 0 var(--space-32) 0 var(--space-12); border-radius: 999px;
+  border: 1px solid var(--color-border); background-color: var(--color-surface); color: var(--color-text);
+  font: inherit; font-size: var(--text-sm); cursor: pointer; max-width: 200px;
+}
+.rost-m-more {
+  appearance: none; background: none; border: none; color: var(--color-muted); cursor: pointer;
+  width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius);
+}
+.rost-m-more { order: 2; }
+.rost-m-more:active { background-color: var(--color-surface-2); }
+/* On a phone the search and the group menu share the line under the chips. */
+@media (max-width: 900px) {
+  .rost-search { order: 10; flex: 1 1 55%; width: auto; }
+  .rost-groupsel { order: 11; max-width: 45%; }
+  /* The sort direction labels the list, so it sits last, just above it. */
+  .rost-lensbar > .ds-sortbtn { order: 12; }
+}
+
+.rost-invite-who { flex: 1 1 0; min-width: 0; }
+.rost-invite-actions { display: flex; gap: var(--space-6); flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+/* On a phone, or with the text enlarged, the address gets its own line and
+   the three actions sit under it: side by side they left "sa..." and three
+   lines of date. */
+@media (max-width: 600px) {
+  .rost-invite { flex-wrap: wrap; }
+  .rost-invite-who { flex-basis: 100%; }
+  .rost-invite-actions { justify-content: flex-start; }
+}
+html[data-text-grown] .rost-invite { flex-wrap: wrap; }
+html[data-text-grown] .rost-invite-who { flex-basis: 100%; }
+
 
 /* ---- A pushed page (components/PushPanel) -------------------------------
    Slides in from the right between the top bar and the floating tab bar,

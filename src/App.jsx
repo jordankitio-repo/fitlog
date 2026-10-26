@@ -71,7 +71,7 @@ async function resolveClientLanding() {
     if (!session) return 'dashboard'
     const { data: connection } = await supabase
       .from('coach_clients')
-      .select('created_at, lock_cleared_at')
+      .select('created_at, lock_cleared_at, paused_until')
       .eq('client_id', session.user.id)
       .eq('status', 'active')
       .maybeSingle()
@@ -87,6 +87,7 @@ async function resolveClientLanding() {
       lastNutritionDate: lastLog?.logged_date || null,
       connectionCreatedAt: connection.created_at.split('T')[0],
       lockClearedAt: connection.lock_cleared_at || null,
+      pausedUntil: connection.paused_until || null,
     })
     return lock.locked ? 'dashboard' : 'log'
   } catch {

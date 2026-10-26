@@ -27,7 +27,7 @@ export function lensToneRank(_lens, tone) {
 }
 
 export const LENS_HEADERS = {
-  attention: 'Needs attention',
+  attention: 'Status',
   compliance: 'Compliance',
   recent: 'Last logged',
   checkin: 'Check-in',
@@ -39,8 +39,16 @@ export const LENS_GRADERS = {
   checkin: gradeCheckin,
 }
 
+// "Nov 3": the day a pause runs through.
+const shortDay = (iso) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 export function rosterStatus(lens, s) {
   if (!s) return { text: '\u2014', tone: 'setup' }
+  // On every lens: a paused client is not graded on anything.
+  if (s.pausedUntil) return { text: `Paused until ${shortDay(s.pausedUntil)}`, tone: 'paused' }
 
   const grade = LENS_GRADERS[lens]
   if (grade) return grade(s)

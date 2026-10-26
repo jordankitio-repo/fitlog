@@ -637,7 +637,7 @@ function ClientView({ profile }) {
     const [{ data: relationship, error: relationshipError }, { data: latestLog, error: latestLogError }] = await Promise.all([
       supabase
         .from('coach_clients')
-        .select('created_at, lock_cleared_at, hide_calories, checkin_interval_weeks')
+        .select('created_at, lock_cleared_at, hide_calories, checkin_interval_weeks, paused_until, pause_reason')
         .eq('coach_id', profile.id)
         .eq('client_id', clientId)
         .eq('status', 'active')
@@ -678,7 +678,8 @@ function ClientView({ profile }) {
     setLockInfo(resolveLockState({
       lastNutritionDate: latestLog?.logged_date || null,
       connectionCreatedAt: relationship.created_at?.split('T')[0],
-      lockClearedAt: relationship.lock_cleared_at
+      lockClearedAt: relationship.lock_cleared_at,
+      pausedUntil: relationship.paused_until || null,
     }))
   }
 

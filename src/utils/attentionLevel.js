@@ -49,7 +49,9 @@ const STALE_LOG_DAYS = 4
 // measuring badly. If a client's compliance is grey and their check-in is
 // yellow, Attention grabs the grey. Red still beats grey, so a client who has
 // not logged in five days outranks one who just needs targets setting.
-export const TONE_RANK = { red: 0, setup: 1, yellow: 2, green: 3 }
+// 'paused' sorts last: a paused client needs nothing from the coach until the
+// pause ends.
+export const TONE_RANK = { red: 0, setup: 1, yellow: 2, green: 3, paused: 4 }
 
 export function gradeLogging(s) {
   // A locked client outranks the day count: the lock is why they stopped.
@@ -95,6 +97,7 @@ export function gradeCheckin(s) {
 // with the clients who stopped logging — which is the point.
 export function attentionLevel(stats) {
   if (!stats) return { level: 'green', tone: 'green', reasons: [] }
+  if (stats.pausedUntil) return { level: 'paused', tone: 'paused', reasons: [] }
 
   const graded = [gradeLogging(stats), gradeCompliance(stats), gradeCheckin(stats)]
     .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone])
@@ -136,6 +139,7 @@ export function summarizeRoster(statsMap = {}) {
     atRisk: levelCount('red'),
     review: levelCount('yellow'),
     onTrack: levelCount('green'),
+    paused: levelCount('paused'),
     noTargets: stats.filter((s) => !(s?.complianceItems?.length)).length,
     notLogging: stats.filter((s) => s?.daysSinceLog === null || s?.daysSinceLog >= STALE_LOG_DAYS).length,
     // Coverage: this week's check-ins the coach hasn't reviewed yet.

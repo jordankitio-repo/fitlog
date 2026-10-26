@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import Modal from '../components/Modal'
+import PushPanel from '../components/PushPanel'
 import CheckinReview from '../components/CheckinReview'
 import Avatar from '../components/Avatar'
 import Button from '../components/Button'
@@ -44,9 +45,16 @@ function previewOf(ci) {
   return (ci?.notes || ci?.obstacles || '').trim() || 'No note left.'
 }
 
-export default function CheckinQueue({ profile }) {
+// `embedded` is the phone's pushed page over the roster (CoachDashboard): the
+// panel already carries "‹ Clients" and the title, and the open check-in lives
+// in the roster's URL (?panel=checkins&ci=<id>) rather than /check-ins/:id, so
+// the roster stays mounted underneath. `openId`, `onOpen` and `onCloseItem`
+// replace the route in that case.
+export default function CheckinQueue({ profile, embedded = false, openId, onOpen, onCloseItem }) {
   const navigate = useNavigate()
-  const { clientId } = useParams()
+  const params = useParams()
+  const clientId = embedded ? openId : params.clientId
+  const openItem = (id, opts) => (embedded ? onOpen(id, opts) : navigate(`/check-ins/${id}`, opts))
   const [rows, setRows] = useState(null)   // null = loading
   const [reviewing, setReviewing] = useState(false)
 
@@ -107,7 +115,8 @@ export default function CheckinQueue({ profile }) {
 
   // Closing is where the list catches up — see the note on `reviewed`.
   function closeToList() {
-    navigate('/check-ins')
+    if (embedded) onCloseItem()
+    else navigate('/check-ins')
     load()
   }
 
@@ -138,12 +147,16 @@ export default function CheckinQueue({ profile }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
       <div>
-        <Link to="/" className="ds-disclosure ds-control" style={{ width: 'auto', textDecoration: 'none' }}>
-          <Icon name="left" size={14} />
-          <span>Clients</span>
-        </Link>
-        <h1 style={{ marginTop: 'var(--space-12)' }}>Check-ins to review</h1>
-        <p style={{ marginTop: 'var(--space-4)', color: 'var(--color-muted)' }}>
+        {!embedded && (
+          <>
+            <Link to="/" className="ds-disclosure ds-control" style={{ width: 'auto', textDecoration: 'none' }}>
+              <Icon name="left" size={14} />
+              <span>Clients</span>
+            </Link>
+            <h1 style={{ marginTop: 'var(--space-12)' }}>Check-ins to review</h1>
+          </>
+        )}
+        <p style={{ marginTop: embedded ? 0 : 'var(--space-4)', color: 'var(--color-muted)' }}>
           {rows === null ? ' ' : rows.length === 0
             ? 'Nothing waiting.'
             : `${rows.length} waiting · oldest first`}
@@ -167,7 +180,7 @@ export default function CheckinQueue({ profile }) {
               key={r.id}
               type="button"
               className="ciq-row ds-control"
-              onClick={() => navigate(`/check-ins/${r.id}`)}
+              onClick={() => openItem(r.id)}
             >
               <Avatar url={r.avatar} name={r.name} size={36} style={{ flexShrink: 0 }} />
               <span className="ciq-body">
@@ -191,6 +204,51 @@ export default function CheckinQueue({ profile }) {
       {/* The pop-up's two exits, left and right: back to this list, or into the
           client's record. Closing by X, Escape or the backdrop is the same as
           the left one — they all mean "I am done with this one". */}
+      {/* On the phone (embedded), a check-in is PUSHED over the list, as
+          every chevron row opens: "‹ Check-ins" is the way back. */}
+      {embedded ? (
+        <PushPanel
+          open={Boolean(open && clientId)}
+          title={open?.name || 'Check-in'}
+          backLabel="Check-ins"
+          onBack={closeToList}
+          under="#push-checkins"
+        >
+          {open && (
+            <>
+              <div style={{ marginBottom: 'var(--space-12)' }}>
+                <Button onClick={() => navigate(`/client/${open.id}?focus=checkIn`)} variant="muted" size="sm">
+                  Open record <Icon name="right" size={14} />
+                </Button>
+              </div>
+            {/* KEYED BY THE CHECK-IN. Without this React reuses the instance
+                across Next, because the element type and position do not
+                change — and the comment box is state inside it. Measured: type
+                a note for Dan, mark reviewed, press Next, and Dan's note is
+                sitting in Gia's box one click from being sent to her. A key is
+                the fix rather than an effect that clears the text, because the
+                box genuinely belongs to one check-in and should be born and
+                die with it. */}
+            <CheckinReview
+              key={open.checkIn?.id}
+              checkIn={open.checkIn}
+              current={open.current}
+              reviewing={reviewing}
+              onReview={review}
+              footer={next && (
+                <div style={{ marginTop: 'var(--space-12)' }}>
+                  <Button onClick={() => openItem(next.id, { replace: true })} variant="primary" size="sm">
+                    Next: {next.name.split(' ')[0]}
+                    {pending.length > 1 ? ` · ${pending.length} left` : ''}
+                    <Icon name="right" />
+                  </Button>
+                </div>
+              )}
+            />
+            </>
+          )}
+        </PushPanel>
+      ) : (
       <Modal
         open={Boolean(open && clientId)}
         title={open?.name || 'Check-in'}
@@ -223,7 +281,7 @@ export default function CheckinQueue({ profile }) {
               onReview={review}
               footer={next && (
                 <div style={{ marginTop: 'var(--space-12)' }}>
-                  <Button onClick={() => navigate(`/check-ins/${next.id}`)} variant="primary" size="sm">
+                  <Button onClick={() => openItem(next.id, { replace: true })} variant="primary" size="sm">
                     Next: {next.name.split(' ')[0]}
                     {pending.length > 1 ? ` · ${pending.length} left` : ''}
                     <Icon name="right" />
@@ -234,6 +292,7 @@ export default function CheckinQueue({ profile }) {
           </>
         )}
       </Modal>
+      )}
     </div>
   )
 }

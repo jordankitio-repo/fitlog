@@ -99,7 +99,7 @@ export default function NotificationCenter({ profile }) {
 
     if (profile?.role === 'coach') {
       const { data: rels } = await supabase.from('coach_clients')
-        .select('client_id, created_at, lock_cleared_at, checkin_interval_weeks').eq('coach_id', uid).eq('status', 'active')
+        .select('client_id, created_at, lock_cleared_at, checkin_interval_weeks, paused_until').eq('coach_id', uid).eq('status', 'active')
       const relationships = rels || []
       const ids = relationships.map((r) => r.client_id)
       const names = {}
@@ -137,6 +137,23 @@ export default function NotificationCenter({ profile }) {
               avatarUrl: avatars[id], avatarName: names[id],
             })
           }
+        })
+        // A pause ending in the next two days, so the coach is ready to pick
+        // the client back up (Everfit reminds two days before and on the day).
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        relationships.forEach((r) => {
+          if (!r.paused_until) return
+          const [y, m, d] = r.paused_until.split('-').map(Number)
+          const ends = new Date(y, m - 1, d)
+          const daysLeft = Math.round((ends - today) / 86400000)
+          if (daysLeft < 0 || daysLeft > 2) return
+          al.push({
+            id: 'al:pause:' + r.client_id, level: 'yellow',
+            title: names[r.client_id] || 'A client',
+            sub: daysLeft === 0 ? 'Pause ends today' : `Pause ends ${ends.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+            href: `/client/${r.client_id}`,
+            avatarUrl: avatars[r.client_id], avatarName: names[r.client_id],
+          })
         })
         al.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level])
       }

@@ -650,7 +650,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const { data: connection } = await supabase
       .from('coach_clients')
-      .select('id, created_at, lock_cleared_at, hide_calories')
+      .select('id, created_at, lock_cleared_at, hide_calories, paused_until')
       .eq('client_id', currentSession.user.id)
       .eq('status', 'active')
       .maybeSingle()
@@ -670,6 +670,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       lastNutritionDate: lastLog?.logged_date || null,
       connectionCreatedAt: connection.created_at.split('T')[0],
       lockClearedAt: connection.lock_cleared_at || null,
+      pausedUntil: connection.paused_until || null,
     })
     setLockInfo(result)
   }
