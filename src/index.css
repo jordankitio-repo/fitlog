@@ -441,11 +441,18 @@ body {
   padding-left: var(--space-12);
   border-left: 1px solid var(--color-border);
 }
-/* The label must not wrap. "ON-TARGET" broke across two lines in a 75px cell
-   at 320px, which made that one cell taller than its neighbours and knocked
-   the row's numerals out of line — a strip whose values no longer share a
-   baseline is not a strip. Tighter padding buys the room back. */
+/* The numerals must share a line, and the label used to be forbidden from
+   wrapping to keep them there: "ON-TARGET" broke across two lines in a 75px
+   cell at 320px and knocked its numeral out of line. That rule could not
+   survive a larger text size -- with the iPhone's text turned up, three
+   unwrappable labels simply ran into each other. So once text is enlarged
+   (data-text-grown, utils/textScale.js) the label may wrap, and the value is
+   pushed to the foot of the cell: cells in a strip
+   stretch to one height, so every numeral still lands on the same line however
+   many lines its label took. Tighter padding still buys room on small phones. */
 .ds-statcell > :first-child { white-space: nowrap; }
+html[data-text-grown] .ds-statcell > :first-child { white-space: normal; overflow-wrap: break-word; }
+.ds-statcell > :nth-child(2) { margin-top: auto; }
 @media (max-width: 380px) {
   .ds-statcell { padding-right: var(--space-6); }
   .ds-statcell + .ds-statcell { padding-left: var(--space-6); }
@@ -1396,7 +1403,9 @@ p  { color: var(--color-muted); }
    away and make this the one site that ignores it. A reader running their
    browser at 20px who chooses Large gets 22.5px, not 18px. */
 html {
-  font-size: calc(100% * var(--text-scale));
+  /* --system-text-scale is the iPhone's own text size, native app only
+     (utils/textScale.js initSystemTextScale); 1 everywhere else. */
+  font-size: calc(100% * var(--text-scale) * var(--system-text-scale, 1));
   /* WebKit paints a grey square over anything tapped, before the control's own
      pressed state. Controls here carry their own (Button sinks, rows tint on a
      hold), so the square was a second, cruder response to every tap. It was
@@ -1534,6 +1543,17 @@ input.dob-field {
   box-sizing: border-box !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+  /* WebKit sizes a native date input to its own internal editor and will not
+     go narrower, so in a half-width grid cell it ran past the card's right
+     edge. Dropping the native appearance releases that minimum; the field
+     keeps the app's control styling and still opens the system picker. */
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  /* Without the native appearance the value no longer centres itself in the
+     30px field; a matching line box puts it back. */
+  line-height: 28px;
 }
 
 /* iOS Safari auto-zooms (and stays zoomed) when a focused form field has a
@@ -1721,7 +1741,11 @@ nav a:hover {
 .gnav-tab.active { color: var(--color-primary); }
 .gnav-tab.active .gnav-tab-pill { background-color: var(--color-primary-dim); }
 .gnav-tab-label {
-  font-size: var(--text-xs);
+  /* Held at the ramp's floor however large the reader sets text, the way iOS
+     holds its own tab bars: four labels in a fixed bar cannot grow without
+     wrapping (iOS offers a press-and-hold magnifier instead). Dividing out
+     both scales leaves exactly --text-xs. */
+  font-size: calc(var(--text-xs) / (var(--text-scale) * var(--system-text-scale, 1)));
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;
@@ -2740,3 +2764,36 @@ html.native-app .gnav {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* ---- The account photo as its own control (components/AccountSettings) ----
+   The photo is what you tap to change it; the pencil badge says it can be. */
+.ds-avatar-edit {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 0;
+}
+.ds-avatar-edit:disabled { cursor: default; opacity: 0.6; }
+.ds-avatar-edit:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.ds-avatar-edit-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-bd);
+  box-shadow: var(--control-shadow);
+  transition: background-color 140ms ease;
+}
+.ds-avatar-edit:hover .ds-avatar-edit-badge { background-color: var(--control-bg-hover); }
+.ds-avatar-edit:active .ds-avatar-edit-badge { box-shadow: var(--control-shadow-active); }

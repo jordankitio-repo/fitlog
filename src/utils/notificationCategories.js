@@ -37,7 +37,9 @@ export const EMAIL_CATEGORIES = [
     key: 'nudge',
     role: 'client',
     label: 'Reminders from your coach',
-    description: "When your coach asks you to log a day or check in. You'll still see it in the app.",
+    // No "you'll still see it in the app": the panel says that once, for
+    // every email, under its heading.
+    description: 'When your coach asks you to log a day or check in.',
   },
   {
     key: 'client_checkin',

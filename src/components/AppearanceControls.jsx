@@ -3,6 +3,7 @@ import { useMotionPref } from '../utils/motion'
 import { useTextScalePref } from '../utils/textScale'
 import Pill from './ui/Pill'
 import SettingRow from './ui/SettingRow'
+import { isNativeApp } from '../utils/platform'
 
 // The three reader settings, as one block: theme, motion, text size.
 //
@@ -52,19 +53,25 @@ function Choice({ label, hintText, options, value, onChange }) {
 export default function AppearanceControls() {
   const [motion, setMotion] = useMotionPref()
   const [textScale, setTextScale] = useTextScalePref()
+  // Each line names the thing the reader would actually change: their iPhone
+  // in the app, their device on the web. One sentence each; what the three
+  // options do is what the three options say.
+  const device = isNativeApp() ? 'iPhone' : 'device'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
-      <SettingRow label="Theme" description="Auto follows your device's day/night setting." stacked>
+      <SettingRow label="Theme" description={`System matches your ${device}'s light or dark setting.`} stacked>
         <ThemeToggle />
       </SettingRow>
 
       <Choice
         label="Text size"
-        // Says what it actually does, because "Large" alone invites the
-        // reasonable assumption that it zooms the whole interface. It scales
-        // type only; buttons and spacing stay put.
-        hintText="Scales the text across the app. If you have already set a larger font size in your browser, this multiplies it rather than replacing it."
+        // In the app the default IS the iPhone's text size (textScale.js
+        // initSystemTextScale), so the line says so; Large and Largest go on
+        // top of it. On the web the browser's own size plays that part.
+        hintText={isNativeApp()
+          ? "Follows your iPhone's text size. Large and Largest make it bigger still."
+          : 'Large and Largest make text bigger across Gardnr.'}
         options={TEXT_OPTIONS}
         value={textScale}
         onChange={setTextScale}
@@ -72,7 +79,7 @@ export default function AppearanceControls() {
 
       <Choice
         label="Motion"
-        hintText="System follows your device's reduce-motion setting. Reduced turns off animations here even if your device allows them; Full keeps them even if it doesn't."
+        hintText={`System follows your ${device}'s Reduce Motion setting.`}
         options={MOTION_OPTIONS}
         value={motion}
         onChange={setMotion}

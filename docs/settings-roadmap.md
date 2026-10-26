@@ -566,6 +566,98 @@ drives the nudge). Awaiting a call.
 
 ---
 
+## 10. Page-by-page review (Oct 26 2026)
+
+Each settings page checked against the market and the design system, one at
+a time. A page is marked done when nothing in it still needs changing; what is
+left goes here, so the next pass starts from a list rather than a re-review.
+
+### 10.1 Apple Health — design done, four checks open
+**Status:** design, copy and behaviour shipped (`89b471c`, `0ff54ca`). Open:
+
+1. **A real-iPhone connection.** Everything was tested in the simulator, on
+   hand-typed data. The true test is a phone with Apple Watch history: the
+   year-long backfill, Watch step counts merging with the phone's, real
+   workout names. Needs `device-sync` deployed to production and the app
+   signed onto a device (HealthKit capability on the App ID).
+2. **Deploy `device-sync` to production.** Nothing on the web depends on it,
+   but Connect in the iPhone app fails until it is live, and it is also what
+   records the exact consent sentence (`consent_text`).
+3. **A VoiceOver pass.** `ui/Checkbox` and the switch are built on real
+   controls and should read correctly; nobody has listened to them yet.
+4. **Counsel review of the two consent sentences.** They follow the law's
+   shape (separate, unticked, withdrawable, recorded word for word) but are
+   drafts, like the Consumer Health Data Policy changes.
+
+Already verified, not to redo: light and dark, the failed and importing
+states, the "Health app > profile picture > Apps" path on a real iPhone, and
+Apple's rules for the Health icon.
+
+### 10.2 Account — done (Oct 26 2026)
+Rebuilt as settings rows: tappable photo, name editing on request, email
+change (confirmed from both addresses — Supabase's default, verified on the
+local stack), and the client's coach in place of "Account type". Open, on the
+production dashboard only: the "Change email" template is likely still
+Supabase's default wording, and confirm "Secure email change" is on (the copy
+says both addresses are asked).
+
+### 10.3 Appearance — done (Oct 26 2026)
+"System" for all three "follow the device" options; one-line descriptions.
+Text size now follows the iPhone's own setting (Dynamic Type) in the app,
+clamped at 1.35x, with Large/Largest on top. Checked at the largest
+accessibility size: headers wrap, stat labels wrap only when text is grown,
+tab labels hold their size as iOS's do.
+
+### 10.4 Notifications — page done; the product gap is push and messages
+The page (email preferences) is right for what it controls. What it cannot
+fix is the bigger gap against every coaching app on the market (Trainerize,
+TrueCoach, Everfit):
+
+1. **No push notifications at all.** Needs an APNs key from the Apple
+   developer account, `@capacitor/push-notifications`, the iOS permission
+   prompt at a sensible moment (not first launch), a device-token table, and
+   a sender. The panel is already grouped under "EMAIL" so a "PUSH" group can
+   sit beside it.
+2. **A new message alerts nobody.** No email, no push: a client learns their
+   coach wrote only by opening the app. Needs a sender that waits a few
+   minutes and only alerts if the message is still unread, so a quick
+   back-and-forth is not ten emails. Push is the natural channel; email is the
+   fallback.
+
+### 10.5 Your details — done (Oct 26 2026)
+Fixed a real layout bug: on iOS the date-of-birth field ran past the card's
+right edge (WebKit's date input will not shrink below its own editor). Also
+on Onboarding, same class. Height states its unit in the label; "Sex · for
+metabolism" as onboarding says it; Save is muted until something changes.
+
+### 10.6 Daily targets — done (Oct 26 2026)
+A client now sees coach-set targets as read-out rows (Nutrition / Activity /
+Body, "Not set" for a blank) with a link to message the coach, instead of the
+solo form greyed out and read-only. The solo form's Save is muted until an
+edit, like Your details.
+
+### 10.7 Security — page done; two features missing (Oct 26 2026)
+Password is a row that opens on request (it stood open with a filled button
+for something optional), rules stated up front, an em dash removed, and
+"Sign out everywhere" a compact row. "Edit", not "Set"/"Change": Supabase does
+not expose whether an account has a password.
+
+Missing against the market, both larger than this page:
+1. **Two-factor authentication.** Supabase supports TOTP MFA (authenticator
+   app). Worth it at least for coaches, who can see every client's health data.
+2. **Signed-in devices.** A list with last-used and per-device sign-out
+   (Google, ChatGPT). Supabase does not expose sessions to the client, so this
+   needs a server function over `auth.sessions`.
+
+### 10.8 Data — done (Oct 26 2026)
+**Fixed a real bug: Export did nothing in the iPhone app.** A blob download
+link has nowhere to go in a WKWebView; it now opens the iOS share sheet
+(Save to Files, AirDrop, Mail) via the Web Share API, with the old download
+kept for the web. Copy says what the file holds (the whole account, not four
+logs; no "JSON"), no em dashes. Delete account is a plain row whose red
+arrives on confirm; the confirm step names the email the code goes to and
+offers the export first, instead of repeating "are you sure".
+
 ## 9. Navigation & identity (from the app, not the settings screens)
 
 Added after a second look. Three of the reference screenshots were not settings

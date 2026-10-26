@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
-import Avatar from '../components/Avatar'
-import { uploadAvatar, removeAvatar, AVATAR_MAX_BYTES } from '../utils/avatarUpload'
+import AccountSettings from '../components/AccountSettings'
 import SectionRail from '../components/SectionRail'
 import Button from '../components/Button'
 import PasswordInput from '../components/PasswordInput'
@@ -123,10 +122,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // Apple Health. `undefined` until read, so the rail entry does not flicker
   // in on the web for someone who turns out to have a connection.
   const [healthConnection, setHealthConnection] = useState(undefined)
-  const [name, setName] = useState(profile?.full_name || '')
-  const [syncedName, setSyncedName] = useState(profile?.full_name || '')
-  const [nameSaved, setNameSaved] = useState(false)
-  const [nameSaving, setNameSaving] = useState(false)
   const [targets, setTargets] = useState({
     calories: '',
     protein: '',
@@ -138,6 +133,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     weight_goal_unit: 'lbs'
   })
   const [saved, setSaved] = useState(false)
+  // The targets as last loaded or saved, so Save lights only on a real edit.
+  const [savedTargets, setSavedTargets] = useState(null)
   // Biometrics ("Your details") — solo + client only. Clients own/edit these;
   // a coach reads them (to set targets) but never writes them.
   const ftInInit = cmToFtIn(profile?.height_cm)
@@ -153,18 +150,15 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   })
   const [bioSaved, setBioSaved] = useState(false)
   const [bioSaving, setBioSaving] = useState(false)
-  // Profile picture (all roles).
-  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '')
-  const [avatarBusy, setAvatarBusy] = useState(false)
-  const [avatarError, setAvatarError] = useState('')
-  const avatarInputRef = useRef(null)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordStatus, setPasswordStatus] = useState('')
   // Password changes go through GoTrue's own reauthentication nonce, so a live
   // session alone can't set a new password. 'form' -> enter it, 'code' -> prove
   // it's you with the emailed code.
-  const [pwStage, setPwStage] = useState('form')
+  // 'closed' | 'form' | 'code'. Closed by default: a password is optional
+  // here, so the form opens on request rather than standing open on the page.
+  const [pwStage, setPwStage] = useState('closed')
   const [pwCode, setPwCode] = useState('')
   const [pwBusy, setPwBusy] = useState(false)
   const [globalSignOutBusy, setGlobalSignOutBusy] = useState(false)
@@ -243,7 +237,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
       if (error) console.error('Error fetching targets:', error)
       else if (data) {
-        setTargets({
+        const loaded = {
           calories: data.calories?.toString() || '',
           protein: data.protein?.toString() || '',
           carbs: data.carbs?.toString() || '',
@@ -252,7 +246,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           steps: data.steps?.toString() || '',
           weight_goal: data.weight_goal?.toString() || '',
           weight_goal_unit: data.weight_goal_unit || 'lbs'
-        })
+        }
+        setTargets(loaded)
+        setSavedTargets(loaded)
       }
     }
     loadTargets()
@@ -272,32 +268,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     }
     loadEmailPrefs()
   }, [session.user.id])
-
-  // Sync the editable name when the profile (re)loads — React's "adjust state
-  // during render" pattern, so we avoid a setState-in-effect.
-  const profileName = profile?.full_name || ''
-  if (profileName !== syncedName) {
-    setSyncedName(profileName)
-    setName(profileName)
-  }
-
-  // Whether the name has actually been edited (drives the Save button state).
-  const nameDirty = name.trim() !== '' && name.trim() !== profileName
-
-  async function saveName() {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    setNameSaving(true)
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: trimmed })
-      .eq('id', session.user.id)
-    setNameSaving(false)
-    if (error) { console.error('Error saving name:', error); return }
-    setNameSaved(true)
-    setTimeout(() => setNameSaved(false), 2000)
-    onProfileUpdate?.()
-  }
 
   async function saveTargets() {
     const payload = {
@@ -319,6 +289,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
     if (error) console.error('Error saving targets:', error)
     else {
+      setSavedTargets(targets)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     }
@@ -328,6 +299,18 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const bioHeightCm = bio.unit_preference === 'metric'
     ? (Number(bio.height_cm) || 0)
     : ftInToCm(bio.height_ft, bio.height_in)
+
+  // Whether anything differs from what is saved, compared in the units it is
+  // stored in (height in cm), so flipping lb/kg alone does not count as an
+  // edit of the height. Drives Save the way Account's Name does: muted and
+  // disabled until there is something to save.
+  const bioDirty =
+    bio.unit_preference !== (profile?.unit_preference || 'imperial') ||
+    bio.sex !== (profile?.sex || '') ||
+    bio.birth_date !== (profile?.birth_date || '') ||
+    Math.round(bioHeightCm || 0) !== Math.round(Number(profile?.height_cm) || 0) ||
+    bio.activity_level !== (profile?.activity_level || 'moderate') ||
+    (profile?.role !== 'client' && bio.primary_goal !== (profile?.primary_goal || ''))
 
   async function saveBio() {
     setBioSaving(true)
@@ -347,45 +330,6 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     setBioSaved(true)
     setTimeout(() => setBioSaved(false), 2000)
     onProfileUpdate?.()
-  }
-
-  async function onPickAvatar(e) {
-    const file = e.target.files?.[0]
-    e.target.value = '' // let the user re-pick the same file later
-    if (!file) return
-    setAvatarError('')
-    if (!file.type.startsWith('image/')) { setAvatarError('Please choose an image file.'); return }
-    if (file.size > AVATAR_MAX_BYTES) { setAvatarError('Image must be under 5 MB.'); return }
-    setAvatarBusy(true)
-    try {
-      const url = await uploadAvatar(session.user.id, file)
-      const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', session.user.id)
-      if (error) throw error
-      setAvatarUrl(url)
-      onProfileUpdate?.()
-    } catch (err) {
-      console.error('avatar upload:', err)
-      setAvatarError(err.message || 'Upload failed. Try again.')
-    } finally {
-      setAvatarBusy(false)
-    }
-  }
-
-  async function onRemoveAvatar() {
-    setAvatarBusy(true)
-    setAvatarError('')
-    try {
-      await removeAvatar(session.user.id)
-      const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', session.user.id)
-      if (error) throw error
-      setAvatarUrl('')
-      onProfileUpdate?.()
-    } catch (err) {
-      console.error('avatar remove:', err)
-      setAvatarError('Could not remove. Try again.')
-    } finally {
-      setAvatarBusy(false)
-    }
   }
 
   async function exportData() {
@@ -448,11 +392,33 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       notification_preferences: emailPreferences.data || null,
     }
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const filename = `gardnr-export-${todayStr()}.json`
+    const json = JSON.stringify(payload, null, 2)
+
+    // In the iPhone app a download link does nothing at all: the web view has
+    // no Downloads to put it in, so the button silently failed. The native way
+    // to hand someone a file is the share sheet (Save to Files, AirDrop, Mail),
+    // which the web's own share API opens with the file attached.
+    if (isNativeApp()) {
+      const file = new File([json], filename, { type: 'application/json' })
+      try {
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Your Gardnr data' })
+          setExportLoading(false)
+          return
+        }
+      } catch (err) {
+        // Closing the sheet is not a failure.
+        if (err?.name === 'AbortError') { setExportLoading(false); return }
+        console.error('export share:', err)
+      }
+    }
+
+    const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `gardnr-export-${new Date().toISOString().split('T')[0]}.json`
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -556,7 +522,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       setNewPassword('')
       setConfirmPassword('')
       setPwCode('')
-      setPwStage('form')
+      setPwStage('closed')
       setTimeout(() => setPasswordStatus(''), 3000)
     }
     setPwBusy(false)
@@ -767,68 +733,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       ))}
 
       <SectionPanel hideTitle={isMobile} active={isVisible('account')} id="section-account" title="Account">
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Avatar url={avatarUrl} name={profile?.full_name || ''} size={64} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <input ref={avatarInputRef} type="file" accept="image/*" onChange={onPickAvatar} style={{ display: 'none' }} />
-              <Button onClick={() => avatarInputRef.current?.click()} variant="muted" size="sm" loading={avatarBusy}>
-                {avatarUrl ? 'Change photo' : 'Upload photo'}
-              </Button>
-              {avatarUrl && <Button onClick={onRemoveAvatar} variant="ghost" size="sm" disabled={avatarBusy}>Remove</Button>}
-            </div>
-            <p style={{ fontSize: 'var(--text-xs)', color: avatarError ? 'var(--color-error)' : 'var(--color-muted)', margin: 0 }}>
-              {avatarError || 'JPG or PNG, up to 5 MB.'}
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '6px' }}>Name</p>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{ ...inputStyle, flex: 1 }}
-            />
-            <Button
-              onClick={saveName}
-              variant={nameDirty || nameSaved ? 'primary' : 'muted'}
-              loading={nameSaving}
-              disabled={!nameDirty}
-            >
-              {nameSaved ? <>Saved <Icon name="check" /></> : 'Save'}
-            </Button>
-          </div>
-          {profile?.role === 'client' && (
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: '6px 0 0' }}>
-              This is the name your coach sees.
-            </p>
-          )}
-        </div>
-        <div>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Email</p>
-          <p style={{ color: 'var(--color-text)', fontSize: 'var(--text-body)' }}>{session.user.email}</p>
-        </div>
-        <div>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Member since</p>
-          <p style={{ color: 'var(--color-text)', fontSize: 'var(--text-body)' }}>
-            {new Date(session.user.created_at).toLocaleDateString('en-US', {
-              year: 'numeric', month: 'long', day: 'numeric'
-            })}
-          </p>
-        </div>
-        {profile?.role && (
-          <div>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '4px' }}>Account type</p>
-            <p style={{ color: 'var(--color-text)', fontSize: 'var(--text-body)', textTransform: 'capitalize' }}>
-              {profile.role}
-            </p>
-          </div>
-        )}
+        <AccountSettings session={session} profile={profile} onProfileUpdate={onProfileUpdate} />
       </SectionPanel>
 
       <SectionPanel hideTitle={isMobile} active={isVisible('appearance')} id="section-appearance" title="Appearance">
@@ -837,10 +742,19 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
       {emailCategories.length > 0 && (
         <SectionPanel hideTitle={isMobile} active={isVisible('notifications')} id="section-notifications" title="Notifications">
-          <p style={{ fontSize: 'var(--text-base)', marginTop: '-6px', color: 'var(--color-muted)' }}>
-            Which emails we send you. Everything stays in the app either way, and
-            account, security and billing emails are always sent.
-          </p>
+          {/* Headed "Email" because that is all it controls today, and so a
+              push section can sit beside it later as a second group rather
+              than a rewrite. One line under the heading; the exception is a
+              footnote under the switches, where it answers "what about the
+              rest?" after the reader has seen what the rest is. */}
+          <div>
+            {/* The eyebrow the Profile list heads its groups with (YOU,
+                COACHING, ACCOUNT): a group label, not one more row. */}
+            <h2 style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: 0 }}>Email</h2>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 'var(--space-4) 0 0' }}>
+              Everything here also shows in the app, whatever you choose.
+            </p>
+          </div>
           {emailCategories.map(c => (
             <Toggle
               key={c.key}
@@ -855,6 +769,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               disabled={emailPrefs === null}
             />
           ))}
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>
+            Account, security and billing emails are always sent.
+          </p>
         </SectionPanel>
       )}
 
@@ -867,7 +784,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           <SectionPanel hideTitle={isMobile} active={isVisible('details')} id="section-details" title="Your details">
             <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0 }}>
               {profile?.role === 'client'
-                ? 'Your coach uses these to set your targets. Keep them accurate.'
+                ? 'Your coach uses these to set your targets.'
                 : 'Used to estimate your targets.'}
             </p>
 
@@ -880,36 +797,41 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={lbl}>Sex</label>
+            {/* minWidth 0 on both cells: a grid item will not shrink below its
+                content, and iOS gives a date input a wide intrinsic width, so
+                the date-of-birth field ran past the card's right edge. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px' }}>
+              <div style={{ minWidth: 0 }}>
+                <label style={lbl}>Sex · for metabolism</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[['male', 'Male'], ['female', 'Female']].map(([v, t]) => (
                     <Pill key={v} active={bio.sex === v} aria-pressed={bio.sex === v} onClick={() => setBio({ ...bio, sex: v })}>{t}</Pill>
                   ))}
                 </div>
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <label style={lbl}>Date of birth{age != null ? ` · ${age} yrs` : ''}</label>
-                <input type="date" className="dob-field" value={bio.birth_date} max={todayStr()} onChange={(e) => setBio({ ...bio, birth_date: e.target.value })} style={{ ...inputStyle, color: 'var(--color-text)', width: '100%', textAlign: 'center', height: '30px' }} />
+                <input type="date" className="dob-field" aria-label="Date of birth" value={bio.birth_date} max={todayStr()} onChange={(e) => setBio({ ...bio, birth_date: e.target.value })} style={{ ...inputStyle, color: 'var(--color-text)', width: '100%', minWidth: 0, boxSizing: 'border-box', textAlign: 'center', height: '30px' }} />
               </div>
             </div>
 
             <div>
-              <label style={lbl}>Height</label>
+              {/* The unit is in the label, because a placeholder is gone the
+                  moment the field has a value: "168" alone does not say cm. */}
+              <label style={lbl}>Height · {metric ? 'cm' : 'ft and in'}</label>
               {metric ? (
-                <input type="number" inputMode="numeric" value={bio.height_cm} onChange={(e) => setBio({ ...bio, height_cm: e.target.value })} placeholder="cm" style={inputStyle} />
+                <input type="number" inputMode="numeric" aria-label="Height in cm" value={bio.height_cm} onChange={(e) => setBio({ ...bio, height_cm: e.target.value })} placeholder="cm" style={inputStyle} />
               ) : (
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input type="number" inputMode="numeric" value={bio.height_ft} onChange={(e) => setBio({ ...bio, height_ft: e.target.value })} placeholder="ft" style={inputStyle} />
-                  <input type="number" inputMode="numeric" value={bio.height_in} onChange={(e) => setBio({ ...bio, height_in: e.target.value })} placeholder="in" style={inputStyle} />
+                  <input type="number" inputMode="numeric" aria-label="Height, feet" value={bio.height_ft} onChange={(e) => setBio({ ...bio, height_ft: e.target.value })} placeholder="ft" style={inputStyle} />
+                  <input type="number" inputMode="numeric" aria-label="Height, inches" value={bio.height_in} onChange={(e) => setBio({ ...bio, height_in: e.target.value })} placeholder="in" style={inputStyle} />
                 </div>
               )}
             </div>
 
             <div>
               <label style={lbl}>Activity level</label>
-              <select value={bio.activity_level} onChange={(e) => setBio({ ...bio, activity_level: e.target.value })} style={{ ...inputStyle, cursor: 'pointer' }}>
+              <select aria-label="Activity level" value={bio.activity_level} onChange={(e) => setBio({ ...bio, activity_level: e.target.value })} style={{ ...inputStyle, cursor: 'pointer' }}>
                 {ACTIVITY_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
               </select>
             </div>
@@ -938,7 +860,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Button onClick={saveBio} variant="primary" loading={bioSaving}>Save details</Button>
+              <Button onClick={saveBio} variant={bioDirty ? 'primary' : 'muted'} disabled={!bioDirty} loading={bioSaving}>Save details</Button>
               {bioSaved && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-sm)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>Saved <Icon name="check" /></span>}
             </div>
           </SectionPanel>
@@ -947,10 +869,58 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
       {profile?.role !== 'coach' && (
       <SectionPanel hideTitle={isMobile} active={isVisible('targets')} id="section-targets" title="Daily targets">
-        <p style={{ fontSize: 'var(--text-base)', marginTop: '-8px' }}>
-          {profile?.role === 'client'
-            ? 'These targets were set by your coach.'
-            : 'Set your daily goals. Leave blank to skip tracking that metric.'}
+        {/* A CLIENT reads targets; they do not edit them. They used to get the
+            solo user's form with every box greyed and read-only, which is a
+            control that cannot be used (C1's rule for pills, applied to
+            fields): it looks broken, and tabs through six dead inputs. So a
+            client gets the values as values, grouped the way F2 groups them
+            (one intake, three single readings), with "Not set" for a blank
+            rather than an empty box (F3). */}
+        {profile?.role === 'client' ? (() => {
+          const fmt = (v, unit) => {
+            const n = Number(v)
+            if (v === '' || v == null || !Number.isFinite(n)) return null
+            return `${n.toLocaleString()} ${unit}`
+          }
+          const groups = [
+            ['Nutrition', [
+              ['Calories', fmt(targets.calories, 'cal')],
+              ['Protein', fmt(targets.protein, 'g')],
+              ['Carbs', fmt(targets.carbs, 'g')],
+              ['Fat', fmt(targets.fat, 'g')],
+            ]],
+            ['Activity', [
+              ['Cardio', fmt(targets.cardio_minutes, 'min')],
+              ['Steps', fmt(targets.steps, 'steps')],
+            ]],
+            ['Body', [
+              ['Weight goal', fmt(targets.weight_goal, targets.weight_goal_unit)],
+            ]],
+          ]
+          return (
+            <>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+                Set by your coach.{' '}
+                <Link to="/coach" style={{ color: 'var(--color-primary)' }}>Message them</Link> if one needs changing.
+              </p>
+              {groups.map(([title, rows]) => (
+                <div key={title}>
+                  <h2 style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>{title}</h2>
+                  {rows.map(([label, value], i) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-12)', padding: 'var(--space-10) 0', borderTop: i ? '1px solid var(--color-border)' : 'none' }}>
+                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{label}</span>
+                      <span className="tnum" style={{ fontSize: 'var(--text-base)', fontWeight: value ? 'var(--weight-medium)' : 'var(--weight-normal)', color: value ? 'var(--color-text)' : 'var(--color-muted)' }}>
+                        {value || 'Not set'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </>
+          )
+        })() : (<>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+          Leave a target blank to skip tracking it.
         </p>
 
         {/* Solo: an assessment to seed starting macros instead of guessing. */}
@@ -996,8 +966,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               placeholder="e.g. 2000"
               value={targets.calories}
               onChange={(e) => setTargets({ ...targets, calories: e.target.value })}
-              readOnly={profile?.role === 'client'}
-              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
+              style={inputStyle}
             />
           </div>
           <div>
@@ -1007,8 +976,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               placeholder="e.g. 150"
               value={targets.protein}
               onChange={(e) => setTargets({ ...targets, protein: e.target.value })}
-              readOnly={profile?.role === 'client'}
-              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
+              style={inputStyle}
             />
           </div>
           <div>
@@ -1018,8 +986,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               placeholder="e.g. 200"
               value={targets.carbs}
               onChange={(e) => setTargets({ ...targets, carbs: e.target.value })}
-              readOnly={profile?.role === 'client'}
-              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
+              style={inputStyle}
             />
           </div>
           <div>
@@ -1029,8 +996,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               placeholder="e.g. 65"
               value={targets.fat}
               onChange={(e) => setTargets({ ...targets, fat: e.target.value })}
-              readOnly={profile?.role === 'client'}
-              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
+              style={inputStyle}
             />
           </div>
           <div>
@@ -1040,8 +1006,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               placeholder="e.g. 30"
               value={targets.cardio_minutes || ''}
               onChange={(e) => setTargets({ ...targets, cardio_minutes: e.target.value })}
-              readOnly={profile?.role === 'client'}
-              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
+              style={inputStyle}
             />
           </div>
           <div>
@@ -1051,8 +1016,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               placeholder="e.g. 10000"
               value={targets.steps || ''}
               onChange={(e) => setTargets({ ...targets, steps: e.target.value })}
-              readOnly={profile?.role === 'client'}
-              style={{ ...inputStyle, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
+              style={inputStyle}
             />
           </div>
         </div>
@@ -1065,8 +1029,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               placeholder="e.g. 175"
               value={targets.weight_goal}
               onChange={(e) => setTargets({ ...targets, weight_goal: e.target.value })}
-              readOnly={profile?.role === 'client'}
-              style={{ ...inputStyle, flex: 1, cursor: profile?.role === 'client' ? 'default' : 'text', opacity: profile?.role === 'client' ? 0.7 : 1 }}
+              style={{ ...inputStyle, flex: 1 }}
             />
             <select
               value={targets.weight_goal_unit}
@@ -1074,8 +1037,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
                 const unit = e.target.value
                 setTargets(prev => ({ ...prev, weight_goal_unit: unit, weight_goal: convertGoalValue(prev.weight_goal, prev.weight_goal_unit, unit) }))
               }}
-              disabled={profile?.role === 'client'}
-              style={{ ...inputStyle, width: '80px', cursor: profile?.role === 'client' ? 'default' : 'pointer', opacity: profile?.role === 'client' ? 0.7 : 1 }}
+              aria-label="Weight goal unit"
+              style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}
             >
               <option value="lbs">lbs</option>
               <option value="kg">kg</option>
@@ -1083,11 +1046,19 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           </div>
         </div>
 
-        {profile?.role !== 'client' && (
-          <Button onClick={saveTargets} variant="primary">
-            {saved ? <>Saved <Icon name="check" /></> : 'Save targets'}
-          </Button>
-        )}
+        {(() => {
+          // Same rule as Your details: muted until something changed.
+          const dirty = savedTargets === null
+            ? Object.entries(targets).some(([k, v]) => k !== 'weight_goal_unit' && v !== '')
+            : Object.keys(targets).some(k => String(targets[k] ?? '') !== String(savedTargets[k] ?? ''))
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Button onClick={saveTargets} variant={dirty ? 'primary' : 'muted'} disabled={!dirty}>Save targets</Button>
+              {saved && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>Saved <Icon name="check" /></span>}
+            </div>
+          )
+        })()}
+        </>)}
       </SectionPanel>
       )}
 
@@ -1184,80 +1155,109 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       )}
 
       <SectionPanel hideTitle={isMobile} active={isVisible('security')} id="section-security" title="Security">
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6 }}>
-          A password is optional. If you sign in with emailed codes you can carry on doing that —
-          setting one here just gives you a second way in.
-        </p>
+        {/* A Password ROW, the shape Apple's and Google's account pages use,
+            opening the form on request. It stood open with a filled green
+            button on every visit, which reads as "you must do this" for
+            something that is optional: most clients sign in with emailed
+            codes and never need one. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+          <SettingRow
+            keepInline
+            label="Password"
+            description={passwordStatus.includes('successfully')
+              ? 'Password updated.'
+              : 'Optional. Lets you sign in without waiting for an emailed code.'}
+          >
+            {/* "Edit", not "Set" or "Change": Supabase does not tell the app
+                whether this account has a password, and either verb would be
+                wrong for half the people reading it. */}
+            {pwStage === 'closed' && (
+              <Button variant="muted" size="sm" onClick={() => { setPwStage('form'); setPasswordStatus('') }}>
+                Edit
+              </Button>
+            )}
+          </SettingRow>
 
-        {pwStage === 'form' ? (
-          <>
-            <PasswordInput
-              placeholder="New password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              style={inputStyle}
-            />
-            <PasswordInput
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              style={inputStyle}
-            />
-            {passwordStatus && (
-              <p style={{
-                fontSize: 'var(--text-base)',
-                color: passwordStatus.includes('successfully') ? 'var(--color-success)' : 'var(--color-error)'
-              }}>
-                {passwordStatus}
+          {pwStage === 'form' && (
+            <>
+              <PasswordInput
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                style={inputStyle}
+              />
+              <PasswordInput
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                style={inputStyle}
+              />
+              {/* The rules up front, not discovered one failure at a time. */}
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+                At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol.
               </p>
-            )}
-            <Button onClick={startPasswordChange} variant="primary" loading={pwBusy}>
-              Update password
-            </Button>
-          </>
-        ) : (
-          <>
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              aria-label="Confirmation code"
-              maxLength={6}
-              placeholder="000000"
-              value={pwCode}
-              onChange={(e) => setPwCode(e.target.value.replace(/\D/g, ''))}
-              style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: 'var(--text-lg)' }}
-            />
-            {passwordStatus && (
-              <p style={{
-                fontSize: 'var(--text-base)',
-                color: passwordStatus.includes('emailed') ? 'var(--color-muted)' : 'var(--color-error)'
-              }}>
-                {passwordStatus}
+              {passwordStatus && (
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', margin: 0 }}>{passwordStatus}</p>
+              )}
+              <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
+                <Button onClick={startPasswordChange} variant="primary" size="sm" loading={pwBusy}>
+                  Continue
+                </Button>
+                <Button
+                  onClick={() => { setPwStage('closed'); setNewPassword(''); setConfirmPassword(''); setPasswordStatus('') }}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {pwStage === 'code' && (
+            <>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
+                We emailed a 6-digit code to {session.user.email}. Enter it to confirm.
               </p>
-            )}
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <Button onClick={confirmPasswordChange} variant="primary" loading={pwBusy}>
-                Confirm change
-              </Button>
-              <Button
-                onClick={() => { setPwStage('form'); setPwCode(''); setPasswordStatus('') }}
-                variant="ghost"
-              >
-                Cancel
-              </Button>
-            </div>
-          </>
-        )}
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                aria-label="Confirmation code"
+                maxLength={6}
+                placeholder="000000"
+                value={pwCode}
+                onChange={(e) => setPwCode(e.target.value.replace(/\D/g, ''))}
+                style={{ ...inputStyle, letterSpacing: '0.4em', textAlign: 'center', fontSize: 'var(--text-lg)', maxWidth: '220px' }}
+              />
+              {passwordStatus && !passwordStatus.includes('emailed') && (
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', margin: 0 }}>{passwordStatus}</p>
+              )}
+              <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
+                <Button onClick={confirmPasswordChange} variant="primary" size="sm" loading={pwBusy}>
+                  Save password
+                </Button>
+                <Button
+                  onClick={() => { setPwStage('closed'); setPwCode(''); setNewPassword(''); setConfirmPassword(''); setPasswordStatus('') }}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
 
         <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
 
         <SettingRow
+          keepInline
           label="Sign out everywhere"
-          description="Ends your session on every device, including ones you no longer have. Use this if a phone or laptop goes missing."
+          description="Signs you out on every device, this one included. Use it if a phone or laptop goes missing."
         >
-          <Button onClick={signOutEverywhere} variant="muted" loading={globalSignOutBusy}>
-            Sign out everywhere
+          <Button onClick={signOutEverywhere} variant="muted" size="sm" loading={globalSignOutBusy}>
+            Sign out
           </Button>
         </SettingRow>
       </SectionPanel>
@@ -1277,12 +1277,16 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       {/* Data */}
       <SectionPanel hideTitle={isMobile} active={isVisible('data')} id="section-data" title="Data">
 
+        {/* Says what the file actually holds. It listed four logs; the export
+            is the whole account (the data-portability right), and "JSON" told
+            a reader nothing they could use. */}
         <SettingRow
-          label="Export"
-          description="Download all your logged data — nutrition, weight, cardio, and steps — as a JSON file."
+          keepInline
+          label="Download your data"
+          description="A copy of everything in your account: logs, measurements, check-ins, messages and settings."
         >
-          <Button onClick={exportData} variant="muted" loading={exportLoading}>
-            {exportLoading ? 'Exporting...' : 'Download data'}
+          <Button onClick={exportData} variant="muted" size="sm" loading={exportLoading}>
+            {exportLoading ? 'Preparing…' : 'Download'}
           </Button>
         </SettingRow>
 
@@ -1292,33 +1296,43 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           {/* `tone="danger"` colours the LABEL, not the row: B2 keeps colour in
               the thing it grades. The confirm stages below are a flow, not a
               control, so they stack under the row rather than sitting in it. */}
+          {/* A plain label at rest, as Stop syncing is: the red arrives on the
+              button when pressed and on the confirm step (D3), so the page
+              does not stand in red for an action almost nobody takes. Says
+              what the coach loses, which is what a client is really deciding. */}
           <SettingRow
+            keepInline
             label="Delete account"
-            tone="danger"
-            description="Permanently delete your account and all associated data. This cannot be undone."
+            description={profile?.role === 'client'
+              ? 'Permanently deletes your account and history. Your coach loses access to it. This cannot be undone.'
+              : 'Permanently deletes your account and everything in it. This cannot be undone.'}
           >
             {deleteStage === 'idle' && (
-              <Button onClick={() => { setDeleteStage('confirm'); setDeleteError('') }} variant="danger">
-                Delete my account
+              <Button onClick={() => { setDeleteStage('confirm'); setDeleteError('') }} variant="danger" size="sm">
+                Delete
               </Button>
             )}
           </SettingRow>
           {deleteStage === 'idle' ? null : deleteStage === 'confirm' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', fontWeight: 600, margin: 0 }}>
-                Are you sure? This will delete all your data permanently.
-              </p>
+              {/* Not "Are you sure?": the row above has just said it. This is
+                  the moment to offer the copy, before it is gone. */}
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-                We'll email you a 6-digit code to confirm it's really you.
+                We&apos;ll email a 6-digit code to {session.user.email} to confirm it&apos;s you.
+                Want a copy first?{' '}
+                <button type="button" className="ds-control ds-fixbtn" onClick={exportData} disabled={exportLoading}
+                  style={{ fontSize: 'inherit', padding: 0, color: 'var(--color-primary)' }}>
+                  Download your data
+                </button>
               </p>
               {deleteError && (
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', margin: 0 }}>{deleteError}</p>
               )}
               <div style={{ display: 'flex', gap: '12px' }}>
-                <Button onClick={requestDeleteCode} variant="danger-solid" loading={codeSending}>
-                  {codeSending ? 'Sending code...' : 'Email me a code'}
+                <Button onClick={requestDeleteCode} variant="danger-solid" size="sm" loading={codeSending}>
+                  {codeSending ? 'Sending…' : 'Email me a code'}
                 </Button>
-                <Button onClick={() => { setDeleteStage('idle'); setDeleteError('') }} variant="ghost">
+                <Button onClick={() => { setDeleteStage('idle'); setDeleteError('') }} variant="ghost" size="sm">
                   Cancel
                 </Button>
               </div>
@@ -1343,12 +1357,13 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)', margin: 0 }}>{deleteError}</p>
               )}
               <div style={{ display: 'flex', gap: '12px' }}>
-                <Button onClick={deleteAccount} variant="danger-solid" loading={deleteLoading}>
-                  {deleteLoading ? 'Deleting...' : 'Yes, delete everything'}
+                <Button onClick={deleteAccount} variant="danger-solid" size="sm" loading={deleteLoading}>
+                  {deleteLoading ? 'Deleting…' : 'Delete my account'}
                 </Button>
                 <Button
                   onClick={() => { setDeleteStage('idle'); setDeleteCode(''); setDeleteError('') }}
                   variant="ghost"
+                  size="sm"
                 >
                   Cancel
                 </Button>

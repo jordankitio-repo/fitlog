@@ -169,7 +169,7 @@ export default function Onboarding({ session, profile, onComplete }) {
       </div>
 
       {/* Sex + DOB */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px' }}>
         <div>
           <label style={labelStyle}>Sex <span style={{ color: 'var(--color-faint)' }}>· for metabolism</span></label>
           <div style={{ display: 'flex', gap: '8px' }}>
