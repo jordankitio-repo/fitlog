@@ -12,14 +12,14 @@ import { CountBadge } from './ui'
 function NavIcon({ label, size = 19 }) {
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className: 'gnav-mitem-icon' }
   switch (label) {
-    // E1: the tab is "My Progress" now, so the mark is a trend line rather than
+    // E1: the tab is "Progress" now, so the mark is a trend line rather than
     // the 2x2 grid — that grid is the universal "dashboard" glyph, and it was
     // the icon half of the placeholder word the label just dropped.
-    case 'My Progress':
+    case 'Progress':
       return (<svg {...p}><path d="M3 3v18h18" /><polyline points="7 14 11 10 14 13 20 7" /></svg>)
     case 'Coach':
       return (<svg {...p}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>)
-    case 'Log':
+    case 'Today':
       return (<svg {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>)
     case 'Clients':
       return (<svg {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>)
@@ -67,8 +67,11 @@ function NavBar({ profile }) {
   const links = profile?.role === 'coach'
     ? [{ to: '/', label: 'Clients' }, { to: '/profile', label: 'Profile' }]
     : [
-        { to: '/', label: 'My Progress' },
-        { to: '/log', label: 'Log' },
+        // Today is the day against its targets and everything logged in it;
+        // Progress is how it is going over weeks. Named for that split: "My
+        // Progress" and "Log" left a reader unsure which one held today.
+        { to: '/', label: 'Progress' },
+        { to: '/log', label: 'Today' },
         // Everything from the coach, in one place. See pages/Coach.jsx.
         ...(profile?.role === 'client' ? [{ to: '/coach', label: 'Coach' }] : []),
         { to: '/profile', label: 'Profile' },
@@ -151,7 +154,7 @@ function NavBar({ profile }) {
             And a single destination is not navigation: a coach has only
             Clients, which points at the page they are already on and which the
             brand mark already links to. Rendered only when there is somewhere
-            to actually go — so clients keep My Progress/Log. */}
+            to actually go — so clients keep Progress/Today. */}
         {navLinks.length > 1 && navLinks.map((l) => (
           <Link
             key={l.to + l.label}

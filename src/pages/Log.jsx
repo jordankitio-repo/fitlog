@@ -9,7 +9,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import Toast from '../components/Toast'
 import Modal from '../components/Modal'
 import SoloUpgrade from '../components/SoloUpgrade'
-import { toLocalDateString } from '../utils/dateHelpers'
+import { toLocalDateString, parseLocalDateString } from '../utils/dateHelpers'
 import { measurementStatus } from '../utils/measurementCadence'
 import { cardStyle } from '../utils/styles'
 import { refreshNotifications } from '../utils/notifyRefresh'
@@ -20,7 +20,7 @@ import ActionSheet from '../components/ActionSheet'
 import { useLongPress } from '../hooks/useLongPress'
 import { useTabReturn, TabActiveContext } from '../hooks/useTabReturn'
 import { revealWhenReady } from '../utils/quickActions'
-import { formatMinutes, stepsGoalSub, cardioGoalSub, convertLengthValue } from '../utils/metricRows'
+import { formatMinutes, convertLengthValue } from '../utils/metricRows'
 import { convertGoalValue } from '../utils/weightTarget'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import {
@@ -29,6 +29,8 @@ import {
 } from '../utils/healthSync'
 import PullToRefresh from '../components/PullToRefresh'
 import DayStepper from '../components/DayStepper'
+import TodayPanel from '../components/TodayPanel'
+import { todayCells } from '../utils/todayCells'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -253,12 +255,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [copyLoading, setCopyLoading] = useState(false)
   const [editingCardio, setEditingCardio] = useState(null)
   const [hideCalories, setHideCalories] = useState(false)
-  const [weightExpanded, setWeightExpanded] = useState(false)
+  // Which records show under the Today panel: 'food', 'cardio', 'steps',
+  // 'weight', or null. The meals by default, the thing most opened.
+  const [openSection, setOpenSection] = useState('food')
   const [nutritionExpanded, setNutritionExpanded] = useState(false)
   const [savingEntry, setSavingEntry] = useState(false)
   const submittingEntryRef = useRef(false) // synchronous double-submit guard (state updates are async)
   const [cardioExpanded, setCardioExpanded] = useState(false)
-  const [stepsExpanded, setStepsExpanded] = useState(false)
 
   // Weight state
   const [weight, setWeight] = useState('')
@@ -307,13 +310,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
     async function loadDay() {
       const seq = ++loadSeq.current
       setPageLoading(true)
-      // Every day opens with its editors closed; an empty day shows "Not
-      // logged" rows with their own Log buttons. This lives on the DAY
-      // change, not in fetchWeight/fetchSteps, because those also run on a
-      // quiet refresh -- and closing there shut a form the reader (or a
-      // Quick Action) had just opened.
-      setWeightExpanded(false)
-      setStepsExpanded(false)
       await Promise.allSettled([
         fetchEntries(), fetchDayComplete(), fetchWeight(),
         fetchCardioEntries(), fetchSteps(), fetchMeasurements(),
@@ -353,18 +349,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
   }
 
   // Apple Health just wrote something. Re-read the three metrics it writes,
-  // except one whose editor is open: fetchWeight/fetchSteps reset the field,
-  // and a sync landing mid-keystroke must not take a number out from under the
-  // reader. The open editor's save pins its value anyway.
+  // except one the reader is typing into: fetchWeight/fetchSteps reset the
+  // field, and a sync landing mid-keystroke must not take a number out from
+  // under them. The save pins their value anyway.
+  const weightDirty = openSection === 'weight' && weight !== (savedWeight ? savedWeight.weight.toString() : '')
+  const stepsDirty = openSection === 'steps' && steps !== (savedSteps ? savedSteps.steps.toString() : '')
   useEffect(() => {
     function onSynced() {
       fetchCardioEntries()
-      if (!weightExpanded) fetchWeight()
-      if (!stepsExpanded) fetchSteps()
+      if (!weightDirty) fetchWeight()
+      if (!stepsDirty) fetchSteps()
     }
     window.addEventListener(DEVICE_SYNC_EVENT, onSynced)
     return () => window.removeEventListener(DEVICE_SYNC_EVENT, onSynced)
-  }, [selectedDate, weightExpanded, stepsExpanded]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedDate, weightDirty, stepsDirty]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Home screen Quick Actions arrive as /log?action=… (utils/quickActions).
   // Logging happens NOW, so each one moves the page to today; the action is
@@ -393,9 +391,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
       if (!pendingAction || pageLoading || loadedDate !== toLocalDateString(new Date())) return
       const action = pendingAction
       setPendingAction(null)
-      if (action === 'add-food') { setShowCopyPanel(false); setNutritionExpanded(true) }
-      if (action === 'scan') { setShowCopyPanel(false); setNutritionExpanded(true); setShowScanner(true) }
-      if (action === 'log-weight') setWeightExpanded(true)
+      if (action === 'add-food') { setOpenSection('food'); setShowCopyPanel(false); setNutritionExpanded(true) }
+      if (action === 'scan') { setOpenSection('food'); setShowCopyPanel(false); setNutritionExpanded(true); setShowScanner(true) }
+      if (action === 'log-weight') setOpenSection('weight')
       // Bring the field into view and give it the cursor once it has rendered.
       // (iOS raises the keyboard only for a focus that comes from a tap, so on
       // the phone this places the reader at the field; one tap types.)
@@ -409,7 +407,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   useEffect(() => {
     if (!session?.user?.id) return
-    supabase.from('targets').select('steps, cardio_minutes, calories, protein, carbs, fat').eq('user_id', session.user.id).maybeSingle()
+    supabase.from('targets').select('steps, cardio_minutes, calories, protein, carbs, fat, weight_goal, weight_goal_unit').eq('user_id', session.user.id).maybeSingle()
       .then(({ data, error }) => { if (error) console.error(error); else setTargets(data) })
   }, [session?.user?.id])
 
@@ -503,7 +501,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
       logged_date: selectedDate,
       user_id: currentSession.user.id,
     }])
-    if (error) console.error('Error quick-adding food:', error)
+    if (error) { console.error('Error quick-adding food:', error); showToast('Couldn\'t add that. Try again.', 'error') }
     else { fetchEntries(); fetchFrequentFoods(); refreshNotifications() }
     setQuickAddKey(null)
   }
@@ -1324,6 +1322,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const totalCarbs = entries.reduce((s, e) => s + (e.carbs || 0), 0)
   const totalFat = entries.reduce((s, e) => s + (e.fat || 0), 0)
 
+  // The panel at the top of the page (components/TodayPanel).
+  const panelCells = todayCells({
+    totals: { calories: totalCalories, protein: totalProtein, carbs: totalCarbs, fat: totalFat },
+    targets,
+    hideCalories,
+    cardioMinutes: cardioEntries.filter(e => e.counts_as_cardio !== false).reduce((sum, e) => sum + (e.duration || 0), 0),
+    steps: savedSteps ? savedSteps.steps : null,
+    weight: savedWeight,
+  })
+  // The page is named for its day: "Today", or the day the stepper moved to.
+  const dayTitle = selectedDate === toLocalDateString(new Date())
+    ? 'Today'
+    : parseLocalDateString(selectedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
   // One canonical control style for the whole app (src/components/ui/Field.jsx).
   const inputStyle = controlStyle
 
@@ -1344,11 +1356,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
     ...iconBtnStyle, width: 44, height: 44, padding: 0, margin: '-8px -8px -8px -8px',
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   }
-  // How far a row's value sits from the row's right edge on a phone: the more
-  // button's footprint (44 less its two -8 margins) plus the row's 10px gap.
-  // A group total on the right lines up with the values only if it is inset
-  // by the same amount.
-  const ACTION_COL_PX = 44 - 16 + 10
   // Where a Body and activity row's TEXT starts: the 28px mark plus the row's
   // 10px gap. Rules, the WORKOUTS label and "+ Log workout" all start here.
   const MARK_INSET_PX = 28 + 10
@@ -1538,14 +1545,23 @@ function Log({ session, profile, hasSoloPremium = true }) {
         {selectMode && (
           <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}`, background: checked ? 'var(--color-primary)' : 'transparent', color: 'var(--color-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-xs)' }}>{checked ? <Icon name="check" size={12} strokeWidth={3} /> : ''}</span>
         )}
+        {/* Calories are the row's number, on the right, the way Weight and
+            Steps carry theirs (and MyFitnessPal its foods): with kcal inside
+            the sub-line it ran to two lines on a phone. The sub-line keeps the
+            serving and macros, on ONE line; if a long serving still overflows,
+            it ellipsises rather than wrapping. */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{entry.food}</p>
-          <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
+          <p className="log-macro-line" style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
             {formatServing(entry.serving_size, entry.serving_unit)}
-            {!hideCalories && ` · ${Number(entry.calories || 0).toLocaleString()} kcal`}
             {` · ${entry.protein || 0}g P · ${entry.carbs || 0}g C · ${entry.fat || 0}g F`}
           </p>
         </div>
+        {!hideCalories && (
+          <span className="tnum" style={{ flexShrink: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text)', alignSelf: 'flex-start', marginTop: '1px' }}>
+            {Number(entry.calories || 0).toLocaleString()} <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)' }}>kcal</span>
+          </span>
+        )}
         {/* A PHONE GETS ONE CONTROL, NOT FOUR.
             Four buttons were ~118px of a ~370px row -- a third of its width --
             which is what pushed the macro line into wrapping and orphaned
@@ -1633,8 +1649,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <span aria-hidden="true" style={{ flexShrink: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)', width: 12 }}>{open ? '▾' : '▸'}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}><Icon name="utensils" style={{ color: 'var(--color-muted)' }} /> {item.name}</p>
-            <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--color-muted)' }}>
-              {item.entries.length} item{item.entries.length === 1 ? '' : 's'}{!hideCalories ? ` · ${item.calories} kcal` : ''}
+            <p className="log-macro-line" style={{ fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--color-muted)' }}>
+              {item.entries.length} item{item.entries.length === 1 ? '' : 's'}
               {(() => {
                 const p = item.entries.reduce((s, e) => s + (e.protein || 0), 0)
                 const c = item.entries.reduce((s, e) => s + (e.carbs || 0), 0)
@@ -1643,6 +1659,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
               })()}
             </p>
           </div>
+          {!hideCalories && (
+            <span className="tnum" style={{ flexShrink: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text)', alignSelf: 'flex-start', marginTop: '1px' }}>
+              {Number(item.calories || 0).toLocaleString()} <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)' }}>kcal</span>
+            </span>
+          )}
           </button>
           {/* The phone gets the food rows' one button, not four: the same sheet
               a hold opens. This row had been missed when the food rows
@@ -1690,114 +1711,42 @@ function Log({ session, profile, hasSoloPremium = true }) {
     <PullToRefresh onRefresh={pullRefresh}>
     <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* Header */}
-      {/* One header at every width: the title, and ONE date control at the
-          right -- `‹ Today ›`. The middle names the day ("Today" until it
-          moves, then "Oct 22") and opens the calendar. There is no separate
-          "Today" button any more: beside the stepper it did not fit a phone
-          (the title wrapped), and on a row of its own it left a lone pill
-          under the title. The calendar, or `›`, is the way back. Shared with
-          My Progress and the client record: components/DayStepper. */}
+      {/* Header: the day's name, and the stepper to move it. The middle of the
+          stepper is the calendar glyph here, not "Today": the title already
+          says which day, and the two side by side read "Today  ‹ Today ›".
+          Shared with the client record: components/DayStepper. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)', flexWrap: 'wrap', rowGap: 'var(--space-8)' }}>
-        <h1 style={{ whiteSpace: 'nowrap' }}>Daily Log</h1>
-        <DayStepper value={selectedDate} onChange={setSelectedDate} />
+        <h1 style={{ whiteSpace: 'nowrap' }}>{dayTitle}</h1>
+        <DayStepper value={selectedDate} onChange={setSelectedDate} compact />
       </div>
 
       {pageLoading ? (
-        // The shapes of the cards to come: Body and activity, then Nutrition's
-        // totals and a few rows, then Measurements.
+        // The shapes of the cards to come: the panel, then the meals.
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
-          <Skeleton height="230px" />
-          <Skeleton height="96px" />
+          <Skeleton height="200px" />
           {[...Array(3)].map((_, i) => <Skeleton key={i} height="56px" />)}
-          <Skeleton height="120px" />
         </div>
       ) : (<>
-      {/* Body and activity: weight, steps and cardio in ONE card. They were
-          three cards, two of them a heading and padding around a single row,
-          and F2 already names them as one group ("three single readings").
-          Steps sits above cardio because cardio is the open-ended list and
-          its "+ Log workout" belongs at the foot of the card. */}
-      <div style={sectionStyle}>
-        <h2>Body and activity</h2>
+      {/* The day against its targets, and the index to its records: each part
+          opens what is behind it below (components/TodayPanel). It replaces
+          the Body and activity card and the nutrition totals, which said the
+          same numbers without the targets' bars, and the copy of this panel
+          that sat on Progress. */}
+      <TodayPanel
+        {...panelCells}
+        open={openSection}
+        onSelect={(key) => setOpenSection(o => (o === key ? null : key))}
+        controls={{ food: 'log-food', cardio: 'log-cardio', steps: 'log-steps', weight: 'log-weight' }}
+      />
 
-        <div>
-          {savedWeight && !weightExpanded
-            ? renderMetricRow({
-                key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'weight' },
-                // When it was weighed (and the device, once synced). No change
-                // since yesterday: a weigh-in has no daily goal, and how it
-                // moves over time is My Progress's question, not the Log's.
-                sub: [savedWeight.weighed_at && formatTime(savedWeight.weighed_at), sourceOf(savedWeight)].filter(Boolean).join(' · ') || 'No time recorded',
-                value: `${savedWeight.weight} ${savedWeight.unit}`,
-                onEdit: () => setWeightExpanded(true), onDelete: deleteWeight,
-              })
-            : !weightExpanded && renderMetricRow({ key: 'weight', title: 'Weight', first: true, mark: { metric: 'weight', glyph: 'weight' }, logged: false, onLog: () => setWeightExpanded(true) })}
-          {weightExpanded && (
-            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX }}>
-              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Weight</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-                  {fieldLabel('Weight', <input ref={weightInputRef} type="number" value={weight} onChange={(e) => setWeight(e.target.value)} style={inputStyle} />, { flex: 1 })}
-                  <select value={weightUnit} onChange={(e) => { setWeight(convertGoalValue(weight, weightUnit, e.target.value)); setWeightUnit(e.target.value) }} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
-                    <option value="lbs">lbs</option>
-                    <option value="kg">kg</option>
-                  </select>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                  <Button onClick={() => setWeightExpanded(false)} variant="ghost" size="sm">Cancel</Button>
-                  <Button onClick={() => { saveWeight(); setWeightExpanded(false) }} variant="primary" size="sm">{savedWeight ? 'Update' : 'Log weight'}</Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {savedSteps && !stepsExpanded
-            ? renderMetricRow({
-                key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'footprints' },
-                sub: [stepsGoalSub(savedSteps.steps, targets?.steps), savedSteps.distance && `${savedSteps.distance} mi`, sourceOf(savedSteps)].filter(Boolean).join(' · ') || 'No step goal set',
-                value: savedSteps.steps.toLocaleString(),
-                onEdit: () => setStepsExpanded(true), onDelete: deleteSteps,
-              })
-            : !stepsExpanded && renderMetricRow({ key: 'steps', title: 'Steps', mark: { metric: 'steps', glyph: 'footprints' }, logged: false, onLog: () => setStepsExpanded(true) })}
-          {stepsExpanded && (
-            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX, borderTop: '1px solid var(--color-border)' }}>
-              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>Steps</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {fieldLabel('Steps', <input type="number" value={steps} onChange={(e) => setSteps(e.target.value)} style={inputStyle} />, { flex: 2 })}
-                  {fieldLabel('Distance (mi)', <input type="number" value={distance} onChange={(e) => setDistance(e.target.value)} style={inputStyle} />, { flex: 1 })}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                  <Button onClick={() => setStepsExpanded(false)} variant="ghost" size="sm">Cancel</Button>
-                  <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary" size="sm">{savedSteps ? 'Update' : 'Log steps'}</Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sessions are things DONE, weight and steps are things MEASURED, and
-              as one undivided list the two kinds read as a jumble once there
-              were two sessions. The label is the meal groups' (Nutrition, just
-              below), total and all. Not drawn over the empty row, which would
-              say "Workouts" twice.
-              WORKOUTS, not cardio: every kind is listed, because the Watch
-              records judo and strength sessions too and a log that hides them
-              misrepresents the day. Only the cardio ones add up against the
-              target, so the total says "cardio" whenever something here is not. */}
-          {cardioEntries.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px', marginLeft: MARK_INSET_PX, paddingRight: isMobile ? ACTION_COL_PX : 0, borderTop: '1px solid var(--color-border)' }}>
-              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>Workouts</span>
-              <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{(() => {
-                // The day's total against the target, like Steps' "98% of
-                // 9,000". Not against yesterday: cardio resets each morning.
-                const cardio = cardioEntries.filter(e => e.counts_as_cardio !== false)
-                const total = cardio.reduce((sum, e) => sum + (e.duration || 0), 0)
-                const mixed = cardio.length < cardioEntries.length
-                return [`${formatMinutes(total)}${mixed ? ' cardio' : ''}`, cardioGoalSub(total, targets?.cardio_minutes)].filter(Boolean).join(' · ')
-              })()}</span>
-            </div>
-          )}
+      {/* Workouts: every session, cardio or not (the Watch records judo and
+          strength too, and a log that hid them would misrepresent the day).
+          Only the cardio ones add up against the target, in the panel above,
+          so the list carries no total of its own. */}
+      {openSection === 'cardio' && (
+        <div id="log-cardio" style={sectionStyle}>
+          <h2>Workouts</h2>
+          <div>
           {cardioEntries.map((e, i) => renderMetricRow({
             key: e.id, title: e.exercise_type, first: i === 0, mark: { metric: 'cardio', glyph: 'heart' },
             // What recorded it ("Apple Watch") says more than where it came
@@ -1814,11 +1763,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
             value: formatMinutes(e.duration),
             onEdit: () => startEditCardio(e), onDelete: () => deleteCardio(e.id),
           }))}
-          {cardioEntries.length === 0 && !cardioExpanded &&
-            renderMetricRow({ key: 'cardio', title: 'Workouts', mark: { metric: 'cardio', glyph: 'heart' }, logged: false, onLog: () => setCardioExpanded(true) })}
+          {cardioEntries.length === 0 && !cardioExpanded && (
+            <p style={{ fontSize: 'var(--text-sm)' }}>No workouts yet.</p>
+          )}
           {cardioExpanded && (
-            <div style={{ padding: '10px 0', marginLeft: MARK_INSET_PX, borderTop: '1px solid var(--color-border)' }}>
-              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'Workout'}</p>
+            <div style={{ padding: '10px 0', ...(cardioEntries.length > 0 && { borderTop: '1px solid var(--color-border)' }) }}>
+              <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'New workout'}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {fieldLabel('Activity', <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
                   {/* An imported name the short list lacks ("Pickleball") stays
@@ -1847,85 +1797,94 @@ function Log({ session, profile, hasSoloPremium = true }) {
               </div>
             </div>
           )}
+          </div>
+          {!cardioExpanded && (
+            <Button onClick={() => setCardioExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start' }}>+ Log workout</Button>
+          )}
         </div>
+      )}
 
-        {cardioEntries.length > 0 && !cardioExpanded && (
-          <Button onClick={() => setCardioExpanded(true)} variant="muted" size="sm" style={{ alignSelf: 'flex-start', marginLeft: MARK_INSET_PX }}>+ Log workout</Button>
-        )}
-      </div>
+      {/* Steps and Weight: one record a day each, so opening one IS its editor,
+          filled in with what is logged (Apple Health's "Add Data" sheet, which
+          also shows the number in the field rather than restating it beside
+          the field). The value itself is in the panel above; the line under
+          the heading says only what the panel cannot: when, and from where. */}
+      {openSection === 'steps' && (
+        <div id="log-steps" style={sectionStyle}>
+          <div>
+            <h2>Steps</h2>
+            {savedSteps && sourceOf(savedSteps) && (
+              <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>From {sourceOf(savedSteps)}</p>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {fieldLabel('Total', <input type="number" inputMode="numeric" value={steps} onChange={(e) => setSteps(e.target.value)} style={inputStyle} />, { flex: 2 })}
+            {fieldLabel('Distance (mi)', <input type="number" inputMode="decimal" value={distance} onChange={(e) => setDistance(e.target.value)} style={inputStyle} />, { flex: 1 })}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {savedSteps && <Button onClick={deleteSteps} variant="danger" size="sm">Delete</Button>}
+            <Button onClick={saveSteps} variant="primary" size="sm" style={{ marginLeft: 'auto' }}>{savedSteps ? 'Update' : 'Log steps'}</Button>
+          </div>
+        </div>
+      )}
 
-      {/* Nutrition */}
-      <div style={sectionStyle}>
-        <h2>Nutrition</h2>
+      {openSection === 'weight' && (
+        <div id="log-weight" style={sectionStyle}>
+          <div>
+            <h2>Weight</h2>
+            {savedWeight && (savedWeight.weighed_at || sourceOf(savedWeight)) && (
+              <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
+                {[savedWeight.weighed_at && `Weighed ${formatTime(savedWeight.weighed_at)}`, sourceOf(savedWeight) && `from ${sourceOf(savedWeight)}`].filter(Boolean).join(' ')}
+              </p>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input ref={weightInputRef} type="number" inputMode="decimal" aria-label="Weight" value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+            <select aria-label="Unit" value={weightUnit} onChange={(e) => { setWeight(convertGoalValue(weight, weightUnit, e.target.value)); setWeightUnit(e.target.value) }} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
+              <option value="lbs">lbs</option>
+              <option value="kg">kg</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {savedWeight && <Button onClick={deleteWeight} variant="danger" size="sm">Delete</Button>}
+            <Button onClick={saveWeight} variant="primary" size="sm" style={{ marginLeft: 'auto' }}>{savedWeight ? 'Update' : 'Log weight'}</Button>
+          </div>
+        </div>
+      )}
 
-        {/* Macro totals. The numerals are NEUTRAL, not metric-coloured.
-            Metric tokens are FILL colours — dark-first data hues that the light
-            theme carries over unchanged — so as text on a light card they
-            measured 2.22:1 (calories), 2.69:1 (protein) and 2.20:1 (fat)
-            against a 4.5:1 floor. Only carbs had ever been given a light
-            override. This is the same call StatCard already made: the label
-            underneath names the metric, so the colour was carrying nothing the
-            reader needed, and it was costing legibility to do it. The metric
-            hue still does its real job two panels over, filling Dashboard's
-            progress bars, where a shape has no contrast requirement. */}
-        {/* Today against today's targets: the Log's one comparison (it never
-            compares with yesterday; that is My Progress). Steps already read
-            "99% of 9,000", while the four nutrition totals stood alone, so a
-            client could not tell 2,262 cal from too much or too little without
-            leaving the page. Each now carries its target as "of 1,850", the
-            way MyFitnessPal and MacroFactor set goal against food. Ungraded,
-            for B3's reason: over means opposite things for calories and
-            protein, so the number says how far and the reader says how good. */}
-        {(() => {
-          const cells = [
-            ...(hideCalories ? [] : [{ key: 'cal', label: 'Calories', value: totalCalories, unit: '', target: targets?.calories }]),
-            { key: 'p', label: 'Protein', value: totalProtein, unit: 'g', target: targets?.protein },
-            { key: 'c', label: 'Carbs', value: totalCarbs, unit: 'g', target: targets?.carbs },
-            { key: 'f', label: 'Fat', value: totalFat, unit: 'g', target: targets?.fat },
-          ]
-          const fmt = (n) => Math.round(Number(n) || 0).toLocaleString()
-          return (
-            <div className="tnum" style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`, gap: '8px' }}>
-              {cells.map(c => (
-                <div key={c.key} style={{ textAlign: 'center', minWidth: 0 }}>
-                  <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{fmt(c.value)}{c.unit}</div>
-                  {Number(c.target) > 0 && (
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>of {fmt(c.target)}{c.unit}</div>
-                  )}
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>{c.label}</div>
-                </div>
-              ))}
-            </div>
-          )
-        })()}
+      {/* Nutrition: the meals, opened by the macros */}
+      {openSection === 'food' && (
+      <div id="log-food" style={sectionStyle}>
+        {/* Select sits on the heading's line: on a row of its own it left a
+            gap the height of a row between the heading and the first meal. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+          <h2 style={{ flex: 1 }}>Nutrition</h2>
+          {entries.length > 0 && !nutritionExpanded && !showCopyPanel && !selectMode && (
+            <button
+              onClick={() => setSelectMode(true)}
+              aria-label="Select entries to group, move or save as a meal"
+              style={{
+                marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                color: 'var(--color-muted)', borderRadius: '999px', padding: '4px 12px',
+                fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <Icon name="check" /> Select
+            </button>
+          )}
+        </div>
 
         {/* Food entries, grouped by meal (with multi-select) */}
         {entries.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--color-border)', paddingTop: '4px' }}>
-            {!nutritionExpanded && !showCopyPanel && (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {!nutritionExpanded && !showCopyPanel && selectMode && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0 2px' }}>
-                {selectMode ? (
-                  <>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{selectedIds.size} selected</span>
-                    <div style={{ display: 'flex', gap: '14px' }}>
-                      <button onClick={selectAllInDay} style={selectLinkStyle}>{selectedIds.size === entries.length ? 'Clear' : 'Select all'}</button>
-                      <button onClick={exitSelect} style={selectLinkStyle}>Cancel</button>
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setSelectMode(true)}
-                    aria-label="Select entries to group, move or save as a meal"
-                    style={{
-                      marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px',
-                      background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                      color: 'var(--color-muted)', borderRadius: '999px', padding: '4px 12px',
-                      fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                  >
-                    <Icon name="check" /> Select
-                  </button>
-                )}
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{selectedIds.size} selected</span>
+                <div style={{ display: 'flex', gap: '14px' }}>
+                  <button onClick={selectAllInDay} style={selectLinkStyle}>{selectedIds.size === entries.length ? 'Clear' : 'Select all'}</button>
+                  <button onClick={exitSelect} style={selectLinkStyle}>Cancel</button>
+                </div>
               </div>
             )}
             {selectMode ? (
@@ -1933,7 +1892,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 <div key={group.key}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
                     <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
-                    {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{Number(group.calories || 0).toLocaleString()} kcal</span>}
+                    {/* A meal's total only when it adds something: over a single item it
+                            repeats that item's own number. */}
+                        {!hideCalories && groupLoggedMeals(group.entries).length > 1 && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{Number(group.calories || 0).toLocaleString()} kcal</span>}
                   </div>
                   {group.entries.map(entry => renderFoodEntry(entry))}
                 </div>
@@ -1959,7 +1920,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-12)', padding: '10px 0 2px' }}>
                       <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-12)', marginLeft: 'auto' }}>
-                        {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{Number(group.calories || 0).toLocaleString()} kcal</span>}
+                        {/* A meal's total only when it adds something: over a single item it
+                            repeats that item's own number. */}
+                        {!hideCalories && groupLoggedMeals(group.entries).length > 1 && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{Number(group.calories || 0).toLocaleString()} kcal</span>}
                         {MEALS.some(m => m.key === group.key) && (
                           <button
                             type="button"
@@ -2468,6 +2431,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         )}
       </div>
+      )}
 
       {/* Body measurements */}
       <div style={sectionStyle}>
@@ -2514,7 +2478,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             stranded two under it, a grid with a hole (F2), its columns
             misaligned. Every cell holds its place: a skipped site says "--"
             rather than collapsing the grid. Values only: change since the
-            last measurement is a trend, and trends live on My Progress.
+            last measurement is a trend, and trends live on Progress.
             Edit and Delete live behind the header's `more`, as on every other
             record on this page. */}
         {savedMeas && !measExpanded && (() => {

@@ -17,7 +17,9 @@ import { parseLocalDateString, toLocalDateString } from '../utils/dateHelpers'
 // The middle is a Button with the native date input laid over it, invisible:
 // tapping a real date input is what reliably opens the picker in a WKWebView,
 // where showPicker() is not something to lean on.
-export default function DayStepper({ value, onChange }) {
+// `compact` shows a calendar glyph in the middle instead of the day's name, for
+// a page whose title already names the day (the Today tab).
+export default function DayStepper({ value, onChange, compact = false }) {
   const today = toLocalDateString(new Date())
   const isToday = value === today
   const step = (days) => {
@@ -33,7 +35,7 @@ export default function DayStepper({ value, onChange }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexShrink: 0 }}>
       <Button onClick={() => step(-1)} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
       <span style={{ position: 'relative', display: 'inline-flex' }}>
-        <Button variant="muted" size="sm" tabIndex={-1} aria-hidden="true" style={{ minWidth: 76 }}>{label}</Button>
+        <Button variant="muted" size="sm" tabIndex={-1} aria-hidden="true" style={{ minWidth: compact ? 44 : 76 }}>{compact ? <Icon name="calendar" /> : label}</Button>
         <input
           type="date"
           aria-label={`Pick a day, showing ${label}`}

@@ -92,6 +92,7 @@ const PATHS = {
   weight:     <><circle cx="12" cy="5.5" r="2.75" /><path d="M6.8 8.25h10.4a1.6 1.6 0 0 1 1.55 1.2l2.3 9.2a1.6 1.6 0 0 1-1.55 2H4.5a1.6 1.6 0 0 1-1.55-2l2.3-9.2a1.6 1.6 0 0 1 1.55-1.2z" /></>,
   // Marks a saved meal — a group of entries logged together. Replaces a 🍽
   // emoji, which rendered in the OS font and was the app's last emoji-as-icon.
+  calendar: <><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>,
   utensils: <><path d="M7 2v8a2 2 0 0 0 2 2v10" /><path d="M4 2v5" /><path d="M10 2v5" /><path d="M18 2c-1.7 1.5-2.5 3.7-2.5 6 0 1.7.6 2.7 1.8 3.1V22" /></>,
 }
 

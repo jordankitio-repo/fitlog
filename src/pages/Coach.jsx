@@ -270,6 +270,28 @@ export default function Coach({ profile, archiveOpen = false }) {
     setSending(false)
   }
 
+  // On a phone a report, and the list of them, open as SHEETS over this page:
+  // /coach?report=<id> and /coach?sheet=reports. They were routes of their own
+  // (/reports/:id, /coach/reports), and a route mounts a second Coach page:
+  // the thread refetched, its placeholders and the scroll to the newest
+  // message all ran behind the sheet while it rose, so the sheet stuttered
+  // where the notifications' glides. A query on /coach keeps this page, the
+  // one already on screen, under it. The routes still work for links from a
+  // notification or an email, and for the desktop pane.
+  const onCoach = location.pathname === '/coach'
+  const sheetReportId = onCoach ? searchParams.get('report') : null
+  const sheetArchive = onCoach && searchParams.get('sheet') === 'reports'
+  // Reading a report marks it read, and this page is no longer remounted to
+  // notice: refresh the thread when a report sheet closes, however it closed
+  // (the ✕, the backdrop, or the back gesture), so its card drops "Unread".
+  const hadSheetReport = useRef(false)
+  useEffect(() => {
+    if (sheetReportId) { hadSheetReport.current = true; return }
+    if (!hadSheetReport.current) return
+    hadSheetReport.current = false
+    fetchThread(refreshSize(messageCount))
+  }, [sheetReportId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (noCoach) {
     return (
       <div className="page-fade-in">
@@ -310,6 +332,11 @@ export default function Coach({ profile, archiveOpen = false }) {
   // both running the archive's query behind a hidden sidebar AND suppressing
   // the modal that was its only way to reach the same list.
   const railed = wide && reportCount >= RAIL_MIN_REPORTS
+  const openReport = (id) => (railed ? navigate(`/reports/${id}`) : navigate(`/coach?report=${id}`))
+  // Back walks history (the sheet was pushed); opened from a link, where there
+  // is no history to walk, it drops the query instead.
+  const closeSheet = () => (location.key === 'default' ? navigate('/coach', { replace: true }) : navigate(-1))
+
 
   const rows = threadRows(items)
   // The newest message the client sent that the coach has opened. Only this one
@@ -345,7 +372,7 @@ export default function Coach({ profile, archiveOpen = false }) {
                 one forward glyph. Rendered whenever there is a report to find, so
                 the only route to that page is never conditional on a threshold. */}
             {reportCount > 0 && (
-              <Link to="/coach/reports" className="ds-disclosure ds-control coach-head-link">
+              <Link to="/coach?sheet=reports" className="ds-disclosure ds-control coach-head-link">
                 <span>All reports</span>
                 <span className="tnum" style={{ color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>
                   {reportCount}
@@ -383,7 +410,7 @@ export default function Coach({ profile, archiveOpen = false }) {
                       <ThreadReport
                         key={row.key}
                         report={row.report}
-                        onOpen={(id) => navigate(`/reports/${id}`)}
+                        onOpen={openReport}
                       />
                     )
                   }
@@ -441,15 +468,16 @@ export default function Coach({ profile, archiveOpen = false }) {
           dims the rail, and a reader who asked for "all reports" should get
           all reports rather than a page that appears to ignore them. The rail
           is an ambient index; this is the answer to a request. */}
-      <Modal open={archiveOpen} title="Reports" onClose={() => navigate('/coach')} maxWidth={560}>
-        <ReportArchive profile={profile} />
+      <Modal open={archiveOpen || sheetArchive} title="Reports" onClose={archiveOpen ? () => navigate('/coach') : closeSheet} maxWidth={560} sheet>
+        <ReportArchive profile={profile} onOpen={archiveOpen ? undefined : openReport} />
       </Modal>
 
       {/* The report itself, as a sheet, wherever there is no rail to show it
-          in. A report opened from a phone used to replace the whole screen
-          with a page of its own; now it arrives over the conversation it
-          belongs to, the same way the archive does, and closing it puts you
-          back where you were rather than at a route.
+          in. On a phone it rises from the bottom edge, as the notifications
+          do (Modal's `sheet`). A report opened from a phone used to replace
+          the whole screen with a page of its own; now it arrives over the
+          conversation it belongs to, the same way the archive does, and
+          closing it puts you back where you were rather than at a route.
 
           Closing walks HISTORY rather than routing to a fixed place, because
           there are two ways in — a card in the thread and a row in the archive
@@ -457,12 +485,18 @@ export default function Coach({ profile, archiveOpen = false }) {
           this view IS the first entry (a deep link from a notification), where
           there is nothing to go back to, so that falls through to the thread. */}
       <Modal
-        open={Boolean(reportId) && !railed}
+        open={(Boolean(reportId) && !railed) || Boolean(sheetReportId)}
         title="Report"
-        onClose={() => (location.key === 'default' ? navigate('/coach') : navigate(-1))}
+        onClose={sheetReportId ? closeSheet : () => (location.key === 'default' ? navigate('/coach') : navigate(-1))}
         maxWidth={560}
+        sheet
       >
-        <ReportReader inModal />
+        <ReportReader
+          inModal
+          reportId={sheetReportId || undefined}
+          sender={coach}
+          onStep={sheetReportId ? (id) => navigate(`/coach?report=${id}`, { replace: true }) : undefined}
+        />
       </Modal>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { computeClientStats, computeClientAlerts } from '../utils/clientStats'
@@ -6,6 +7,9 @@ import { attentionLevel } from '../utils/attentionLevel'
 import { NOTIF_REFRESH } from '../utils/notifyRefresh'
 import Avatar from './Avatar'
 import { CountBadge } from './ui'
+import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useFocusTrap } from '../hooks/useFocusTrap'
+import { cadenceLabel } from '../utils/cadence'
 
 // Notification bell + dropdown. Two kinds of entry, deliberately handled
 // differently:
@@ -71,6 +75,11 @@ const trim = (s) => (s && s.length > 70 ? s.slice(0, 70) + '…' : s)
 export default function NotificationCenter({ profile }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  // A phone gets a sheet, a desktop a dropdown -- the split every platform
+  // makes. On a phone the dropdown sat over the top bar with nothing dimmed
+  // and no way to close it but tapping blind outside it.
+  const isPhone = useMediaQuery('(max-width: 600px)')
+  const sheetRef = useFocusTrap(open && isPhone, () => setOpen(false), { focusContainer: true })
   const [events, setEvents] = useState([])
   const [alerts, setAlerts] = useState([])
   // Keys of events this reader has opened or cleared. Server-side, so the
@@ -137,6 +146,9 @@ export default function NotificationCenter({ profile }) {
         const { data: c } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', rel.coach_id).maybeSingle()
         if (c) { coachName = c.full_name || coachName; coachAvatar = c.avatar_url }
       }
+      // A person, as iOS notifications name one ("Alex reviewed..."), rather
+      // than the role.
+      const coachFirst = coachName === 'your coach' ? 'Your coach' : coachName.split(' ')[0]
 
       // Events
       //
@@ -152,20 +164,21 @@ export default function NotificationCenter({ profile }) {
         // a coach catching up on a month-old check-in IS news to the client.
         supabase.from('check_ins').select('id, coach_comment, reviewed_at').eq('client_id', uid).not('reviewed_at', 'is', null).gte('reviewed_at', floor).order('reviewed_at', { ascending: false }).limit(15),
       ])
-      ;(rev.data || []).forEach((c) => ev.push({ id: 'rev' + c.id, kind: 'review', title: 'Your coach reviewed your check-in', sub: c.coach_comment ? trim(c.coach_comment) : 'From your coach', time: +new Date(c.reviewed_at), href: '/?focus=checkin', avatarUrl: coachAvatar, avatarName: coachName }))
+      ;(rev.data || []).forEach((c) => ev.push({ id: 'rev' + c.id, kind: 'review', title: `${coachFirst} reviewed your check-in`, sub: c.coach_comment ? trim(c.coach_comment) : null, time: +new Date(c.reviewed_at), href: '/?focus=checkin', avatarUrl: coachAvatar, avatarName: coachName }))
 
       // Alerts — the client's own action-items (lock, due check-in, coach nudge).
       const act = await computeClientAlerts(uid)
       if (act.lock?.locked) {
         al.push({ id: 'al:lock', level: 'red', title: 'Progress view paused', sub: `No nutrition logged for ${act.lock.days} ${act.lock.days === 1 ? 'day' : 'days'}`, href: '/' })
       } else if (act.lock?.reason === 'coach-unlocked') {
-        al.push({ id: 'al:unlock', level: 'yellow', title: 'Logging window open', sub: '48 hours to log before your view locks again', href: '/' })
+        al.push({ id: 'al:unlock', level: 'yellow', title: 'Progress view reopened', sub: 'Log within 48 hours to keep it open', href: '/log' })
       }
       if (act.checkInDue) {
-        al.push({ id: 'al:checkin', level: 'yellow', title: 'Weekly check-in due', sub: 'Let your coach know how your week went', href: '/?focus=checkin' })
+        // The client's own cadence, not always "Weekly".
+        al.push({ id: 'al:checkin', level: 'yellow', title: `${cadenceLabel(act.checkinIntervalWeeks)} check-in due`, sub: 'Tell your coach how it went', href: '/?focus=checkin' })
       }
       if (act.nudged) {
-        al.push({ id: 'al:nudge', level: 'yellow', title: 'Your coach nudged you', sub: 'Log your nutrition today to stay on track', href: '/log', avatarUrl: coachAvatar, avatarName: coachName })
+        al.push({ id: 'al:nudge', level: 'yellow', title: `${coachFirst} sent a reminder`, sub: 'Log your meals today', href: '/log', avatarUrl: coachAvatar, avatarName: coachName })
       }
       al.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level])
     }
@@ -268,48 +281,18 @@ export default function NotificationCenter({ profile }) {
   }
 
   const empty = alerts.length === 0 && visibleEvents.length === 0
+  // Headings only separate two groups; over a single group they label nothing.
+  const bothGroups = alerts.length > 0 && visibleEvents.length > 0
 
-  return (
-    <div style={{ position: 'relative', display: 'inline-flex' }}>
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
-        className="gnav-util gnav-util--icon ds-control"
-        /* Shape and hover come from .gnav-util, the same class Feedback uses —
-           matching them by construction instead of by copying numbers. Only
-           `position` stays inline, for the unread badge anchored to it. */
-        style={{ position: 'relative' }}
-      >
-        <BellIcon />
-      </button>
-      {/* The badge hangs off the WRAPPER, not the button. Inside a 38px button
-          that already centres a 20px bell there is nowhere for a 24px-wide
-          "9+" to go: at top/right 4px it covered the bell's whole upper half,
-          so the glyph read as clipped rather than badged. Out here it can sit
-          past the corner and overlap nothing. aria-hidden because the button's
-          aria-label already announces the count. */}
-      <CountBadge count={unread} />
-
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 110 }} />
-          <div className="notif-panel" style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 10px)', width: 360, maxWidth: '92vw',
-            // 360, not 320: the reason strings are the same --text-sm the roster
-            // uses for status, and at 320 the longer ones wrapped to two lines and
-            // made the rows uneven. Widening the panel beats shrinking the type,
-            // because the type has to match the column it mirrors.
-            maxHeight: '70vh', overflowY: 'auto', zIndex: 120,
-            background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',
-          }}>
+  // One list, two frames (dropdown on a desktop, sheet on a phone).
+  const listHeader = (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-8)',
               padding: 'var(--space-12) var(--space-16)', borderBottom: '1px solid var(--color-border)',
               fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-body)',
             }}>
               <span>Notifications</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-16)' }}>
               {/* The escape hatch that per-item acknowledgement requires. The
                   list caps at twenty; without this, a week away from the bell
                   costs twenty clicks, and the old glance-clears-everything
@@ -328,8 +311,16 @@ export default function NotificationCenter({ profile }) {
                   Clear all
                 </button>
               )}
+              {isPhone && (
+                <button type="button" className="notif-clear ds-control" onClick={() => setOpen(false)} style={{ color: 'var(--color-text)', fontWeight: 'var(--weight-medium)' }}>
+                  Done
+                </button>
+              )}
+              </span>
             </div>
-
+  )
+  const listBody = (
+            <>
             {empty ? (
               <p style={{ padding: 'var(--space-20) var(--space-16)', fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 0, textAlign: 'center' }}>
                 You're all caught up.
@@ -338,12 +329,13 @@ export default function NotificationCenter({ profile }) {
               <>
                 {alerts.length > 0 && (
                   <>
-                    <GroupLabel>Needs attention</GroupLabel>
+                    {bothGroups && <GroupLabel>Needs attention</GroupLabel>}
                     {alerts.map((a) => {
                       const isNew = !seenAlerts.has(a.id)
                       return (
                         <button
                           key={a.id}
+                          className="notif-row ds-control"
                           onClick={() => openAlert(a.href)}
                           style={{
                             width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-8)',
@@ -371,10 +363,11 @@ export default function NotificationCenter({ profile }) {
 
                 {visibleEvents.length > 0 && (
                   <>
-                    <GroupLabel>Recent</GroupLabel>
+                    {bothGroups && <GroupLabel>Recent</GroupLabel>}
                     {visibleEvents.map((i) => (
                       <button
                         key={i.id}
+                        className="notif-row ds-control"
                         onClick={() => openEvent(i)}
                         style={{
                           width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-8)',
@@ -394,8 +387,60 @@ export default function NotificationCenter({ profile }) {
                 )}
               </>
             )}
+            </>
+  )
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+        className="gnav-util gnav-util--icon ds-control"
+        /* Shape and hover come from .gnav-util, the same class Feedback uses —
+           matching them by construction instead of by copying numbers. Only
+           `position` stays inline, for the unread badge anchored to it. */
+        style={{ position: 'relative' }}
+      >
+        <BellIcon />
+      </button>
+      {/* The badge hangs off the WRAPPER, not the button. Inside a 38px button
+          that already centres a 20px bell there is nowhere for a 24px-wide
+          "9+" to go: at top/right 4px it covered the bell's whole upper half,
+          so the glyph read as clipped rather than badged. Out here it can sit
+          past the corner and overlap nothing. aria-hidden because the button's
+          aria-label already announces the count. */}
+      <CountBadge count={unread} />
+
+      {open && !isPhone && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 110 }} />
+          <div className="notif-panel" style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 10px)', width: 360, maxWidth: '92vw',
+            maxHeight: '70vh', overflowY: 'auto', zIndex: 120,
+            background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-dropdown)',
+          }}>
+            {listHeader}
+            {listBody}
           </div>
         </>
+      )}
+      {open && isPhone && createPortal(
+        <div className="sheet-backdrop" role="presentation" onClick={() => setOpen(false)}>
+          <div
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Notifications"
+            className="sheet-panel notif-sheet"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {listHeader}
+            <div className="notif-sheet-body">{listBody}</div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

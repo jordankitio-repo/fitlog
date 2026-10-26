@@ -164,5 +164,5 @@ export async function computeClientAlerts(userId) {
   const nudgedRecently = connection.last_nudged_at &&
     (Date.now() - new Date(connection.last_nudged_at).getTime() < NUDGE_WINDOW_MS)
 
-  return { hasCoach: true, lock, checkInDue, nudged: Boolean(nudgedRecently && !loggedToday) }
+  return { hasCoach: true, lock, checkInDue, checkinIntervalWeeks: connection.checkin_interval_weeks || 1, nudged: Boolean(nudgedRecently && !loggedToday) }
 }

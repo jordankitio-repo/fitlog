@@ -2427,6 +2427,80 @@ button, a, input, select, textarea {
   .tp-macros { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-16) var(--space-12); }
 }
 
+/* On the Today tab the panel sits ABOVE the meals, so it is compact: the four
+   macros stay four across on a phone. With the text enlarged they go back to
+   2x2, because four enlarged numerals do not share a phone's width. */
+.tp-panel .tp-macros { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-12); }
+.tp-panel .tp-macros.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-text-grown] .tp-panel .tp-macros:not(.is-three) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tp-value { font-size: var(--text-xl); }
+/* Four 28px numerals do not fit a phone's quarter-width ("2,023" ran into
+   "152g"), so the macros drop to the stat-value size there. */
+@media (max-width: 600px) {
+  .tp-panel .tp-macros .tp-value { font-size: var(--text-lg); }
+}
+
+/* The macro block is a button: it opens the meals. It is a .ds-control, out
+   of the blanket button hover (whose brightness(1.08) turned the fill white).
+   It lights a SURFACE (D2: a fill belongs to a thing that is a button first),
+   and keeps it while open, the way a selected segment does. The padding is
+   the fill's margin; the negative margin gives it back. A tint of the text
+   colour, not --color-surface-2, which barely shows on the dark card. */
+.tp-hit {
+  appearance: none; background: transparent; border: none; font: inherit; color: inherit;
+  text-align: left; cursor: pointer; width: 100%;
+  border-radius: var(--radius);
+  padding: var(--space-8);
+  transition: background-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.tp-macros.tp-hit { margin: calc(-1 * var(--space-8)); width: calc(100% + 2 * var(--space-8)); }
+@media (hover: hover) { .tp-hit:hover { background-color: color-mix(in srgb, var(--color-text) 5%, transparent); } }
+.tp-hit:active, .tp-hit[aria-expanded="true"] { background-color: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.tp-hit:focus-visible, .tp-tile:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.tp-hit .tp-cell { pointer-events: none; }
+
+/* Cardio, Steps and Weight: a tile each, Apple Fitness's Summary tiles. Three
+   across at every width (a 2-column grid would strand Weight, F2), stacked
+   when the text is enlarged. Each is the card itself as a button. The bar sits
+   at the foot so the three bars share a line whatever the sub says. */
+.tp-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-12); }
+html[data-text-grown] .tp-tiles { grid-template-columns: minmax(0, 1fr); }
+.tp-tile {
+  appearance: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  display: flex; flex-direction: column; gap: var(--space-6); min-width: 0;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-12);
+  transition: background-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) { .tp-tile:hover { background-color: color-mix(in srgb, var(--color-text) 3%, var(--color-surface)); } }
+.tp-tile:active, .tp-tile[aria-expanded="true"] { background-color: color-mix(in srgb, var(--color-text) 6%, var(--color-surface)); }
+.tp-tile > * { pointer-events: none; }
+.tp-tile-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-width: 0; }
+.tp-tile-title {
+  font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Apple's circled chevron. It turns down while the tile's records are open. */
+.tp-tile-chev {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background-color: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-muted);
+  transition: transform 180ms ease;
+}
+.tp-tile[aria-expanded="true"] .tp-tile-chev { transform: rotate(90deg); }
+.tp-tile .tp-value { margin-top: var(--space-4); }
+.tp-tile-foot { display: flex; flex-direction: column; gap: var(--space-6); margin-top: auto; }
+@media (max-width: 420px) {
+  .tp-tile { padding: var(--space-10); }
+  .tp-tile .tp-value { font-size: var(--text-lg); }
+}
+
 /* Trends. The row is a button filling the panel width, so it lights a SURFACE
    rather than only its type (D2 reserves fills for things that are buttons
    first — this one is), starting from the panel's own colour so the fade never
@@ -2825,3 +2899,53 @@ html.native-app .gnav {
 }
 .ds-avatar-edit:hover .ds-avatar-edit-badge { background-color: var(--control-bg-hover); }
 .ds-avatar-edit:active .ds-avatar-edit-badge { box-shadow: var(--control-shadow-active); }
+
+/* ---- Notifications as a sheet on a phone (components/NotificationCenter) --
+   The ActionSheet's frame (.sheet-backdrop / .sheet-panel), taller, with the
+   list scrolling under a fixed header. No inner padding: the rows run edge to
+   edge with their own hairlines, as they do in the desktop dropdown. */
+.notif-sheet {
+  padding: 0;
+  max-height: 85dvh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.notif-sheet-body {
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* A row lights its surface on hover and while held (D2), starting from the
+   surface it sits on, never from transparent. */
+.notif-row { transition: background-color 140ms ease; }
+.notif-row:hover { background-color: var(--color-surface-2) !important; }
+.notif-row:active { background-color: var(--color-border) !important; }
+
+/* A Modal in the sheet frame (Modal's `sheet`): header fixed, body scrolling,
+   no inner padding on the panel so the header's rule runs edge to edge. */
+.modal-sheet {
+  max-width: var(--sheet-max, 520px);
+  padding: 0;
+  max-height: 85dvh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.modal-sheet-body {
+  overflow-y: auto;
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+/* On a phone the sheet is a FIXED height, iOS's large detent, not the height
+   of what is in it: a report arrives a moment after the sheet starts to rise,
+   and a sheet sized to its content grew mid-flight from a placeholder's height
+   to the report's. */
+@media (max-width: 600px) {
+  .modal-sheet { max-width: none; height: 92dvh; max-height: none; padding-bottom: 0; }
+  .modal-sheet-body { flex: 1; min-height: 0; }
+}
+
+/* A food row's serving-and-macros line: one line at the designed size, where
+   it fits once calories sit on the right. Enlarged text (data-text-grown, set
+   by utils/textScale.js) lets it wrap instead, as iOS does at accessibility
+   sizes: truncating there would hide the numbers from the readers who turned
+   the text up to read them. */
+.log-macro-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-text-grown] .log-macro-line { white-space: normal; overflow: visible; }

@@ -72,7 +72,8 @@ const PAGE = 20
 // container) and minus the sender column. One component, two widths — the
 // difference is a prop, not a second file, which is the rule this list already
 // learned once when the client's and the coach's copies diverged.
-export function ReportArchive({ profile, activeId = null }) {
+// `onOpen` overrides where a row goes (the Coach tab's sheet opens it in place).
+export function ReportArchive({ profile, activeId = null, onOpen }) {
   const [reports, setReports] = useState(null)
   const [total, setTotal] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -128,7 +129,7 @@ export function ReportArchive({ profile, activeId = null }) {
                 key={row.report.id}
                 report={row.report}
                 active={row.report.id === activeId}
-                onOpen={(id) => navigate(`/reports/${id}`)}
+                onOpen={onOpen || ((id) => navigate(`/reports/${id}`))}
               />
             ))}
           </div>
@@ -162,11 +163,15 @@ export function ReportArchive({ profile, activeId = null }) {
 // reader can already see. Reading still happens in a reading surface with its
 // own measure (C5) — it is the same component either way, because one
 // difference is a prop and not a second file.
-export default function ReportReader({ inPane = false, inModal = false }) {
-  const { id } = useParams()
+// `reportId` and `onStep` let the Coach tab's sheet drive it from a query
+// rather than the /reports/:id route. `sender` is the coach when the caller already has them, so the byline does
+// not swap from "Your coach" to the name a beat after the sheet opens.
+export default function ReportReader({ inPane = false, inModal = false, reportId, onStep, sender: knownSender = null }) {
+  const params = useParams()
+  const id = reportId || params.id
   const navigate = useNavigate()
   const [report, setReport] = useState(null)
-  const [sender, setSender] = useState(null)
+  const [sender, setSender] = useState(knownSender)
   const [siblings, setSiblings] = useState([])
   const [missing, setMissing] = useState(false)
 
@@ -179,7 +184,7 @@ export default function ReportReader({ inPane = false, inModal = false }) {
       if (data.coach_id) {
         const { data: p } = await supabase
           .from('profiles').select('id, full_name, avatar_url').eq('id', data.coach_id).maybeSingle()
-        setSender(p || null)
+        setSender(prev => p || prev)
       }
       // Opening the report IS reading it — no separate "mark as read" for the
       // reader to perform, and no way for the two states to drift apart.
@@ -227,7 +232,7 @@ export default function ReportReader({ inPane = false, inModal = false }) {
     // column clung to one edge and left most of a wide screen empty — a short
     // report then read as an error state rather than a focused one. Centring is
     // what makes the emptiness margin instead of void.
-    <div className={`page-fade-in rep-reader${inModal ? ' rep-reader-sheet' : ''}`}>
+    <div className={`${inModal ? '' : 'page-fade-in '}rep-reader${inModal ? ' rep-reader-sheet' : ''}`}>
       {/* A back link names its destination. "Back" makes the reader guess
           which of two places they came from. Beside the rail that destination
           is the conversation, because the list is already on screen and a link
@@ -282,7 +287,7 @@ export default function ReportReader({ inPane = false, inModal = false }) {
           {(newer || older) && (
             <nav className="rep-reader-nav">
               {older ? (
-                <button type="button" className="rep-reader-step ds-control" onClick={() => navigate(`/reports/${older.id}`, { replace: inModal })}>
+                <button type="button" className="rep-reader-step ds-control" onClick={() => (onStep ? onStep(older.id) : navigate(`/reports/${older.id}`, { replace: inModal }))}>
                   <Icon name="left" size={14} />
                   <span>
                     <span className="rep-reader-step-k">Previous</span>
@@ -291,7 +296,7 @@ export default function ReportReader({ inPane = false, inModal = false }) {
                 </button>
               ) : <span />}
               {newer && (
-                <button type="button" className="rep-reader-step rep-reader-step-next ds-control" onClick={() => navigate(`/reports/${newer.id}`, { replace: inModal })}>
+                <button type="button" className="rep-reader-step rep-reader-step-next ds-control" onClick={() => (onStep ? onStep(newer.id) : navigate(`/reports/${newer.id}`, { replace: inModal }))}>
                   <span>
                     <span className="rep-reader-step-k">Next</span>
                     <span className="rep-reader-step-v">{relativeTime(newer.created_at)}</span>
