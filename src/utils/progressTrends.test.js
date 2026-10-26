@@ -186,3 +186,27 @@ describe('hasTrend', () => {
     expect(hasTrend(null)).toBe(false)
   })
 })
+
+describe('windowTrend daysCurrent', () => {
+  it('counts days, not rows, when a day has several weigh-ins', () => {
+    const asOf = new Date(2026, 9, 25, 12)
+    const t = windowTrend([
+      { iso: '2026-10-24', weight: 70 },
+      { iso: '2026-10-25', weight: 69.8 },
+      { iso: '2026-10-25', weight: 69.6 },
+    ], 'weight', { days: 7, asOf })
+    expect(t.nCurrent).toBe(3)
+    expect(t.daysCurrent).toBe(2)
+  })
+})
+
+describe('hasTrend counts days', () => {
+  it('does not call three weigh-ins on one day a trend', () => {
+    const asOf = new Date(2026, 9, 25, 12)
+    const rows = [
+      ...['2026-10-10','2026-10-10','2026-10-10'].map(iso => ({ iso, weight: 72 })),
+      ...['2026-10-25','2026-10-25','2026-10-25'].map(iso => ({ iso, weight: 70 })),
+    ]
+    expect(hasTrend(windowTrend(rows, 'weight', { days: 14, asOf, minMaterial: 0.4 }))).toBe(false)
+  })
+})

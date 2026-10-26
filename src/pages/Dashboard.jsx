@@ -245,9 +245,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   // just on the Log page. Steady ~monthly cadence — a gentle prompt, never nags.
   const [lastMeasuredIso, setLastMeasuredIso] = useState(null)
   const [showMeasReminder, setShowMeasReminder] = useState(false)
-  const [showSelfOffboardConfirm, setShowSelfOffboardConfirm] = useState(false)
-  const [selfOffboarding, setSelfOffboarding] = useState(false)
-  const [selfOffboardError, setSelfOffboardError] = useState('')
 
   // Section collapse state.
   //
@@ -827,22 +824,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     setShowNudgeNotice(!todayLog)
   }
 
-  async function selfOffboard() {
-    setSelfOffboarding(true)
-    setSelfOffboardError('')
-
-    const { error } = await supabase.functions.invoke('offboard-self')
-
-    if (error) {
-      setSelfOffboardError(error.message)
-      setSelfOffboarding(false)
-      return
-    }
-
-    await supabase.auth.refreshSession()
-    setTimeout(() => window.location.reload(), 800)
-  }
-
   const isToday = selectedDate === toLocalDateString(new Date())
 
   const chartOptions = {
@@ -1011,7 +992,6 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const trendRange = rangeByKey(trendRangeKey)
   const TREND_DAYS = trendRange.days
   const TREND_SPAN = trendRange.span
-  const TREND_ADJ = trendRange.adj
 
   // The chart-colour toggle moved with its chart. It used to sit in each chart
   // panel's SectionHeader, and those panels are gone; dropping it would have
@@ -1055,14 +1035,17 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     // drifting 0.4 of a minute rendered "−0 min vs previous 14 days", a signed
     // zero that reads as a rounding bug rather than as steadiness. The flat
     // band already decided this is not a trend, so the row says so in words.
-    if (t.direction === 'flat') return `Holding steady · ${TREND_ADJ} average`
+    if (t.direction === 'flat') return 'Steady'
     const sign = t.delta > 0 ? '+' : '−'
     const size = Math.abs(t.delta)
     // Thousands separator, or a step delta reads "−1358".
     const shown = digits > 0
       ? size.toFixed(digits)
       : Math.round(size).toLocaleString()
-    return `${sign}${shown}${unit} vs previous ${TREND_SPAN}`
+    // No "vs previous 30 days": the W/M/Y control above the rows already
+    // names the window, and the arrow already names the direction. Apple's
+    // Health trends say the change and nothing else.
+    return `${sign}${shown}${unit}`
   }
   // The smallest change in each metric a person could actually act on, in that
   // metric's own unit. A move must clear this AND the client's own day-to-day
@@ -1086,8 +1069,11 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const trendSub = (t, unit, digits = 0) => {
     const delta = fmtDelta(t, unit, digits)
     if (delta) return delta
-    if (t.nCurrent === 0) return `Nothing logged in the last ${TREND_SPAN}`
-    return `Average of ${t.nCurrent} logged ${t.nCurrent === 1 ? 'day' : 'days'} · no comparison yet`
+    // One word, as Apple's Health rows do ("Average"): the window is the
+    // W/M/Y control's job, and how many days fed it is not a question anyone
+    // opening this card is asking.
+    if (t.nCurrent === 0) return 'No data'
+    return 'Average'
   }
 
   const trendMetrics = [
@@ -1118,7 +1104,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       return {
         key: 'steps', label: 'Steps', color: 'var(--color-steps)', trend: t,
         display: t.current != null ? Math.round(t.current).toLocaleString() : '—',
-        sub: trendSub(t, ''),
+        sub: trendSub(t, ' steps'),
         chart: stepsHistory.length > 0 ? rangedChart(stepsHistory, 'steps', (rows) => gradedChart('stepsChart',
           <Bar data={metricBarData({ history: rows, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
         )) : null,
@@ -1418,8 +1404,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           </div>
           <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-base)', lineHeight: 1.6, maxWidth: '54ch' }}>
             {profile?.role === 'client'
-              ? 'Your coach is all set up. Log your first meal to start your streak and share your progress. Your targets are already set for you.'
-              : 'Nothing logged yet. Log your first meal to start your charts and streak, then set your daily targets so we can track how you’re trending.'}
+              ? 'Your coach has set your targets. Log a meal to start your streak.'
+              : 'Log a meal to start your streak, then set your daily targets.'}
           </p>
           <div style={{ display: 'flex', gap: 'var(--space-10)', flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={() => navigate('/log')}>Log your first meal <Icon name="right" /></Button>
@@ -1686,34 +1672,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
 
       </Reorderable>
 
-      {profile?.role === 'client' && (
-        <div style={cardStyle}>
-          <h2 style={sectionHeadingStyle}>Coaching</h2>
-          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>
-            Leave your current coaching plan and return to an individual account. Your data is preserved.
-          </p>
-          {!showSelfOffboardConfirm ? (
-            <Button onClick={() => setShowSelfOffboardConfirm(true)} variant="danger" size="sm">
-              Leave coaching plan
-            </Button>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-10)' }}>
-              <p style={{ fontSize: 'var(--text-base)', margin: 0 }}>
-                Are you sure? You'll return to a solo account.
-              </p>
-              {selfOffboardError && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-base)', margin: 0 }}>{selfOffboardError}</p>}
-              <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
-                <Button onClick={selfOffboard} variant="danger-solid" size="sm" loading={selfOffboarding}>
-                  Confirm
-                </Button>
-                <Button onClick={() => { setShowSelfOffboardConfirm(false); setSelfOffboardError('') }} variant="ghost" size="sm">
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* "Leave coaching plan" moved to Profile > Account, beside the coach
+          it ends the relationship with. A destructive account action at the
+          foot of a progress page was in nobody's path for the right reason
+          and in everyone's for the wrong one. */}
       </>
       )}
       <ConfirmDialog

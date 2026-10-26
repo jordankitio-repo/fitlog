@@ -25,7 +25,10 @@ function Cell({ label, color, value, denom, sub, pct, className = '', style }) {
         fontSize: 'var(--text-xs)',
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        color: color || 'var(--color-faint)',
+        // Neutral, not the metric hue: metric tokens are FILL colours and fail
+        // WCAG as text on the light card (calories 1.62:1, fat 2.20:1). The
+        // hue stays on the bar below, where a shape has no contrast floor.
+        color: 'var(--color-muted)',
         fontWeight: 'var(--weight-medium)',
         whiteSpace: 'nowrap',
       }}>
@@ -66,7 +69,7 @@ export default function TodayPanel({ macros = [], activity = [] }) {
           would claim they are four independent readings, which is the grouping
           error one level up. */}
       {macros.length > 0 && (
-        <div className="tp-macros">
+        <div className={`tp-macros${macros.length === 3 ? ' is-three' : ''}`}>
           {macros.map((m) => <Cell key={m.key} {...m} />)}
         </div>
       )}

@@ -51,13 +51,13 @@ export const EMAIL_CATEGORIES = [
     key: 'milestone',
     role: 'coach',
     label: 'Client milestones',
-    description: 'When a client hits a logging streak worth knowing about.',
+    description: 'When a client reaches a logging streak milestone.',
   },
   {
     key: 'weekly_digest',
     role: 'coach',
     label: 'Weekly digest',
-    description: 'Your Monday summary of how the whole roster did last week.',
+    description: 'Every Monday, how your clients did last week.',
   },
 ]
 

@@ -153,6 +153,21 @@ export default function AccountSettings({ session, profile, onProfileUpdate }) {
         : setCoachName(null))
   }, [role, session.user.id])
 
+  // --- Leaving the coaching plan (clients) ---------------------------------
+  // Lives here, beside the coach it ends the relationship with; it used to
+  // sit at the foot of My Progress.
+  const [leaveStage, setLeaveStage] = useState('idle') // 'idle' | 'confirm'
+  const [leaving, setLeaving] = useState(false)
+  const [leaveError, setLeaveError] = useState('')
+  async function leaveCoaching() {
+    setLeaving(true)
+    setLeaveError('')
+    const { error } = await supabase.functions.invoke('offboard-self')
+    if (error) { setLeaveError(error.message); setLeaving(false); return }
+    await supabase.auth.refreshSession()
+    setTimeout(() => window.location.reload(), 800)
+  }
+
   const since = new Date(session.user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   return (
@@ -275,6 +290,32 @@ export default function AccountSettings({ session, profile, onProfileUpdate }) {
           >
             {coachName && <Button variant="muted" size="sm" onClick={() => navigate('/coach')}>Message</Button>}
           </SettingRow>
+          {coachName && (
+            <>
+              <div style={divider} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+                <SettingRow
+                  keepInline
+                  label="Leave coaching plan"
+                  description="You keep everything you've logged and carry on as an individual account."
+                >
+                  {leaveStage === 'idle' && (
+                    <Button variant="danger" size="sm" onClick={() => { setLeaveStage('confirm'); setLeaveError('') }}>Leave</Button>
+                  )}
+                </SettingRow>
+                {leaveStage === 'confirm' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+                    <p style={muted}>{coachName} will no longer see your log or send you reports.</p>
+                    {leaveError && <p style={{ ...muted, color: 'var(--color-error)' }}>{leaveError}</p>}
+                    <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
+                      <Button variant="danger-solid" size="sm" onClick={leaveCoaching} loading={leaving}>Leave plan</Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setLeaveStage('idle'); setLeaveError('') }}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
     </>

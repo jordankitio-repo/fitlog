@@ -690,6 +690,36 @@ client with calories hidden by the coach (three columns); an empty day; every
 form (weight, steps, workout, measurements, add food), copy day, select mode,
 quick add; desktop at 1280px in both themes. No console errors.
 
+### 10.11 My Progress — done (Oct 26 2026)
+- Today card labels are neutral; the metric hue stays on the bars (labels in
+  the metric colours failed WCAG on the light card).
+- "Leave coaching plan" moved from the foot of this page to Profile > Account,
+  under Coach, with a confirm naming the coach.
+- With calories hidden, the three macros are one row of three at every width
+  (Fat sat alone in a 2x2; desktop left an empty fourth column).
+- Trends say "logged days" from distinct days, and claim a trend only on 3+
+  days a side (weight has a row per weigh-in, so rows overcounted).
+- "30-day" uses a non-breaking hyphen so large text does not split it.
+- Trend rows rewritten to Apple Health's brevity after the user caught the
+  wording: one word ("Average", "Steady", "No data") or the change with its
+  unit ("+146 cal", "−647 steps"). The W/M/Y control names the window and the
+  arrow names the direction, so the row repeats neither; the explanation lives
+  in the info tip. The arrow only shows when there is a trend (Cardio drew a
+  down arrow beside "Average"). Welcome card cut from three sentences to one.
+
+Checked: light/dark, phone and desktop, largest iPhone text, client / solo /
+hidden-calories / empty account, a past date, an opened trend, W/M/Y, the
+leave-plan confirm. No console errors. Open: the red "To do" check-in badge
+is 8.3's pending colour decision.
+
+### 10.12 Copy re-audit of every reviewed page (Oct 26 2026)
+The earlier reviews (10.2–10.10) checked rendering, not wording against the
+reference apps. Every user-facing string over ~45 characters on Profile, Apple
+Health, Coach and Log was extracted and held against Apple Health/Fitness
+brevity; 14 rewritten (export, sign-out, delete, notification and Apple Health
+descriptions, Log's grouping errors, Coach empty state, an em dash in the
+Solo upgrade line). Log's Select button lost its native `title` tooltip (D5).
+
 ## 9. Navigation & identity (from the app, not the settings screens)
 
 Added after a second look. Three of the reference screenshots were not settings

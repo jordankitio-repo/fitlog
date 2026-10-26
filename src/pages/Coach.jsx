@@ -276,7 +276,7 @@ export default function Coach({ profile, archiveOpen = false }) {
         <h1>Coach</h1>
         <EmptyState
           title="No coach connected"
-          message="When you join a coaching plan, your messages and weekly reports will live here."
+          message="Messages and reports from your coach will appear here."
         />
       </div>
     )

@@ -662,7 +662,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     if (!name || ids.length === 0) return
     const containers = selectedContainerIds()
     if (containers.size > 1) {
-      setDialog({ title: 'Items are in different meals', message: 'Group items from a single meal (or loose items) at a time.', confirmLabel: 'Got it' })
+      setDialog({ title: 'Items are in different meals', message: 'Choose items from one meal to group them.', confirmLabel: 'Got it' })
       return
     }
     // Grouping into a NEW meal pulls any already-grouped item out of its meal —
@@ -685,7 +685,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
     const ids = [...selectedIds]
     if (ids.length === 0) return
     if (selectedContainerIds(container.id).size > 0) {
-      setDialog({ title: 'Items are in another meal', message: 'Some selected items already belong to a different meal. Move those out first, or group within one meal.', confirmLabel: 'Got it' })
+      setDialog({ title: 'Items are in another meal', message: 'Some of these are already in a meal. Move them out first.', confirmLabel: 'Got it' })
       return
     }
     const { error } = await supabase.from('nutrition_log')
@@ -1915,7 +1915,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 ) : (
                   <button
                     onClick={() => setSelectMode(true)}
-                    title="Select entries to group, move, or save as a meal"
+                    aria-label="Select entries to group, move or save as a meal"
                     style={{
                       marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px',
                       background: 'var(--color-surface)', border: '1px solid var(--color-border)',
@@ -2015,7 +2015,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     {selectedContainerIds().size > 1 ? (
                       <>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-error)', margin: 0 }}>
-                          Selected items belong to different meals. Group items from a single meal (or loose items) at a time.
+                          These are in different meals. Choose items from one meal to group them.
                         </p>
                         <div><Button onClick={() => setGroupMenu(false)} variant="muted" size="sm">Back</Button></div>
                       </>

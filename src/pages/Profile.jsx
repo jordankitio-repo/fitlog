@@ -752,7 +752,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
                 COACHING, ACCOUNT): a group label, not one more row. */}
             <h2 style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: 0 }}>Email</h2>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 'var(--space-4) 0 0' }}>
-              Everything here also shows in the app, whatever you choose.
+              You'll still see everything in the app.
             </p>
           </div>
           {emailCategories.map(c => (
@@ -1146,7 +1146,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-                Unlock advanced analytics — rolling weight average, compliance heatmap, weekend vs weekday split, best week analysis, and AI nutrition feedback.
+                Unlock weight averages, consistency charts and AI nutrition feedback.
               </p>
               <SoloUpgrade feature="Advanced analytics and AI nutrition feedback" />
             </div>
@@ -1254,7 +1254,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         <SettingRow
           keepInline
           label="Sign out everywhere"
-          description="Signs you out on every device, this one included. Use it if a phone or laptop goes missing."
+          description="Signs you out on every device, including this one."
         >
           <Button onClick={signOutEverywhere} variant="muted" size="sm" loading={globalSignOutBusy}>
             Sign out
@@ -1283,7 +1283,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         <SettingRow
           keepInline
           label="Download your data"
-          description="A copy of everything in your account: logs, measurements, check-ins, messages and settings."
+          description="Get a copy of everything in your account."
         >
           <Button onClick={exportData} variant="muted" size="sm" loading={exportLoading}>
             {exportLoading ? 'Preparing…' : 'Download'}
@@ -1304,8 +1304,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             keepInline
             label="Delete account"
             description={profile?.role === 'client'
-              ? 'Permanently deletes your account and history. Your coach loses access to it. This cannot be undone.'
-              : 'Permanently deletes your account and everything in it. This cannot be undone.'}
+              ? 'Permanently deletes your account and data. This can’t be undone.'
+              : 'Permanently deletes your account and data. This can’t be undone.'}
           >
             {deleteStage === 'idle' && (
               <Button onClick={() => { setDeleteStage('confirm'); setDeleteError('') }} variant="danger" size="sm">

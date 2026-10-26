@@ -2405,6 +2405,11 @@ button, a, input, select, textarea {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-20) var(--space-16);
 }
+/* Three macros (a coach has hidden calories) are one row of three at every
+   width, never a hole (F2): a 2x2 stranded Fat on a phone, and the 4-column
+   desktop grid left an empty fourth cell. Placed after the phone rule's
+   selector weight is matched by the extra class. */
+.tp-macros.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* A3: ≤12px within a group, ≥24px between groups. Without this the activity
    strip's first label sat 16px under the macro bars and the two groups read as
    one eight-cell block whose columns did not line up — the macros are four
