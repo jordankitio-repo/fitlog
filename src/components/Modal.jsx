@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { cardStyle } from '../utils/styles'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { usePresence } from '../hooks/usePresence'
 import { Icon } from './ui'
 
 // Branded content modal: a centered tile over a dimmed, blurred backdrop, with
@@ -22,7 +23,10 @@ export default function Modal({ open, title, onClose, children, maxWidth = 520, 
     return () => { document.body.style.overflow = prev }
   }, [open])
 
-  if (!open) return null
+  // A sheet slides back down on close (.sheet-closing) instead of vanishing.
+  const presence = usePresence(open && sheet)
+
+  if (!open && !(sheet && presence.shown)) return null
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px', borderBottom: '1px solid var(--color-border)' }}>
       <h3 style={{ margin: 0, fontSize: 'var(--text-subhead)' }}>{title}</h3>
@@ -31,7 +35,7 @@ export default function Modal({ open, title, onClose, children, maxWidth = 520, 
   )
   if (sheet) {
     return createPortal(
-      <div className="sheet-backdrop" role="presentation" onClick={onClose}>
+      <div className={`sheet-backdrop${presence.closing ? ' sheet-closing' : ''}`} role="presentation" onClick={presence.closing ? undefined : onClose}>
         <div
           ref={dialogRef}
           role="dialog"

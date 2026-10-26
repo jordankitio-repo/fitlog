@@ -166,7 +166,9 @@ export function ReportArchive({ profile, activeId = null, onOpen }) {
 // `reportId` and `onStep` let the Coach tab's sheet drive it from a query
 // rather than the /reports/:id route. `sender` is the coach when the caller already has them, so the byline does
 // not swap from "Your coach" to the name a beat after the sheet opens.
-export default function ReportReader({ inPane = false, inModal = false, reportId, onStep, sender: knownSender = null }) {
+// `pushed` is the phone's pushed page, whose title is the report's own: its
+// subject, or "Weekly report" for one written before subjects existed.
+export default function ReportReader({ inPane = false, inModal = false, pushed = false, reportId, onStep, sender: knownSender = null }) {
   const params = useParams()
   const id = reportId || params.id
   const navigate = useNavigate()
@@ -262,7 +264,7 @@ export default function ReportReader({ inPane = false, inModal = false, reportId
               of type on the page ground — a border round long-form prose adds a
               frame nobody asked for. */}
           <article>
-            {report.subject && <h1 className="rep-reader-title">{report.subject}</h1>}
+            {(report.subject || pushed) && <h1 className="rep-reader-title">{report.subject || 'Weekly report'}</h1>}
             <header className="rep-reader-head">
               <Avatar url={sender?.avatar_url} name={sender?.full_name || 'Coach'} size={40} />
               <div>

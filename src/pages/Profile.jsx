@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import PushPanel from '../components/PushPanel'
 import { supabase } from '../supabase'
 import AccountSettings from '../components/AccountSettings'
 import SectionRail from '../components/SectionRail'
@@ -66,22 +67,6 @@ const CHART_TOGGLES = [
   { key: 'stepsChart', label: 'Steps' },
   { key: 'measurements', label: 'Body measurements' },
 ]
-
-// The phone's way back out of a section. Type-only, and it travels the same
-// --color-faint -> --color-text-dim -> --color-text progression every other
-// type-only control in the app uses (D2).
-const backLinkStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 'var(--space-4)',
-  background: 'none',
-  border: 'none',
-  padding: 0,
-  cursor: 'pointer',
-  color: 'var(--color-faint)',
-  fontSize: 'var(--text-sm)',
-  alignSelf: 'flex-start',
-}
 
 // A settings section. Renders nothing unless it is the one the route is on.
 //
@@ -631,7 +616,15 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // One switch, like ClientView's. The sections stay inline exactly where they
   // are and hiding costs one token each, rather than eleven files or eleven
   // brace-matched wrappers.
-  const isVisible = (key) => key === activeSection
+  //
+  // On a phone the section is PUSHED over the list (components/PushPanel): a
+  // row with a chevron slides its page in from the right, and going back
+  // slides it out. The last section stays rendered while it slides out,
+  // because by then the route has already left it.
+  const [lastSection, setLastSection] = useState(activeSection)
+  if (activeSection && activeSection !== lastSection) setLastSection(activeSection)
+  const panelSection = isMobile ? (activeSection || lastSection) : activeSection
+  const isVisible = (key) => key === panelSection
 
   // The rail navigates. It used to scroll a 3,400px page, which is why the
   // page was 3,400px: everything had to be mounted for the scroll to have
@@ -674,64 +667,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // route says which section is active, so there is nothing to observe and no
   // second opinion about it.
 
-  return (
-    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div className="cv-shell">
-        <SectionRail groups={railGroups} activeKey={activeSection} onJump={handleRailJump} />
-        <div className="cv-main">
-      {/* C5: a back link names its destination. On a phone a section IS the
-          page, so the way out has to be on it — there is no rail to return to. */}
-      {isMobile && activeSection && (
-        <button type="button" onClick={() => navigate('/profile')} className="ds-control" style={backLinkStyle}>
-          <Icon name="left" size={16} /> Profile
-        </button>
-      )}
-
-      <h1 style={{ margin: 0 }}>
-        {isMobile && activeSection
-          ? destinations.find(d => d.key === activeSection)?.label ?? 'Profile'
-          : 'Profile'}
-      </h1>
-
-      {/* The phone's map. There is no rail below 900px, so without this a
-          phone had one scrolling page thousands of pixels long and no way to
-          see what was on it. Same `.cv-dest` rows the client record uses, and
-          the same glyphs as the rail, so a section reads the same whichever
-          map you arrived by. Grouped like the rail for the same reason. */}
-      {isMobile && !activeSection && railGroups.map(group => (
-        <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-          <p style={{
-            fontSize: 'var(--text-xs)',
-            color: 'var(--color-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontWeight: 'var(--weight-medium)',
-            margin: 0,
-          }}>
-            {group.label}
-          </p>
-          <nav className="cv-dest" aria-label={group.label}>
-            {group.items.map(item => (
-              <Link
-                key={item.key}
-                to={`/profile/${item.key}`}
-                className="cv-dest-row ds-control"
-              >
-                <svg
-                  className="cv-dest-icon" width="17" height="17" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="1.75"
-                  strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-                >
-                  {SECTION_ICONS[item.key] || null}
-                </svg>
-                <span className="cv-dest-label">{item.label}</span>
-                <Icon name="right" size={16} />
-              </Link>
-            ))}
-          </nav>
-        </div>
-      ))}
-
+  // Every section, inline on a desktop and inside the pushed page on a phone.
+  const sectionsJsx = (
+    <>
       <SectionPanel hideTitle={isMobile} active={isVisible('account')} id="section-account" title="Account">
         <AccountSettings session={session} profile={profile} onProfileUpdate={onProfileUpdate} />
       </SectionPanel>
@@ -1373,13 +1311,76 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         </div>
       </SectionPanel>
 
+    </>
+  )
+
+  return (
+    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div className="cv-shell">
+        <SectionRail groups={railGroups} activeKey={activeSection} onJump={handleRailJump} />
+        <div className="cv-main">
+      {/* On a phone the way back out of a section is the pushed page's own
+          "‹ Profile" (C5: it names its destination). */}
+      <h1 style={{ margin: 0 }}>Profile</h1>
+
+      {/* The phone's map. There is no rail below 900px, so without this a
+          phone had one scrolling page thousands of pixels long and no way to
+          see what was on it. Same `.cv-dest` rows the client record uses, and
+          the same glyphs as the rail, so a section reads the same whichever
+          map you arrived by. Grouped like the rail for the same reason. */}
+      {isMobile && railGroups.map(group => (
+        <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+          <p style={{
+            fontSize: 'var(--text-xs)',
+            color: 'var(--color-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            fontWeight: 'var(--weight-medium)',
+            margin: 0,
+          }}>
+            {group.label}
+          </p>
+          <nav className="cv-dest" aria-label={group.label}>
+            {group.items.map(item => (
+              <Link
+                key={item.key}
+                to={`/profile/${item.key}`}
+                className="cv-dest-row ds-control"
+              >
+                <svg
+                  className="cv-dest-icon" width="17" height="17" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="1.75"
+                  strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                >
+                  {SECTION_ICONS[item.key] || null}
+                </svg>
+                <span className="cv-dest-label">{item.label}</span>
+                <Icon name="right" size={16} />
+              </Link>
+            ))}
+          </nav>
+        </div>
+      ))}
+
+      {isMobile ? (
+        <PushPanel
+          open={Boolean(activeSection)}
+          title={destinations.find(d => d.key === panelSection)?.label ?? 'Profile'}
+          backLabel="Profile"
+          onBack={() => navigate('/profile')}
+          under=".cv-main"
+        >
+          {sectionsJsx}
+        </PushPanel>
+      ) : sectionsJsx}
+
       {/* The phone's sign-out, on the MENU only. The mobile tab bar has no
           sign-out (the old hamburger did), so this page carries it — but once
           every section became its own page it started appearing at the foot of
           all eight of them, under Billing and under Delete account. Sign out
           belongs where you choose where to go, not stapled to whatever you
           happened to open. Desktop keeps it in the top-bar account menu. */}
-      {isMobile && !activeSection && (
+      {isMobile && (
         <div style={{ padding: 'var(--space-20) 0 0' }}>
           <Button onClick={() => supabase.auth.signOut()} variant="muted" fullWidth>
             Sign out

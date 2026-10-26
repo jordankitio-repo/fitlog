@@ -9,6 +9,7 @@ import Avatar from './Avatar'
 import { CountBadge } from './ui'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { usePresence } from '../hooks/usePresence'
 import { cadenceLabel } from '../utils/cadence'
 
 // Notification bell + dropdown. Two kinds of entry, deliberately handled
@@ -80,6 +81,8 @@ export default function NotificationCenter({ profile }) {
   // and no way to close it but tapping blind outside it.
   const isPhone = useMediaQuery('(max-width: 600px)')
   const sheetRef = useFocusTrap(open && isPhone, () => setOpen(false), { focusContainer: true })
+  // The sheet slides back down on close rather than vanishing (.sheet-closing).
+  const sheet = usePresence(open && isPhone)
   const [events, setEvents] = useState([])
   const [alerts, setAlerts] = useState([])
   // Keys of events this reader has opened or cleared. Server-side, so the
@@ -426,8 +429,8 @@ export default function NotificationCenter({ profile }) {
           </div>
         </>
       )}
-      {open && isPhone && createPortal(
-        <div className="sheet-backdrop" role="presentation" onClick={() => setOpen(false)}>
+      {sheet.shown && isPhone && createPortal(
+        <div className={`sheet-backdrop${sheet.closing ? ' sheet-closing' : ''}`} role="presentation" onClick={() => setOpen(false)}>
           <div
             ref={sheetRef}
             role="dialog"

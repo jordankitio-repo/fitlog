@@ -4,6 +4,7 @@ import { supabase } from '../supabase'
 import Avatar from '../components/Avatar'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
+import PushPanel from '../components/PushPanel'
 import EmptyState from '../components/EmptyState'
 import Skeleton from '../components/Skeleton'
 import { Icon, Textarea } from '../components/ui'
@@ -101,6 +102,7 @@ export default function Coach({ profile, archiveOpen = false }) {
   const { id: reportId } = useParams()
   const location = useLocation()
   const wide = useMediaQuery('(min-width: 1024px)')
+  const phone = useMediaQuery('(max-width: 600px)')
   const [coach, setCoach] = useState(null)
   const [items, setItems] = useState([])
   const [reportCount, setReportCount] = useState(0)
@@ -281,6 +283,11 @@ export default function Coach({ profile, archiveOpen = false }) {
   const onCoach = location.pathname === '/coach'
   const sheetReportId = onCoach ? searchParams.get('report') : null
   const sheetArchive = onCoach && searchParams.get('sheet') === 'reports'
+  // The last report shown, so the sheet still has it to show while it slides
+  // back down: by then the URL no longer names it.
+  const [lastReportId, setLastReportId] = useState(sheetReportId || reportId || null)
+  const currentReportId = sheetReportId || reportId
+  if (currentReportId && currentReportId !== lastReportId) setLastReportId(currentReportId)
   // Reading a report marks it read, and this page is no longer remounted to
   // notice: refresh the thread when a report sheet closes, however it closed
   // (the ✕, the backdrop, or the back gesture), so its card drops "Unread".
@@ -332,7 +339,13 @@ export default function Coach({ profile, archiveOpen = false }) {
   // both running the archive's query behind a hidden sidebar AND suppressing
   // the modal that was its only way to reach the same list.
   const railed = wide && reportCount >= RAIL_MIN_REPORTS
-  const openReport = (id) => (railed ? navigate(`/reports/${id}`) : navigate(`/coach?report=${id}`))
+  // On a phone every report is pushed: its card and its list row both carry
+  // a chevron. A link straight to /reports/:id lands the same way.
+  const pushedReport = phone && Boolean(sheetReportId || reportId)
+  // Opened from the pushed list, a report keeps the list in the URL so closing
+  // it lands back on the list.
+  const reportUrl = (id) => (sheetArchive && phone ? `/coach?sheet=reports&report=${id}` : `/coach?report=${id}`)
+  const openReport = (id) => (railed ? navigate(`/reports/${id}`) : navigate(reportUrl(id)))
   // Back walks history (the sheet was pushed); opened from a link, where there
   // is no history to walk, it drops the query instead.
   const closeSheet = () => (location.key === 'default' ? navigate('/coach', { replace: true }) : navigate(-1))
@@ -468,9 +481,19 @@ export default function Coach({ profile, archiveOpen = false }) {
           dims the rail, and a reader who asked for "all reports" should get
           all reports rather than a page that appears to ignore them. The rail
           is an ambient index; this is the answer to a request. */}
-      <Modal open={archiveOpen || sheetArchive} title="Reports" onClose={archiveOpen ? () => navigate('/coach') : closeSheet} maxWidth={560} sheet>
-        <ReportArchive profile={profile} onOpen={archiveOpen ? undefined : openReport} />
-      </Modal>
+      {/* On a phone the list is PUSHED, not raised: "All reports ›" carries a
+          chevron, and a chevron opens a page that slides in from the right
+          (components/PushPanel). A sheet rising from the bottom is what a
+          report does, and what the list did, against its own chevron. */}
+      {phone && !archiveOpen ? (
+        <PushPanel id="push-reports" open={sheetArchive} title="Reports" backLabel="Coach" onBack={closeSheet} under=".coach-main">
+          <ReportArchive profile={profile} onOpen={openReport} />
+        </PushPanel>
+      ) : (
+        <Modal open={archiveOpen || sheetArchive} title="Reports" onClose={archiveOpen ? () => navigate('/coach') : closeSheet} maxWidth={560} sheet>
+          <ReportArchive profile={profile} onOpen={archiveOpen ? undefined : openReport} />
+        </Modal>
+      )}
 
       {/* The report itself, as a sheet, wherever there is no rail to show it
           in. On a phone it rises from the bottom edge, as the notifications
@@ -484,8 +507,23 @@ export default function Coach({ profile, archiveOpen = false }) {
           — and only history knows which. `location.key === 'default'` means
           this view IS the first entry (a deep link from a notification), where
           there is nothing to go back to, so that falls through to the thread. */}
+      {/* A report on a phone is a pushed page, like the list: a card or a row
+          with a chevron opens its page from the right. Back names where it
+          goes, the list it was opened from or the conversation. Wider screens
+          keep the sheet below. */}
+      {phone && (
+        <PushPanel
+          open={pushedReport}
+          label="Report"
+          backLabel={sheetArchive ? 'Reports' : 'Coach'}
+          onBack={sheetReportId ? closeSheet : () => (location.key === 'default' ? navigate('/coach') : navigate(-1))}
+          under={sheetArchive ? '#push-reports' : '.coach-main'}
+        >
+          <ReportReader inModal pushed reportId={currentReportId || lastReportId || undefined} sender={coach} onStep={(id) => navigate(reportUrl(id), { replace: true })} />
+        </PushPanel>
+      )}
       <Modal
-        open={(Boolean(reportId) && !railed) || Boolean(sheetReportId)}
+        open={((Boolean(reportId) && !railed) || Boolean(sheetReportId)) && !pushedReport}
         title="Report"
         onClose={sheetReportId ? closeSheet : () => (location.key === 'default' ? navigate('/coach') : navigate(-1))}
         maxWidth={560}
@@ -493,9 +531,9 @@ export default function Coach({ profile, archiveOpen = false }) {
       >
         <ReportReader
           inModal
-          reportId={sheetReportId || undefined}
+          reportId={currentReportId || lastReportId || undefined}
           sender={coach}
-          onStep={sheetReportId ? (id) => navigate(`/coach?report=${id}`, { replace: true }) : undefined}
+          onStep={sheetReportId ? (id) => navigate(reportUrl(id), { replace: true }) : undefined}
         />
       </Modal>
     </div>

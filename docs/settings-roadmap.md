@@ -827,3 +827,12 @@ open the meals, Cardio the workouts, Steps and Weight their editor). **Progress*
 - With one workout, its row repeats the Cardio total in the panel; accepted,
   since the row is the session record.
 
+### 10.15 Pushed pages and sheets (Oct 26 2026)
+
+Rows with a chevron now push (components/PushPanel): All reports, every report
+opened from the Coach tab, and every Profile section, on a phone. Sheets
+(notifications, a report on a wider screen) slide back down on close
+(hooks/usePresence). Needs a real phone:
+- The left-edge swipe back (a simulator cannot drag in from the bezel).
+- Typing in a Profile section inside the pushed page with the iOS keyboard up.
+

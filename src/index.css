@@ -2942,6 +2942,41 @@ html.native-app .gnav {
   .modal-sheet-body { flex: 1; min-height: 0; }
 }
 
+/* ---- A pushed page (components/PushPanel) -------------------------------
+   Slides in from the right between the top bar and the floating tab bar,
+   which stay, as a pushed screen does inside an iOS tab. The page beneath
+   (.push-under) moves a third of the way left on the same curve, iOS's
+   parallax, so the two read as one motion. */
+@keyframes push-in { from { transform: translateX(100%); } }
+@keyframes push-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
+.push-panel {
+  position: fixed; left: 0; right: 0; bottom: 0; top: 56px;
+  z-index: 90;
+  background-color: var(--color-bg);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+  overflow-y: auto; overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  animation: push-in 350ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+html.native-app .push-panel { top: calc(56px + env(safe-area-inset-top, 0px)); }
+.push-panel.push-closing { animation: push-out 320ms cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+.push-panel[data-gone] { animation: none !important; transform: translateX(100%); }
+.push-under { transition: transform 350ms cubic-bezier(0.32, 0.72, 0, 1); }
+.push-under.is-covered { transform: translateX(-30%); }
+.push-panel-head { padding: var(--space-12) var(--space-16) var(--space-8); }
+/* iOS's back button: the chevron and the previous screen's name, in the
+   accent, flush to the left margin. 44pt tall. */
+.push-back {
+  appearance: none; background: none; border: none; font: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 2px;
+  min-height: 44px; margin-left: -8px; padding: 0 8px 0 2px;
+  color: var(--color-primary); font-size: var(--text-md); font-weight: var(--weight-medium);
+}
+.push-title { margin: var(--space-4) 0 0; }
+.push-panel-body {
+  padding: 0 var(--space-16) calc(110px + env(safe-area-inset-bottom, 0px));
+}
+
 /* A food row's serving-and-macros line: one line at the designed size, where
    it fits once calories sit on the right. Enlarged text (data-text-grown, set
    by utils/textScale.js) lets it wrap instead, as iOS does at accessibility
