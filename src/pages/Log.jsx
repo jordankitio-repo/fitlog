@@ -409,7 +409,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   useEffect(() => {
     if (!session?.user?.id) return
-    supabase.from('targets').select('steps, cardio_minutes').eq('user_id', session.user.id).maybeSingle()
+    supabase.from('targets').select('steps, cardio_minutes, calories, protein, carbs, fat').eq('user_id', session.user.id).maybeSingle()
       .then(({ data, error }) => { if (error) console.error(error); else setTargets(data) })
   }, [session?.user?.id])
 
@@ -1542,7 +1542,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
           <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)' }}>{entry.food}</p>
           <p style={{ fontSize: 'var(--text-sm)', marginTop: '2px' }}>
             {formatServing(entry.serving_size, entry.serving_unit)}
-            {!hideCalories && ` · ${entry.calories} kcal`}
+            {!hideCalories && ` · ${Number(entry.calories || 0).toLocaleString()} kcal`}
             {` · ${entry.protein || 0}g P · ${entry.carbs || 0}g C · ${entry.fat || 0}g F`}
           </p>
         </div>
@@ -1746,7 +1746,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   <Button onClick={() => setWeightExpanded(false)} variant="ghost" size="sm">Cancel</Button>
-                  <Button onClick={() => { saveWeight(); setWeightExpanded(false) }} variant="primary" size="sm">{savedWeight ? 'Update' : 'Log Weight'}</Button>
+                  <Button onClick={() => { saveWeight(); setWeightExpanded(false) }} variant="primary" size="sm">{savedWeight ? 'Update' : 'Log weight'}</Button>
                 </div>
               </div>
             </div>
@@ -1770,7 +1770,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   <Button onClick={() => setStepsExpanded(false)} variant="ghost" size="sm">Cancel</Button>
-                  <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary" size="sm">{savedSteps ? 'Update' : 'Log Steps'}</Button>
+                  <Button onClick={() => { saveSteps(); setStepsExpanded(false) }} variant="primary" size="sm">{savedSteps ? 'Update' : 'Log steps'}</Button>
                 </div>
               </div>
             </div>
@@ -1868,47 +1868,36 @@ function Log({ session, profile, hasSoloPremium = true }) {
             reader needed, and it was costing legibility to do it. The metric
             hue still does its real job two panels over, filling Dashboard's
             progress bars, where a shape has no contrast requirement. */}
-        <div className="tnum" style={{ display: 'grid', gridTemplateColumns: `repeat(${hideCalories ? 3 : 4}, 1fr)`, gap: '8px' }}>
-          {!hideCalories && (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalCalories}</div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Calories</div>
+        {/* Today against today's targets: the Log's one comparison (it never
+            compares with yesterday; that is My Progress). Steps already read
+            "99% of 9,000", while the four nutrition totals stood alone, so a
+            client could not tell 2,262 cal from too much or too little without
+            leaving the page. Each now carries its target as "of 1,850", the
+            way MyFitnessPal and MacroFactor set goal against food. Ungraded,
+            for B3's reason: over means opposite things for calories and
+            protein, so the number says how far and the reader says how good. */}
+        {(() => {
+          const cells = [
+            ...(hideCalories ? [] : [{ key: 'cal', label: 'Calories', value: totalCalories, unit: '', target: targets?.calories }]),
+            { key: 'p', label: 'Protein', value: totalProtein, unit: 'g', target: targets?.protein },
+            { key: 'c', label: 'Carbs', value: totalCarbs, unit: 'g', target: targets?.carbs },
+            { key: 'f', label: 'Fat', value: totalFat, unit: 'g', target: targets?.fat },
+          ]
+          const fmt = (n) => Math.round(Number(n) || 0).toLocaleString()
+          return (
+            <div className="tnum" style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`, gap: '8px' }}>
+              {cells.map(c => (
+                <div key={c.key} style={{ textAlign: 'center', minWidth: 0 }}>
+                  <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{fmt(c.value)}{c.unit}</div>
+                  {Number(c.target) > 0 && (
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>of {fmt(c.target)}{c.unit}</div>
+                  )}
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>{c.label}</div>
+                </div>
+              ))}
             </div>
-          )}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalProtein}g</div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Protein</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalCarbs}g</div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Carbs</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-bold)', color: 'var(--color-text)' }}>{totalFat}g</div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', marginTop: '2px' }}>Fat</div>
-          </div>
-        </div>
-
-        {/* Day complete — one-tap "I'm done logging today" (coach trust signal).
-            Hidden on an empty day: there's nothing to mark complete yet. */}
-        {entries.length > 0 && (
-          /* A Button, not a hand-rolled one. It was `background: transparent`
-             with a 1px border — D1's "dead" look exactly, and the one control
-             on this panel with no hover, no pressed state and no raised
-             surface. `muted` at rest because the panel's one filled green is
-             already "+ Add Food"; the accent fill is kept for the COMPLETE
-             state, where it reports what you did rather than inviting a press. */
-          <Button
-            onClick={toggleDayComplete}
-            variant={dayComplete ? 'primary' : 'muted'}
-            size="sm"
-            fullWidth
-            loading={dayCompleteSaving}
-            style={{ marginTop: 'var(--space-4)' }}
-          >
-            {dayComplete ? <><Icon name="check" /> Day marked complete. Tap to undo</> : 'Mark day complete'}
-          </Button>
-        )}
+          )
+        })()}
 
         {/* Food entries, grouped by meal (with multi-select) */}
         {entries.length > 0 && (
@@ -1944,7 +1933,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 <div key={group.key}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
                     <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
-                    {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
+                    {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{Number(group.calories || 0).toLocaleString()} kcal</span>}
                   </div>
                   {group.entries.map(entry => renderFoodEntry(entry))}
                 </div>
@@ -1961,9 +1950,32 @@ function Log({ session, profile, hasSoloPremium = true }) {
               >
                 {groupEntriesByMeal(entries).map(group => (
                   <DroppableMeal key={group.key} slot={group.key} target={dragLifted && !!dragItem && itemSlot(dragItem) !== group.key}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 2px' }}>
+                    {/* Each meal carries its own "+" to add to it, the way
+                        MyFitnessPal's diary does: the only "+ Add food" was
+                        under the whole day, so by dinner a client scrolled
+                        past every entry to log the next. Opens the form with
+                        this meal already chosen. Type-only (D2), so a row of
+                        four headings does not become four buttons. */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-12)', padding: '10px 0 2px' }}>
                       <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-muted)' }}>{group.label}</span>
-                      {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{group.calories} kcal</span>}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-12)', marginLeft: 'auto' }}>
+                        {!hideCalories && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>{Number(group.calories || 0).toLocaleString()} kcal</span>}
+                        {MEALS.some(m => m.key === group.key) && (
+                          <button
+                            type="button"
+                            className="ds-control ds-fixbtn"
+                            aria-label={`Add food to ${group.label}`}
+                            onClick={() => { setMeal(group.key); setShowCopyPanel(false); setNutritionExpanded(true); revealWhenReady(() => foodInputRef.current) }}
+                            // A bare "+", labelled for screen readers by
+                            // aria-label. The padding is the 44pt touch area
+                            // Apple asks for, cancelled out by the margin so
+                            // the heading does not grow.
+                            style={{ display: 'inline-flex', alignItems: 'center', padding: '14px', margin: '-14px' }}
+                          >
+                            <Icon name="plus" size={16} strokeWidth={2} />
+                          </button>
+                        )}
+                      </span>
                     </div>
                     {groupLoggedMeals(group.entries).map(item => item.type === 'meal'
                       ? <DraggableItem key={item.id} id={item.id} item={item} lifted={dragLifted}>{d => renderLoggedMeal(item, d)}</DraggableItem>
@@ -2045,7 +2057,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
         )}
 
         {/* Empty diary — an inviting prompt instead of a blank gap. The action
-            lives in the toolbar just below (+ Add Food). */}
+            lives in the toolbar just below (+ Add food). */}
         {entries.length === 0 && !nutritionExpanded && !showCopyPanel && (
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
@@ -2384,8 +2396,8 @@ function Log({ session, profile, hasSoloPremium = true }) {
               onClick={() => { setNutritionExpanded(true); setShowCopyPanel(false) }}
               variant="primary"
               size="sm"
-            >+ Add Food</Button>
-            <Button onClick={() => { setShowScanner(true); setNutritionExpanded(true) }} variant="muted" size="sm">Scan Barcode</Button>
+            >+ Add food</Button>
+            <Button onClick={() => { setShowScanner(true); setNutritionExpanded(true) }} variant="muted" size="sm">Scan barcode</Button>
             <Button
               onClick={() => {
                 const opening = !showCopyPanel
@@ -2404,9 +2416,37 @@ function Log({ session, profile, hasSoloPremium = true }) {
               }}
               variant="muted"
               size="sm"
-            >{showCopyPanel ? 'Cancel' : 'Copy Day'}</Button>
+            >{showCopyPanel ? 'Cancel' : 'Copy day'}</Button>
           </div>
         )}
+
+        {/* Day complete — one-tap "I'm done logging today" (coach trust signal).
+            At the END, after the entries and the ways to add one, because it
+            is the last thing done in a day (MyFitnessPal's "Complete diary"
+            sits there too); above the list it asked to be pressed before
+            anything had been logged. Hidden on an empty day. */}
+        {entries.length > 0 && (
+          /* A Button, not a hand-rolled one. It was `background: transparent`
+             with a 1px border — D1's "dead" look exactly, and the one control
+             on this panel with no hover, no pressed state and no raised
+             surface. `muted` at rest because the panel's one filled green is
+             already "+ Add food"; the accent fill is kept for the COMPLETE
+             state, where it reports what you did rather than inviting a press. */
+          <Button
+            onClick={toggleDayComplete}
+            variant={dayComplete ? 'primary' : 'muted'}
+            size="sm"
+            // Full width on a phone, where it is a footer to the card; on a
+            // desktop a 1,200px bar outweighs everything above it.
+            fullWidth={isMobile}
+            loading={dayCompleteSaving}
+            style={{ marginTop: 'var(--space-4)' }}
+          >
+            {dayComplete ? <><Icon name="check" /> Day marked complete. Tap to undo</> : 'Mark day complete'}
+          </Button>
+        )}
+
+
 
         {/* AI feedback */}
         {entries.length > 0 && profile?.role !== 'client' && (

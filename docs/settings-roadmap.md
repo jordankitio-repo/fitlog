@@ -676,6 +676,20 @@ Open:
    the same RLS as messages.
 3. **No alert for a new message** (see 10.4).
 
+### 10.10 Log — done (Oct 26 2026)
+Nutrition totals now carry today's targets ("2,262 of 1,850"), ungraded, so
+the Log does its one comparison (today vs today's goals) for food as it
+already did for steps. Each meal has its own "+ Add" (44pt target) opening the
+form with that meal chosen, so adding dinner no longer means scrolling past
+the day. "Mark day complete" moved after the entries; thousands separators;
+sentence-case buttons ("Log weight", "Log steps" too). "Mark day complete"
+is full width on a phone only; on a desktop it was a 1,200px bar.
+
+Checked: light and dark; iPhone at the largest accessibility text size; a
+client with calories hidden by the coach (three columns); an empty day; every
+form (weight, steps, workout, measurements, add food), copy day, select mode,
+quick add; desktop at 1280px in both themes. No console errors.
+
 ## 9. Navigation & identity (from the app, not the settings screens)
 
 Added after a second look. Three of the reference screenshots were not settings
