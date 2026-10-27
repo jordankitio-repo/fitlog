@@ -68,6 +68,12 @@
   --control-shadow-active: inset 0 1px 2px rgba(0, 0, 0, 0.5);
   /* On a filled accent the highlight does the work; the shadow stays soft. */
   --control-shadow-accent: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* A filled (green) control's own sheen and lift. The shared sheen is 3.5%
+     white here, tuned for grey controls; on a saturated fill it vanished and
+     left the green a flat slab, with nothing but a hairline lifting it off a
+     near-black ground. */
+  --control-sheen-accent: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 100%);
+  --control-shadow-accent-lift: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   /* Green-tinted control surface. Same physical recipe as --control-*, washed
      with the brand colour, for a control that ACTS ON A CLIENT — sends a nudge,
      sends an invite, opens work that ends in a message to a real person. Plain
@@ -289,6 +295,9 @@
   --control-shadow: 0 1px 2px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --control-shadow-active: inset 0 1px 2px rgba(16, 24, 40, 0.12);
   --control-shadow-accent: 0 1px 2px rgba(16, 24, 40, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  /* Light already carries its gloss in the shared sheen (30%). */
+  --control-sheen-accent: var(--control-sheen);
+  --control-shadow-accent-lift: var(--control-shadow-accent);
   --control-bg-accent: #e9f6ed;
   /* Chroma beats luminance parity HERE. On a near-white panel a green tint held
      to the neutral hover's exact lightness comes out at ~3% saturation, which is
@@ -963,6 +972,7 @@ html.native-app .coach-page {
   gap: var(--space-24);
   align-items: stretch;
 }
+.cv-adherence-grid { display: flex; flex-direction: column; gap: var(--space-20); min-width: 0; }
 .cv-adherence-reads {
   display: flex;
   flex-direction: column;
@@ -1104,13 +1114,15 @@ html.native-app .coach-page {
    The hairline comes off the first cell of the second row; a divider at the
    start of a row separates it from the edge of the card. */
 @media (max-width: 600px) {
-  .cs-strip {
+  /* Five cells only: the bare four-cell strip (the coach's, with no
+     average) holds one row at phone width. */
+  .cs-strip:not(.is-bare) {
     grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
     row-gap: var(--space-12);
   }
-  .cs-strip > :nth-child(-n+2) { grid-column: span 3; }
-  .cs-strip > :nth-child(n+3) { grid-column: span 2; }
-  .cs-strip > :nth-child(3) { border-left: none; padding-left: 0; }
+  .cs-strip:not(.is-bare) > :nth-child(-n+2) { grid-column: span 3; }
+  .cs-strip:not(.is-bare) > :nth-child(n+3) { grid-column: span 2; }
+  .cs-strip:not(.is-bare) > :nth-child(3) { border-left: none; padding-left: 0; }
 }
 
 @media (max-width: 900px) {
@@ -2146,11 +2158,71 @@ body.has-chat-fab .ds-toast { bottom: 92px; }
     padding: var(--space-16) var(--space-12);
   }
   /* The rail draws its own edge now, so the content column stops drawing one
-     for it — two lines for one boundary. Left-aligned with a cap rather than
-     centred: a sidebar layout reads from the rail rightwards, and re-centring
-     the content in the leftover space reopens the gap the sidebar just closed. */
-  .cv-main { padding: var(--space-24) var(--space-32) 96px; max-width: 1480px; }
+     for it — two lines for one boundary.
+     Capped at a reading width, 960px of content: uncapped, every card (a
+     chart, a list of rows, a form) stretched to the screen and left half of
+     itself empty. Centred in what the rail leaves, the way Stripe and Notion
+     hold a detail page: left-aligned, a 1920 screen kept a dead band of
+     ~600px on the right instead. The full-height rail is window chrome, so a
+     centred column does not read as a floating card. */
+  .cv-main { padding: var(--space-24) var(--space-32) 96px; max-width: calc(960px + 2 * var(--space-32)); width: 100%; margin-inline: auto; }
 }
+
+/* Where the client stands (ClientView triagePanel): the record page's third
+   column from 1440px. Separate cards on the page background, sticky and
+   top-aligned with the record (the content column's own top padding), the
+   way Cronometer runs its right column: not a second full-height sidebar,
+   which boxed the record in between two grey walls. */
+@media (min-width: 1440px) {
+  .cv-shell { grid-template-columns: 260px minmax(0, 1fr) 320px; }
+}
+.cv-panel {
+  display: flex; flex-direction: column; gap: var(--space-12);
+  position: sticky; top: 56px; align-self: start;
+  max-height: calc(100vh - 56px); overflow-y: auto;
+  /* Top matches .cv-main's, so the first card starts level with the name.
+     No clearance for the chat bubble: with the panel up there is none (its
+     Message button opens the chat). */
+  padding: var(--space-24) var(--space-32) var(--space-24) 0;
+}
+.cvp-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-20);
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8);
+}
+.cvp-big { margin: 0; font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: 1.1; letter-spacing: -0.01em; }
+.cvp-big-of { font-size: var(--text-subhead); color: var(--color-muted); font-weight: var(--weight-medium); }
+.cvp-caption { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--color-muted); }
+.cvp-line { margin: 0; font-size: var(--text-sm); }
+.cvp-split { align-self: stretch; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); margin-top: var(--space-4); padding-top: var(--space-12); border-top: 1px solid var(--color-border); }
+.cvp-split-row { align-self: stretch; display: grid; grid-template-columns: 64px minmax(0, 1fr) 52px; align-items: center; gap: var(--space-8); font-size: var(--text-sm); }
+.cvp-split-label { color: var(--color-muted); }
+.cvp-split-bar { height: 6px; border-radius: 999px; background: var(--color-surface-2); overflow: hidden; }
+.cvp-split-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--color-text-dim); }
+.cvp-split-num { text-align: right; color: var(--color-text); }
+.cvp-pattern { align-self: stretch; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-6); margin-top: var(--space-4); padding-top: var(--space-12); border-top: 1px solid var(--color-border); }
+.cvp-label { margin: 0; font-size: var(--text-xs); color: var(--color-muted); font-weight: var(--weight-medium); }
+.cvp-text { margin: 0; font-size: var(--text-sm); color: var(--color-text); line-height: 1.5; }
+.cvp-act { align-self: stretch; margin-top: var(--space-4); }
+.cvp-prep { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
+/* A type-only link, the rail's "Set daily targets" progression. */
+.cvp-link {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  background: none; border: none; padding: 0; cursor: pointer; font: inherit;
+  font-size: var(--text-sm); font-weight: var(--weight-medium);
+  color: var(--color-text-dim);
+  transition: color 140ms ease;
+}
+.cvp-link:hover { color: var(--color-text); }
+.cvp-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 3px; }
+/* On the green button: ink, not the warning colour, which failed contrast there. */
+.cvp-unread { color: inherit; font-weight: var(--weight-semibold); margin-left: var(--space-4); opacity: 0.85; }
+.cvp-flags { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-6); }
+.cvp-flags li { display: flex; gap: var(--space-6); align-items: baseline; font-size: var(--text-sm); color: var(--color-text); }
+.cvp-flags li svg { color: var(--color-warning); flex-shrink: 0; transform: translateY(2px); }
 
 /* Rail nav items — hover highlight follows the cursor; the green selected state
    (driven by scroll-spy / a click) stays put. .is-active is ordered after :hover
@@ -3439,4 +3511,32 @@ html[data-text-grown] .log-macro-line { white-space: normal; overflow: visible; 
   display: flex; align-items: center; justify-content: center; scroll-snap-align: center;
   font-size: var(--text-md); color: var(--color-text); cursor: pointer; user-select: none;
   transition: opacity 120ms ease;
+}
+
+/* Weekday vs weekend, as rings (components/ComplianceBreakdown). */
+.cb-figs dt { color: var(--color-muted); }
+.cb-figs dd { margin: 0; color: var(--color-text); font-weight: var(--weight-medium); text-align: right; }
+/* Stacked in a narrow card, each row spanning it (the rings spread, the
+   figures' values right-aligned to the edge, the week ring row edge to edge);
+   on a wide one the two halves sit side by side (rings and figures | the week
+   and what it means). Either way the card is not half empty. */
+.cb-wrap { container-type: inline-size; }
+.cb-body, .cb-side, .cb-rings { display: flex; flex-direction: column; gap: var(--space-16); }
+/* Beside the Adherence grid the card takes the column's full height and its
+   parts spread down it, so the day rings end level with the grid's tally
+   instead of leaving a band of nothing under them. */
+.cb-body { flex: 1; justify-content: space-between; }
+/* Stacked, the rings, the figures and the day row are three items of the
+   body, not two groups, so the column's spare height splits into equal gaps
+   instead of all landing between the figures and the day row. */
+.cb-rings, .cb-side { display: contents; }
+.cb-pair { display: flex; justify-content: space-around; gap: var(--space-16); }
+.cb-figs { margin: 0; display: grid; grid-template-columns: 1fr auto; column-gap: var(--space-12); row-gap: var(--space-4); font-size: var(--text-sm); }
+.cb-week { display: flex; justify-content: space-between; gap: var(--space-4); }
+@container (min-width: 600px) {
+  .cb-body { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--space-24); }
+  .cb-rings { display: flex; flex-direction: row; align-items: center; gap: var(--space-20); }
+  .cb-figs { grid-template-columns: auto auto; }
+  .cb-side { display: flex; padding-left: var(--space-24); border-left: 1px solid var(--color-border); justify-content: center; }
+  .cb-week { max-width: 420px; }
 }

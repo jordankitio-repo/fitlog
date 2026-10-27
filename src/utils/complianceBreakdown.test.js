@@ -115,3 +115,22 @@ describe('calorieDayOnTarget', () => {
     expect(calorieDayOnTarget(0, 2000)).toBe(false)
   })
 })
+
+describe('averages for the rings', () => {
+  it('gives each segment its average day in calories, and each weekday its own', () => {
+    const logs = {}
+    // Two weeks: weekdays at 2,000, weekends at 2,400, against a 2,000 target.
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i)
+      const dow = d.getDay()
+      logs[toLocalDateString(d)] = { calories: dow === 0 || dow === 6 ? 2400 : 2000 }
+    }
+    const b = complianceBreakdown(logs, 2000, 14)
+    expect(b.weekday.avgCal).toBe(2000)
+    expect(b.weekend.avgCal).toBe(2400)
+    expect(b.byDow[6].avgCal).toBe(2400)
+    expect(b.byDow[3].avgCal).toBe(2000)
+    expect(b.byDow.every(x => x.logged === 2)).toBe(true)
+  })
+})
+

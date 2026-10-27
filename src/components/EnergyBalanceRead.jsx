@@ -139,14 +139,11 @@ export default function EnergyBalanceRead({ calorieSeries, weightSeries, calorie
 }
 
 // Window picker — trade recency for confidence. Compact week pills; the read
-// recomputes over the chosen span (the util is window-agnostic). An InfoTip on
-// the label carries the "why 21 by default" so the choice isn't a mystery.
+// recomputes over the chosen span (the util is window-agnostic). No label: the
+// pills say "2w 3w 4w 6w" themselves, and the group keeps its accessible name.
 function WindowSelector({ windowDays, onWindowChange }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ fontSize: 'var(--text-xs)', color: MUTED }}>
-<InfoTip text="How far back to read. Shorter is more recent but noisier; longer is steadier but older. 21 days is the default.">Window</InfoTip>
-      </span>
       <span role="group" aria-label="Energy balance window" style={{ display: 'inline-flex', gap: 4 }}>
         {/* These are filter chips, so they are the app's filter chip — ui/Pill,
             the same control as the roster's View lenses. The hand-rolled pair

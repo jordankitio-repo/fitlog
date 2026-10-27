@@ -20,7 +20,10 @@ function ChatIcon() {
   )
 }
 
-export default function ChatBubble({ messages = [], reports = [], onOpenReport, currentUserId, recipientName = 'client', recipientAvatarUrl, onSend, onMarkRead, hasOlder = false, onLoadOlder, loadingOlder = false }) {
+// `hideLauncher`: no round button while closed, for a page that opens the
+// chat from a control of its own (the coach's client page, whose side panel
+// has a Message button); ?focus=chat still opens it.
+export default function ChatBubble({ messages = [], reports = [], onOpenReport, currentUserId, recipientName = 'client', recipientAvatarUrl, onSend, onMarkRead, hasOlder = false, onLoadOlder, loadingOlder = false, hideLauncher = false }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -96,6 +99,7 @@ export default function ChatBubble({ messages = [], reports = [], onOpenReport, 
   }
 
   if (!open) {
+    if (hideLauncher) return null
     return createPortal((
       /* D2: a control that needs a different SHAPE overrides the shape — it does
          not get rebuilt. This was a hand-rolled <button>, which meant it had no

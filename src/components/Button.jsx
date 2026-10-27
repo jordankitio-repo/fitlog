@@ -114,7 +114,7 @@ function Button({
   // which is most of why they read as dead.
   const variants = {
     primary: {
-      rest: { backgroundColor: 'var(--color-primary-fill)', color: 'var(--color-on-primary-fill)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent)' },
+      rest: { backgroundColor: 'var(--color-primary-fill)', backgroundImage: 'var(--control-sheen-accent)', color: 'var(--color-on-primary-fill)', border: '1px solid transparent', boxShadow: 'var(--control-shadow-accent-lift)' },
       hover: { filter: 'brightness(1.08)' },
     },
     // Acts on a client: sends a nudge, sends an invite. IDENTICAL to `muted` at

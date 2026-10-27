@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, cloneElement, useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { refreshNotifications } from '../utils/notifyRefresh'
@@ -56,7 +56,7 @@ import { shortDay } from '../utils/pause'
 import { energyBalanceRead, WINDOW_OPTIONS, WINDOW_DATA_DAYS } from '../utils/energyBalanceRead'
 import { computeClientStats } from '../utils/clientStats'
 import { latestCheckIn, coversPeriod, checkinRatings } from '../utils/checkinLookup'
-import { attentionLevel } from '../utils/attentionLevel'
+import { attentionLevel, gradeCompliance, gradeLogging } from '../utils/attentionLevel'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
 import { CADENCE_OPTIONS } from '../utils/cadence'
@@ -68,7 +68,8 @@ import {
   getDatesInRange,
   getWeeklyReportRange,
   parseLocalDateString,
-  toLocalDateString
+  toLocalDateString,
+  addDays
 } from '../utils/dateHelpers'
 import { cardStyle } from '../utils/styles'
 import { groupEntriesByMeal, groupLoggedMeals, formatServing } from '../utils/meals'
@@ -320,6 +321,7 @@ function ClientView({ profile }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedDate, setSelectedDate] = useState(toLocalDateString(new Date()))
+  const openedOn = useRef(null) // the client the day stepper was last opened for
   const [clientProfile, setClientProfile] = useState(null)
   const [entries, setEntries] = useState([])
   const [dayComplete, setDayComplete] = useState(false)
@@ -345,6 +347,8 @@ function ClientView({ profile }) {
   // left fourteen stacked sections and no map. That is the split this page
   // branches on — not "mobile" in the abstract, but "is there a rail".
   const hasRail = useMediaQuery('(min-width: 1024px)')
+  // From 1440px a side panel holds where this client stands (see triagePanel).
+  const hasPanel = useMediaQuery('(min-width: 1440px)')
 
   // Which series the Trends destination is showing. In the URL rather than in
   // state so the back button steps through metrics and a link can name one.
@@ -591,7 +595,13 @@ function ClientView({ profile }) {
   // would be wrong for half the roster. The arrow says the direction; the
   // number says how much; the goal decides whether that is good.
   const weightSub = () => {
-    if (!weightEntry) return null
+    // No weigh-in that day: say so, and give the last one, so the card is not
+    // a bare dash with nothing under it.
+    if (!weightEntry) {
+      return prevWeight
+        ? <>No weigh-in<br /><span className="tnum">Last {shownWeight(prevWeight.weight, prevWeight.unit)} {unitLabel(weightDisplayUnit)}, {shortDay(prevWeight.logged_date)}</span></>
+        : 'No weigh-ins yet'
+    }
     const time = weightEntry.weighed_at ? formatTime(weightEntry.weighed_at) : null
     if (!prevWeight) return time
     const delta = Math.round((Number(shownWeight(weightEntry.weight, weightEntry.unit)) - Number(shownWeight(prevWeight.weight, prevWeight.unit))) * 10) / 10
@@ -725,7 +735,13 @@ function ClientView({ profile }) {
   fetchClientMeasurements()
 }, [clientId])
 
+  // The day the stepper is on now, for the three fetches below to check
+  // against when they land: opening on the last logged day changes the date
+  // while today's requests are still in flight, and a late answer for today
+  // overwrote the day on screen with zeros.
+  const dayOnScreen = useRef(selectedDate)
   useEffect(() => {
+    dayOnScreen.current = selectedDate
     fetchEntries()
     fetchWeight()
     fetchDayActivity()
@@ -813,6 +829,16 @@ function ClientView({ profile }) {
       ? Math.floor((new Date() - new Date(`${latestLog.logged_date}T00:00:00`)) / 86400000)
       : null
     )
+    // Open on the last day they logged when today is still empty, once per
+    // client: a coach checking in the morning saw a wall of 0g for a day not
+    // yet started, above the evidence they came for. Within a week only; past
+    // that the empty day is the honest picture (the status already says so).
+    if (openedOn.current !== clientId) {
+      openedOn.current = clientId
+      const last = latestLog?.logged_date
+      const weekAgo = toLocalDateString(addDays(new Date(), -7))
+      if (last && last < today && last >= weekAgo) setSelectedDate(d => (d === today ? last : d))
+    }
     setHideCaloriesToggle(Boolean(relationship.hide_calories))
     setLockInfo(resolveLockState({
       lastNutritionDate: latestLog?.logged_date || null,
@@ -915,6 +941,7 @@ function ClientView({ profile }) {
     const { data: dc } = await supabase
       .from('day_complete').select('logged_date')
       .eq('user_id', clientId).eq('logged_date', selectedDate).maybeSingle()
+    if (dayOnScreen.current !== selectedDate) return
     setDayComplete(Boolean(dc))
 
     const { data, error } = await supabase
@@ -923,6 +950,7 @@ function ClientView({ profile }) {
       .eq('user_id', clientId)
       .eq('logged_date', selectedDate)
       .order('created_at', { ascending: true })
+    if (dayOnScreen.current !== selectedDate) return
     if (error) console.error('Error fetching entries:', error)
     else {
       setEntries(data)
@@ -948,6 +976,7 @@ function ClientView({ profile }) {
         .eq('user_id', clientId).lte('logged_date', selectedDate)
         .order('logged_date', { ascending: false }).order('weighed_at', { ascending: false }).limit(21),
     ])
+    if (dayOnScreen.current !== selectedDate) return
     if (error) console.error('Error fetching weight:', error)
     else setWeightEntry(data?.[0] ?? null)
     if (prevError) { console.error(prevError); return }
@@ -964,6 +993,7 @@ function ClientView({ profile }) {
       supabase.from('cardio_log').select('duration, source').eq('user_id', clientId).eq('logged_date', selectedDate).eq('counts_as_cardio', true),
       supabase.from('steps_log').select('steps, source').eq('user_id', clientId).eq('logged_date', selectedDate).limit(1),
     ])
+    if (dayOnScreen.current !== selectedDate) return
     // A device's name only when every session came from it: a day of one
     // synced run and one typed-in walk is not "from Apple Health".
     const cardioSrc = c?.length && c.every(r => r.source === c[0].source) ? sourceLabel(c[0].source) : null
@@ -2331,10 +2361,12 @@ async function sendMessage(text) {
     messages: unreadFromClient > 0 ? { meta: unreadFromClient, metaTone: 'warning' } : null,
     // Unreviewed outranks overdue: an unread check-in is work sitting on the
     // coach's desk, and saying "Due" over it would bury it.
-    checkIn: clientCheckIn && !clientCheckIn.reviewed_at
+    // The side panel says both of these in words, so while it shows they
+    // come off the rail: the rail is where to go, the panel what is true.
+    checkIn: hasPanel ? null : clientCheckIn && !clientCheckIn.reviewed_at
       ? { meta: 'New', metaTone: 'success' }
       : (!checkinCurrent ? { meta: 'Due', metaTone: 'warning' } : null),
-    nutritionLog: daysSinceLog != null && daysSinceLog >= 3
+    nutritionLog: !hasPanel && daysSinceLog != null && daysSinceLog >= 3
       ? { meta: `${daysSinceLog}d`, metaTone: daysSinceLog >= 4 ? 'error' : 'warning' }
       : null,
     measurements: measStatus?.due ? { meta: 'Due', metaTone: 'warning' } : null,
@@ -2348,7 +2380,8 @@ async function sendMessage(text) {
   // the page's live order — the coach can drag the sections around, and a rail
   // sorted any other way would make the active highlight jump while scrolling.
   const railGroups = [
-    { label: null, items: [railItem('messages', 'Messages')] },
+    // With the side panel, Message is its button (unread count and all).
+    { label: null, items: hasPanel ? [] : [railItem('messages', 'Messages')] },
     {
       label: 'This client',
       items: ['stats', ...mergeOrder(cardOrder, presentReorderable)].map(key => railItem(key, SECTION_LABELS[key])),
@@ -2656,6 +2689,220 @@ async function sendMessage(text) {
                   )
   }
 
+  // The header's parts, composed once: the header shows them, and on a wide
+  // screen the side panel takes the triage ones (status, flag, nudge, lock).
+  const paused = Boolean(rel?.pausedUntil)
+  const status = statusStats ? attentionLevel({ ...statusStats, lockInfo }) : null
+  const reasons = status ? status.reasons.filter(r => r !== 'Locked') : []
+  const showStatus = status && !(status.level !== 'green' && reasons.length === 0)
+  const tone = status && (status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)')
+  // A paused client is not nudged: the pause is the coach saying so.
+  const nudge = paused ? null : nudgeReason({ daysSinceLog, hasCheckIn: checkinCurrent, checkinDue: checkinPeriod(checkinInterval, new Date(), checkinWeekday).dueWindow })
+  const nudgeLabel = nudge && (nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log')
+
+  /* C1: status is plain coloured text — no container, no border, no dot.
+     Green keeps --color-success rather than going muted: green and grey
+     must never collide (B1), or a healthy client reads identically to an
+     unconfigured one. */
+  // Paused is not a grade (C1's grey: nothing to grade against), so it
+  // is muted and regular weight, the roster's "Paused until" exactly.
+  const statusText = paused ? (
+    <span className="cv-head-status" style={{ color: 'var(--color-muted)' }}>
+      Paused until {shortDay(rel.pausedUntil)}{rel.pauseReason ? ` \u00b7 ${rel.pauseReason}` : ''}
+    </span>
+  ) : showStatus && (
+    <span className="cv-head-status" style={{
+      fontWeight: status.level === 'green' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
+      color: tone,
+    }}>
+      {status.level === 'green' ? 'On track' : reasons.join(' · ')}
+    </span>
+  )
+
+  /* One sentence, not a label beside an explanation. The two were
+     separate spans with a gap, so they wrapped apart on a narrow screen
+     and read as unrelated facts. */
+  const lockText = lockInfo.locked && (
+    <p className="cv-head-lock">
+      <b>Locked</b> No nutrition logged for {lockInfo.days} days
+    </p>
+  )
+
+  const nudgeButton = nudge && (
+    /* D2/D3: this is the roster's Nudge, so it is the roster's control —
+       <Button variant="action">, not a second implementation of it.
+       Rank 2 (acts on a client), never rank 1. */
+    <Button
+      onClick={() => nudgeClient(nudge)}
+      variant="action"
+      size="sm"
+      loading={nudging}
+      disabled={nudging}
+      ariaLabel={nudge.key === 'checkin' ? 'Email this client a reminder to do their check-in' : 'Email this client a prompt to get back to logging'}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+      {nudging ? 'Nudging…' : nudgeLabel}
+    </Button>
+  )
+  // The roster's ⋯, for the roster's per-client actions. Before this, a
+  // coach looking AT a client had to go back to the list to pause them.
+  const moreButton = (
+    <button type="button" className="rost-m-more ds-control" onClick={() => setMenuOpen(true)} aria-label={`More for ${clientProfile?.full_name || 'client'}`}>
+      <Icon name="more" />
+    </button>
+  )
+  // Who this is, in one muted line: the goal, how long they have been
+  // coached, and the coach's own labels. Each part only when known.
+  const groupNames = groupApi.groupsOf(clientId).map(g => g.name)
+  const facts = [
+    goalLabel(clientProfile?.primary_goal),
+    rel?.since && `Client since ${new Date(rel.since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
+    groupNames.length > 0 && groupNames.join(', '),
+  ].filter(Boolean)
+  const factsText = facts.length > 0 && <span className="cv-head-facts">{facts.join(' \u00b7 ')}</span>
+  // A flagged note's first line, in the header, so an injury or an
+  // allergy is in front of the coach on every visit without opening
+  // Notes (Trainerize keeps a flagged injury on the profile the same
+  // way). Plain text with a glyph, not a pill (C1); it links to Notes.
+  const flagLine = flaggedNotes.length > 0 && (
+    <Link to={`/client/${clientId}/privateNotes`} className="cv-head-flags ds-control"
+      title={flaggedNotes.map(n => n.body.split('\n')[0]).join('\n')}
+      aria-label={`Flagged: ${flaggedNotes.map(n => n.body.split('\n')[0]).join('; ')}. Open notes`}>
+      <Icon name="flag" size={13} />
+      <span className="cv-head-flags-text">{flaggedNotes[0].body.split('\n')[0]}</span>
+      {flaggedNotes.length > 1 && <span className="cv-head-flags-more">+{flaggedNotes.length - 1}</span>}
+    </Link>
+  )
+  const unlockButton = lockInfo.locked && (
+    <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
+  )
+
+
+  // WHERE THIS CLIENT STANDS, beside the record on a wide screen.
+  // The page is the evidence (charts, history, check-ins, photos); this is
+  // the verdict and the next move, kept in view while the coach scrolls it.
+  // Separate cards on the page background, Cronometer's right column, not a
+  // second full-height sidebar: two grey walls boxed the record in, and a
+  // list of small labels read like settings rather than a verdict. So the
+  // first card leads with one big figure. Nothing is drawn twice: while the
+  // panel shows, the header drops its status, flag, lock and nudge.
+  const TONE_COLOR = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
+  const compliance = statusStats ? gradeCompliance(statusStats) : null
+  const logging = statusStats ? gradeLogging({ ...statusStats, lockInfo }) : null
+  const checkinDay = clientCheckIn?.created_at && shortDay(toLocalDateString(new Date(clientCheckIn.created_at)))
+  const requestButton = (
+    <Button variant="muted" size="sm" style={{ width: '100%' }} onClick={requestCheckin} loading={requestingCheckin} disabled={requestingCheckin || paused}>
+      Request check-in
+    </Button>
+  )
+  const checkinCard = clientCheckIn && !clientCheckIn.reviewed_at
+    ? { text: `Sent ${checkinDay}, waiting for your review`, tone: 'var(--color-success)', action: <Button variant="primary" size="sm" style={{ width: '100%' }} onClick={() => goToSection('checkIn')}>Review check-in</Button> }
+    : checkinRequestOpen ? { text: `You asked for one on ${shortDay(toLocalDateString(new Date(checkinRequestedAt)))}.` }
+    : !checkinCurrent ? { text: 'Due this period, not in yet.', tone: 'var(--color-warning)', action: nudge?.key === 'checkin' ? cloneElement(nudgeButton, { fullWidth: true }) : requestButton }
+    : { text: checkinDay ? `Reviewed, sent ${checkinDay}.` : 'Up to date.', action: paused ? null : requestButton }
+  const triagePanel = hasPanel && (
+    <aside className="cv-panel" aria-label={`Where ${clientFirstName} stands`}>
+      <section className="cvp-card">
+        {paused ? (
+          <p className="cvp-big" style={{ color: 'var(--color-muted)', fontSize: 'var(--text-lg)' }}>Paused until {shortDay(rel.pausedUntil)}</p>
+        ) : compliance?.max ? (
+          <div>
+            <p className="cvp-big tnum" style={{ color: TONE_COLOR[compliance.tone] }}>
+              {compliance.sum}<span className="cvp-big-of">/{compliance.max}</span>
+            </p>
+            <p className="cvp-caption">
+              <InfoTip text={`Every target counts once a day, so ${compliance.max / 7} targets over 7 days is ${compliance.max} chances; this is how many were hit.\n\nHit means: calories within 90-110% of target; protein, cardio and steps at 90% of target or more.\n\nThe rows below are each target's own days out of 7.`}>
+                targets hit · past 7 days
+              </InfoTip>
+            </p>
+          </div>
+        ) : (
+          <div>
+            <p className="cvp-big" style={{ color: 'var(--color-muted)', fontSize: 'var(--text-lg)' }}>{compliance?.text || 'Not enough data yet'}</p>
+            {compliance?.fix === 'targets' && (
+              <button type="button" className="cvp-link ds-control" onClick={() => goToSection('targets')}>Set targets<Icon name="right" size={12} /></button>
+            )}
+          </div>
+        )}
+        {logging && !paused && !lockInfo.locked && (
+          <p className="cvp-line" style={{ color: logging.tone === 'green' ? 'var(--color-text-dim)' : TONE_COLOR[logging.tone], fontWeight: logging.tone === 'green' ? undefined : 'var(--weight-medium)' }}>
+            {logging.text}
+          </p>
+        )}
+        {/* Locked: the one line that says why, then its two remedies side by
+            side (the logging line would only have said "Locked" again). */}
+        {lockInfo.locked && (
+          <>
+            {lockText}
+            <div className="cvp-act cvp-prep">
+              {cloneElement(unlockButton, { fullWidth: true })}
+              {nudge?.key !== 'checkin' && nudgeButton && cloneElement(nudgeButton, { fullWidth: true })}
+            </div>
+          </>
+        )}
+        {/* What the figure is made of: each target's days out of seven, so
+            "12/28" says which targets carry it and which one is the gap. One
+            neutral bar for all four: protein's own red read as a bad grade. */}
+        {/* Only when something was logged: four rows of "no logs" under
+            "Nothing logged" said one fact five times. */}
+        {!paused && statusStats?.complianceItems?.some(i => i.hasData) && (
+          <div className="cvp-split">
+            {statusStats.complianceItems.map(i => (
+              <div key={i.label} className="cvp-split-row">
+                <span className="cvp-split-label">{i.label}</span>
+                <span className="cvp-split-bar" aria-hidden="true">
+                  <span style={{ width: `${(i.value / 7) * 100}%` }} />
+                </span>
+                <span className="cvp-split-num tnum" style={{ color: i.hasData ? undefined : 'var(--color-faint)' }}>{i.hasData ? `${i.value}/7` : 'no logs'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {!lockInfo.locked && nudge?.key !== 'checkin' && nudgeButton && <div className="cvp-act">{cloneElement(nudgeButton, { fullWidth: true })}</div>}
+      </section>
+
+      <section className="cvp-card">
+        <p className="cvp-label">Check-in</p>
+        <p className="cvp-text" style={{ color: checkinCard.tone, fontWeight: checkinCard.tone ? 'var(--weight-medium)' : undefined }}>{checkinCard.text}</p>
+        {checkinCard.action && <div className="cvp-act">{checkinCard.action}</div>}
+      </section>
+
+      {flaggedNotes.length > 0 && (
+        <section className="cvp-card">
+          <p className="cvp-label">Flagged</p>
+          <ul className="cvp-flags">
+            {flaggedNotes.slice(0, 3).map(n => (
+              <li key={n.id}><Icon name="flag" size={13} /><span>{n.body.split('\n')[0]}</span></li>
+            ))}
+          </ul>
+          {flaggedNotes.length > 3 && <p className="cvp-caption" style={{ margin: 0 }}>{flaggedNotes.length - 3} more in Notes</p>}
+        </section>
+      )}
+
+      {/* Groundwork's two tools, as actions: what they write appears in the
+          record, in the Groundwork card, which scrolls into view. */}
+      <section className="cvp-card">
+        <p className="cvp-label">Prepare</p>
+        <div className="cvp-act cvp-prep">
+          <Button variant="muted" size="sm" fullWidth loading={briefingLoading} disabled={briefingLoading}
+            onClick={async () => { await generateCallPrep(); setAiToolsCollapsed(false); goToSection('groundwork') }}>
+            Meeting prep
+          </Button>
+          <Button variant="muted" size="sm" fullWidth loading={reportLoading} disabled={reportLoading}
+            onClick={async () => { await generateWeeklyReport(); setAiToolsCollapsed(false); goToSection('groundwork') }}>
+            Weekly report
+          </Button>
+        </div>
+      </section>
+
+      {/* Green, unless the check-in card's Review is: one primary per view. */}
+      <Button variant={clientCheckIn && !clientCheckIn.reviewed_at ? 'muted' : 'primary'} size="sm" style={{ width: '100%' }} onClick={() => handleRailJump('messages')}>
+        <Icon name="message" size={15} />Message {clientFirstName}
+        {unreadFromClient > 0 && <span className="cvp-unread tnum">{unreadFromClient} new</span>}
+      </Button>
+    </aside>
+  )
+
   return (
     <>
     {/* The rail owns column 1 for the WHOLE page, header included, so it starts
@@ -2693,92 +2940,6 @@ async function sendMessage(text) {
           reads as one sentence rather than a label and an explanation that
           look like two different things. */}
       {(() => {
-        const paused = Boolean(rel?.pausedUntil)
-        const status = statusStats ? attentionLevel({ ...statusStats, lockInfo }) : null
-        const reasons = status ? status.reasons.filter(r => r !== 'Locked') : []
-        const showStatus = status && !(status.level !== 'green' && reasons.length === 0)
-        const tone = status && (status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)')
-        // A paused client is not nudged: the pause is the coach saying so.
-        const nudge = paused ? null : nudgeReason({ daysSinceLog, hasCheckIn: checkinCurrent, checkinDue: checkinPeriod(checkinInterval, new Date(), checkinWeekday).dueWindow })
-        const nudgeLabel = nudge && (nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log')
-
-        /* C1: status is plain coloured text — no container, no border, no dot.
-           Green keeps --color-success rather than going muted: green and grey
-           must never collide (B1), or a healthy client reads identically to an
-           unconfigured one. */
-        // Paused is not a grade (C1's grey: nothing to grade against), so it
-        // is muted and regular weight, the roster's "Paused until" exactly.
-        const statusText = paused ? (
-          <span className="cv-head-status" style={{ color: 'var(--color-muted)' }}>
-            Paused until {shortDay(rel.pausedUntil)}{rel.pauseReason ? ` \u00b7 ${rel.pauseReason}` : ''}
-          </span>
-        ) : showStatus && (
-          <span className="cv-head-status" style={{
-            fontWeight: status.level === 'green' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
-            color: tone,
-          }}>
-            {status.level === 'green' ? 'On track' : reasons.join(' · ')}
-          </span>
-        )
-
-        /* One sentence, not a label beside an explanation. The two were
-           separate spans with a gap, so they wrapped apart on a narrow screen
-           and read as unrelated facts. */
-        const lockText = lockInfo.locked && (
-          <p className="cv-head-lock">
-            <b>Locked</b> No nutrition logged for {lockInfo.days} days
-          </p>
-        )
-
-        const nudgeButton = nudge && (
-          /* D2/D3: this is the roster's Nudge, so it is the roster's control —
-             <Button variant="action">, not a second implementation of it.
-             Rank 2 (acts on a client), never rank 1. */
-          <Button
-            onClick={() => nudgeClient(nudge)}
-            variant="action"
-            size="sm"
-            loading={nudging}
-            disabled={nudging}
-            ariaLabel={nudge.key === 'checkin' ? 'Email this client a reminder to do their check-in' : 'Email this client a prompt to get back to logging'}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-            {nudging ? 'Nudging…' : nudgeLabel}
-          </Button>
-        )
-        // The roster's ⋯, for the roster's per-client actions. Before this, a
-        // coach looking AT a client had to go back to the list to pause them.
-        const moreButton = (
-          <button type="button" className="rost-m-more ds-control" onClick={() => setMenuOpen(true)} aria-label={`More for ${clientProfile?.full_name || 'client'}`}>
-            <Icon name="more" />
-          </button>
-        )
-        // Who this is, in one muted line: the goal, how long they have been
-        // coached, and the coach's own labels. Each part only when known.
-        const groupNames = groupApi.groupsOf(clientId).map(g => g.name)
-        const facts = [
-          goalLabel(clientProfile?.primary_goal),
-          rel?.since && `Client since ${new Date(rel.since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
-          groupNames.length > 0 && groupNames.join(', '),
-        ].filter(Boolean)
-        const factsText = facts.length > 0 && <span className="cv-head-facts">{facts.join(' \u00b7 ')}</span>
-        // A flagged note's first line, in the header, so an injury or an
-        // allergy is in front of the coach on every visit without opening
-        // Notes (Trainerize keeps a flagged injury on the profile the same
-        // way). Plain text with a glyph, not a pill (C1); it links to Notes.
-        const flagLine = flaggedNotes.length > 0 && (
-          <Link to={`/client/${clientId}/privateNotes`} className="cv-head-flags ds-control"
-            title={flaggedNotes.map(n => n.body.split('\n')[0]).join('\n')}
-            aria-label={`Flagged: ${flaggedNotes.map(n => n.body.split('\n')[0]).join('; ')}. Open notes`}>
-            <Icon name="flag" size={13} />
-            <span className="cv-head-flags-text">{flaggedNotes[0].body.split('\n')[0]}</span>
-            {flaggedNotes.length > 1 && <span className="cv-head-flags-more">+{flaggedNotes.length - 1}</span>}
-          </Link>
-        )
-        const unlockButton = lockInfo.locked && (
-          <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
-        )
-
         if (!hasRail) {
           return (
             <div className="cv-head-m">
@@ -2808,16 +2969,16 @@ async function sendMessage(text) {
                 <h1>{clientProfile?.full_name || 'Client'}</h1>
                 <p style={{ fontSize: 'var(--text-base)', marginTop: 'var(--space-2)' }}>{clientProfile?.email}</p>
                 {factsText && <p style={{ marginTop: 'var(--space-2)' }}>{factsText}</p>}
-                {statusText && <div style={{ marginTop: 'var(--space-4)' }}>{statusText}</div>}
-                {flagLine && <div style={{ marginTop: 'var(--space-6)' }}>{flagLine}</div>}
-                {lockInfo.locked && (
+                {!hasPanel && statusText && <div style={{ marginTop: 'var(--space-4)' }}>{statusText}</div>}
+                {!hasPanel && flagLine && <div style={{ marginTop: 'var(--space-6)' }}>{flagLine}</div>}
+                {!hasPanel && lockInfo.locked && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap', marginTop: 'var(--space-10)' }}>
                     {lockText}
                     {unlockButton}
                   </div>
                 )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>{nudgeButton}{moreButton}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>{!hasPanel && nudgeButton}{moreButton}</div>
             </div>
           </div>
         )
@@ -2862,6 +3023,10 @@ async function sendMessage(text) {
         </div>
       )}
 
+      {/* On a wide screen the two tools are buttons in the side panel, so the
+          record opens on the client's numbers rather than on tools; the card
+          appears here only to hold what they produce. */}
+      {!(hasPanel && !callBriefing && !report) && (
       <div id="section-groundwork" style={sectionStyle('groundwork')}>
         <SectionHeader
           title="Groundwork"
@@ -2869,6 +3034,7 @@ async function sendMessage(text) {
           onToggle={hasRail ? () => setAiToolsCollapsed(!aiToolsCollapsed) : undefined}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+            {!hasPanel && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-12)' }}>
               <button className="gw-tile ds-control" onClick={generateCallPrep} disabled={briefingLoading}
                 style={{ '--gw-accent': GW_ACCENT_AI, display: 'flex', alignItems: 'center', gap: 'var(--space-12)', width: '100%', textAlign: 'left', padding: 'var(--space-16)', borderRadius: 'var(--radius)', backgroundColor: 'var(--control-bg)', backgroundImage: 'var(--control-sheen)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', fontFamily: 'inherit', opacity: briefingLoading ? 0.65 : 1 }}>
@@ -2892,6 +3058,7 @@ async function sendMessage(text) {
                 </span>
               </button>
             </div>
+            )}
 
             {callBriefing && (
               /* B2: chrome stays neutral. This card outlined itself in
@@ -2936,6 +3103,7 @@ async function sendMessage(text) {
           </div>
         </SectionHeader>
       </div>
+      )}
 
       {/* The same `‹ Today ›` as the client's Log and My Progress, so a coach
           and the client pick a day the same way (components/DayStepper). */}
@@ -3053,7 +3221,7 @@ async function sendMessage(text) {
               },
               {
                 key: 'weekdays',
-                label: compact ? 'Weekdays' : 'Weekdays (Mon-Fri)',
+                label: 'Weekdays logged',
                 tip: CONSISTENCY_TIPS.weekdays,
                 value: consistency.weekdayLogged,
                 unit: `/${consistency.weekdayTotal}`,
@@ -3062,7 +3230,7 @@ async function sendMessage(text) {
               },
               {
                 key: 'weekends',
-                label: compact ? 'Weekends' : 'Weekends (Sat-Sun)',
+                label: 'Weekends logged',
                 tip: CONSISTENCY_TIPS.weekends,
                 value: consistency.weekendLogged,
                 unit: `/${consistency.weekendTotal}`,
@@ -3075,7 +3243,11 @@ async function sendMessage(text) {
                 tip: CONSISTENCY_TIPS.bestWeek,
                 value: consistency.bestWeekCount,
                 unit: '/7',
-                sub: `${consistency.bestWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${consistency.bestWeekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                // A best week of nothing has no dates worth naming: with no
+                // logs at all this printed the current, unfinished week.
+                sub: consistency.bestWeekCount > 0
+                  ? `${consistency.bestWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${consistency.bestWeekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                  : 'None yet',
                 color: consistency.bestWeekCount === 7 ? 'var(--color-success)' : consistency.bestWeekCount >= 5 ? 'var(--color-warning)' : 'var(--color-muted)',
               }] : []),
             ].map(c => (
@@ -3144,25 +3316,25 @@ async function sendMessage(text) {
                 over a rule for custom properties too. */}
             <div className="cv-adherence-cq">
             <div className="cv-adherence-row" style={{ '--adherence-grid': `${heatmapCap(ADHERENCE_WEEKS)}px` }}>
+              {/* The grid and its tally in one column: the strip counts the
+                  squares above it, so it sits under them. It used to head the
+                  other column, which left this one ending ~100px short of it. */}
+              <div className="cv-adherence-grid">
               <ComplianceHeatmap
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
                 weeks={ADHERENCE_WEEKS}
                 grain={grain}
               />
-            {/* The two reads sit under the grid in equal columns. The summary
-                alone took 650px for five numbers while the breakdown ran the
-                full width beneath it, which left the row a 600x400 hole at the
-                bottom right; the diverging bars also read better at half width
-                than stretched across 1,066px as two empty rules with a dot in
-                the middle. */}
-              <div className="cv-adherence-reads">
               <ComplianceSummary
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
                 variant="coach"
                 windowDays={ADHERENCE_DAYS}
+                bare
               />
+              </div>
+              <div className="cv-adherence-reads">
               <ComplianceBreakdown
                 logsByDate={heatmapData}
                 calorieTarget={clientTargets.calories}
@@ -4103,6 +4275,7 @@ async function sendMessage(text) {
         )}
       </div>
         </div>
+      {triagePanel}
       </div>
 
 
@@ -4243,6 +4416,7 @@ async function sendMessage(text) {
       recipientName={clientProfile?.full_name || 'client'}
       recipientAvatarUrl={clientProfile?.avatar_url}
       onSend={sendMessage}
+      hideLauncher={hasPanel}
       onMarkRead={markMessagesRead}
       hasOlder={hasOlderMessages(messageTotal, messages.length)}
       onLoadOlder={loadOlderMessages}

@@ -79,7 +79,7 @@ export function gradeCompliance(s) {
   const max = items.length * 7
   const ratio = sum / max
   const tone = ratio < WEAK_COMPLIANCE / 7 ? 'red' : ratio < 5 / 7 ? 'yellow' : 'green'
-  return { text: `${sum}/${max} days on target`, tone }
+  return { text: `${sum}/${max} days on target`, tone, sum, max }
 }
 
 export function gradeCheckin(s) {

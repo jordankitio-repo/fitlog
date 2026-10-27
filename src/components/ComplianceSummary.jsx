@@ -32,7 +32,10 @@ const labelStyle = {
   minHeight: `${LABEL_LINES * 1.25}em`,
 }
 
-export default function ComplianceSummary({ logsByDate, calorieTarget, variant = 'solo', windowDays = 90 }) {
+// `bare`: no border of its own, for a strip that sits inside another read
+// (the coach's Adherence, where the average of target is the rings' job and
+// a bordered box inside the card was a panel inside a panel).
+export default function ComplianceSummary({ logsByDate, calorieTarget, variant = 'solo', windowDays = 90, bare = false }) {
   const s = summarizeCompliance(logsByDate, calorieTarget, windowDays)
   if (s.logged === 0) return null
 
@@ -53,7 +56,7 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
   // and nothing is stranded.
   const cells = [
     { num: `${s.logged}/${s.elapsed}`, label: 'Days logged', color: variant === 'coach' ? null : COMPLIANCE.onTarget },
-    ...(s.hasTarget ? [{ num: `${s.avgOfTarget}%`, label: 'Avg of target', color: null }] : []),
+    ...(s.hasTarget && !bare ? [{ num: `${s.avgOfTarget}%`, label: 'Avg of target', color: null }] : []),
     // The GRADE stays on the numeral (B1) — the compliance scale's own tokens,
     // validated for both themes in complianceScale.js, not the metric fill
     // tokens the doc bars from text.
@@ -69,7 +72,7 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
   return (
     /* The strip is a bordered card rather than a bare row, so five numbers
        floating in the middle of a section read as one object. */
-    <div className="cs-strip" style={{
+    <div className={`cs-strip${bare ? ' is-bare' : ''}`} style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`,
       // Centred, and full height, because this sits beside the weekday panel
@@ -79,9 +82,11 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
       alignItems: 'center',
       justifyItems: 'stretch',
       height: '100%',
-      border: '1px solid var(--color-border)',
-      borderRadius: 'var(--radius)',
-      padding: 'var(--space-16) var(--space-12)',
+      ...(bare ? {} : {
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius)',
+        padding: 'var(--space-16) var(--space-12)',
+      }),
     }}>
       {cells.map(c => (
         <span key={c.label} className="ds-statcell" style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center', alignItems: 'center' }}>

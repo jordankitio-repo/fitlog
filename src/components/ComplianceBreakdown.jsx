@@ -1,98 +1,55 @@
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { Link } from 'react-router-dom'
 import InfoTip from './InfoTip'
+import { COMPLIANCE } from '../utils/complianceScale'
+import { ON_TARGET_BAND } from '../utils/complianceBreakdown'
 
-// Coach-facing "why is this one slipping" panel, drawn as diverging bars around
-// a center "target" line: a segment's bar grows LEFT when it runs under target,
-// RIGHT when over. Direction + length + color carry the story with almost no
-// reading. Honest by construction (see utils/complianceBreakdown.js).
-//
-// Each segment is judged on its OWN merit, so a client who under-eats on
-// weekdays AND over-eats on weekends shows both bars diverging.
+// Coach-facing weekday-against-weekend card: two rings for the average
+// weekday and weekend day against the calorie target, the figures they stand
+// for, and a ring per day of the week. No sentence under them: the reading is
+// the coach's to make (see utils/complianceBreakdown.js for the counting).
 
-const GOOD = 'var(--color-success)'
-const WEAK = 'var(--color-warning)'
 const MUTED = 'var(--color-muted)'
-// The row grid, shared by the axis hint and every Row so the three parts line
-// up by construction rather than by two places agreeing on the same numbers.
-//
-// Both columns are FIXED, deliberately. Sizing them to content would let a row
-// reading "on plan" and a row reading "−683 cal" produce tracks of different
-// widths, stacked — and two bars that no longer start at the same x are not a
-// comparison any more.
-//
-// 64px was the old value column and it had no headroom at all: "−649 cal"
-// measured 64px exactly, so the first client to run four digits off target
-// ("−1,250 cal") would have clipped.
-const LABEL_COL = 78
-const VALUE_COL = 80
+const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-const MAX_BAR = 46 // each side of the center line spans up to this % of the track
+// The heatmap's own scale, so a ring and the grid beside it can never grade
+// the same day differently: 140% read as green here while the grid painted it
+// orange for over.
+function ringColor(ratio) {
+  if (ratio > 1 + ON_TARGET_BAND) return COMPLIANCE.over
+  if (ratio >= 1 - ON_TARGET_BAND) return COMPLIANCE.onTarget
+  if (ratio >= 0.6) return COMPLIANCE.under
+  return COMPLIANCE.wellUnder
+}
 
-// A day is "near target" within +/- this fraction (matches the day-level band).
-const BAND = 0.1
-// The bar reaches its end at this deviation, as a fraction of the target — an
-// ABSOLUTE, interpretable scale ("half the target over/under"), comparable
-// across clients. Beyond it the bar clamps and shows a › / ‹ overflow marker.
-const FULL_SCALE = 0.5
-
-function Row({ label, seg, target }) {
-  const hasData = seg.logged > 0 && seg.avgDelta !== null
-  const delta = hasData ? seg.avgDelta : 0
-  const near = !hasData || Math.abs(delta) <= target * BAND
-  const color = near ? GOOD : WEAK
-  const fullScale = target * FULL_SCALE
-  const widthPct = fullScale > 0 ? Math.min(1, Math.abs(delta) / fullScale) * MAX_BAR : 0
-  const clamped = hasData && !near && Math.abs(delta) > fullScale
-
-  const value = !hasData
-    ? 'no data'
-    : near
-      ? 'on plan'
-      : `${delta > 0 ? '+' : '−'}${Math.abs(delta)} cal`
-
+// A ring, the way Apple Fitness and Cronometer draw progress: it fills to the
+// average day's share of the target, and past 100% it carries on round a
+// second lap in a deeper shade, so "over" reads at a glance. Coloured by the
+// compliance scale above, the grade the grid already gives.
+function Ring({ ratio, size, stroke, children, label }) {
+  const r = (size - stroke) / 2
+  const c = 2 * Math.PI * r
+  const first = Math.max(0, Math.min(1, ratio ?? 0))
+  const second = Math.max(0, Math.min(1, (ratio ?? 0) - 1))
+  const arc = (frac) => `${frac * c} ${c}`
+  const color = ratio == null ? COMPLIANCE.noLog : ringColor(ratio)
   return (
-    <div className="cb-row" style={{ display: 'grid', gridTemplateColumns: `var(--cb-label, ${LABEL_COL}px) 1fr var(--cb-value, ${VALUE_COL}px)`, alignItems: 'center', gap: 10 }}>
-      <span style={{ fontSize: 'var(--text-sm)', fontWeight: near ? 500 : 700, color: near ? 'var(--color-text)' : WEAK }}>
-        {label}
-      </span>
-
-      {/* track with a center target line and a bar diverging from it */}
-      <div style={{ position: 'relative', height: 18 }}>
-        <div style={{ position: 'absolute', inset: '0 0 0 0', top: '50%', height: 2, background: 'var(--color-border)', borderRadius: 2 }} />
-        <div style={{ position: 'absolute', left: '50%', top: -1, bottom: -1, width: 1, background: 'var(--color-muted)', opacity: 0.5 }} />
-        {hasData && !near && (
-          <div style={{
-            position: 'absolute', top: 4, height: 10, borderRadius: 3, background: color,
-            ...(delta > 0
-              ? { left: '50%', width: `${widthPct}%` }
-              : { right: '50%', width: `${widthPct}%` }),
-          }} />
+    <span style={{ position: 'relative', display: 'inline-flex', width: size, height: size, flexShrink: 0 }} role="img" aria-label={label}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={ratio == null ? COMPLIANCE.noLog : `color-mix(in srgb, ${color} 18%, transparent)`} strokeWidth={stroke} />
+        {ratio != null && first > 0 && (
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={arc(first)} />
         )}
-        {clamped && (
-          <span style={{
-            position: 'absolute', top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)',
-            fontWeight: 700, color: WEAK, lineHeight: 1,
-            ...(delta > 0 ? { left: `${50 + MAX_BAR}%`, marginLeft: 2 } : { right: `${50 + MAX_BAR}%`, marginRight: 2 }),
-          }}>
-            {delta > 0 ? '›' : '‹'}
-          </span>
+        {second > 0 && (
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={`color-mix(in srgb, ${color} 62%, #000)`} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={arc(second)} />
         )}
-        {hasData && near && (
-          <div style={{ position: 'absolute', left: '50%', top: 3, width: 12, height: 12, marginLeft: -6, borderRadius: '50%', background: GOOD }} />
-        )}
-      </div>
-
-      <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color, textAlign: 'right' }}>{value}</span>
-    </div>
+      </svg>
+      {children && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{children}</span>}
+    </span>
   )
 }
 
-// `targetHref` makes the axis's "target" the way to the number rather than
-// printing it in the caption. The caption used to read "vs 2,600 cal target ·
-// last 90 days", which spent a line restating a figure the Targets panel owns
-// — and gave the reader no way to act on it. Optional: without it the label
-// stays plain text, so a caller with nowhere to point still renders.
 export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetHref, windowDays = 90, windowName = 'last 90 days' }) {
   const b = complianceBreakdown(logsByDate, calorieTarget, windowDays)
   if (!b.hasTarget) return null
@@ -102,97 +59,70 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
   const wd = b.weekday
   const we = b.weekend
 
-  // One-line takeaway that names the weekday-vs-weekend PATTERN — the numbers
-  // are already on the bars, so the prose adds the "so what" instead of
-  // repeating them.
-  const hasData = (seg) => seg.logged > 0 && seg.avgDelta !== null
-  const off = (seg) => hasData(seg) && Math.abs(seg.avgDelta) > target * BAND
-  const dir = (seg) => (seg.avgDelta > 0 ? 'over' : 'under')
-  const wdOff = off(wd)
-  const weOff = off(we)
-  // The gap BETWEEN weekdays and weekends — this is genuinely new (not on a bar).
-  const gap = Math.round(Math.abs((wd.avgDelta || 0) - (we.avgDelta || 0)))
-  const bigGap = gap > target * BAND
 
-  let headline = null
-  if (!b.insufficient) {
-    if (!wdOff && !weOff) {
-      headline = 'On target all week.'
-    } else if (wdOff && weOff && dir(wd) === dir(we)) {
-      headline = bigGap
-        ? `${Math.abs(we.avgDelta) >= Math.abs(wd.avgDelta) ? 'Weekends' : 'Weekdays'} run further ${dir(wd)} — about ~${gap.toLocaleString()} cal/day apart.`
-        : `Consistently ${dir(wd)} all week, not just weekends.`
-    } else if (wdOff && weOff) {
-      headline = `Split week — ${dir(wd)} on weekdays, ${dir(we)} on weekends.`
-    } else {
-      const o = wdOff ? { where: 'Weekdays', other: 'weekends', seg: wd } : { where: 'Weekends', other: 'weekdays', seg: we }
-      headline = `${o.where} are the gap — ${dir(o.seg)} target, while ${o.other} stay on plan.`
-    }
-  }
+  const pct = (cal) => (cal == null ? null : Math.round((cal / target) * 100))
+  const seg = (label, x) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-6)' }}>
+      <Ring ratio={x.avgCal == null ? null : x.avgCal / target} size={104} stroke={12}
+        label={`${label}: ${x.avgCal == null ? 'no logs' : `${x.avgCal.toLocaleString()} calories a day, ${pct(x.avgCal)}% of target`}`}>
+        <span className="tnum" style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-semibold)' }}>{x.avgCal == null ? '\u2014' : `${pct(x.avgCal)}%`}</span>
+      </Ring>
+      <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-medium)' }}>{label}</span>
+    </div>
+  )
 
   return (
-    /* A CARD, like the summary strip it sits beside. It used to be a top rule
-       with content hanging under it, so the two halves of this row were two
-       different kinds of object — one boxed, one not, starting at different
-       heights and ending at different ones. No amount of aligning the bars
-       inside fixes a row whose two sides are not the same sort of thing. */
-    <div style={{
-      border: '1px solid var(--color-border)',
-      borderRadius: 'var(--radius)',
-      padding: 'var(--space-16)',
-      height: '100%',
-      boxSizing: 'border-box',
-      display: 'flex', flexDirection: 'column', gap: 12,
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        {/* The chart is honest but not self-explanatory: a bar growing LEFT
-            from a centre line is not a convention a coach has necessarily met,
-            and nothing on the card said what ±10% or the window were. */}
-        <p style={{ fontSize: 'var(--text-xs)', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
-          <InfoTip text={`Each bar is that segment's average logged day against the calorie target. Left of centre is under, right is over, longer is further off; a dot means within 10%.\n\nWeekdays and weekends are scored separately, so they can point opposite ways.\n\nIt reads the same days as the grid above — six months on a wide card, three on a narrow one.`}>
-            Weekday vs weekend
-          </InfoTip>
-        </p>
-        {/* The figure is gone, the sentence is not. "vs 2,600 cal target" spent
-            the line restating a number the Targets panel owns; "target" now
-            goes there instead, so the caption says what it is measured against
-            and hands you the way to change it. */}
-        <p style={{ fontSize: 'var(--text-xs)', color: MUTED, margin: 0 }}>
-          vs {targetHref
-            ? <Link to={targetHref} className="cb-targetlink ds-control" aria-label={`Calorie target, ${targetLabel} — open targets`}>Target</Link>
-            : 'Target'} · {windowName}
-        </p>
-      </div>
+    /* No border of its own: it sits in the Adherence card beside the grid,
+       and a bordered box in there was a panel inside a panel. The caption
+       above the grid names the window, so this header does not repeat it. */
+    <div className="cb-wrap" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)', flex: 1 }}>
+      <p style={{ fontSize: 'var(--text-xs)', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+        <InfoTip text={`Each ring is that part of the week's average logged day against the calorie target: a full ring is on target, a second lap in a deeper shade is over. Coloured like the grid.\n\nThe small rings are each day of the week, so one day that slips shows on its own.\n\nIt reads the same days as the grid. ${windowName[0].toUpperCase()}${windowName.slice(1)}.`}>
+          Weekday vs weekend
+        </InfoTip>
+      </p>
 
       {b.insufficient ? (
         <p style={{ fontSize: 'var(--text-sm)', color: MUTED, margin: 0 }}>
           Not enough logged days yet.
         </p>
       ) : (
-        <>
-          {/* axis hint */}
-          <div className="cb-axis" style={{ display: 'grid', gridTemplateColumns: `var(--cb-label, ${LABEL_COL}px) 1fr var(--cb-value, ${VALUE_COL}px)`, alignItems: 'center', gap: 10 }}>
-            <span />
-            {/* The two ends only. A third word pinned to the centre collided
-                with both on a phone's narrow bar column ("UNDERTARGET OVER");
-                the centre is the target tick, and the line above already
-                says "vs Target". */}
-            <div className="cb-axis-keys" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              <span>under</span>
-              <span>over</span>
+        <div className="cb-body">
+          {/* Two rings and the numbers they stand for: the average day itself,
+              not its distance from target, so no arithmetic is left over. */}
+          <div className="cb-rings">
+            <div className="cb-pair">
+              {seg('Weekdays', wd)}
+              {seg('Weekends', we)}
             </div>
-            <span />
+            <dl className="cb-figs tnum">
+              <dt>Weekdays</dt><dd>{wd.avgCal == null ? '\u2014' : `${wd.avgCal.toLocaleString()} cal/day`}</dd>
+              <dt>Weekends</dt><dd>{we.avgCal == null ? '\u2014' : `${we.avgCal.toLocaleString()} cal/day`}</dd>
+              <dt>Target</dt><dd>{targetHref
+                ? <Link to={targetHref} className="cb-targetlink ds-control" aria-label={`Calorie target, ${targetLabel}. Open targets`}>{targetLabel} cal</Link>
+                : `${targetLabel} cal`}</dd>
+            </dl>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <Row label="Weekdays" seg={wd} target={target} />
-            <Row label="Weekends" seg={we} target={target} />
+          <div className="cb-side">
+          {/* A ring per day of the week, Apple Fitness's weekly row, Monday
+              first; Saturday and Sunday are labelled in full ink. */}
+          <div className="cb-week" role="list" aria-label="Average by day of the week">
+            {[1, 2, 3, 4, 5, 6, 0].map(d => {
+              const x = b.byDow?.[d] || { avgCal: null }
+              const weekend = d === 0 || d === 6
+              return (
+                <div key={d} role="listitem" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-4)' }}>
+                  <Ring ratio={x.avgCal == null ? null : x.avgCal / target} size={34} stroke={6}
+                    label={`${DAY_NAMES[d]}: ${x.avgCal == null ? 'no logs' : `${x.avgCal.toLocaleString()} calories, ${pct(x.avgCal)}% of target`}`} />
+                  <span style={{ fontSize: 'var(--text-xs)', color: weekend ? 'var(--color-text)' : MUTED, fontWeight: weekend ? 'var(--weight-semibold)' : 'var(--weight-normal)' }}>{DAYS[d]}</span>
+                </div>
+              )
+            })}
           </div>
 
-          {headline && (
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', margin: '2px 0 0' }}>{headline}</p>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   )

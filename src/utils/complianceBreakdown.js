@@ -47,6 +47,8 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
 
   const weekday = blankSegment()
   const weekend = blankSegment()
+  // Each day of the week on its own (0 = Sunday), for the row of rings.
+  const dows = Array.from({ length: 7 }, () => ({ logged: 0, total: 0 }))
 
   for (let i = 0; i < windowDays; i++) {
     const d = new Date(today)
@@ -59,6 +61,8 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
     seg.logged++
 
     const cal = log.calories || 0
+    dows[dow].logged++
+    dows[dow].total += cal
     const ratio = cal / target
     seg._sum += cal - target
     if (ratio > 1 + ON_TARGET_BAND) {
@@ -78,9 +82,10 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
     under: seg.under,
     // Average calories over target, across the days that ran over. Null when none.
     avgOverDelta: seg.over > 0 ? Math.round(seg._overSum / seg.over) : null,
-    // Signed average deviation from target across ALL logged days (drives the
-    // diverging bar: negative = under, positive = over).
+    // Signed average deviation from target across ALL logged days.
     avgDelta: seg.logged > 0 ? Math.round(seg._sum / seg.logged) : null,
+    // The average logged day itself, in calories (target + the deviation).
+    avgCal: seg.logged > 0 ? Math.round(target + seg._sum / seg.logged) : null,
   })
 
   const wkday = finish(weekday)
@@ -103,5 +108,8 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
     weaker,
     weekday: wkday,
     weekend: wkend,
+    // [{ logged, avgCal }] for Sunday..Saturday; avgCal null on a day never logged.
+    byDow: dows.map(x => ({ logged: x.logged, avgCal: x.logged ? Math.round(x.total / x.logged) : null })),
   }
 }
+
