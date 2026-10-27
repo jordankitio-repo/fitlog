@@ -12,7 +12,7 @@ import EmptyState from '../components/EmptyState'
 import { Icon } from '../components/ui'
 import { waitingFrom, latestPerClient } from '../utils/reviewQueue'
 import { coversPeriod } from '../utils/checkinLookup'
-import { checkinPeriod, toLocalDateString, addDays } from '../utils/dateHelpers'
+import { checkinPeriod, toLocalDateString, addDays, DEFAULT_CHECKIN_WEEKDAY } from '../utils/dateHelpers'
 import { relativeTime } from '../utils/relativeTime'
 import { formatAnswer } from '../utils/checkinQuestions'
 
@@ -74,7 +74,7 @@ export default function CheckinQueue({ profile, embedded = false, openId, onOpen
     if (!profile?.id) return
     const { data: links } = await supabase
       .from('coach_clients')
-      .select('client_id, checkin_interval_weeks')
+      .select('client_id, checkin_interval_weeks, checkin_weekday')
       .eq('coach_id', profile.id)
     const ids = (links || []).map(l => l.client_id)
     if (!ids.length) { setRows([]); return }
@@ -89,6 +89,7 @@ export default function CheckinQueue({ profile, embedded = false, openId, onOpen
     const latest = latestPerClient(cis || [])
     const byId = Object.fromEntries((people || []).map(p => [p.id, p]))
     const interval = Object.fromEntries((links || []).map(l => [l.client_id, l.checkin_interval_weeks || 1]))
+    const weekday = Object.fromEntries((links || []).map(l => [l.client_id, l.checkin_weekday ?? DEFAULT_CHECKIN_WEEKDAY]))
 
     // waitingFrom gives the ORDER as well as the membership — oldest first.
     setRows(waitingFrom(latest).map(id => ({
@@ -96,7 +97,8 @@ export default function CheckinQueue({ profile, embedded = false, openId, onOpen
       name: byId[id]?.full_name || 'Client',
       avatar: byId[id]?.avatar_url || null,
       checkIn: latest[id],
-      current: coversPeriod(latest[id], checkinPeriod(interval[id])),
+      current: coversPeriod(latest[id], checkinPeriod(interval[id], new Date(), weekday[id])),
+      intervalWeeks: interval[id],
     })))
   }
 
@@ -232,6 +234,8 @@ export default function CheckinQueue({ profile, embedded = false, openId, onOpen
             <CheckinReview
               key={open.checkIn?.id}
               checkIn={open.checkIn}
+              clientId={open.id}
+              intervalWeeks={open.intervalWeeks}
               current={open.current}
               reviewing={reviewing}
               onReview={review}
@@ -276,6 +280,8 @@ export default function CheckinQueue({ profile, embedded = false, openId, onOpen
             <CheckinReview
               key={open.checkIn?.id}
               checkIn={open.checkIn}
+              clientId={open.id}
+              intervalWeeks={open.intervalWeeks}
               current={open.current}
               reviewing={reviewing}
               onReview={review}

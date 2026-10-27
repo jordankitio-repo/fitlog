@@ -13,18 +13,18 @@ import ComplianceSummary from '../components/ComplianceSummary'
 import ReportProse from '../components/ReportProse'
 import Modal from '../components/Modal'
 import Skeleton from '../components/Skeleton'
-import { relativeTime, numericDate } from '../utils/relativeTime'
+import { relativeTime } from '../utils/relativeTime'
 import { byMonth, leadOf } from '../utils/reportFeed'
 import ComplianceBreakdown from '../components/ComplianceBreakdown'
 import EnergyBalanceRead from '../components/EnergyBalanceRead'
 import ChatBubble from '../components/ChatBubble'
 import { fetchMessageWindow, refreshSize, growSize, hasOlderMessages } from '../utils/messageThread'
-import { GOALS, PACE_FOR_GOAL } from '../utils/goals'
+import { GOALS, PACE_FOR_GOAL, goalLabel } from '../utils/goals'
 import InfoTip from '../components/InfoTip'
 import ChartColorToggle from '../components/ChartColorToggle'
 import { CONSISTENCY_TIPS } from '../utils/consistencyTips'
 import { metricBarData } from '../utils/metricBarChart'
-import { bucketHistory, hasValues, historyWindow, padToWindow, DEFAULT_RANGE } from '../utils/chartRange'
+import { bucketHistory, hasValues, historyWindow, padToWindow, DEFAULT_RANGE, axisDay } from '../utils/chartRange'
 import { ADHERENCE_DAYS, ADHERENCE_WEEKS, ADHERENCE_NAME, ADHERENCE_FETCH_DAYS, GRAINS, DEFAULT_GRAIN, isGrain, heatmapCap } from '../utils/complianceWindow'
 import RangePicker from '../components/RangePicker'
 import { usePlainCharts } from '../utils/usePlainCharts'
@@ -42,9 +42,17 @@ import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
 import { ageFromBirthDate } from '../utils/biometrics'
 import Avatar from '../components/Avatar'
+import ActionSheet from '../components/ActionSheet'
+import { PauseSheet, GroupsSheet } from '../components/ClientSheets'
+import { useCoachGroups } from '../hooks/useCoachGroups'
+import { PhotoCompare } from '../components/ProgressPhotos'
+import Sparkline from '../components/Sparkline'
+import CheckinCompare from '../components/CheckinCompare'
+import { sourceLabel } from '../utils/metricSources'
+import { shortDay } from '../utils/pause'
 import { energyBalanceRead, WINDOW_OPTIONS, WINDOW_DATA_DAYS } from '../utils/energyBalanceRead'
 import { computeClientStats } from '../utils/clientStats'
-import { latestCheckIn, coversPeriod } from '../utils/checkinLookup'
+import { latestCheckIn, coversPeriod, checkinRatings } from '../utils/checkinLookup'
 import { attentionLevel } from '../utils/attentionLevel'
 import { complianceBreakdown } from '../utils/complianceBreakdown'
 import { nudgeReason } from '../utils/nudgeReason'
@@ -52,6 +60,8 @@ import { CADENCE_OPTIONS } from '../utils/cadence'
 import { formatAnswer } from '../utils/checkinQuestions'
 import {
   checkinPeriod,
+  DEFAULT_CHECKIN_WEEKDAY,
+  WEEKDAYS,
   getDatesInRange,
   getWeeklyReportRange,
   parseLocalDateString,
@@ -94,6 +104,22 @@ const CHART_SERIES = '#34d399'
 // seven slots is seven calendar days. It used to be the last seven weigh-ins,
 // which for someone weighing in twice a week was a month labelled "7-day".
 // Empty days are skipped, and draw no point of their own.
+// A 12px legend swatch of the compliance grades (on target, over, under, well
+// under), for series coloured per point by grade. Built once.
+let gradeSwatchCanvas = null
+function gradeSwatch() {
+  if (gradeSwatchCanvas || typeof document === 'undefined') return gradeSwatchCanvas
+  const c = document.createElement('canvas')
+  c.width = 12; c.height = 12
+  const g = c.getContext('2d')
+  ;['rgb(52, 211, 153)', 'rgb(251, 146, 60)', 'rgb(251, 191, 36)', 'rgb(248, 113, 113)'].forEach((col, i) => {
+    g.fillStyle = col
+    g.fillRect(i * 3, 0, 3, 12)
+  })
+  gradeSwatchCanvas = c
+  return c
+}
+
 function computeRollingAverage(data, window = 7) {
   return data.map((d, i) => {
     if (d.weight == null) return null
@@ -114,6 +140,7 @@ const SECTION_LABELS = {
   nutritionLog: 'Nutrition', checkIn: 'Check-in', privateNotes: 'Notes', correlatedChart: 'Progress',
   dailyMetrics: 'Daily metrics',
   measurements: 'Measurements',
+  photos: 'Photos',
   // Not a REORDERABLE key — it is pinned at the foot of the rail — but it
   // still needs a label, because the phone's destination list reads from here.
   coaching: 'Coaching',
@@ -136,6 +163,7 @@ const COLLAPSED_DEFAULTS = {
   // screens — which is why they were collapsed in the first place.
   dailyMetrics: false,
   measurements: false,
+  photos: false,
   groundwork: false,
 }
 
@@ -183,10 +211,10 @@ const SUMMARY_KEYS = ['groundwork', 'stats', 'consistency', 'checkIn']
 // because everything was the same. They are one destination with a switcher
 // now; the only thing that differed between them was the series, and a series
 // is a control, not a section.
-const TREND_KEYS = ['correlatedChart', 'dailyMetrics', 'measurements']
+const TREND_KEYS = ['correlatedChart', 'dailyMetrics', 'measurements', 'photos']
 const TREND_LABELS = {
   correlatedChart: 'Progress', dailyMetrics: 'Daily metrics',
-  measurements: 'Measurements',
+  measurements: 'Measurements', photos: 'Photos',
 }
 // Progress, now that Weight is a dialog opened from inside it rather than a
 // destination of its own. It was the default because it answered the first
@@ -218,6 +246,25 @@ const SENT_PAGE = 5
 // two sides of one relationship show the same stretch of it.
 const THREAD_REPORTS = 8
 
+// Private notes load ten at a time; a long note shows NOTE_CLAMP_LINES lines
+// until opened. NOTE_MAX matches the database's check on a note's length.
+const NOTES_PAGE = 10
+// Earlier check-ins load ten at a time.
+const CHECKIN_PAGE = 10
+const NOTE_CLAMP_LINES = 6
+const NOTE_MAX = 5000
+const NOTE_COLS = 'id, body, created_at, updated_at, date_only, flagged'
+
+// A note's date: "Oct 26, 8:37 PM", or just "Oct 26" for one carried over from
+// the old single-text notes, whose times had no zone (see the migration).
+function noteDate(n) {
+  const d = new Date(n.created_at)
+  const year = d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}
+  return n.date_only
+    ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...year })
+    : d.toLocaleString('en-US', { month: 'short', day: 'numeric', ...year, hour: 'numeric', minute: '2-digit' })
+}
+
 // The DEFAULT order only — a coach who has dragged anything keeps their own
 // layout forever (mergeOrder preserves every saved key and only appends ones
 // they have never seen).
@@ -227,7 +274,7 @@ const THREAD_REPORTS = 8
 // 638px targets FORM and a notes box. Adherence stays near the top because it
 // earns it (the heatmap and the breakdown are analysis, not bookkeeping), but
 // configuration belongs under the outcome it configures, not over it.
-const REORDERABLE_KEYS = ['consistency', 'sentReports', 'nutritionLog', 'checkIn', 'correlatedChart', 'dailyMetrics', 'measurements', 'targets', 'privateNotes']
+const REORDERABLE_KEYS = ['consistency', 'sentReports', 'nutritionLog', 'checkIn', 'correlatedChart', 'dailyMetrics', 'measurements', 'photos', 'targets', 'privateNotes']
 
 // Tape-measurement sites (must match Log.jsx MEASUREMENT_SITES / the columns).
 const MEASUREMENT_SITES = [
@@ -267,6 +314,10 @@ function ClientView({ profile }) {
   const [dayComplete, setDayComplete] = useState(false)
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [weightEntry, setWeightEntry] = useState(null)
+  // The weigh-in before the selected day's, for the change shown on the card,
+  // and the last few weigh-ins up to that day, for the card's small graph.
+  const [prevWeight, setPrevWeight] = useState(null)
+  const [recentWeights, setRecentWeights] = useState([])
   const [report, setReport] = useState('')
   const [reportSubject, setReportSubject] = useState('')
   const [reportWeekRange, setReportWeekRange] = useState(null)
@@ -305,7 +356,8 @@ function ClientView({ profile }) {
   // coach_clients, it fired the trigger that tells the client their schedule
   // moved, and it swapped the check-in this card displays. A dropdown that
   // emails somebody should not be a dropdown.
-  const [pendingInterval, setPendingInterval] = useState(null)
+  // A staged schedule change, { weeks, weekday }, applied on Update.
+  const [pendingSchedule, setPendingSchedule] = useState(null)
   // Remembered per viewer, like `gardnr-eb-window`: whether a coach reads
   // adherence a day or a week at a time is about how they work, not about this
   // client. The SPAN is not a choice (see complianceWindow.js) — only this is.
@@ -332,7 +384,9 @@ function ClientView({ profile }) {
   const chartControls = (key) => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-20)' }}>
       <RangePicker value={chartRange} onChange={setChartRange} />
-      <ChartColorToggle plain={plainCharts.has(key)} onToggle={() => togglePlain(key)} />
+      {/* On a phone the labelled switch moves into the card (below), or the
+          header has to break "Daily metrics" onto two lines to fit it. */}
+      {!compact && <ChartColorToggle plain={plainCharts.has(key)} onToggle={() => togglePlain(key)} />}
     </span>
   )
   const trendParam = searchParams.get('m')
@@ -354,6 +408,8 @@ function ClientView({ profile }) {
   // for a day the client did log.
   const [dayCardio, setDayCardio] = useState(null)
   const [daySteps, setDaySteps] = useState(null)
+  // Which device each came from, if one did (null = typed in by hand).
+  const [daySources, setDaySources] = useState({ cardio: null, steps: null })
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
   const [clientTargets, setClientTargets] = useState(EMPTY_CLIENT_TARGETS)
@@ -367,22 +423,49 @@ function ClientView({ profile }) {
   const [reviewing, setReviewing] = useState(false)
   const [lockInfo, setLockInfo] = useState({ locked: false, days: 0, reason: 'active' })
   const [daysSinceLog, setDaysSinceLog] = useState(null)
+  // The relationship's standing facts: when coaching began, and a pause.
+  const [rel, setRel] = useState(null) // { since, pausedUntil, pauseReason }
+  // Check-ins before the latest, newest first: the record of how answers moved.
+  const [checkinHistory, setCheckinHistory] = useState([])
+  const [checkinMore, setCheckinMore] = useState(false)
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [openPastCheckin, setOpenPastCheckin] = useState(null)
+  // The header's ⋯ menu and the two sheets it opens, the roster's own.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [pauseOpen, setPauseOpen] = useState(false)
+  const [groupsOpen, setGroupsOpen] = useState(false)
+  const groupApi = useCoachGroups(profile?.id, showToast)
   const [statusStats, setStatusStats] = useState(null) // this client's triage facts (computeClientStats)
   const [hideCaloriesToggle, setHideCaloriesToggle] = useState(false)
   // Coach-owned now: the client renders this read-only on their Profile.
   const [clientGoal, setClientGoal] = useState('')
   const [checkinInterval, setCheckinInterval] = useState(1)
+  // The day the check-in is due (0 = Sunday … 6 = Saturday); see dateHelpers.
+  const [checkinWeekday, setCheckinWeekday] = useState(DEFAULT_CHECKIN_WEEKDAY)
+  // An off-schedule check-in the coach asked for; open until one arrives.
+  const [checkinRequestedAt, setCheckinRequestedAt] = useState(null)
+  const [requestingCheckin, setRequestingCheckin] = useState(false)
   // Shown vs owed are different questions (checkinLookup.js). `clientCheckIn`
   // is whatever they filed last; this says whether it lands inside the period
   // we are in now, which is what "due" and the nudge actually mean.
-  const checkinCurrent = coversPeriod(clientCheckIn, checkinPeriod(checkinInterval))
+  const checkinCurrent = coversPeriod(clientCheckIn, checkinPeriod(checkinInterval, new Date(), checkinWeekday))
 
   const [savingCadence, setSavingCadence] = useState(false)
-  const [coachNotes, setCoachNotes] = useState('')
-  const [notesUpdatedAt, setNotesUpdatedAt] = useState(null)
+  // Private notes, one row each (coach_note_entries), newest first. null =
+  // not loaded yet. Paged: NOTES_PAGE at a time, `notesMore` says there are
+  // older ones to fetch.
+  const [notes, setNotes] = useState(null)
+  const [notesMore, setNotesMore] = useState(false)
   const [newNoteEntry, setNewNoteEntry] = useState('')
-  const [editingNotes, setEditingNotes] = useState(false)
-  const [notesSaved, setNotesSaved] = useState(false)
+  const [addingNote, setAddingNote] = useState(false)
+  const [editingNote, setEditingNote] = useState(null) // { id, body }
+  const [noteMenu, setNoteMenu] = useState(null) // note row
+  // Flagged notes are few and always shown in full, above the paged list and
+  // in the header, so they load apart from it.
+  const [flaggedNotes, setFlaggedNotes] = useState([])
+  const [noteQuery, setNoteQuery] = useState('')
+  const [noteResults, setNoteResults] = useState(null) // null = not searching
+  const [openNotes, setOpenNotes] = useState(() => new Set()) // ids shown in full
   const [consistency, setConsistency] = useState({
     streak: 0,
     days7: 0,
@@ -475,6 +558,28 @@ function ClientView({ profile }) {
     } catch { /* private mode / quota — the page still works, it just forgets */ }
   }, [sectionsCollapsed, aiToolsCollapsed])
 
+  // The weight card's sub line: when it was taken, and how it moved since the
+  // last weigh-in. The change is GREY, never red or green: a gain is the goal
+  // for someone building muscle and a warning for someone cutting, so a colour
+  // would be wrong for half the roster. The arrow says the direction; the
+  // number says how much; the goal decides whether that is good.
+  const weightSub = () => {
+    if (!weightEntry) return null
+    const time = weightEntry.weighed_at ? formatTime(weightEntry.weighed_at) : null
+    if (!prevWeight) return time
+    const delta = Math.round((Number(shownWeight(weightEntry.weight, weightEntry.unit)) - Number(shownWeight(prevWeight.weight, prevWeight.unit))) * 10) / 10
+    const since = `since ${shortDay(prevWeight.logged_date)}`
+    const change = delta === 0
+      ? `No change ${since}`
+      : <span className="tnum">{delta > 0 ? '\u2191' : '\u2193'} {Math.abs(delta).toFixed(1)} {unitLabel(weightDisplayUnit)} {since}</span>
+    return time ? <>{time}<br />{change}</> : change
+  }
+
+  // A stat card's sub line, with the device it came from beneath it.
+  const withSource = (sub, source) => (source
+    ? <>{sub}{sub && <br />}{source}</>
+    : sub)
+
   function formatTime(timeStr) {
     if (!timeStr) return null
     const [hours, minutes] = timeStr.split(':')
@@ -552,8 +657,8 @@ function ClientView({ profile }) {
     return () => io.disconnect()
   }, [cardOrder, weightHistory, calorieHistory, cardioHistory, stepsHistory, sentReports, measHistory])
 
-  function showToast(message, type = 'success') {
-    setToast({ message, type })
+  function showToast(message, type = 'success', action = null) {
+    setToast({ message, type, action })
   }
 
 
@@ -584,7 +689,7 @@ function ClientView({ profile }) {
   fetchClientTargets()
   fetchClientCheckIn()
   fetchLockState()
-  fetchCoachNotes()
+  fetchNotes()
   fetchConsistency()
   fetchEnergyBalance()
   fetchSentReports()
@@ -637,7 +742,7 @@ function ClientView({ profile }) {
     const [{ data: relationship, error: relationshipError }, { data: latestLog, error: latestLogError }] = await Promise.all([
       supabase
         .from('coach_clients')
-        .select('created_at, lock_cleared_at, hide_calories, checkin_interval_weeks, paused_until, pause_reason')
+        .select('created_at, lock_cleared_at, hide_calories, checkin_interval_weeks, checkin_weekday, checkin_requested_at, paused_until, pause_reason')
         .eq('coach_id', profile.id)
         .eq('client_id', clientId)
         .eq('status', 'active')
@@ -660,14 +765,21 @@ function ClientView({ profile }) {
       return
     }
     if (!relationship) {
+      setRel(null)
       setLockInfo({ locked: false, days: 0, reason: 'active' })
       setDaysSinceLog(null)
       setHideCaloriesToggle(false)
       return
     }
 
+    const today = toLocalDateString(new Date())
+    const pausedUntil = relationship.paused_until && relationship.paused_until >= today ? relationship.paused_until : null
+    setRel({ since: relationship.created_at, pausedUntil, pauseReason: pausedUntil ? relationship.pause_reason : null })
+
     const interval = relationship.checkin_interval_weeks || 1
     setCheckinInterval(interval)
+    setCheckinWeekday(relationship.checkin_weekday ?? DEFAULT_CHECKIN_WEEKDAY)
+    setCheckinRequestedAt(relationship.checkin_requested_at || null)
     fetchClientCheckIn()
 
     setDaysSinceLog(latestLog?.logged_date
@@ -764,7 +876,9 @@ function ClientView({ profile }) {
     } else if (data.error) {
       showToast('Could not send nudge. Try again.', 'error')
     } else {
-      showToast(`Nudge sent to ${clientProfile?.full_name || 'client'}.`, 'success')
+      showToast(nudge?.key === 'photos'
+        ? `Asked ${clientProfile?.full_name || 'your client'} for photos.`
+        : `Nudge sent to ${clientProfile?.full_name || 'client'}.`, 'success')
     }
 
     setNudging(false)
@@ -796,23 +910,37 @@ function ClientView({ profile }) {
   }
 
   async function fetchWeight() {
-    const { data, error } = await supabase
-      .from('weight_log')
-      .select('*')
-      .eq('user_id', clientId)
-      .eq('logged_date', selectedDate)
-      .order('created_at', { ascending: false })
-      .limit(1)
+    const [{ data, error }, { data: prev, error: prevError }] = await Promise.all([
+      supabase.from('weight_log').select('*')
+        .eq('user_id', clientId).eq('logged_date', selectedDate)
+        .order('created_at', { ascending: false }).limit(1),
+      // The weigh-ins up to the selected day, however long ago (not the
+      // chart's window, which can start after them): the previous one for the
+      // change, the last seven for the card's graph.
+      supabase.from('weight_log').select('logged_date, weight, unit')
+        .eq('user_id', clientId).lte('logged_date', selectedDate)
+        .order('logged_date', { ascending: false }).order('weighed_at', { ascending: false }).limit(21),
+    ])
     if (error) console.error('Error fetching weight:', error)
     else setWeightEntry(data?.[0] ?? null)
+    if (prevError) { console.error(prevError); return }
+    // One per day (the first row per day is that day's latest), newest first.
+    const byDay = []
+    for (const w of prev || []) if (!byDay.some(d => d.logged_date === w.logged_date)) byDay.push(w)
+    setPrevWeight(byDay.find(w => w.logged_date < selectedDate) ?? null)
+    setRecentWeights(byDay.slice(0, 7).reverse())
   }
   // Cardio is summed because a client can log several sessions in one day;
   // steps is a single row per day.
   async function fetchDayActivity() {
     const [{ data: c, error: ce }, { data: st, error: se }] = await Promise.all([
-      supabase.from('cardio_log').select('duration').eq('user_id', clientId).eq('logged_date', selectedDate).eq('counts_as_cardio', true),
-      supabase.from('steps_log').select('steps').eq('user_id', clientId).eq('logged_date', selectedDate).limit(1),
+      supabase.from('cardio_log').select('duration, source').eq('user_id', clientId).eq('logged_date', selectedDate).eq('counts_as_cardio', true),
+      supabase.from('steps_log').select('steps, source').eq('user_id', clientId).eq('logged_date', selectedDate).limit(1),
     ])
+    // A device's name only when every session came from it: a day of one
+    // synced run and one typed-in walk is not "from Apple Health".
+    const cardioSrc = c?.length && c.every(r => r.source === c[0].source) ? sourceLabel(c[0].source) : null
+    setDaySources({ cardio: ce ? null : cardioSrc, steps: se ? null : sourceLabel(st?.[0]?.source) })
     if (ce) console.error('Error fetching cardio:', ce)
     else setDayCardio(c?.length ? c.reduce((n, r) => n + (r.duration || 0), 0) : null)
     if (se) console.error('Error fetching steps:', se)
@@ -828,7 +956,7 @@ function ClientView({ profile }) {
   // then, every January, puts '01-05' before '12-20' — scrambling the x-axis of
   // every chart on this page and drawing the weight line backwards through time.
   // Truncate for display; never for arithmetic.
-  const shortDate = (iso) => iso.slice(5)
+  const shortDate = (iso) => axisDay(iso)
 
   async function fetchWeightHistory() {
   // The most recent 30 weigh-ins, put back in chronological order.
@@ -902,41 +1030,110 @@ async function fetchStepsHistory() {
   // The LATEST one, not one keyed to the current period. See checkinLookup.js:
   // keying by period made the cadence setting a retroactive index, so changing
   // it orphaned check-ins the client had already filed.
-  async function fetchClientCheckIn() {
+  // The latest, then the ones before it a page at a time. It stopped at six:
+  // a client three months in had their first two months out of reach.
+  async function fetchClientCheckIn({ older = false } = {}) {
+  const from = older ? 1 + checkinHistory.length : 0
   const { data, error } = await supabase
     .from('check_ins')
     .select('*')
     .eq('client_id', clientId)
     .order('week_of', { ascending: false })
-    .limit(1)
-  if (error) console.error(error)
-  else setClientCheckIn(latestCheckIn(data || []))
+    .range(from, from + (older ? CHECKIN_PAGE : CHECKIN_PAGE + 1)) // one extra, to know whether more exist
+  if (error) { console.error(error); return }
+  const rows = data || []
+  if (older) {
+    setCheckinHistory(prev => [...prev, ...rows.slice(0, CHECKIN_PAGE)])
+    setCheckinMore(rows.length > CHECKIN_PAGE)
+    return
+  }
+  const latest = latestCheckIn(rows)
+  setClientCheckIn(latest)
+  const rest = rows.filter(c => c.id !== latest?.id)
+  setCheckinHistory(rest.slice(0, CHECKIN_PAGE))
+  setCheckinMore(rest.length > CHECKIN_PAGE)
 }
 
-  async function updateCadence(weeks) {
+  async function savePause(until, reason) {
+    const { error } = await supabase.from('coach_clients')
+      .update({ paused_until: until, pause_reason: reason, paused_at: new Date().toISOString() })
+      .eq('coach_id', profile.id).eq('client_id', clientId)
+    if (error) { showToast("Couldn't pause. Try again.", 'error'); return }
+    setPauseOpen(false)
+    showToast(`Paused until ${shortDay(until)}.`, 'success')
+    fetchLockState()
+    fetchClientStatus()
+  }
+
+  async function resumeCoaching() {
+    const { error } = await supabase.from('coach_clients')
+      .update({ paused_until: null, pause_reason: null, paused_at: null })
+      .eq('coach_id', profile.id).eq('client_id', clientId)
+    if (error) { showToast("Couldn't resume. Try again.", 'error'); return }
+    showToast('Coaching resumed.', 'success')
+    fetchLockState()
+    fetchClientStatus()
+  }
+
+  // Ask for a check-in now, off the schedule. The request is recorded first,
+  // so the client's card shows it whatever happens to the email; the email is
+  // the nudge, with the nudge's 48-hour cooldown.
+  async function requestCheckin() {
+    if (!profile?.id || requestingCheckin) return
+    setRequestingCheckin(true)
+    const at = new Date().toISOString()
+    const { error } = await supabase.from('coach_clients')
+      .update({ checkin_requested_at: at }).eq('coach_id', profile.id).eq('client_id', clientId)
+    if (error) {
+      setRequestingCheckin(false)
+      showToast("Couldn't request a check-in. Try again.", 'error')
+      return
+    }
+    setCheckinRequestedAt(at)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nudge-client`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ clientId, reason: 'checkin_request' }),
+    }).then(r => r.json()).catch(() => ({ error: 'network' }))
+    setRequestingCheckin(false)
+    showToast(res?.error
+      ? `Requested. ${clientFirstName} will see it in the app${res.error === 'too_soon' ? ' (no email: you nudged them in the last 48 hours)' : ''}.`
+      : `Requested. ${clientFirstName} has been emailed.`)
+  }
+  // Open while no check-in has been sent since the request.
+  const checkinRequestOpen = Boolean(checkinRequestedAt) && !(clientCheckIn?.created_at && clientCheckIn.created_at >= checkinRequestedAt)
+
+  // Stage a change to either half; back to the saved schedule clears it.
+  function stageSchedule(change) {
+    const next = { weeks: pendingSchedule?.weeks ?? checkinInterval, weekday: pendingSchedule?.weekday ?? checkinWeekday, ...change }
+    setPendingSchedule(next.weeks === checkinInterval && next.weekday === checkinWeekday ? null : next)
+  }
+  // "Weekly, due Mondays"
+  const scheduleLabel = (weeks, weekday) => `${cadenceLabel(weeks)}, due ${WEEKDAYS[weekday]}s`
+
+  // How often AND which day, saved together: either one changes what the
+  // client owes, and the trigger tells them (notify_cadence_change).
+  async function updateSchedule({ weeks, weekday }) {
     if (!profile?.id) return
-    // Re-selecting the current value is not a change. The trigger that tells
-    // the client their schedule moved guards on this too, but there is no
-    // reason to make the round trip to find that out.
-    if (weeks === checkinInterval) return
-    const prev = checkinInterval
+    if (weeks === checkinInterval && weekday === checkinWeekday) return
+    const prev = { weeks: checkinInterval, weekday: checkinWeekday }
     setSavingCadence(true)
     setCheckinInterval(weeks)
+    setCheckinWeekday(weekday)
     const { error } = await supabase
       .from('coach_clients')
-      .update({ checkin_interval_weeks: weeks })
+      .update({ checkin_interval_weeks: weeks, checkin_weekday: weekday })
       .eq('coach_id', profile.id)
       .eq('client_id', clientId)
     setSavingCadence(false)
     if (error) {
       console.error(error)
-      setCheckinInterval(prev)
-      showToast('Could not update check-in cadence. Try again.', 'error')
+      setCheckinInterval(prev.weeks)
+      setCheckinWeekday(prev.weekday)
+      showToast('Could not update the check-in schedule. Try again.', 'error')
     } else {
-      setPendingInterval(null)
-      // Success was silent before — only the failure path said anything, so a
-      // coach had no way to tell a saved change from one that never left the
-      // page, on an action that notifies their client.
+      setPendingSchedule(null)
       showToast(`Check-in schedule updated. ${clientFirstName} has been told.`)
     }
   }
@@ -967,20 +1164,45 @@ async function fetchStepsHistory() {
     setReviewing(false)
   }
 
-  async function fetchCoachNotes() {
-  const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const { data, error } = await supabase
-    .from('coach_notes')
-    .select('content, updated_at')
-    .eq('coach_id', currentSession.user.id)
-    .eq('client_id', clientId)
-    .maybeSingle()
-  if (error) console.error(error)
-  else if (data) {
-    setCoachNotes(data.content || '')
-    setNotesUpdatedAt(data.updated_at || null)
+  // Search across every note on this client, not only the loaded page.
+  // Debounced, and answered by the database (ilike), so a coach with three
+  // hundred notes searches all of them.
+  useEffect(() => {
+    const q = noteQuery.trim()
+    if (!q || !profile?.id) return undefined
+    let live = true
+    const t = setTimeout(() => {
+      const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+      supabase.from('coach_note_entries').select(NOTE_COLS)
+        .eq('coach_id', profile.id).eq('client_id', clientId)
+        .ilike('body', pattern)
+        .order('flagged', { ascending: false }).order('created_at', { ascending: false })
+        .limit(50)
+        .then(({ data, error }) => {
+          if (!live) return
+          if (error) { console.error(error); setNoteResults([]); return }
+          setNoteResults(data || [])
+        })
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [noteQuery, clientId, profile?.id])
+
+  async function fetchNotes({ older = false } = {}) {
+    if (!profile?.id) return
+    const from = older ? (notes?.length || 0) : 0
+    const base = () => supabase.from('coach_note_entries').select(NOTE_COLS)
+      .eq('coach_id', profile.id).eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+    const [{ data, error }, flagged] = await Promise.all([
+      base().eq('flagged', false).range(from, from + NOTES_PAGE), // one extra, to know whether more exist
+      older ? Promise.resolve(null) : base().eq('flagged', true),
+    ])
+    if (error || flagged?.error) { console.error(error || flagged.error); if (!older) setNotes([]); return }
+    if (flagged) setFlaggedNotes(flagged.data || [])
+    const page = (data || []).slice(0, NOTES_PAGE)
+    setNotesMore((data || []).length > NOTES_PAGE)
+    setNotes(older ? [...(notes || []), ...page] : page)
   }
-}
 
 async function fetchConsistency() {
   const { data, error } = await supabase
@@ -1102,7 +1324,12 @@ async function fetchHeatmapData() {
 // so the at-a-glance status banner can't drift from the roster's verdict. Lock
 // state is layered in from ClientView's own lockInfo at render time.
 async function fetchClientStatus() {
-  const map = await computeClientStats([clientId])
+  // With the relationship, or the stats grade every client as weekly and due
+  // on Saturday whatever their cadence and day actually are.
+  const { data: relationship } = await supabase.from('coach_clients')
+    .select('client_id, created_at, lock_cleared_at, checkin_interval_weeks, checkin_weekday, paused_until')
+    .eq('coach_id', profile.id).eq('client_id', clientId).eq('status', 'active').maybeSingle()
+  const map = await computeClientStats([clientId], relationship ? [relationship] : [])
   setStatusStats(map[clientId] || null)
 }
 
@@ -1135,47 +1362,78 @@ async function fetchEnergyBalance() {
   })
 }
 
-async function saveCoachNotes() {
-  const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const { error } = await supabase
-    .from('coach_notes')
-    .upsert({
-      coach_id: currentSession.user.id,
-      client_id: clientId,
-      content: coachNotes,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'coach_id,client_id' })
-  if (error) console.error(error)
-  else {
-    setNotesSaved(true)
-    // Keep the row's "last updated" honest without a refetch.
-    setNotesUpdatedAt(new Date().toISOString())
-    setTimeout(() => setNotesSaved(false), 2000)
+// Adding is an INSERT: two open copies of this record can each add a note and
+// both survive, which the one-text-field version could not promise.
+async function addNote() {
+  const body = newNoteEntry.trim()
+  if (!body || addingNote) return
+  setAddingNote(true)
+  const { data, error } = await supabase.from('coach_note_entries')
+    .insert({ coach_id: profile.id, client_id: clientId, body })
+    .select(NOTE_COLS).single()
+  setAddingNote(false)
+  if (error) {
+    console.error(error)
+    // The typed note stays in the box, so nothing is lost.
+    showToast("Couldn't add the note. Try again.", 'error')
+    return
   }
+  setNotes(prev => [data, ...(prev || [])])
+  setNewNoteEntry('')
 }
 
-async function addNoteEntry() {
-  if (!newNoteEntry.trim()) return
+async function saveNoteEdit() {
+  const { id, body } = editingNote
+  const text = body.trim()
+  if (!text) return
+  const updated_at = new Date().toISOString()
+  const { error } = await supabase.from('coach_note_entries').update({ body: text, updated_at }).eq('id', id)
+  if (error) { console.error(error); showToast("Couldn't save the note. Try again.", 'error'); return }
+  const edit = (list) => list.map(n => (n.id === id ? { ...n, body: text, updated_at } : n))
+  setNotes(prev => edit(prev || []))
+  setFlaggedNotes(edit)
+  setNoteResults(prev => prev && edit(prev))
+  setEditingNote(null)
+}
 
-  const { data: { session: currentSession } } = await supabase.auth.getSession()
-  const dateStamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  const entry = `── ${dateStamp} ──\n${newNoteEntry.trim()}`
-  const updatedContent = coachNotes ? `${entry}\n\n${coachNotes}` : entry
+// No confirm: delete at once and offer Undo, the way Mail and Notes do. A
+// confirm stops the coach every time to protect against the rare slip; Undo
+// costs nothing until the slip happens. Undo puts the very same row back
+// (same id, date and flag).
+async function deleteNote(note) {
+  const { error } = await supabase.from('coach_note_entries').delete().eq('id', note.id)
+  if (error) { console.error(error); showToast("Couldn't delete the note. Try again.", 'error'); return }
+  const drop = (list) => list.filter(n => n.id !== note.id)
+  setNotes(prev => drop(prev || []))
+  setFlaggedNotes(drop)
+  setNoteResults(prev => prev && drop(prev))
+  showToast('Note deleted.', 'success', { label: 'Undo', onClick: () => restoreNote(note) })
+}
 
-  const { error } = await supabase.from('coach_notes').upsert({
-    coach_id: currentSession.user.id,
-    client_id: clientId,
-    content: updatedContent,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'coach_id,client_id' })
+async function restoreNote(note) {
+  const { id, body, created_at, updated_at, date_only, flagged } = note
+  const { error } = await supabase.from('coach_note_entries')
+    .insert({ id, coach_id: profile.id, client_id: clientId, body, created_at, updated_at, date_only, flagged })
+  if (error) { console.error(error); showToast("Couldn't restore the note.", 'error'); return }
+  const put = (list) => [...list.filter(n => n.id !== id), note].sort((a, b) => b.created_at.localeCompare(a.created_at))
+  if (flagged) setFlaggedNotes(put); else setNotes(prev => put(prev || []))
+  setToast({ message: '', type: 'success' })
+}
 
-  if (error) console.error(error)
-  else {
-    setCoachNotes(updatedContent)
-    setNewNoteEntry('')
-    setNotesSaved(true)
-    setTimeout(() => setNotesSaved(false), 2000)
+async function toggleFlag(note) {
+  const flagged = !note.flagged
+  const { error } = await supabase.from('coach_note_entries').update({ flagged }).eq('id', note.id)
+  if (error) { console.error(error); showToast("Couldn't update the note. Try again.", 'error'); return }
+  const moved = { ...note, flagged }
+  const byDate = (a, b) => b.created_at.localeCompare(a.created_at)
+  if (flagged) {
+    setNotes(prev => (prev || []).filter(n => n.id !== note.id))
+    setFlaggedNotes(prev => [...prev, moved].sort(byDate))
+  } else {
+    setFlaggedNotes(prev => prev.filter(n => n.id !== note.id))
+    setNotes(prev => [...(prev || []), moved].sort(byDate))
   }
+  setNoteResults(prev => prev && prev.map(n => (n.id === note.id ? moved : n)))
 }
 
   async function fetchClientTargets() {
@@ -1394,7 +1652,7 @@ async function addNoteEntry() {
       supabase.from('steps_log').select('*').eq('user_id', clientId).in('logged_date', days),
     ])
 
-    const weekOf = checkinPeriod(checkinInterval).weekOf
+    const weekOf = checkinPeriod(checkinInterval, new Date(), checkinWeekday).weekOf
     const { data: checkInData } = await supabase
       .from('check_ins').select('*').eq('client_id', clientId).eq('week_of', weekOf).maybeSingle()
 
@@ -1456,7 +1714,9 @@ async function addNoteEntry() {
           clientName: clientProfile?.full_name || 'Client',
           weekData,
           checkIn: checkInPayload(checkInData),
-          privateNotes: coachNotes,
+          // The newest few, dated, not the whole history: the brief is about
+          // now, and a years-long notes history would crowd out the week.
+          privateNotes: [...flaggedNotes.map(n => `FLAGGED ${noteDate(n)}: ${n.body}`), ...(notes || []).slice(0, NOTES_PAGE).map(n => `${noteDate(n)}: ${n.body}`)].join('\n\n'),
           recentMessages: messagesData || [],
           signals
         }),
@@ -1601,6 +1861,11 @@ async function sendMessage(text) {
   // same kind of number, one above the other, inside one card.
   const num = (n) => Number(n || 0).toLocaleString()
 
+  // value / target for a stat card's bar, or null when there is no target.
+  const dayProgress = (actual, target) => {
+    const t = Number(target)
+    return Number.isFinite(t) && t > 0 ? (Number(actual) || 0) / t : null
+  }
   const dayTarget = (actual, target, unit = '') => {
     const t = Number(target)
     if (!Number.isFinite(t) || t <= 0) return 'No target set'
@@ -1778,8 +2043,25 @@ async function sendMessage(text) {
   }
   const compliancePlotOptions = {
     ...baseChartOptions(),
+    plugins: {
+      ...baseChartOptions().plugins,
+      legend: {
+        ...baseChartOptions().plugins.legend,
+        labels: {
+          ...baseChartOptions().plugins.legend.labels,
+          // Calories' bars are coloured per day by grade, so chart.js took the
+          // first day's colour for the key: transparent, an unlogged day, and
+          // the key showed a label with no swatch. Its swatch is the grade
+          // scale itself, four bands, which is what "coloured by target" means.
+          generateLabels: (chart) => {
+            const labels = ChartJS.defaults.plugins.legend.labels.generateLabels(chart)
+            return labels.map(l => (l.text === 'Calories %' ? { ...l, pointStyle: gradeSwatch(), fillStyle: 'transparent', strokeStyle: 'transparent' } : l))
+          },
+        },
+      },
+    },
     scales: {
-      x: { ticks: { color: CHART.tick }, grid: { display: false }, border: { color: CHART.grid } },
+      x: { ticks: { color: CHART.tick, maxRotation: 0, autoSkip: true, autoSkipPadding: 12 }, grid: { display: false }, border: { color: CHART.grid } },
       y: {
         min: 0, max: 150,
         ticks: { color: CHART.tick, maxTicksLimit: 4, callback: (v) => `${v}%` },
@@ -1815,12 +2097,15 @@ async function sendMessage(text) {
   // The attention facts come from railMeta, the SAME source the desktop rail
   // reads: a phone that computed its own would be a second opinion about one
   // client.
+  const shownWeight = (value, unit) => (Math.round(convertWeight(Number(value), normUnit(unit || weightDisplayUnit), weightDisplayUnit) * 10) / 10).toFixed(1)
   const destMeta = (key) => {
     const w = weightHistory[weightHistory.length - 1]
     const rail = railMeta[key]
     if (rail?.meta) return { text: String(rail.meta), tone: rail.metaTone || null }
     switch (key) {
-      case 'trends': return { text: w ? `${w.weight} ${w.unit || ''}`.trim() : 'No weight yet' }
+      // In the record's one weight unit (the goal's), like every chart here:
+      // a goal in lb over a row reading "66.7 kg" made the coach convert.
+      case 'trends': return { text: w ? `${shownWeight(w.weight, w.unit)} ${unitLabel(weightDisplayUnit)}` : 'No weight yet' }
       case 'nutritionLog': return { text: `${consistency.days7}/7 this week` }
       case 'targets': return { text: clientTargets.calories ? `${Number(clientTargets.calories).toLocaleString()} cal` : 'Not set' }
       // Not "Written" — a note that exists is always written, so the word
@@ -1828,8 +2113,9 @@ async function sendMessage(text) {
       // thinking the note holds, which a recency ("2 months ago") makes the
       // reader work out.
       case 'privateNotes':
-        if (!coachNotes?.trim()) return { text: 'None' }
-        return notesUpdatedAt ? { text: numericDate(notesUpdatedAt) } : null
+        if (!notes) return null
+        if (!notes.length && !flaggedNotes.length) return { text: 'None' }
+        return { text: new Date([...notes, ...flaggedNotes].map(n => n.created_at).sort().at(-1)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
       case 'sentReports': return { text: sentTotal ? `${sentTotal}` : 'None' }
       case 'checkIn': return checkinCurrent ? null : { text: clientCheckIn ? 'None this period' : 'None yet' }
       default: return null
@@ -2242,7 +2528,74 @@ async function sendMessage(text) {
               )}
             </>
           )
-        })() : chartEmpty('No weight logged yet', 'Your client logs this.'))
+        })() : chartEmpty('No weight logged yet', `${clientFirstName} logs this on their Today tab.`))
+
+  // One private note: date (and flag), body folded past six lines, ⋯ menu.
+  // Shared by the flagged list, the paged list and search results, so a note
+  // looks the same wherever it turns up.
+  const noteWords = noteQuery.trim().toLowerCase()
+  const markMatch = (text) => {
+    if (!noteWords) return text
+    const out = []
+    let i = 0
+    const lower = text.toLowerCase()
+    for (let at = lower.indexOf(noteWords); at !== -1; at = lower.indexOf(noteWords, i)) {
+      out.push(text.slice(i, at), <mark key={at} className="cv-note-mark">{text.slice(at, at + noteWords.length)}</mark>)
+      i = at + noteWords.length
+    }
+    out.push(text.slice(i))
+    return out
+  }
+  const renderNote = (n) => {
+                  const editing = editingNote?.id === n.id
+                  const long = n.body.length > 360 || n.body.split('\n').length > NOTE_CLAMP_LINES
+                  const open = openNotes.has(n.id)
+                  return (
+                    <div key={n.id}>
+                      {/* The ⋯ keeps its 32px target but hangs into the space
+                          above and below the line (negative margin), so the
+                          date sits a caption's distance above its note, not a
+                          button's. Never sideways: a side overhang made the
+                          card's content wider than the card, and focusing
+                          the search box scrolled the whole card left. */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', height: 18, marginBottom: 'var(--space-4)' }}>
+                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', flex: 1, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                          {n.flagged && <Icon name="flag" size={12} aria-label="Flagged" />}
+                          {noteDate(n)}{n.updated_at ? ' · edited' : ''}
+                        </span>
+                        {!editing && (
+                          <button type="button" className="rost-m-more ds-control" style={{ margin: '-8px 0' }} onClick={() => setNoteMenu(n)} aria-label={`Options for the note from ${noteDate(n)}`}>
+                            <Icon name="more" />
+                          </button>
+                        )}
+                      </div>
+                      {editing ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+                          <Textarea value={editingNote.body} maxLength={NOTE_MAX} rows={Math.min(10, Math.max(3, editingNote.body.split('\n').length + 1))}
+                            onChange={(e) => setEditingNote({ id: n.id, body: e.target.value })} aria-label="Edit note" style={{ lineHeight: '1.6', resize: 'vertical' }} />
+                          <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
+                            <Button onClick={saveNoteEdit} variant="primary" size="sm" disabled={!editingNote.body.trim()}>Save</Button>
+                            <Button onClick={() => setEditingNote(null)} variant="ghost" size="sm">Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className={long && !open ? 'cv-note-clamp' : undefined}
+                            style={{ fontSize: 'var(--text-base)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0, '--clamp': NOTE_CLAMP_LINES }}>
+                            {markMatch(n.body)}
+                          </p>
+                          {long && (
+                            <button type="button" className="pp-retry" style={{ textDecoration: 'none', fontSize: 'var(--text-sm)', marginTop: 'var(--space-4)' }}
+                              aria-expanded={open}
+                              onClick={() => setOpenNotes(prev => { const next = new Set(prev); if (open) next.delete(n.id); else next.add(n.id); return next })}>
+                              {open ? 'Show less' : 'Show more'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )
+  }
 
   return (
     <>
@@ -2281,18 +2634,26 @@ async function sendMessage(text) {
           reads as one sentence rather than a label and an explanation that
           look like two different things. */}
       {(() => {
+        const paused = Boolean(rel?.pausedUntil)
         const status = statusStats ? attentionLevel({ ...statusStats, lockInfo }) : null
         const reasons = status ? status.reasons.filter(r => r !== 'Locked') : []
         const showStatus = status && !(status.level !== 'green' && reasons.length === 0)
         const tone = status && (status.level === 'red' ? 'var(--color-error)' : status.level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)')
-        const nudge = nudgeReason({ daysSinceLog, hasCheckIn: checkinCurrent, checkinDue: checkinPeriod(checkinInterval).dueWindow })
+        // A paused client is not nudged: the pause is the coach saying so.
+        const nudge = paused ? null : nudgeReason({ daysSinceLog, hasCheckIn: checkinCurrent, checkinDue: checkinPeriod(checkinInterval, new Date(), checkinWeekday).dueWindow })
         const nudgeLabel = nudge && (nudge.key === 'checkin' ? 'Nudge to check in' : 'Nudge to log')
 
         /* C1: status is plain coloured text — no container, no border, no dot.
            Green keeps --color-success rather than going muted: green and grey
            must never collide (B1), or a healthy client reads identically to an
            unconfigured one. */
-        const statusText = showStatus && (
+        // Paused is not a grade (C1's grey: nothing to grade against), so it
+        // is muted and regular weight, the roster's "Paused until" exactly.
+        const statusText = paused ? (
+          <span className="cv-head-status" style={{ color: 'var(--color-muted)' }}>
+            Paused until {shortDay(rel.pausedUntil)}{rel.pauseReason ? ` \u00b7 ${rel.pauseReason}` : ''}
+          </span>
+        ) : showStatus && (
           <span className="cv-head-status" style={{
             fontWeight: status.level === 'green' ? 'var(--weight-normal)' : 'var(--weight-semibold)',
             color: tone,
@@ -2326,6 +2687,35 @@ async function sendMessage(text) {
             {nudging ? 'Nudging…' : nudgeLabel}
           </Button>
         )
+        // The roster's ⋯, for the roster's per-client actions. Before this, a
+        // coach looking AT a client had to go back to the list to pause them.
+        const moreButton = (
+          <button type="button" className="rost-m-more ds-control" onClick={() => setMenuOpen(true)} aria-label={`More for ${clientProfile?.full_name || 'client'}`}>
+            <Icon name="more" />
+          </button>
+        )
+        // Who this is, in one muted line: the goal, how long they have been
+        // coached, and the coach's own labels. Each part only when known.
+        const groupNames = groupApi.groupsOf(clientId).map(g => g.name)
+        const facts = [
+          goalLabel(clientProfile?.primary_goal),
+          rel?.since && `Client since ${new Date(rel.since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
+          groupNames.length > 0 && groupNames.join(', '),
+        ].filter(Boolean)
+        const factsText = facts.length > 0 && <span className="cv-head-facts">{facts.join(' \u00b7 ')}</span>
+        // A flagged note's first line, in the header, so an injury or an
+        // allergy is in front of the coach on every visit without opening
+        // Notes (Trainerize keeps a flagged injury on the profile the same
+        // way). Plain text with a glyph, not a pill (C1); it links to Notes.
+        const flagLine = flaggedNotes.length > 0 && (
+          <Link to={`/client/${clientId}/privateNotes`} className="cv-head-flags ds-control"
+            title={flaggedNotes.map(n => n.body.split('\n')[0]).join('\n')}
+            aria-label={`Flagged: ${flaggedNotes.map(n => n.body.split('\n')[0]).join('; ')}. Open notes`}>
+            <Icon name="flag" size={13} />
+            <span className="cv-head-flags-text">{flaggedNotes[0].body.split('\n')[0]}</span>
+            {flaggedNotes.length > 1 && <span className="cv-head-flags-more">+{flaggedNotes.length - 1}</span>}
+          </Link>
+        )
         const unlockButton = lockInfo.locked && (
           <Button onClick={unlockClient} variant="danger" size="sm">Unlock</Button>
         )
@@ -2337,8 +2727,11 @@ async function sendMessage(text) {
                 <Avatar url={clientProfile?.avatar_url} name={clientProfile?.full_name || ''} size={44} />
                 <div className="cv-head-m-name">
                   <h1>{clientProfile?.full_name || 'Client'}</h1>
+                  {factsText}
                   {statusText}
+                  {flagLine}
                 </div>
+                <span style={{ marginLeft: 'auto', alignSelf: 'flex-start' }}>{moreButton}</span>
               </div>
               {lockText}
               {(nudgeButton || unlockButton) && (
@@ -2355,7 +2748,9 @@ async function sendMessage(text) {
               <div style={{ flex: 1, minWidth: '180px' }}>
                 <h1>{clientProfile?.full_name || 'Client'}</h1>
                 <p style={{ fontSize: 'var(--text-base)', marginTop: 'var(--space-2)' }}>{clientProfile?.email}</p>
-                {statusText && <div style={{ marginTop: 'var(--space-10)' }}>{statusText}</div>}
+                {factsText && <p style={{ marginTop: 'var(--space-2)' }}>{factsText}</p>}
+                {statusText && <div style={{ marginTop: 'var(--space-4)' }}>{statusText}</div>}
+                {flagLine && <div style={{ marginTop: 'var(--space-6)' }}>{flagLine}</div>}
                 {lockInfo.locked && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap', marginTop: 'var(--space-10)' }}>
                     {lockText}
@@ -2363,7 +2758,7 @@ async function sendMessage(text) {
                   </div>
                 )}
               </div>
-              {nudgeButton}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>{nudgeButton}{moreButton}</div>
             </div>
           </div>
         )
@@ -2509,19 +2904,30 @@ async function sendMessage(text) {
                 was right there and wrong on a desktop, so it is a breakpoint
                 rather than a layout. */}
             <div className="cv-stats-macros" style={{ display: 'grid', gap: 'var(--space-16)' }}>
-              <StatCard label="Calories" value={num(totals.calories)} sub={dayTarget(totals.calories, clientTargets.calories, ' cal')} color="var(--color-calories)" />
-              <StatCard label="Protein" value={`${num(totals.protein)}g`} sub={dayTarget(totals.protein, clientTargets.protein, 'g')} color="var(--color-protein)" />
-              <StatCard label="Carbs" value={`${num(totals.carbs)}g`} sub={dayTarget(totals.carbs, clientTargets.carbs, 'g')} color="var(--color-carbs)" />
-              <StatCard label="Fat" value={`${num(totals.fat)}g`} sub={dayTarget(totals.fat, clientTargets.fat, 'g')} color="var(--color-fat)" />
+              <StatCard label="Calories" value={num(totals.calories)} sub={dayTarget(totals.calories, clientTargets.calories, ' cal')} progress={dayProgress(totals.calories, clientTargets.calories)} color="var(--color-calories)" />
+              <StatCard label="Protein" value={`${num(totals.protein)}g`} sub={dayTarget(totals.protein, clientTargets.protein, 'g')} progress={dayProgress(totals.protein, clientTargets.protein)} color="var(--color-protein)" />
+              <StatCard label="Carbs" value={`${num(totals.carbs)}g`} sub={dayTarget(totals.carbs, clientTargets.carbs, 'g')} progress={dayProgress(totals.carbs, clientTargets.carbs)} color="var(--color-carbs)" />
+              <StatCard label="Fat" value={`${num(totals.fat)}g`} sub={dayTarget(totals.fat, clientTargets.fat, 'g')} progress={dayProgress(totals.fat, clientTargets.fat)} color="var(--color-fat)" />
             </div>
             {/* Cardio and Steps were never on this panel, though the coach sets a
                 target for both and the page carries a chart for each — so the
                 client's own Dashboard showed seven metrics for a day while the
                 coach's view of the same day showed five. */}
             <div className="cv-stats-activity" style={{ display: 'grid', gap: 'var(--space-16)' }}>
-              <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} sub={dayTarget(dayCardio, clientTargets.cardio_minutes, ' min')} color="var(--color-cardio)" />
-              <StatCard label="Steps" value={daySteps ? num(daySteps) : '—'} sub={dayTarget(daySteps, clientTargets.steps)} color="var(--color-steps)" />
-              <StatCard label="Weight" value={weightEntry ? `${weightEntry.weight} ${unitLabel(weightEntry.unit)}` : '—'} sub={weightEntry?.weighed_at ? formatTime(weightEntry.weighed_at) : null} color="var(--color-weight)" />
+              {/* A synced value says which device, on its own line under the
+                  target: a coach reads a step count from a phone differently
+                  from one typed in (Trainerize marks synced data the same way). */}
+              <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} sub={withSource(dayTarget(dayCardio, clientTargets.cardio_minutes, ' min'), dayCardio && daySources.cardio)} progress={dayProgress(dayCardio, clientTargets.cardio_minutes)} color="var(--color-cardio)" />
+              <StatCard label="Steps" value={daySteps ? num(daySteps) : '—'} sub={withSource(dayTarget(daySteps, clientTargets.steps), daySteps && daySources.steps)} progress={dayProgress(daySteps, clientTargets.steps)} color="var(--color-steps)" />
+              <StatCard label="Weight" value={weightEntry ? `${shownWeight(weightEntry.weight, weightEntry.unit)} ${unitLabel(weightDisplayUnit)}` : '—'} sub={withSource(weightSub(), weightEntry && sourceLabel(weightEntry.source))} color="var(--color-weight)"
+                to={`/client/${clientId}/trends`}
+                /* With the rail (desktop), the chart is on this page: scroll to
+                   it the way the rail's Progress item does. Following the link
+                   there only worked once: after it, the address already said
+                   /trends, so a second click changed nothing and went nowhere.
+                   The href stays for a new tab and for the phone. */
+                onOpen={hasRail ? () => handleRailJump(DEFAULT_TREND) : null}
+                aside={weightEntry && recentWeights.length >= 2 ? <Sparkline points={recentWeights.map(w => Number(shownWeight(w.weight, w.unit)))} minSpan={weightDisplayUnit === 'kg' ? 1 : 2} /> : null} />
             </div>
           </div>
         </SectionHeader>
@@ -2555,6 +2961,11 @@ async function sendMessage(text) {
               week it happened in qualifies it.
               The sub line is reserved on every cell, so the three without one
               still share a height with the three that have one. */}
+          {/* Named, because these six count LOGGING, and the card is called
+              Adherence: a green 7/7 sat above "0 days on target" with nothing
+              saying the two measured different things. Same caption style as
+              "Calorie compliance" below it, so the card reads as two parts. */}
+          <p className="ds-colhead" style={{ margin: 0 }}>Days logged</p>
           <div className="cv-consist-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${compact ? 2 : 3}, minmax(0, 1fr))`, gap: 'var(--space-12)' }}>
             {[
               {
@@ -2571,7 +2982,7 @@ async function sendMessage(text) {
                 tip: CONSISTENCY_TIPS.last7,
                 value: consistency.days7,
                 unit: '/7',
-                color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-primary)' : 'var(--color-error)',
+                color: consistency.days7 >= 5 ? 'var(--color-success)' : consistency.days7 >= 3 ? 'var(--color-warning)' : 'var(--color-error)',
               },
               {
                 key: 'last30',
@@ -2579,7 +2990,7 @@ async function sendMessage(text) {
                 tip: CONSISTENCY_TIPS.last30,
                 value: consistency.days30,
                 unit: '/30',
-                color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-primary)' : 'var(--color-error)',
+                color: consistency.days30 >= 20 ? 'var(--color-success)' : consistency.days30 >= 10 ? 'var(--color-warning)' : 'var(--color-error)',
               },
               {
                 key: 'weekdays',
@@ -2613,7 +3024,7 @@ async function sendMessage(text) {
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginBottom: 'var(--space-4)' }}>
                   <InfoTip text={c.tip}>{c.label}</InfoTip>
                 </p>
-                <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: c.color, margin: 0, lineHeight: 1.1 }}>
+                <p className="tnum" style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-title)', color: c.value === 0 ? 'var(--color-muted)' : c.color, margin: 0, lineHeight: 1.1 }}>
                   {c.value}
                   <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', fontWeight: 'var(--weight-normal)' }}>{c.unit}</span>
                 </p>
@@ -2781,8 +3192,11 @@ async function sendMessage(text) {
 
       <div key="targets" id="section-targets" style={sectionStyle('targets', { gap: 'var(--space-16)' })}>
         <SectionHeader title="Client targets" collapsed={isCollapsed('targets')} onToggle={sectionToggle('targets')}>
+          {/* 720px at most: on a laptop a calorie field 740px wide is a long
+              way for a four-digit number, and the eye loses the row. */}
+          <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column' }}>
           <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: 'var(--space-8)' }}>
-            Set daily goals for {clientProfile?.full_name || 'this client'}. These appear on their dashboard.
+            {clientFirstName} sees these on their Today tab.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-16)', padding: 'var(--space-12) 0', borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-12)' }}>
             <div>
@@ -2956,7 +3370,7 @@ async function sendMessage(text) {
               })}
             </div>
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-faint)', margin: 'var(--space-6) 0 0' }}>
-              Your client sees this but cannot change it.
+              {clientFirstName} sees this but can't change it.
             </p>
           </div>
           <div style={{ marginTop: 'var(--space-8)' }}>
@@ -2971,6 +3385,7 @@ async function sendMessage(text) {
             >
               {targetsSaved ? <>Saved <Icon name="check" /></> : 'Save targets'}
             </Button>
+          </div>
           </div>
         </SectionHeader>
       </div>
@@ -2989,7 +3404,7 @@ async function sendMessage(text) {
               fontWeight: 'var(--weight-normal)',
               color: dayComplete ? 'var(--color-success)' : 'var(--color-muted)',
             }}>
-              {dayComplete ? <><Icon name="check" /> Day complete</> : 'Day not complete. Totals may be partial'}
+              {dayComplete ? <><Icon name="check" /> Day complete</> : 'Not marked complete. Totals may be partial.'}
             </span>
           </div>
           {entries.length === 0 ? (
@@ -3004,7 +3419,7 @@ async function sendMessage(text) {
                 <div key={group.key} style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-4)' }}>
                     <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)' }}>{group.label}</span>
-                    <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{group.calories} cal</span>
+                    <span className="tnum" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{num(group.calories)} kcal</span>
                   </div>
                   {/* A1: these were bordered cards inside the section card. A
                       logged item is a record in a list, so it is a Row — hairline
@@ -3018,32 +3433,28 @@ async function sendMessage(text) {
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-6)', fontWeight: 'var(--weight-medium)' }}>
                           <Icon name="utensils" style={{ color: 'var(--color-muted)' }} /> {item.name}
                         </span>
-                        <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-base)' }}>{item.calories} cal</span>
+                        <span className="tnum" style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-base)' }}>{num(item.calories)} <span style={{ fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)' }}>kcal</span></span>
                       </div>
                       {item.entries.map((entry) => (
                         <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) 0', fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
                           <span>{entry.food}</span>
-                          <span>{entry.calories} cal · P {entry.protein}g · {formatServing(entry.serving_size, entry.serving_unit)}</span>
+                          <span className="tnum">{num(entry.calories)} kcal · {entry.protein}g P · {formatServing(entry.serving_size, entry.serving_unit)}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div key={item.entry.id} className="ds-row" style={{
-                      padding: 'var(--space-12) 0',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 'var(--space-12)',
-                      flexWrap: 'wrap',
-                    }}>
-                      <span>{item.entry.food}</span>
-                      <div style={{ display: 'flex', gap: 'var(--space-16)', fontSize: 'var(--text-base)' }}>
-                        <span style={{ color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)' }}>{item.entry.calories} cal</span>
-                        <span style={{ color: 'var(--color-muted)' }}>P: {item.entry.protein}g</span>
-                        <span style={{ color: 'var(--color-muted)' }}>C: {item.entry.carbs}g</span>
-                        <span style={{ color: 'var(--color-muted)' }}>F: {item.entry.fat}g</span>
-                        <span style={{ color: 'var(--color-muted)' }}>{formatServing(item.entry.serving_size, item.entry.serving_unit)}</span>
+                    /* The client's own Today row, so coach and client read
+                       one entry the same way: the food and its calories on
+                       the first line, the serving and macros under it. The
+                       calories were primary green here and "kcal" there. */
+                    <div key={item.entry.id} className="ds-row" style={{ padding: 'var(--space-12) 0', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-12)' }}>
+                        <span style={{ fontWeight: 'var(--weight-medium)', minWidth: 0 }}>{item.entry.food}</span>
+                        <span className="tnum" style={{ fontWeight: 'var(--weight-semibold)', whiteSpace: 'nowrap' }}>{num(item.entry.calories)} <span style={{ fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)' }}>kcal</span></span>
                       </div>
+                      <span className="tnum" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+                        {formatServing(item.entry.serving_size, item.entry.serving_unit)} · {num(item.entry.protein)}g P · {num(item.entry.carbs)}g C · {num(item.entry.fat)}g F
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -3053,7 +3464,11 @@ async function sendMessage(text) {
         </SectionHeader>
       </div>
 
-      <div key="checkIn" id="section-checkIn" style={sectionStyle('checkIn')}>
+      {/* Triage first: on a phone, a check-in waiting on the coach is the work
+          on their desk, so it sits straight under the header (CSS order; the
+          header and back bar are pinned above it in index.css) instead of two
+          screens down under the day's stats and the adherence analysis. */}
+      <div key="checkIn" id="section-checkIn" style={sectionStyle('checkIn', !hasRail && !section && clientCheckIn && !clientCheckIn.reviewed_at ? { order: -1 } : undefined)}>
         {/* The same badge the rail carries for this section — "Due" when none
             has been submitted this period, "New" when one is waiting to be
             reviewed. It was desktop-only, so a coach on a phone had to open
@@ -3073,6 +3488,11 @@ async function sendMessage(text) {
           collapsed={isCollapsed('checkIn')}
           onToggle={sectionToggle('checkIn')}
           badge={railMeta.checkIn?.meta}
+          action={checkinRequestOpen ? (
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Requested {shortDay(toLocalDateString(new Date(checkinRequestedAt)))}</span>
+          ) : (
+            <Button onClick={requestCheckin} variant="muted" size="sm" disabled={requestingCheckin}>{requestingCheckin ? 'Sending…' : 'Request'}</Button>
+          )}
           badgeTone={railMeta.checkIn?.metaTone === 'success' ? 'soft' : 'solid'}
           badgeColor={railMeta.checkIn?.metaTone === 'success' ? 'var(--color-success)' : 'var(--color-warning)'}
         >
@@ -3117,18 +3537,29 @@ async function sendMessage(text) {
                 check-in", so neither word is doing work the heading has not
                 already done. */}
             <Select
+              className="select-sm"
               label={compact ? 'Frequency' : 'Check-in frequency'}
-              value={pendingInterval ?? checkinInterval}
+              value={pendingSchedule?.weeks ?? checkinInterval}
               disabled={savingCadence}
-              onChange={(e) => {
-                const next = Number(e.target.value)
-                setPendingInterval(next === checkinInterval ? null : next)
-              }}
+              onChange={(e) => stageSchedule({ weeks: Number(e.target.value) })}
               style={{ width: 'auto', cursor: 'pointer', padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px' }}
             >
               {CADENCE_OPTIONS.map(opt => (
                 <option key={opt.weeks} value={opt.weeks}>{opt.label}</option>
               ))}
+            </Select>
+            {/* The day it is due. Same small select, same staging: a period
+                ends on this day, so it decides when "Due" shows and when the
+                client is reminded. */}
+            <Select
+              className="select-sm"
+              label={compact ? 'Due' : 'Due on'}
+              value={pendingSchedule?.weekday ?? checkinWeekday}
+              disabled={savingCadence}
+              onChange={(e) => stageSchedule({ weekday: Number(e.target.value) })}
+              style={{ width: 'auto', cursor: 'pointer', padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px' }}
+            >
+              {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
             </Select>
             {/* The "applies to every client" caveat lives on this section's
                 TITLE (the SectionHeader `info` above). It used to be a bare
@@ -3157,25 +3588,34 @@ async function sendMessage(text) {
               the client is told, and the check-in this card shows follows the
               new period — which is why the ratings appear to change when the
               cadence does. */}
-          {pendingInterval != null && (
+          {pendingSchedule && (
             <div style={{ marginBottom: 'var(--space-12)' }}>
               <Notice
                 tone="warning"
                 icon={<><circle cx="12" cy="12" r="10" /><path d="M12 8v4l2.5 2.5" /></>}
                 action={(
                   <span style={{ display: 'inline-flex', gap: 'var(--space-8)', flexShrink: 0 }}>
-                    <Button onClick={() => updateCadence(pendingInterval)} variant="primary" size="sm" disabled={savingCadence}>
+                    <Button onClick={() => updateSchedule(pendingSchedule)} variant="primary" size="sm" disabled={savingCadence}>
                       {savingCadence ? 'Saving…' : 'Update'}
                     </Button>
-                    <Button onClick={() => setPendingInterval(null)} variant="ghost" size="sm" disabled={savingCadence}>
+                    <Button onClick={() => setPendingSchedule(null)} variant="ghost" size="sm" disabled={savingCadence}>
                       Cancel
                     </Button>
                   </span>
                 )}
               >
-                Check-ins move from <strong>{cadenceLabel(checkinInterval)}</strong> to{' '}
-                <strong>{cadenceLabel(pendingInterval)}</strong>. {clientFirstName} will be told,
+                Check-ins move from <strong>{scheduleLabel(checkinInterval, checkinWeekday)}</strong> to{' '}
+                <strong>{scheduleLabel(pendingSchedule.weeks, pendingSchedule.weekday)}</strong>. {clientFirstName} will be told,
                 and the check-in shown here follows the new period.
+                {(() => {
+                  // Say it when the move makes the check-in due today or
+                  // tomorrow: the client was told one day and now owes it at
+                  // once. Request covers a sooner one without moving the day.
+                  const p = checkinPeriod(pendingSchedule.weeks, new Date(), pendingSchedule.weekday)
+                  const daysLeft = p.intervalWeeks * 7 - 1 - p.daysIn
+                  if (daysLeft > 1 || coversPeriod(clientCheckIn, p)) return null
+                  return <> <strong>{clientFirstName}'s check-in becomes due {daysLeft === 0 ? 'today' : 'tomorrow'}.</strong></>
+                })()}
               </Notice>
             </div>
           )}
@@ -3194,61 +3634,146 @@ async function sendMessage(text) {
           <CheckinReview
             key={clientCheckIn?.id}
             checkIn={clientCheckIn}
+            clientId={clientId}
+            intervalWeeks={checkinInterval}
+            weightUnit={weightDisplayUnit}
             current={checkinCurrent}
             reviewing={reviewing}
             onReview={reviewCheckIn}
           />
+          {/* The ones before it, a row each, opening in place. A coach reads
+              this week's answers against the last few; with only the latest
+              on the record they had nothing to read them against. */}
+          {/* Each rating across the recent check-ins, Coachway's "ratings
+              become charts": an energy score sliding 8, 7, 5, 4 is the signal,
+              and as rows of text it had to be read off one week at a time.
+              The whole 1-10 scale, so a 7 sits where a 7 sits. */}
+          {(() => {
+            const run = [...checkinHistory.slice(0, 7)].reverse().concat(clientCheckIn ? [clientCheckIn] : [])
+            if (run.length < 3) return null
+            const rows = checkinRatings(clientCheckIn).map(r => ({
+              ...r,
+              points: run.map(c => checkinRatings(c).find(x => x.id === r.id)?.value).filter(v => v != null),
+            })).filter(r => r.points.length >= 2)
+            if (!rows.length) return null
+            return (
+              <div>
+                <p className="ds-colhead" style={{ margin: 'var(--space-16) 0 var(--space-4)' }}>Trend · last {run.length} check-ins</p>
+                {rows.map(r => (
+                  <div key={r.id} className="ci-trend">
+                    <span className="ci-trend-label">{r.label}</span>
+                    <Sparkline points={r.points} domain={[1, 10]} color="var(--color-text)" width={96} height={24} />
+                    <span className="ci-trend-value tnum">{r.value}<span style={{ fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)' }}>/10</span></span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+          {checkinHistory.length > 0 && (
+            <div className="cv-ci-past">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: 'var(--space-16) 0 var(--space-4)' }}>
+                <p className="ds-colhead" style={{ margin: 0 }}>Earlier</p>
+                {clientCheckIn && <Button onClick={() => setCompareOpen(true)} variant="ghost" size="sm">Compare</Button>}
+              </div>
+              {checkinHistory.map((c) => {
+                const open = openPastCheckin === c.id
+                const ratings = checkinRatings(c).slice(0, 2).map(r => `${r.label.length > 10 ? r.label.slice(0, 9) + '\u2026' : r.label} ${r.value}`).join(' \u00b7 ')
+                return (
+                  <div key={c.id} style={{ borderTop: '1px solid var(--color-border)' }}>
+                    <button type="button" className="cv-ci-row ds-control" aria-expanded={open} onClick={() => setOpenPastCheckin(open ? null : c.id)}>
+                      <span className="cv-ci-row-when">{shortDay(c.week_of)}</span>
+                      <span className="cv-ci-row-val tnum">{ratings}</span>
+                      <Icon name="right" size={16} style={{ color: 'var(--color-faint)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 180ms ease' }} />
+                    </button>
+                    {open && (
+                      <div style={{ padding: 'var(--space-4) 0 var(--space-16)' }}>
+                        <CheckinReview checkIn={c} readOnly clientId={clientId} intervalWeeks={checkinInterval} weightUnit={weightDisplayUnit} />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {checkinMore && (
+                <div style={{ paddingTop: 'var(--space-8)' }}>
+                  <Button onClick={() => fetchClientCheckIn({ older: true })} variant="ghost" size="sm">Show older check-ins</Button>
+                </div>
+              )}
+            </div>
+          )}
           </div>
         </SectionHeader>
       </div>
 
       <div key="privateNotes" id="section-privateNotes" style={sectionStyle('privateNotes')}>
         <SectionHeader title="Private notes" collapsed={isCollapsed('privateNotes')} onToggle={sectionToggle('privateNotes')}>
-            <Textarea
-              value={coachNotes}
-              onChange={(e) => setCoachNotes(e.target.value)}
-              readOnly={!editingNotes}
-              placeholder="No notes yet…"
-              rows={6}
-              aria-label="Notes history"
-              style={{
-                borderColor: editingNotes ? 'var(--color-primary)' : 'var(--color-border)',
-                color: editingNotes ? 'var(--color-text)' : 'var(--color-muted)',
-                fontSize: 'var(--text-sm)',
-                lineHeight: '1.8',
-                resize: editingNotes ? 'vertical' : 'none',
-                fontFamily: 'monospace',
-                cursor: editingNotes ? 'text' : 'default',
-              }}
-            />
-            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-12)', display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+            {/* 720px at most, like Targets: a note is prose, and prose across a
+                1,800px line is hard to follow back to the next line. */}
+            <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+            {/* Add first, history under it: a note is written far more often
+                than the old ones are reread, and the newest lands right under
+                the box it was typed in. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
               <Textarea
                 value={newNoteEntry}
                 onChange={(e) => setNewNoteEntry(e.target.value)}
                 placeholder="Add a note…"
                 rows={3}
+                maxLength={NOTE_MAX}
                 aria-label="Add a note"
                 style={{ lineHeight: '1.6', resize: 'vertical' }}
               />
-              <div style={{ display: 'flex', gap: 'var(--space-8)', alignItems: 'center' }}>
-                <Button onClick={addNoteEntry} variant="primary" size="sm">
-                  {notesSaved ? <>Saved <Icon name="check" /></> : 'Add note'}
-                </Button>
-                {!editingNotes ? (
-                  <Button onClick={() => setEditingNotes(true)} variant="ghost" size="sm">
-                    Edit history
-                  </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+                <Button onClick={addNote} variant="primary" size="sm" loading={addingNote} disabled={!newNoteEntry.trim() || addingNote}>Add note</Button>
+                {/* Only near the limit: a counter on every keystroke is noise. */}
+                {newNoteEntry.length > NOTE_MAX - 500 && (
+                  <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: newNoteEntry.length >= NOTE_MAX ? 'var(--color-warning)' : 'var(--color-muted)' }}>
+                    {(NOTE_MAX - newNoteEntry.length).toLocaleString()} left
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* One note per row, separated by space, not rules: a hairline
+                under every note cut the list into strips. A long note shows
+                six lines until opened; the list shows ten until asked. */}
+            {notes === null ? (
+              <Skeleton height="64px" />
+            ) : (notes.length > 0 || flaggedNotes.length > 0) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-20)', marginTop: 'var(--space-8)' }}>
+                {/* The roster's search field. Only once there is something to
+                    search: below a page of notes, scrolling is faster. */}
+                {(notesMore || notes.length + flaggedNotes.length > 5 || noteQuery) && (
+                  <label className="rost-search cv-note-search">
+                    <Icon name="search" size={15} />
+                    <input type="search" placeholder="Search notes" aria-label="Search notes" value={noteQuery}
+                      onChange={(e) => { setNoteQuery(e.target.value); if (!e.target.value.trim()) setNoteResults(null) }} />
+                  </label>
+                )}
+                {noteQuery.trim() ? (
+                  noteResults === null ? <Skeleton height="48px" /> : (
+                    <>
+                      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }} aria-live="polite">
+                        {noteResults.length === 0 ? 'No notes match.' : `${noteResults.length === 50 ? '50+' : noteResults.length} note${noteResults.length === 1 ? '' : 's'}`}
+                      </p>
+                      {noteResults.map(renderNote)}
+                    </>
+                  )
                 ) : (
                   <>
-                    <Button onClick={() => { saveCoachNotes(); setEditingNotes(false) }} variant="muted" size="sm">
-                      Save edits
-                    </Button>
-                    <Button onClick={() => { fetchCoachNotes(); setEditingNotes(false) }} variant="ghost" size="sm">
-                      Cancel
-                    </Button>
+                    {/* Flagged first, under their own caption, the way
+                        Trainerize floats a flagged note to the top. */}
+                    {flaggedNotes.length > 0 && <p className="ds-colhead" style={{ margin: 0 }}>Flagged</p>}
+                    {flaggedNotes.map(renderNote)}
+                    {flaggedNotes.length > 0 && notes.length > 0 && <p className="ds-colhead" style={{ margin: 'var(--space-4) 0 0' }}>Notes</p>}
+                    {notes.map(renderNote)}
+                    {notesMore && (
+                      <div>
+                        <Button onClick={() => fetchNotes({ older: true })} variant="ghost" size="sm">Show older notes</Button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
+            )}
             </div>
         </SectionHeader>
       </div>
@@ -3339,6 +3864,11 @@ async function sendMessage(text) {
           >
             {!isCollapsed('dailyMetrics') && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+                {compact && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'calc(-1 * var(--space-8))' }}>
+                    <ChartColorToggle plain={plainCharts.has('dailyMetrics')} onToggle={() => togglePlain('dailyMetrics')} />
+                  </div>
+                )}
                 {(() => {
                   const shown = METRIC_SERIES.filter(m => !hiddenCharts.includes(m.key))
                   return shown.map((m, i) => {
@@ -3355,7 +3885,7 @@ async function sendMessage(text) {
                         <div style={{ height: '150px' }}>
                           <Bar data={m.data(history)} options={stackedMetricOptions(isLast)} />
                         </div>
-                      ) : chartEmpty(m.empty, 'Your client logs this.')}
+                      ) : chartEmpty(m.empty, `${clientFirstName} logs this on their Today tab.`)}
                     </div>
                   )
                   })
@@ -3365,6 +3895,25 @@ async function sendMessage(text) {
           </SectionHeader>
         </div>
       )}
+
+      <div key="photos" id="section-photos" style={sectionStyle('photos')}>
+        <SectionHeader
+          title="Progress photos"
+          collapsed={isCollapsed('photos')}
+          onToggle={sectionToggle('photos')}
+          /* Measurements' Request, for photos: emails the client to take a
+             new set (same 48-hour cooldown as every nudge). */
+          action={(
+            <Button onClick={() => nudgeClient({ key: 'photos' })} variant="muted" size="sm" disabled={nudging}>
+              {nudging ? 'Sending…' : 'Request'}
+            </Button>
+          )}
+        >
+          {!isCollapsed('photos') && (
+            <PhotoCompare key={clientId} userId={clientId} unit={weightDisplayUnit} emptyText={`${clientFirstName} adds these on their Today tab.`} />
+          )}
+        </SectionHeader>
+      </div>
 
       {!hiddenCharts.includes('measurements') && (
         <div key="measurements" id="section-measurements" style={sectionStyle('measurements')}>
@@ -3402,7 +3951,7 @@ async function sendMessage(text) {
             )}
           >
             {!isCollapsed('measurements') && (measHistory.length === 0
-              ? chartEmpty("No measurements yet", "Your client adds these.")
+              ? chartEmpty("No measurements yet", `${clientFirstName} adds these on their Today tab.`)
               : (() => {
               const latest = measHistory[measHistory.length - 1]
               const unit = latest.unit || 'in'
@@ -3547,8 +4096,22 @@ async function sendMessage(text) {
             SectionHeader titles above it. It is not collapsible (one short
             action), so it takes the type rather than the whole component. */}
         <h2 style={{ fontSize: 'var(--text-body)', fontWeight: 'var(--weight-medium)', letterSpacing: '-0.005em' }}>Coaching</h2>
+        {/* Pause before Offboard: the gentle option first, the one that
+            cannot be undone last. Pause lived only in the header's ⋯, so the
+            section a coach opens to manage the relationship offered the
+            permanent action and not the temporary one. */}
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
-          Ends coaching. {clientProfile?.full_name || 'This client'} keeps their data and continues solo.
+          {rel?.pausedUntil
+            ? `Paused until ${shortDay(rel.pausedUntil)}. Resumes by itself.`
+            : 'Pause for a holiday or injury: no grades, nudges or check-in reminders until it ends.'}
+        </p>
+        <div>
+          {rel?.pausedUntil
+            ? <Button onClick={resumeCoaching} variant="muted" size="sm">Resume coaching</Button>
+            : <Button onClick={() => setPauseOpen(true)} variant="muted" size="sm">Pause coaching</Button>}
+        </div>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginTop: 'var(--space-8)' }}>
+          Offboarding ends coaching. {clientFirstName} keeps their data and continues solo.
         </p>
         {!showOffboardConfirm ? (
           <div>
@@ -3743,7 +4306,38 @@ async function sendMessage(text) {
       onLoadOlder={loadOlderMessages}
       loadingOlder={loadingOlderMessages}
     />
-    <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
+    <ActionSheet
+      open={menuOpen}
+      title={clientProfile?.full_name}
+      onClose={() => setMenuOpen(false)}
+      actions={[
+        rel?.pausedUntil
+          ? { label: 'Resume coaching', icon: 'repeat', onSelect: resumeCoaching }
+          : { label: 'Pause coaching', icon: 'calendar', onSelect: () => setPauseOpen(true) },
+        { label: 'Groups', icon: 'grip', onSelect: () => setGroupsOpen(true) },
+      ]}
+    />
+    <ActionSheet
+      open={Boolean(noteMenu)}
+      title="Note"
+      onClose={() => setNoteMenu(null)}
+      actions={noteMenu ? [
+        { label: noteMenu.flagged ? 'Remove flag' : 'Flag', icon: 'flag', onSelect: () => toggleFlag(noteMenu) },
+        { label: 'Edit', icon: 'pencil', onSelect: () => setEditingNote({ id: noteMenu.id, body: noteMenu.body }) },
+        { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteNote(noteMenu) },
+      ] : []}
+    />
+    <CheckinCompare
+      open={compareOpen}
+      onClose={() => setCompareOpen(false)}
+      checkIns={[clientCheckIn, ...checkinHistory].filter(Boolean)}
+      clientId={clientId}
+      intervalWeeks={checkinInterval}
+      weightUnit={weightDisplayUnit}
+    />
+    <PauseSheet open={pauseOpen} name={clientProfile?.full_name} onClose={() => setPauseOpen(false)} onSave={savePause} />
+    <GroupsSheet open={groupsOpen} clientId={clientId} api={groupApi} onClose={() => setGroupsOpen(false)} />
+    <Toast message={toast.message} type={toast.type} action={toast.action} onClose={() => setToast({ message: '', type: 'success' })} />
     </>
   )
 }

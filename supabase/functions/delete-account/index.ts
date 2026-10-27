@@ -406,6 +406,7 @@ Deno.serve(async (req) => {
       `cardio_log?user_id=eq.${uid}`,
       `steps_log?user_id=eq.${uid}`,
       `body_measurements?user_id=eq.${uid}`,
+      `progress_photos?user_id=eq.${uid}`,
       `targets?user_id=eq.${uid}`,
       `saved_meal_items?user_id=eq.${uid}`,
       `saved_meals?user_id=eq.${uid}`,
@@ -418,6 +419,8 @@ Deno.serve(async (req) => {
       `messages?coach_id=eq.${uid}`,
       `coach_notes?client_id=eq.${uid}`,
       `coach_notes?coach_id=eq.${uid}`,
+      `coach_note_entries?client_id=eq.${uid}`,
+      `coach_note_entries?coach_id=eq.${uid}`,
       `checkin_questions?coach_id=eq.${uid}`,
       `reports?client_id=eq.${uid}`,
       `reports?coach_id=eq.${uid}`,
@@ -485,6 +488,31 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       console.error('Avatar storage purge failed:', e)
+    }
+
+    // Progress photos: every object under progress-photos/<uid>/. The rows go
+    // with the auth user (on delete cascade); the files would not. Listed and
+    // removed a page at a time, best-effort and logged, like the avatar.
+    try {
+      const storageHeaders = { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey }
+      for (let page = 0; page < 50; page++) {
+        const listRes = await fetch(`${supabaseUrl}/storage/v1/object/list/progress-photos`, {
+          method: 'POST',
+          headers: { ...storageHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefix: `${uid}/`, limit: 100, offset: 0 }),
+        })
+        if (!listRes.ok) { console.error(`Progress photo list failed for ${uid} (${listRes.status}):`, await listRes.text()); break }
+        const objects: { name: string }[] = await listRes.json()
+        if (!objects.length) break
+        const delRes = await fetch(`${supabaseUrl}/storage/v1/object/progress-photos`, {
+          method: 'DELETE',
+          headers: { ...storageHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefixes: objects.map(o => `${uid}/${o.name}`) }),
+        })
+        if (!delRes.ok) { console.error(`Progress photo purge failed for ${uid} (${delRes.status}):`, await delRes.text()); break }
+      }
+    } catch (e) {
+      console.error('Progress photo storage purge failed:', e)
     }
 
     // Cancel the coach's own Stripe subscription AFTER coach_clients rows are gone,

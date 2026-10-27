@@ -72,6 +72,13 @@ export function historyWindow(days = LONGEST_RANGE_DAYS) {
 }
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+// A day on a chart's x-axis: "Aug 27", the way Apple Health and MacroFactor
+// label one. It was "08-27", which reads as a code, and needed a 45-degree
+// tilt to fit.
+export function axisDay(iso) {
+  return `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8, 10))}`
+}
+
 // Bucket a sparse daily history into the points one range should plot.
 //
 // W and M plot the logged days themselves. Y plots one point per MONTH, and
@@ -96,7 +103,7 @@ export function bucketHistory(history, valueKey, rangeKey, { asOf = new Date() }
     .sort((a, b) => a.iso.localeCompare(b.iso))
 
   if (range.key !== 'Y') {
-    return within.map((r) => ({ ...r, date: r.iso.slice(5) }))
+    return within.map((r) => ({ ...r, date: axisDay(r.iso) }))
   }
 
   // One point per calendar month, in order, labelled by month name. The year is
@@ -152,7 +159,7 @@ export function padToWindow(rows, valueKey, rangeKey, { asOf = new Date() } = {}
   const out = []
   for (let i = range.days - 1; i >= 0; i--) {
     const iso = ymd(new Date(end.getTime() - i * 86400000))
-    out.push(...(byIso.get(iso) ?? [{ iso, date: iso.slice(5), [valueKey]: null }]))
+    out.push(...(byIso.get(iso) ?? [{ iso, date: axisDay(iso), [valueKey]: null }]))
   }
   return out
 }

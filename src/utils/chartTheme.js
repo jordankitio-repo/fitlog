@@ -58,7 +58,9 @@ export function baseChartOptions({ singleSeries = false } = {}) {
       },
     },
     scales: {
-      x: { ticks: { color: CHART.tick }, grid: { display: false }, border: { color: CHART.grid } },
+      // Level labels, thinned to fit, never tilted: a 45-degree date row is
+      // the axis apologising for having too many labels.
+      x: { ticks: { color: CHART.tick, maxRotation: 0, autoSkip: true, autoSkipPadding: 12 }, grid: { display: false }, border: { color: CHART.grid } },
       y: {
         ticks: { color: CHART.tick, maxTicksLimit: 5 },
         grid: { color: CHART.grid, drawTicks: false },

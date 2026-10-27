@@ -48,5 +48,6 @@ export const SECTION_ICONS = {
   // The coach-client relationship itself, not the client's data — the section
   // that ends the engagement. Two figures, because that is what it is about.
   coaching: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+  photos: <><rect x="3" y="5" width="18" height="15" rx="2" /><circle cx="12" cy="12.5" r="3.5" /><path d="M8 5l1.5-2h5L16 5" /></>,
   measurements: <><rect x="2" y="9" width="20" height="6" rx="1" /><line x1="6" y1="9" x2="6" y2="12" /><line x1="10" y1="9" x2="10" y2="12" /><line x1="14" y1="9" x2="14" y2="12" /><line x1="18" y1="9" x2="18" y2="12" /></>,
 }

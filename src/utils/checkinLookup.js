@@ -1,3 +1,5 @@
+import { toLocalDateString } from './dateHelpers'
+
 // Finding a client's check-in, and deciding whether it counts for right now.
 //
 // These were the same question before, and that was the bug. Every surface
@@ -41,7 +43,29 @@ export function latestCheckIn(rows = []) {
 // `>=` the period's start, not `===` its key: a check-in filed under a shorter
 // cadence sits at a later Sunday than the longer period's start, and it is
 // still inside that period. Equality is what broke when the cadence moved.
+//
+// OR it was SUBMITTED inside the period (created_at). Moving the check-in day
+// moves the period's start: a check-in filed under Sunday Oct 25 sits before a
+// Tuesday Oct 27 start, and by its key alone the client would owe another one
+// a day or two after sending it. What they sent this period counts.
 export function coversPeriod(checkIn, period) {
   if (!checkIn?.week_of || !period?.weekOf) return false
-  return checkIn.week_of >= period.weekOf
+  if (checkIn.week_of >= period.weekOf) return true
+  return Boolean(checkIn.created_at) && toLocalDateString(new Date(checkIn.created_at)) >= period.weekOf
+}
+
+// A check-in's 1–10 ratings, whichever form it was filed on: the two fixed
+// ones of the original form, or every rating question of a custom one (keyed
+// by question id, so the same question can be found on the previous check-in).
+export function checkinRatings(c) {
+  if (!c) return []
+  if (Array.isArray(c.answers) && c.answers.length > 0) {
+    return c.answers
+      .filter(a => a.type === 'rating' && a.value != null && a.value !== '')
+      .map(a => ({ id: a.question_id || a.prompt, label: a.prompt, value: Number(a.value) }))
+  }
+  return [
+    c.adherence_rating != null && { id: 'adherence', label: 'Adherence', value: c.adherence_rating },
+    c.energy_level != null && { id: 'energy', label: 'Energy', value: c.energy_level },
+  ].filter(Boolean)
 }

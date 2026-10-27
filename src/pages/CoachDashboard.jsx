@@ -11,7 +11,9 @@ import Modal from '../components/Modal'
 import ActionSheet from '../components/ActionSheet'
 import PushPanel from '../components/PushPanel'
 import CheckinQueue from './CheckinQueue'
-import { toLocalDateString } from '../utils/dateHelpers'
+import { PauseSheet, GroupsSheet } from '../components/ClientSheets'
+import { useCoachGroups } from '../hooks/useCoachGroups'
+import { shortDay } from '../utils/pause'
 import Skeleton from '../components/Skeleton'
 import InfoTip from '../components/InfoTip'
 import { computeClientStats } from '../utils/clientStats'
@@ -28,7 +30,7 @@ function complianceRatio(s) {
   return items.reduce((t, i) => t + i.value, 0) / (items.length * 7)
 }
 import { cardStyle } from '../utils/styles'
-import { Pill, Field, Icon, Panel, Row, Checkbox, Textarea } from '../components/ui'
+import { Pill, Field, Icon, Panel, Row, Textarea } from '../components/ui'
 import { scrollBehavior } from '../utils/motion'
 import { formatAnswer } from '../utils/checkinQuestions'
 
@@ -47,7 +49,6 @@ const STATUS_TONES = {
   paused: 'var(--color-muted)',   // NOT a grade — the coach paused them
 }
 
-const PAUSE_REASONS = ['Holiday', 'Injury', 'Illness', 'Other']
 
 
 
@@ -154,17 +155,14 @@ function CoachDashboard({ profile }) {
   // Invites sent and not yet accepted: who to chase, and the link to resend.
   const [pendingInvites, setPendingInvites] = useState([])
   const [resentIds, setResentIds] = useState(() => new Set())
-  // Groups: the coach's labels, and who is in each.
-  const [groups, setGroups] = useState([])
-  const [members, setMembers] = useState([]) // [{ group_id, client_id }]
+  // Groups: the coach's labels, and who is in each (shared with the record).
+  const groupApi = useCoachGroups(profile.id, showToast)
+  const { groups, members } = groupApi
   const [groupFilter, setGroupFilter] = useState('')
   // The row's ⋯ menu and the sheets it opens.
   const [menuFor, setMenuFor] = useState(null)
   const [pauseFor, setPauseFor] = useState(null)
-  const [pauseUntil, setPauseUntil] = useState('')
-  const [pauseReason, setPauseReason] = useState('Holiday')
   const [groupsFor, setGroupsFor] = useState(null)
-  const [newGroup, setNewGroup] = useState('')
   const [broadcastOpen, setBroadcastOpen] = useState(false)
   const [broadcastText, setBroadcastText] = useState('')
   const [broadcasting, setBroadcasting] = useState(false)
@@ -188,30 +186,19 @@ function CoachDashboard({ profile }) {
   useEffect(() => {
     fetchClients()
     fetchPendingInvites()
-    fetchGroups()
   }, [])
   // Back on this tab (kept alive): refresh the roster in place, without the
   // loading state, so the list the coach left stays put while it updates.
   useTabReturn(() => { fetchClients({ silent: true }); fetchPendingInvites() })
 
-  async function fetchGroups() {
-    const [{ data: g, error: ge }, { data: m, error: me }] = await Promise.all([
-      supabase.from('coach_groups').select('id, name').eq('coach_id', profile.id).order('name'),
-      supabase.from('coach_group_members').select('group_id, client_id'),
-    ])
-    if (ge || me) { console.error(ge || me); return }
-    setGroups(g || [])
-    setMembers(m || [])
-  }
-
-  async function savePause() {
+  async function savePause(until, reason) {
     const c = pauseFor
     const { error } = await supabase.from('coach_clients')
-      .update({ paused_until: pauseUntil, pause_reason: pauseReason, paused_at: new Date().toISOString() })
+      .update({ paused_until: until, pause_reason: reason, paused_at: new Date().toISOString() })
       .eq('id', c.id)
     if (error) { showToast("Couldn't pause. Try again.", 'error'); return }
     setPauseFor(null)
-    showToast(`${c.client?.full_name || 'Client'} paused until ${new Date(pauseUntil + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`, 'success')
+    showToast(`${c.client?.full_name || 'Client'} paused until ${shortDay(until)}.`, 'success')
     fetchClients({ silent: true })
   }
 
@@ -221,34 +208,6 @@ function CoachDashboard({ profile }) {
     if (error) { showToast("Couldn't resume. Try again.", 'error'); return }
     showToast(`${c.client?.full_name || 'Client'} is back on the roster.`, 'success')
     fetchClients({ silent: true })
-  }
-
-  async function toggleMember(groupId, clientId, on) {
-    const q = on
-      ? supabase.from('coach_group_members').insert({ group_id: groupId, client_id: clientId })
-      : supabase.from('coach_group_members').delete().eq('group_id', groupId).eq('client_id', clientId)
-    const { error } = await q
-    if (error) { showToast("Couldn't update the group. Try again.", 'error'); return }
-    setMembers(prev => on ? [...prev, { group_id: groupId, client_id: clientId }] : prev.filter(m => !(m.group_id === groupId && m.client_id === clientId)))
-  }
-
-  async function createGroup(clientId) {
-    const name = newGroup.trim()
-    if (!name) return
-    if (groups.some(g => g.name.toLowerCase() === name.toLowerCase())) { showToast('You already have a group with that name.', 'error'); return }
-    const { data, error } = await supabase.from('coach_groups').insert({ coach_id: profile.id, name }).select('id, name').single()
-    if (error) { showToast("Couldn't create the group. Try again.", 'error'); return }
-    setGroups(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
-    setNewGroup('')
-    if (clientId) toggleMember(data.id, clientId, true)
-  }
-
-  async function deleteGroup(g) {
-    const { error } = await supabase.from('coach_groups').delete().eq('id', g.id)
-    if (error) { showToast("Couldn't delete the group. Try again.", 'error'); return }
-    setGroups(prev => prev.filter(x => x.id !== g.id))
-    setMembers(prev => prev.filter(m => m.group_id !== g.id))
-    if (groupFilter === g.id) setGroupFilter('')
   }
 
   // One message to each client in the group, each a normal message in their
@@ -307,7 +266,7 @@ function CoachDashboard({ profile }) {
 
     const { data: relationships, error } = await supabase
       .from('coach_clients')
-      .select('id, coach_id, client_id, status, created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks, paused_until, pause_reason')
+      .select('id, coach_id, client_id, status, created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks, checkin_weekday, paused_until, pause_reason')
       .eq('coach_id', profile.id)
       .eq('status', 'active')
 
@@ -965,53 +924,15 @@ CHECK-IN is their latest adherence and energy, out of 10.`}>Clients</InfoTip></h
         actions={menuFor ? [
           clientStats[menuFor.client_id]?.pausedUntil
             ? { label: 'Resume coaching', icon: 'repeat', onSelect: () => resumeClient(menuFor) }
-            : { label: 'Pause coaching', icon: 'calendar', onSelect: () => {
-                const d = new Date(); d.setDate(d.getDate() + 7)
-                setPauseUntil(toLocalDateString(d)); setPauseReason('Holiday'); setPauseFor(menuFor)
-              } },
-          { label: 'Groups', icon: 'grip', onSelect: () => { setNewGroup(''); setGroupsFor(menuFor) } },
+            : { label: 'Pause coaching', icon: 'calendar', onSelect: () => setPauseFor(menuFor) },
+          { label: 'Groups', icon: 'grip', onSelect: () => setGroupsFor(menuFor) },
         ] : []}
       />
 
-      <Modal open={Boolean(pauseFor)} title={`Pause ${pauseFor?.client?.full_name?.split(' ')[0] || 'client'}`} onClose={() => setPauseFor(null)} maxWidth={420} sheet>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
-          <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>
-            No grades, nudges or check-in reminders until then, and their progress view stays open. Coaching resumes by itself.
-          </p>
-          <Field label="Until" type="date" value={pauseUntil} min={toLocalDateString(new Date())} onChange={(e) => setPauseUntil(e.target.value)} />
-          <div>
-            <p style={{ margin: '0 0 var(--space-6)', fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Reason</p>
-            <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
-              {PAUSE_REASONS.map(r => <Pill key={r} active={pauseReason === r} aria-pressed={pauseReason === r} onClick={() => setPauseReason(r)}>{r}</Pill>)}
-            </div>
-          </div>
-          <Button variant="primary" onClick={savePause} disabled={!pauseUntil}>Pause coaching</Button>
-        </div>
-      </Modal>
+      <PauseSheet open={Boolean(pauseFor)} name={pauseFor?.client?.full_name} onClose={() => setPauseFor(null)} onSave={savePause} />
 
-      <Modal open={Boolean(groupsFor)} title="Groups" onClose={() => setGroupsFor(null)} maxWidth={420} sheet>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
-          {groups.length === 0 && (
-            <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: 'var(--text-sm)' }}>Label clients to filter the list and message them together, like "Online" or "In person".</p>
-          )}
-          {groups.map(g => {
-            const on = groupsFor && members.some(m => m.group_id === g.id && m.client_id === groupsFor.client_id)
-            return (
-              <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
-                <div style={{ flex: 1 }}><Checkbox checked={Boolean(on)} onChange={(v) => toggleMember(g.id, groupsFor.client_id, v)}>{g.name}</Checkbox></div>
-                <Button variant="ghost" size="sm" ariaLabel={`Delete group ${g.name}`} onClick={() => deleteGroup(g)}><Icon name="trash" /></Button>
-              </div>
-            )
-          })}
-          <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
-            <Field placeholder="New group" aria-label="New group" value={newGroup} maxLength={40}
-              onChange={(e) => setNewGroup(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') createGroup(groupsFor?.client_id) }}
-              style={{ flex: 1, width: 'auto' }} />
-            <Button variant="muted" size="md" onClick={() => createGroup(groupsFor?.client_id)} disabled={!newGroup.trim()}>Add</Button>
-          </div>
-        </div>
-      </Modal>
+      <GroupsSheet open={Boolean(groupsFor)} clientId={groupsFor?.client_id} api={groupApi} onClose={() => setGroupsFor(null)}
+        onDeleted={(g) => { if (groupFilter === g.id) setGroupFilter('') }} />
 
       <Modal open={broadcastOpen} title={`Message ${groups.find(g => g.id === groupFilter)?.name || 'group'}`} onClose={() => setBroadcastOpen(false)} maxWidth={480} sheet>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>

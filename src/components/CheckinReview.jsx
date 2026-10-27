@@ -3,6 +3,21 @@ import { Icon, Textarea } from './ui'
 import Button from './Button'
 import { formatAnswer } from '../utils/checkinQuestions'
 import { parseLocalDateString } from '../utils/dateHelpers'
+import CheckinWeek from './CheckinWeek'
+
+// The written part of a check-in for the compact history entry: every answer
+// that is not a 1-10 rating (those go on the ratings line), blanks left out.
+function readOnlyTexts(c) {
+  if (Array.isArray(c.answers) && c.answers.length > 0) {
+    return c.answers
+      .filter(a => a.type !== 'rating' && a.value != null && String(a.value).trim() !== '')
+      .map(a => ({ label: a.prompt, value: formatAnswer(a) }))
+  }
+  return [
+    c.obstacles && { label: 'Obstacles', value: c.obstacles },
+    c.notes && { label: 'Notes for coach', value: c.notes },
+  ].filter(Boolean)
+}
 
 // The body of a check-in, and the act of reviewing it.
 //
@@ -20,7 +35,16 @@ import { parseLocalDateString } from '../utils/dateHelpers'
 // MOUNT ONE PER CHECK-IN. The comment box is state in here, so both callers key
 // this component by the check-in's id; reusing an instance across two different
 // check-ins carries one client's half-typed note into another's box.
-export default function CheckinReview({ checkIn, current = true, reviewing = false, onReview, footer = null }) {
+//
+// `readOnly` is for an older check-in opened from the history list: no comment
+// box, an unreviewed one just says so, and only what the row above it does
+// not already show (the period's numbers, the written answers, the review),
+// rather than a second full card inside the list.
+//
+// With `clientId`, the period's numbers (CheckinWeek) sit under the week line:
+// the answers and what actually happened, read together. `intervalWeeks` sets
+// the period's length and `weightUnit` the reader's unit.
+export default function CheckinReview({ checkIn, readOnly = false, current = true, reviewing = false, onReview, footer = null, clientId = null, intervalWeeks = 1, weightUnit = null }) {
   const [comment, setComment] = useState('')
 
   if (!checkIn) {
@@ -38,12 +62,27 @@ export default function CheckinReview({ checkIn, current = true, reviewing = fal
       {/* ALWAYS name the week it covers. A heading says how recent it is; this
           says exactly which one, so a coach is never reading ratings without
           knowing what they are ratings OF. */}
-      <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-10)' }}>
+      {/* Not in the history list, whose row already names the week. */}
+      {!readOnly && <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-10)' }}>
         Week of {parseLocalDateString(checkIn.week_of).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
         {!current && <> · <span style={{ color: 'var(--color-warning)' }}>none since</span></>}
-      </p>
+      </p>}
 
-      {custom ? (
+      {clientId && <CheckinWeek clientId={clientId} weekOf={checkIn.week_of} intervalWeeks={intervalWeeks} weightUnit={weightUnit} compact={readOnly} />}
+
+      {readOnly ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+          {/* No ratings line: the history row this opens from already reads
+              "Adherence 10 · Energy 8". */}
+          {readOnlyTexts(checkIn).map(t => (
+            <div key={t.label}>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: '0 0 var(--space-2)' }}>{t.label}</p>
+              <p style={{ fontSize: 'var(--text-base)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{t.value}</p>
+            </div>
+          ))}
+        </div>
+      ) : 
+      custom ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
           {checkIn.answers.map((a, i) => (
             <div key={a.question_id || i}>
@@ -90,6 +129,8 @@ export default function CheckinReview({ checkIn, current = true, reviewing = fal
             )}
             {footer}
           </>
+        ) : readOnly ? (
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Not reviewed</p>
         ) : (
           <>
             <Textarea

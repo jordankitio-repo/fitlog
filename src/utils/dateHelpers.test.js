@@ -181,3 +181,26 @@ describe('checkinPeriod / checkinPeriodStart', () => {
     expect(checkinPeriod(undefined, d).weekOf).toBe(checkinPeriod(1, d).weekOf)
   })
 })
+
+describe('check-in day', () => {
+  it('Saturday (the default) keeps the Sunday-to-Saturday periods', () => {
+    const d = new Date(2026, 9, 21) // Wed
+    expect(checkinPeriod(1, d, 6).weekOf).toBe(checkinPeriod(1, d).weekOf)
+    expect(checkinPeriodStart(1, d, 6).getDay()).toBe(0)
+  })
+  it('a Monday check-in day runs Tuesday to Monday and is due on the Monday', () => {
+    const wed = new Date(2026, 9, 21)
+    const p = checkinPeriod(1, wed, 1)
+    expect(p.start.getDay()).toBe(2) // Tuesday
+    expect(p.end.getDay()).toBe(1)   // Monday
+    expect(toLocalDateString(p.start)).toBe('2026-10-20')
+    expect(checkinPeriod(1, new Date(2026, 9, 26), 1).dueWindow).toBe(true)  // the Monday itself
+    expect(checkinPeriod(1, new Date(2026, 9, 27), 1).weekOf).toBe('2026-10-27') // next period from Tuesday
+  })
+  it('multi-week periods keep fixed boundaries on the chosen day', () => {
+    const a = checkinPeriod(2, new Date(2026, 9, 21), 3)
+    const b = checkinPeriod(2, addDays(a.start, 13), 3)
+    expect(b.weekOf).toBe(a.weekOf)
+    expect(a.end.getDay()).toBe(3) // due on a Wednesday
+  })
+})

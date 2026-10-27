@@ -173,10 +173,13 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
           {/* axis hint */}
           <div className="cb-axis" style={{ display: 'grid', gridTemplateColumns: `var(--cb-label, ${LABEL_COL}px) 1fr var(--cb-value, ${VALUE_COL}px)`, alignItems: 'center', gap: 10 }}>
             <span />
-            <div className="cb-axis-keys" style={{ position: 'relative', fontSize: 'var(--text-xs)', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              <span style={{ position: 'absolute', left: 0 }}>under</span>
-              <span style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>target</span>
-              <span style={{ position: 'absolute', right: 0 }}>over</span>
+            {/* The two ends only. A third word pinned to the centre collided
+                with both on a phone's narrow bar column ("UNDERTARGET OVER");
+                the centre is the target tick, and the line above already
+                says "vs Target". */}
+            <div className="cb-axis-keys" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span>under</span>
+              <span>over</span>
             </div>
             <span />
           </div>

@@ -103,7 +103,15 @@ export function attentionLevel(stats) {
     .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone])
 
   const worst = graded[0]
-  const reasons = graded.filter(g => g.tone !== 'green').map(g => g.text)
+  // "Nothing logged" (compliance) says again what the logging grade already
+  // said ("Never logged", "6 days no log"), so it is dropped when that grade
+  // is up: the client record's header read "Never logged · No check-in ·
+  // Nothing logged".
+  const loggingDown = gradeLogging(stats).tone !== 'green'
+  const reasons = graded
+    .filter(g => g.tone !== 'green')
+    .filter(g => !(loggingDown && g.text === 'Nothing logged'))
+    .map(g => g.text)
   // Carry the winning grade's fix through, so Attention can offer it too.
   // 'setup' still RANKS as yellow so it does not sink to the bottom with the
   // greens; only its colour differs.

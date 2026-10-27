@@ -18,7 +18,17 @@ import { toLocalDateString } from './dateHelpers'
 // `calorieTarget`: the client's daily calorie target.
 
 // A day counts as "on target" within +/- this fraction of the target.
-const ON_TARGET_BAND = 0.1
+export const ON_TARGET_BAND = 0.1
+
+// One definition of an on-target CALORIE day for every surface: the heatmap's
+// 90-110% band. The roster's grade used "at least 90%", so a client eating
+// 140% of target every day was "On track" on the same page whose heatmap
+// counted zero days on target. Over is not on target for calories.
+export function calorieDayOnTarget(total, target) {
+  if (!(total > 0) || !(target > 0)) return false
+  const ratio = total / target
+  return ratio >= 1 - ON_TARGET_BAND && ratio <= 1 + ON_TARGET_BAND
+}
 // Minimum logged days in EACH segment before we'll name a weaker one.
 const MIN_DAYS_PER_SEGMENT = 3
 

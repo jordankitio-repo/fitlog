@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { latestCheckIn, coversPeriod } from './checkinLookup'
+import { latestCheckIn, coversPeriod, checkinRatings } from './checkinLookup'
 import { checkinPeriod } from './dateHelpers'
 
 // Thursday 22 Oct 2026. That week's Sunday is Oct 18; the two-week block
@@ -39,5 +39,35 @@ describe('coversPeriod', () => {
   it('is false for nothing at all', () => {
     expect(coversPeriod(null, checkinPeriod(1, THU))).toBe(false)
     expect(coversPeriod({ week_of: '2026-10-18' }, null)).toBe(false)
+  })
+})
+
+describe('checkinRatings', () => {
+  it('reads the two fixed ratings of the original form, skipping blanks', () => {
+    expect(checkinRatings({ adherence_rating: 4, energy_level: null })).toEqual([{ id: 'adherence', label: 'Adherence', value: 4 }])
+  })
+  it('reads every rating question of a custom form by question id', () => {
+    const c = { answers: [
+      { question_id: 'a', type: 'rating', prompt: 'Sleep', value: '7' },
+      { question_id: 'b', type: 'text', prompt: 'Wins', value: 'ok' },
+      { question_id: 'c', type: 'rating', prompt: 'Hunger', value: null },
+    ] }
+    expect(checkinRatings(c)).toEqual([{ id: 'a', label: 'Sleep', value: 7 }])
+  })
+  it('is empty for nothing', () => {
+    expect(checkinRatings(null)).toEqual([])
+  })
+})
+
+describe('coversPeriod after the check-in day moves', () => {
+  it('a check-in sent inside the period counts even if filed under an earlier key', () => {
+    const period = checkinPeriod(1, new Date(2026, 10, 1), 1) // Sun Nov 1, due Mondays: Oct 27-Nov 2
+    const sentSaturday = { week_of: '2026-10-25', created_at: new Date(2026, 9, 31, 10).toISOString() }
+    expect(coversPeriod(sentSaturday, period)).toBe(true)
+  })
+  it('one sent before the period started does not', () => {
+    const period = checkinPeriod(1, new Date(2026, 10, 1), 1)
+    const old = { week_of: '2026-10-25', created_at: new Date(2026, 9, 25, 10).toISOString() }
+    expect(coversPeriod(old, period)).toBe(false)
   })
 })

@@ -30,6 +30,10 @@
 	<string>Gardnr reads your steps, weigh-ins and workouts so they appear in your log and your coach can see them, and your height, sex and date of birth to fill in your profile.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Gardnr saves the weigh-ins you type into it to Apple Health, so your weight history is complete in one place.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Gardnr uses the camera for the progress photos you choose to take. Only you and your coach can see them.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Gardnr opens your photo library so you can pick progress photos. Only you and your coach can see them.</string>
 	<!-- Home screen Quick Actions (press and hold the icon). Each type is
 	     handed to the web app, which routes it (src/utils/quickActions.js). -->
 	<key>UIApplicationShortcutItems</key>

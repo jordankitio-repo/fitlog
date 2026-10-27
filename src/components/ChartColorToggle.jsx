@@ -1,10 +1,17 @@
 // Small grey toggle switch to turn a chart's target-coloring on/off. "On" =
 // colored by target (default); off = plain metric color. Stops click
 // propagation so it doesn't collapse the section.
+//
+// It says what it does. It was a bare switch with only a hover title, so on a
+// phone (no hover) a coach met an unlabelled switch in a chart header and had
+// to flip it to find out. The visible words are the accessible name too.
 export default function ChartColorToggle({ plain, onToggle }) {
   const on = !plain
   return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-6)' }}>
+    <span aria-hidden="true" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>By target</span>
     <button
+      aria-label="Colour bars by target"
       type="button"
       role="switch"
       aria-checked={on}
@@ -26,5 +33,6 @@ export default function ChartColorToggle({ plain, onToggle }) {
         transition: 'left 0.2s ease',
       }} />
     </button>
+    </span>
   )
 }

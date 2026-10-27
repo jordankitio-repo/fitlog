@@ -30,22 +30,14 @@ import {
 import PullToRefresh from '../components/PullToRefresh'
 import DayStepper from '../components/DayStepper'
 import TodayPanel from '../components/TodayPanel'
+import { METRIC_SOURCES } from '../utils/metricSources'
+import { PhotoSlots } from '../components/ProgressPhotos'
 import { todayCells } from '../utils/todayCells'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
 }
 
-// Where a day's weight or step count came from, named on its row. Mirrors the
-// source check constraint, which is the same list on weight_log and steps_log.
-const METRIC_SOURCES = {
-  manual: 'Logged by hand',
-  apple_health: 'Apple Health',
-  health_connect: 'Health Connect',
-  withings: 'Withings',
-  whoop: 'WHOOP',
-  google_health: 'Google Health',
-}
 
 const EXERCISE_TYPES = [
   'Running', 'Cycling', 'Elliptical', 'Swimming',
@@ -2529,6 +2521,19 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
         )}
 
+      </div>
+
+      {/* Progress photos: the day's front / side / back. Taking them lives
+          here with the other things you log; comparing them is a trend, so
+          it lives on Progress (and on the coach's record of you). */}
+      <div style={sectionStyle}>
+        <h2>Progress photos</h2>
+        <PhotoSlots
+          userId={session.user.id}
+          date={selectedDate}
+          privacyNote={profile?.role === 'client' ? 'Only you and your coach can see these.' : 'Only you can see these.'}
+          onToast={showToast}
+        />
       </div>
       </>)}
 

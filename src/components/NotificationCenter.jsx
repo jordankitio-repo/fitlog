@@ -99,7 +99,7 @@ export default function NotificationCenter({ profile }) {
 
     if (profile?.role === 'coach') {
       const { data: rels } = await supabase.from('coach_clients')
-        .select('client_id, created_at, lock_cleared_at, checkin_interval_weeks, paused_until').eq('coach_id', uid).eq('status', 'active')
+        .select('client_id, created_at, lock_cleared_at, checkin_interval_weeks, checkin_weekday, paused_until').eq('coach_id', uid).eq('status', 'active')
       const relationships = rels || []
       const ids = relationships.map((r) => r.client_id)
       const names = {}

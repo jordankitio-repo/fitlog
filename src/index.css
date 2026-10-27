@@ -1597,6 +1597,14 @@ input.dob-field {
   input.dob-field {
     font-size: var(--text-sm) !important;
   }
+  /* Same for a small select set beside a small button (the check-in
+     frequency beside "Questions"): at 16px it stood 34px tall against the
+     button's 30. A select opens a picker, not a keyboard, so there is no
+     caret for iOS to zoom to (see utils/iosInputZoom); verified on the iOS
+     simulator's Safari. */
+  select.select-sm {
+    font-size: var(--text-sm) !important;
+  }
 }
 
 /* Button press — same blanket, same exclusion. A designed control sinks its
@@ -1822,6 +1830,11 @@ nav a:hover {
   body.has-bottom-nav .ds-toast {
     bottom: calc(76px + max(0px, calc(env(safe-area-inset-bottom, 0px) - 10px)));
   }
+  /* And over the chat button where there is one: they shared a corner, so
+     "Paused until Nov 2" read as "Paused until No" behind the bubble. */
+  body.has-bottom-nav.has-chat-fab .ds-toast {
+    bottom: calc(76px + 68px + max(0px, calc(env(safe-area-inset-bottom, 0px) - 10px)));
+  }
 }
 
 /* Smooth transitions on all interactive elements */
@@ -1951,6 +1964,7 @@ button, a, input, select, textarea {
   bottom: 24px;
   right: 24px;
 }
+body.has-chat-fab .ds-toast { bottom: 92px; }
 
 /* Chat bubble (bottom-right per-thread widget) */
 .chat-launcher {
@@ -3218,3 +3232,119 @@ html.native-app .push-panel { top: calc(56px + env(safe-area-inset-top, 0px)); }
    the text up to read them. */
 .log-macro-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html[data-text-grown] .log-macro-line { white-space: normal; overflow: visible; }
+
+/* Client record header: who they are, in one muted line. */
+.cv-head-facts { font-size: var(--text-sm); color: var(--color-muted); }
+/* Pinned above anything the record promotes with `order: -1` (a check-in
+   waiting on review, on a phone). */
+.cv-main > .cv-backbar, .cv-main > .cv-head-m { order: -2; }
+/* Earlier check-ins: a row each, opening in place. */
+.cv-ci-row {
+  display: flex; align-items: center; gap: var(--space-12); width: 100%;
+  padding: var(--space-12) 0; background: none; border: 0; text-align: left;
+  font: inherit; color: var(--color-text); cursor: pointer; min-height: 44px;
+}
+.cv-ci-row-when { font-size: var(--text-base); min-width: 56px; }
+.cv-ci-row-val { flex: 1; font-size: var(--text-sm); color: var(--color-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Progress photos (components/ProgressPhotos.jsx). */
+.pp-slot-label {
+  position: absolute; left: var(--space-6); bottom: var(--space-6);
+  padding: 2px var(--space-6); border-radius: 6px;
+  font-size: var(--text-xs); color: #fff; background: rgba(0, 0, 0, 0.45);
+}
+.pp-retry { background: none; border: 0; padding: 0; font: inherit; color: var(--color-primary); cursor: pointer; text-decoration: underline; }
+.pp-open:focus-visible, .pp-strip-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.pp-strip { display: flex; gap: var(--space-8); overflow-x: auto; padding-bottom: var(--space-4); scrollbar-width: none; }
+.pp-strip::-webkit-scrollbar { display: none; }
+.pp-strip-item {
+  flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+}
+/* The photo viewer: always dark, whatever the theme, the way Photos is. */
+.pp-view {
+  position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column;
+  background: #000; color: #fff;
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  animation: pp-view-in 160ms ease;
+}
+@keyframes pp-view-in { from { opacity: 0; } to { opacity: 1; } }
+.pp-view-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); padding: var(--space-12) var(--space-16); }
+.pp-view-close, .pp-view-arrow {
+  display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+  border-radius: 999px; border: 0; background: rgba(255, 255, 255, 0.14); color: #fff; cursor: pointer;
+}
+.pp-view p { color: #fff; }
+/* Dark glass, not white: a white 14% disc vanished over a light photo. */
+.pp-view-arrow { position: absolute; top: 50%; margin-top: -22px; background: rgba(30, 30, 30, 0.72); }
+.pp-view-arrow:disabled { opacity: 0.3; cursor: default; }
+.pp-view-stage { flex: 1; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 0 var(--space-16) var(--space-16); }
+.pp-view-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; transition: transform 180ms ease; user-select: none; }
+
+/* A long private note shows --clamp lines until opened. */
+.cv-note-clamp {
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--clamp, 6); line-clamp: var(--clamp, 6); overflow: hidden;
+}
+
+/* Client record: a flagged note named in the header. Text colour, medium
+   weight; the glyph and the "+N" muted. Truncates rather than wraps. */
+.cv-head-flags {
+  display: inline-flex; align-items: center; gap: var(--space-6); max-width: 100%; min-width: 0;
+  font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text); text-decoration: none;
+}
+.cv-head-flags > svg, .cv-head-flags-more { color: var(--color-muted); flex-shrink: 0; }
+.cv-head-flags-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* Pointer devices only: iOS keeps :hover after a tap, which left the line
+   underlined once the coach came back from Notes. */
+@media (hover: hover) { .cv-head-flags:hover .cv-head-flags-text { text-decoration: underline; } }
+/* Notes search sits at the list's own width, not the roster toolbar's. */
+.rost-search.cv-note-search { margin-left: 0; width: 100%; max-width: 360px; order: 0; }
+.cv-note-mark { background: color-mix(in srgb, var(--color-warning) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+
+/* A stat card that opens its chart: the surface lights on hover, like every
+   other tile (D2: never the border). */
+@media (hover: hover) {
+  .stat-card-link:hover { background-color: color-mix(in srgb, var(--color-text) 4%, var(--color-surface)) !important; }
+}
+/* !important: cardStyle sets the resting background inline. */
+.stat-card-link:active { background-color: color-mix(in srgb, var(--color-text) 6%, var(--color-surface)) !important; }
+.stat-card-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* A jump to a record section (the rail, a deep link, a stat card) lands the
+   section's title below the sticky app bar, not under it. 16px of air beyond
+   the bar's height. */
+[id^="section-"] { scroll-margin-top: calc(var(--app-header-h, 72px) + var(--space-16)); }
+
+/* A check-in's period in numbers (components/CheckinWeek): the roster's stat
+   strip, four cells, hairlines between. Wraps to two by two on a phone. */
+.ci-week {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: var(--space-12);
+  padding: var(--space-12) 0; margin-bottom: var(--space-12);
+  border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);
+}
+.ci-week-cell { min-width: 0; }
+.ci-week-label { font-size: var(--text-xs); color: var(--color-muted); }
+.ci-week-value { font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--color-text); white-space: nowrap; }
+.ci-week-value.is-compact { font-size: var(--text-base); }
+.ci-week-sub { font-size: var(--text-xs); color: var(--color-muted); }
+@media (max-width: 600px) {
+  .ci-week { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ci-week .ds-statcell:nth-child(3) { padding-left: 0; border-left: 0; }
+}
+
+/* Compare check-ins (components/CheckinCompare): label, before, after. */
+.cic-row {
+  display: grid; grid-template-columns: minmax(84px, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr);
+  gap: var(--space-12); align-items: baseline; padding: var(--space-8) 0;
+}
+.cic-row + .cic-row { border-top: 1px solid var(--color-border); }
+.cic-label { font-size: var(--text-sm); color: var(--color-muted); }
+.cic-cell { font-size: var(--text-base); color: var(--color-text); }
+.cic-cell.is-strong { font-weight: var(--weight-semibold); }
+.cic-texts { display: grid; grid-template-columns: minmax(84px, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr); gap: var(--space-12); }
+.cic-texts::before { content: ''; } /* the label column, so answers sit under Before / After */
+/* The rating trend rows over the Earlier list. */
+.ci-trend { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-6) 0; max-width: 420px; }
+.ci-trend-label { flex: 1; min-width: 0; font-size: var(--text-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-trend-value { font-size: var(--text-base); font-weight: var(--weight-semibold); min-width: 40px; text-align: right; }

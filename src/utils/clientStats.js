@@ -4,10 +4,11 @@
 // drift. Pure data — returns the stats map, no React/setState.
 import { supabase } from '../supabase'
 import { resolveLockState } from './lockState'
-import { toLocalDateString, checkinPeriod } from './dateHelpers'
+import { toLocalDateString, checkinPeriod, DEFAULT_CHECKIN_WEEKDAY } from './dateHelpers'
 import { latestCheckIn, coversPeriod } from './checkinLookup'
+import { calorieDayOnTarget } from './complianceBreakdown'
 
-// relationships: [{ client_id, created_at, lock_cleared_at, checkin_interval_weeks }]
+// relationships: [{ client_id, created_at, lock_cleared_at, checkin_interval_weeks, checkin_weekday }]
 // — needed for lock state + per-client check-in cadence. Pass [] to skip lock
 // resolution (stats still compute, lock = active, cadence = weekly).
 export async function computeClientStats(clientIds, relationships = []) {
@@ -62,7 +63,7 @@ export async function computeClientStats(clientIds, relationships = []) {
 
     // Resolve THIS client's current-period check-in from their cadence.
     const interval = relationship?.checkin_interval_weeks || 1
-    const period = checkinPeriod(interval)
+    const period = checkinPeriod(interval, new Date(), relationship?.checkin_weekday ?? DEFAULT_CHECKIN_WEEKDAY)
     // The LATEST, not one matched to this period's key — see checkinLookup.js.
     // Matching the key meant a check-in filed under a shorter cadence vanished
     // the moment the coach lengthened it, and the roster called the client
@@ -80,7 +81,7 @@ export async function computeClientStats(clientIds, relationships = []) {
       last7Days.forEach(date => {
         const dayTotal = nutritionData.filter(n => n.user_id === id && n.logged_date === date).reduce((sum, n) => sum + (n.calories || 0), 0)
         if (dayTotal > 0) logged++
-        if (dayTotal > 0 && dayTotal >= clientTargets.calories * 0.9) count++
+        if (calorieDayOnTarget(dayTotal, clientTargets.calories)) count++
       })
       complianceItems.push({ label: 'Calories', value: count, logged, hasData: logged > 0 })
     }
@@ -136,20 +137,20 @@ const NUDGE_WINDOW_MS = 48 * 60 * 60 * 1000
 export async function computeClientAlerts(userId) {
   const { data: connection } = await supabase
     .from('coach_clients')
-    .select('created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks, paused_until')
+    .select('created_at, lock_cleared_at, last_nudged_at, checkin_interval_weeks, checkin_weekday, paused_until')
     .eq('client_id', userId)
     .eq('status', 'active')
     .maybeSingle()
   if (!connection) return { hasCoach: false, lock: null, checkInDue: false, nudged: false }
 
   const today = toLocalDateString(new Date())
-  const period = checkinPeriod(connection.checkin_interval_weeks || 1)
+  const period = checkinPeriod(connection.checkin_interval_weeks || 1, new Date(), connection.checkin_weekday ?? DEFAULT_CHECKIN_WEEKDAY)
   const [lastLogRes, checkInRes] = await Promise.all([
     supabase.from('nutrition_log').select('logged_date').eq('user_id', userId).order('logged_date', { ascending: false }).limit(1).maybeSingle(),
     // Same rule as the coach's side: the latest one, then a range test. Keyed
     // on week_of this told a client their check-in was still due the day after
     // they filed it, if their coach had just lengthened the cadence.
-    supabase.from('check_ins').select('id, week_of').eq('client_id', userId)
+    supabase.from('check_ins').select('id, week_of, created_at').eq('client_id', userId)
       .order('week_of', { ascending: false }).limit(1),
   ])
 
@@ -171,5 +172,5 @@ export async function computeClientAlerts(userId) {
   const nudgedRecently = connection.last_nudged_at &&
     (Date.now() - new Date(connection.last_nudged_at).getTime() < NUDGE_WINDOW_MS)
 
-  return { hasCoach: true, lock, checkInDue, checkinIntervalWeeks: connection.checkin_interval_weeks || 1, nudged: Boolean(nudgedRecently && !loggedToday), pausedUntil: paused ? connection.paused_until : null }
+  return { hasCoach: true, lock, checkInDue, checkinIntervalWeeks: connection.checkin_interval_weeks || 1, checkinWeekday: connection.checkin_weekday ?? DEFAULT_CHECKIN_WEEKDAY, nudged: Boolean(nudgedRecently && !loggedToday), pausedUntil: paused ? connection.paused_until : null }
 }

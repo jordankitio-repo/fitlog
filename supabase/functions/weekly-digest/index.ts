@@ -122,12 +122,19 @@ async function runDigest() {
       .gte('logged_date', startDate)
       .lte('logged_date', endDate)
 
-    const thisWeekSunday = getThisWeekSunday()
+    // Any check-in whose period started in the last week. It was "keyed to
+    // this Sunday", which only matched clients due on a Saturday: with a
+    // per-client check-in day (coach_clients.checkin_weekday) a period can
+    // start on any day. A client on a longer cadence whose period began
+    // before that reads as not checked in this week, which is what the
+    // digest's weekly column means.
+    const weekAgo = new Date(today)
+    weekAgo.setDate(today.getDate() - 6)
     const { data: checkIns } = await supabase
       .from('check_ins')
       .select('client_id, week_of')
       .in('client_id', clientIds)
-      .eq('week_of', thisWeekSunday)
+      .gte('week_of', formatDate(weekAgo))
 
     const rows = clientList.map((client: any) => {
       const target = (allTargets || []).find((t: any) => t.user_id === client.id)
@@ -318,9 +325,3 @@ function formatDisplay(d: Date) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function getThisWeekSunday() {
-  const now = new Date()
-  const sunday = new Date(now)
-  sunday.setDate(now.getDate() - now.getDay())
-  return formatDate(sunday)
-}

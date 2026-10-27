@@ -3,7 +3,7 @@
 // them (a client rewriting their relationship row; a coach messaging someone
 // who is not their client).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { admin, makeUser, relate, cleanupUsers } from './helpers.js'
+import { makeUser, relate, cleanupUsers } from './helpers.js'
 
 let coach, client, otherCoach, otherClient
 const all = []

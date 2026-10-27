@@ -8,6 +8,7 @@ import TrendsPanel from '../components/TrendsPanel'
 import Button from '../components/Button'
 import Skeleton from '../components/Skeleton'
 import SectionHeader from '../components/SectionHeader'
+import { PhotoCompare } from '../components/ProgressPhotos'
 import SoloUpgrade from '../components/SoloUpgrade'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
@@ -23,7 +24,8 @@ import { CHART } from '../utils/chartTheme'
 import { refreshNotifications } from '../utils/notifyRefresh'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
-import { checkinPeriod, toLocalDateString } from '../utils/dateHelpers'
+import { checkinPeriod, toLocalDateString, DEFAULT_CHECKIN_WEEKDAY, WEEKDAYS } from '../utils/dateHelpers'
+import { coversPeriod } from '../utils/checkinLookup'
 import { measurementStatus } from '../utils/measurementCadence'
 import { convertWeight, normUnit, unitLabel } from '../utils/weightTarget'
 import { cadenceLabel } from '../utils/cadence'
@@ -196,6 +198,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [checkInSaved, setCheckInSaved] = useState(false)
   const [existingCheckIn, setExistingCheckIn] = useState(null)
   const [checkinInterval, setCheckinInterval] = useState(1)
+  const [checkinWeekday, setCheckinWeekday] = useState(DEFAULT_CHECKIN_WEEKDAY)
+  const [checkinRequested, setCheckinRequested] = useState(false)
+  const [coveringCheckIn, setCoveringCheckIn] = useState(null)
   const [questions, setQuestions] = useState([])      // coach's custom check-in questions (empty = legacy form)
   const [answers, setAnswers] = useState({})          // { [questionId]: value }
   const [notice, setNotice] = useState(null)          // branded one-button notice message, or null
@@ -538,10 +543,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   async function fetchCheckIn() {
     const userId = (await supabase.auth.getSession()).data.session.user.id
     const { data: rel } = await supabase
-      .from('coach_clients').select('coach_id, checkin_interval_weeks')
+      .from('coach_clients').select('coach_id, checkin_interval_weeks, checkin_weekday, checkin_requested_at')
       .eq('client_id', userId).eq('status', 'active').maybeSingle()
     const interval = rel?.checkin_interval_weeks || 1
+    const weekday = rel?.checkin_weekday ?? DEFAULT_CHECKIN_WEEKDAY
     setCheckinInterval(interval)
+    setCheckinWeekday(weekday)
 
     // The coach's custom questionnaire (empty → legacy 4-field form).
     let qs = []
@@ -553,13 +560,24 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     }
     setQuestions(qs)
 
-    const weekOf = checkinPeriod(interval).weekOf
-    const { data, error } = await supabase
+    // The latest one, counted by the coach's rule (coversPeriod), not looked
+    // up by this period's exact key: after the coach moves the check-in day
+    // the key moves too, and a client who had already checked in was shown
+    // "To do" and, on submitting, filed a second one for the same week.
+    const period = checkinPeriod(interval, new Date(), weekday)
+    const { data: rows, error } = await supabase
       .from('check_ins').select('*')
       .eq('client_id', userId)
-      .eq('week_of', weekOf).maybeSingle()
+      .order('week_of', { ascending: false }).limit(1)
     if (error) { console.error(error); return }
-    setExistingCheckIn(data || null)
+    const covering = coversPeriod(rows?.[0], period) ? rows[0] : null
+    // A check-in the coach asked for off schedule, not yet answered: the card
+    // asks for a NEW one even if this period's is already in.
+    const requested = rel?.checkin_requested_at && !(rows?.[0]?.created_at && rows[0].created_at >= rel.checkin_requested_at)
+    setCheckinRequested(Boolean(requested))
+    setCoveringCheckIn(covering)
+    const data = requested ? null : covering
+    setExistingCheckIn(data)
 
     if (qs.length) {
       const vals = {}
@@ -595,7 +613,12 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     }
 
     const { data: { session: currentSession } } = await supabase.auth.getSession()
-    const weekOf = checkinPeriod(checkinInterval).weekOf
+    // Editing this period's check-in updates THAT row, whatever key it was
+    // filed under; a new one takes the current period's key.
+    // A requested check-in when this period's is already in is a new one,
+    // keyed by today; otherwise it is this period's.
+    const weekOf = existingCheckIn?.week_of
+      || (checkinRequested && coveringCheckIn ? toLocalDateString(new Date()) : checkinPeriod(checkinInterval, new Date(), checkinWeekday).weekOf)
 
     // Get coach info
     const { data: coachRelation } = await supabase
@@ -784,7 +807,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       }
     },
     scales: {
-      x: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } },
+      x: { ticks: { color: CHART.tick, maxRotation: 0, autoSkip: true, autoSkipPadding: 12 }, grid: { color: CHART.grid } },
       y: { ticks: { color: CHART.tick }, grid: { color: CHART.grid } }
     }
   }
@@ -1298,13 +1321,16 @@ function Dashboard({ profile, hasSoloPremium = true }) {
             title={`${cadenceLabel(checkinInterval)} check-in`}
             collapsed={sectionsCollapsed.checkin}
             onToggle={() => toggleSection('checkin')}
-            badge={!existingCheckIn ? 'To do' : null}
-            badgeColor="var(--color-error)"
+            badge={checkinRequested ? 'Requested' : !existingCheckIn ? 'To do' : null}
+            // A request is an ask, not a miss: amber, not the overdue red.
+            badgeColor={checkinRequested ? 'var(--color-warning)' : 'var(--color-error)'}
           >
               <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', margin: 'var(--space-8) 0' }}>
                 {existingCheckIn
                   ? (checkinInterval > 1 ? <><Icon name="check" /> Submitted this period</> : <><Icon name="check" /> Submitted this week</>)
-                  : 'Let your coach know how your week went.'}
+                  : checkinRequested
+                    ? 'Your coach asked for a check-in now, outside your usual schedule.'
+                    : `Due ${WEEKDAYS[checkinWeekday]}. Let your coach know how your week went.`}
               </p>
               <Button
                 onClick={() => setShowCheckIn(!showCheckIn)}
@@ -1422,6 +1448,13 @@ function Dashboard({ profile, hasSoloPremium = true }) {
           </SectionHeader>
         </div>
       )}
+
+      {/* Progress photos, compared: the change a scale and a tape miss. */}
+      <div key="photos" style={cardStyle}>
+        <SectionHeader title="Progress photos">
+          <PhotoCompare userId={profile?.id} unit={weightDisplayUnit} emptyText="Add front, side and back photos on Today." />
+        </SectionHeader>
+      </div>
 
       {/* Logging consistency — Solo Premium self-analytics. Descriptive only:
           best week, weekday/weekend split, and a 90-day heatmap. Reports the

@@ -11,7 +11,7 @@ export function escapeHtml(value: unknown) {
     .replace(/'/g, '&#39;')
 }
 
-export type NudgeReason = 'log' | 'checkin' | 'measurements'
+export type NudgeReason = 'log' | 'checkin' | 'checkin_request' | 'measurements' | 'photos'
 
 export function buildNudgeEmail(opts: {
   reason?: string
@@ -30,6 +30,13 @@ export function buildNudgeEmail(opts: {
     body = `${safeCoachName} is waiting on this week's check-in. It takes two minutes and helps them tune your plan.`
     ctaLabel = 'Check in'
     ctaHref = 'https://www.gardnr.fit/'
+  } else if (opts.reason === 'checkin_request') {
+    // Off schedule: the coach wants one now, whatever the cadence says.
+    subject = 'Your coach asked for a check-in'
+    heading = 'Quick check-in?'
+    body = `${safeCoachName} would like a check-in from you now, outside your usual schedule. It takes two minutes.`
+    ctaLabel = 'Check in'
+    ctaHref = 'https://www.gardnr.fit/'
   } else if (opts.reason === 'measurements') {
     // Asked ON DEMAND, outside the tape cadence (measurementCadence.js keeps
     // the routine). No day count: the client is not behind on a schedule.
@@ -37,6 +44,13 @@ export function buildNudgeEmail(opts: {
     heading = 'Time for a tape check'
     body = `${safeCoachName} would like your latest body measurements. Grab a tape measure when you get a moment — it takes a couple of minutes, and it shows the progress the scale misses.`
     ctaLabel = 'Add measurements'
+    ctaHref = 'https://www.gardnr.fit/log'
+  } else if (opts.reason === 'photos') {
+    // Asked on demand, like measurements: no schedule, no day count.
+    subject = 'Your coach asked for progress photos'
+    heading = 'Time for progress photos'
+    body = `${safeCoachName} would like a new set of progress photos: front, side and back, in the same spot and light as last time. Only you and your coach can see them.`
+    ctaLabel = 'Add photos'
     ctaHref = 'https://www.gardnr.fit/log'
   } else {
     // 'log' (default): re-engage a client who's gone quiet.

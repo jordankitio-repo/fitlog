@@ -960,3 +960,109 @@ the phone screen (only a report sheet is tall now).
 **Leftovers:** no message button on the phone row; group names cannot be
 renamed (delete and recreate); a row does not show its groups.
 
+
+### 10.20 Coach: client record (Oct 26 2026), full review
+
+**Market** (Trainerize profile, TrueCoach client updates, Everfit profile,
+Kahunas Progress Overlay):
+- Must-have, built at the user's go (20261026030000_progress_photos):
+  **progress photos**. Client: front / side / back slots for the day on
+  Today (add, replace, delete with a confirm), and a Photos card on
+  Progress. Coach: a Progress photos section on the record (a Trends chip on
+  the phone) with a Request button (nudge email "photos"). Compare: two
+  dates of one pose side by side, or a slider (Kahunas's Progress Overlay).
+  Private bucket, signed URLs, readable by the owner and the ACTIVE coach
+  only (not a former coach, not the coach's other clients), written by the
+  owner only, re-encoded in the browser (drops EXIF/GPS), purged by
+  delete-account. tests/rls/progressPhotos.test.js (8) + erasure contract.
+- Must-have, built: **check-in history** (the record showed only the latest
+  one; now "Earlier" lists the six before it, opening in place; a "↓ from 5"
+  beside each rating was tried and removed at the user's call: the Earlier
+  rows already show the run); **pause and groups on the
+  record** (the roster's ⋯ menu and sheets, shared in
+  components/ClientSheets.jsx); **who this is** (goal · client since ·
+  groups under the name, Trainerize's profile header).
+- Nice-to-have, open: custom metrics (TrueCoach); a pinned note at the top
+  (Everfit users ask for it); body composition widgets (Trainerize).
+**Trend:** AI meeting prep and report drafts exist (Groundwork); automatic
+nudges exist (roster rule). Built: device-synced values are named on the
+record's Today's stats ("Apple Health" under steps, weight, cardio), from
+the same list the client's Today uses (utils/metricSources.js).
+**Best practices, steps:** review a waiting check-in on a phone was two
+screens of scrolling past the day's stats and adherence; it is now straight
+under the header (0 scrolls). Pause a client from the record: 3 taps (was:
+back to the roster, find them, 3 taps).
+**Fixed on the way:** a paused client's header showed nothing and still
+offered Nudge; now "Paused until Nov 2 · Holiday", muted, and no Nudge.
+Opening ANY non-tab page from a scrolled page kept the scroll (a client
+opened from a roster scrolled 700px down landed mid-record); pushed pages
+now open at the top and Back restores (App.jsx).
+**Checklist pass:** light, dark, largest text, phone and desktop; pause,
+resume, groups add/delete, pause failure (toast, sheet stays open).
+**Photo review (market pass, Oct 26):** added what Everfit / Azeoo / FitSW
+lead with: the weigh-in nearest each photo on the photo and in the caption
+(utils/progressPhotos weightNear, within 3 days, in the reader's unit), the
+change between the two compared dates ("-2.7 lb · 34 days apart"), a
+timeline of every date of the pose, and a full-screen viewer (tap to zoom,
+arrows, keys, swipe). One name on both sides: "Progress photos". Open
+(decision with the user): a ghost overlay of the last photo in the camera
+(Progressly, ProgressCam), which needs our own camera screen.
+**Photo leftovers:** the hosted demo sandbox has no photos table until it is
+migrated (the simulator build points at it, so its Photos card says
+"Couldn't load photos" until then); the Consumer Health Data Policy must
+name progress photos before launch, and the Phase 2 data export must
+include them; photos attached to a check-in (Trainerize, Everfit) is
+nice-to-have; real iPhone: the camera / library permission prompts and a
+capture from the camera; the photo picker inside the installed PWA (the
+Safari tab was tested, the home-screen app was not: the simulator's home
+button would not respond to automation); a tap on a sheet row never reaching
+the button underneath (seen once on the simulator, not reproduced).
+**Safari pass (Oct 26):** fixed the toast hiding under the chat button
+("Paused until No"), photos not refreshing when you return to Progress or
+Today (kept tabs), and the slider drawing in iOS blue.
+
+
+**Section-by-section pass (Oct 26, phone, MacBook-size WebKit, iPhone Safari,
+light/dark/largest text, a never-logged client):**
+- Status said "On track" over a heatmap of 0 days on target: the roster grade
+  counted calories at >=90% with no ceiling. Now one rule for every surface,
+  `calorieDayOnTarget` (90-110%, complianceBreakdown.js).
+- Weight read in the logged unit in places (lb card, kg Trends row): the record
+  now shows every weight in its one display unit (the goal's).
+- Today's stats: metric colours on the labels (B2 says labels are neutral); now
+  grey labels with a metric-coloured progress bar, as the client's Today.
+- Nutrition rows match the client's own Today rows ("691 kcal", serving and
+  macros beneath); meal totals take thousands separators.
+- Adherence: "Days logged" caption over the six logging tiles; zeros muted (no
+  green 0); middle grades amber, not the primary action green; the weekday
+  axis no longer prints "UNDERTARGET OVER".
+- Charts: dates "Aug 27", level, thinned to fit (were "08-27" at 45 degrees);
+  the Calories legend has a grade swatch (it had none); the colour switch is
+  labelled "By target" (it was a bare switch).
+- Notes: dated entries in the app's type (were one monospace box); a failed
+  save now says so and keeps the text.
+- Coaching offers Pause before Offboard; Targets says "Ava sees these on their
+  Today tab" (was "dashboard") and is 720px wide at most on a laptop.
+- A never-logged client: "Never logged · No check-in · Nothing logged" lost
+  its repeat; six red zeros are muted.
+**Private notes, one row per note (20261026040000_coach_note_entries):** the
+single text field could lose a note (two open copies, the second save wrote
+back a text without the first), let "Edit history" wipe everything at once,
+and rendered every note on every open. Now: add is an insert, edit and delete
+per note (confirm), ten at a time with "Show older notes", a long note shows
+six lines with "Show more", 5,000 characters a note with a counter near the
+limit. Old notes were split into rows with their dates (time not kept: the old
+stamps had no zone); coach_notes is left untouched as the backup and is no
+longer read. Meeting prep gets the ten newest, dated.
+**Notes, market pass (Oct 26):** built what closes the gap with Trainerize:
+flag a note (pinned under "Flagged" and named in the record's header, linking
+to Notes), delete with Undo instead of a confirm (the same row comes back), and
+search across every note (database-side, highlighted, shown once there are
+more than five). Open, in order of value:
+- Note templates (intake, consult; Practice Better's ADIME/SOAP-style), matters
+  most if dietitians are a target.
+- A note tied to a check-in or a day, shown in that context.
+- Notes shared between coaches, once team accounts exist.
+- AI: "summarise this client's notes", "draft a note from this check-in"
+  (meeting prep already reads the flagged and the ten newest).
+- Compliance: the Phase 2 data export must include coach_note_entries.

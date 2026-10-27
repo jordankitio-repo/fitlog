@@ -104,3 +104,14 @@ describe('complianceBreakdown', () => {
     expect(r.insufficient).toBe(false)
   })
 })
+
+describe('calorieDayOnTarget', () => {
+  it('is the heatmap band: 90 to 110 percent, inclusive', async () => {
+    const { calorieDayOnTarget } = await import('./complianceBreakdown')
+    expect(calorieDayOnTarget(1800, 2000)).toBe(true)
+    expect(calorieDayOnTarget(2200, 2000)).toBe(true)
+    expect(calorieDayOnTarget(2800, 2000)).toBe(false) // 140%: over, not on target
+    expect(calorieDayOnTarget(1700, 2000)).toBe(false)
+    expect(calorieDayOnTarget(0, 2000)).toBe(false)
+  })
+})

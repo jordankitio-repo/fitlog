@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { lazy, Suspense, useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import { supabase } from './supabase'
 import { useSessionPolicy } from './hooks/useSessionPolicy'
@@ -190,14 +190,19 @@ function AppRoutes({ session, profile, subscription, soloSubscription, hasSoloPr
     target.addEventListener('scroll', onScroll, { passive: true })
     return () => target.removeEventListener('scroll', onScroll)
   }, [])
+  // Any other page starts at the top when it is opened, and is put back where
+  // it was left when it is returned to (Back). It used to be left alone, so a
+  // client record opened from a roster scrolled 700px down opened 700px down,
+  // somewhere in the middle of that client's stats.
+  const navType = useNavigationType()
   useLayoutEffect(() => {
     scrollPath.current = path
-    if (!KEPT_TABS.includes(path)) return
+    if (!KEPT_TABS.includes(path) && navType !== 'POP') scrollTops.current[path] = 0
     const top = scrollTops.current[path] ?? 0
     const root = document.getElementById('root')
     if (document.documentElement.classList.contains('native-app') && root) root.scrollTop = top
     else window.scrollTo(0, top)
-  }, [path])
+  }, [path, navType])
   // A PWA launched from the home screen opens at `/` and wants the sign-in form.
   // A stranger who tapped a link in a browser — at any width — wants the landing.
   //

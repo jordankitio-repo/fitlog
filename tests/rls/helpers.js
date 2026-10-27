@@ -79,7 +79,7 @@ export async function cleanupUsers(users) {
     try { await admin.from(t).delete().in('user_id', ids) } catch { /* noop */ }
   }
   try { await admin.from('checkin_questions').delete().in('coach_id', ids) } catch { /* noop */ }
-  for (const t of ['check_ins', 'reports', 'messages', 'coach_notes']) {
+  for (const t of ['check_ins', 'reports', 'messages', 'coach_notes', 'coach_note_entries']) {
     try { await admin.from(t).delete().or(`client_id.in.(${ids.join(',')}),coach_id.in.(${ids.join(',')})`) } catch { /* noop */ }
   }
   try { await admin.from('coach_clients').delete().or(`coach_id.in.(${ids.join(',')}),client_id.in.(${ids.join(',')})`) } catch { /* noop */ }

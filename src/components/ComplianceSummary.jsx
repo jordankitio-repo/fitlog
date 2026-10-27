@@ -86,7 +86,9 @@ export default function ComplianceSummary({ logsByDate, calorieTarget, variant =
       {cells.map(c => (
         <span key={c.label} className="ds-statcell" style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center', alignItems: 'center' }}>
           <span style={labelStyle}>{c.label}</span>
-          <span className="tnum" style={{ ...numStyle, color: c.color || 'var(--color-text)' }}>{c.num}</span>
+          {/* A zero takes no grade colour: "On target 0" in green read as good
+              news, and a red 0 under Under as bad news about nothing. */}
+          <span className="tnum" style={{ ...numStyle, color: c.num === 0 ? 'var(--color-muted)' : (c.color || 'var(--color-text)') }}>{c.num}</span>
         </span>
       ))}
     </div>

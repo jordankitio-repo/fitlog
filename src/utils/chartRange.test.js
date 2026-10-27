@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bucketHistory, hasValues, padToWindow, rangeByKey, RANGES, DEFAULT_RANGE } from './chartRange'
+import { bucketHistory, hasValues, padToWindow, rangeByKey, RANGES, DEFAULT_RANGE, axisDay } from './chartRange'
 
 const ASOF = new Date(2026, 9, 15, 12, 0, 0) // 15 Oct 2026
 
@@ -33,7 +33,7 @@ describe('bucketHistory — W and M', () => {
 
   it('labels daily points MM-DD and leaves the values alone', () => {
     const out = bucketHistory(history, 'steps', 'W', { asOf: ASOF })
-    expect(out[0].date).toBe(daysBefore(6).slice(5))
+    expect(out[0].date).toBe(axisDay(daysBefore(6)))
     expect(out[out.length - 1].steps).toBe(1039)
   })
 
@@ -142,7 +142,7 @@ describe('padToWindow', () => {
     const w = padToWindow(rows, 'steps', 'W', { asOf })
     expect(w.at(-1)).toBe(rows[1])
     expect(w.at(-2)).toBe(rows[0])
-    expect(w[0]).toEqual({ iso: '2026-10-19', date: '10-19', steps: null })
+    expect(w[0]).toEqual({ iso: '2026-10-19', date: 'Oct 19', steps: null })
   })
 
   it('keeps every weigh-in on a day with more than one', () => {

@@ -219,3 +219,10 @@ describe('paused clients', () => {
     expect(r.atRisk + r.review + r.onTrack).toBe(2)
   })
 })
+
+describe('attention reasons do not repeat themselves', () => {
+  it('drops "Nothing logged" when the logging grade already says it', () => {
+    const t = attentionLevel({ daysSinceLog: null, complianceItems: [{ label: 'Calories', value: 0, logged: 0, hasData: false }], checkIn: null })
+    expect(t.reasons).toEqual(['Never logged', 'No check-in'])
+  })
+})
