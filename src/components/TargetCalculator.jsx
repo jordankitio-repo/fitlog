@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import WheelSelect from './WheelSelect'
 import Button from './Button'
 import { cmToFtIn, convertWeight, ftInToCm } from '../utils/biometrics'
 import { estimateTargets, ACTIVITY_LEVELS, PACES } from '../utils/targetEstimate'
@@ -97,10 +98,10 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <div>
           <label style={labelStyle}>Sex</label>
-          <select value={sex} onChange={(e) => setSex(e.target.value)} style={inputStyle}>
+          <WheelSelect value={sex} onChange={(e) => setSex(e.target.value)} style={inputStyle}>
             <option value="male">Male</option>
             <option value="female">Female</option>
-          </select>
+          </WheelSelect>
         </div>
         <div>
           <label style={labelStyle}>Age</label>
@@ -156,15 +157,15 @@ export default function TargetCalculator({ defaultWeightUnit = 'lbs', initial = 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <div>
           <label style={labelStyle}>Activity</label>
-          <select value={activity} onChange={(e) => setActivity(e.target.value)} style={inputStyle}>
+          <WheelSelect value={activity} onChange={(e) => setActivity(e.target.value)} style={inputStyle}>
             {ACTIVITY_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
-          </select>
+          </WheelSelect>
         </div>
         <div>
           <label style={labelStyle}>Pace</label>
-          <select value={pace} onChange={(e) => setPace(e.target.value)} style={inputStyle}>
+          <WheelSelect value={pace} onChange={(e) => setPace(e.target.value)} style={inputStyle}>
             {PACES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-          </select>
+          </WheelSelect>
         </div>
       </div>
 

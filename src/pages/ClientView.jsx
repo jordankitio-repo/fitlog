@@ -49,6 +49,8 @@ import { PhotoCompare } from '../components/ProgressPhotos'
 import Sparkline from '../components/Sparkline'
 import Reveal from '../components/Reveal'
 import CheckinCompare from '../components/CheckinCompare'
+import CheckinBuilder from '../components/CheckinBuilder'
+import { Wheel } from '../components/WheelSelect'
 import { sourceLabel } from '../utils/metricSources'
 import { shortDay } from '../utils/pause'
 import { energyBalanceRead, WINDOW_OPTIONS, WINDOW_DATA_DAYS } from '../utils/energyBalanceRead'
@@ -83,7 +85,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { Icon, Pill, Field, Select, Textarea, Notice } from '../components/ui'
+import { Icon, Pill, Field, Select, Textarea } from '../components/ui'
 import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
@@ -253,6 +255,9 @@ const THREAD_REPORTS = 8
 // Private notes load ten at a time; a long note shows NOTE_CLAMP_LINES lines
 // until opened. NOTE_MAX matches the database's check on a note's length.
 const NOTES_PAGE = 10
+// Notes shown on the record itself (more read as a wall); the rest are in
+// All notes, the way check-ins keep four and send the rest to All check-ins.
+const NOTES_ON_PAGE = 5
 // Earlier check-ins load ten at a time.
 const CHECKIN_PAGE = 10
 // Earlier check-ins shown on the record itself; the rest are in All check-ins.
@@ -436,6 +441,11 @@ function ClientView({ profile }) {
   const [checkinMore, setCheckinMore] = useState(false)
   const [compareOpen, setCompareOpen] = useState(false)
   const [checkinArchiveOpen, setCheckinArchiveOpen] = useState(false)
+  const [checkinMenuOpen, setCheckinMenuOpen] = useState(false)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [questionsOpen, setQuestionsOpen] = useState(false)
+  const touch = useMediaQuery('(pointer: coarse)')
+  const [noteArchiveOpen, setNoteArchiveOpen] = useState(false)
   // The newest progress photo's date, for the Photos row on a phone.
   // undefined = not loaded; null = none.
   const [latestPhotoDate, setLatestPhotoDate] = useState(undefined)
@@ -1149,10 +1159,11 @@ async function fetchStepsHistory() {
       setCheckinInterval(prev.weeks)
       setCheckinWeekday(prev.weekday)
       showToast('Could not update the check-in schedule. Try again.', 'error')
-    } else {
-      setPendingSchedule(null)
-      showToast(`Check-in schedule updated. ${clientFirstName} has been told.`)
+      return false
     }
+    setPendingSchedule(null)
+    showToast(`Check-in schedule updated. ${clientFirstName} has been told.`)
+    return true
   }
 
   async function reviewCheckIn(text = '') {
@@ -1681,6 +1692,15 @@ async function toggleFlag(note) {
       .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
 
+    // The week's notes, the same 7 days as the messages: the brief is about
+    // this week, so a quiet week sends none and a busy one sends them all.
+    // Flagged notes go in whatever their age (an injury stays relevant).
+    const { data: weekNotes } = await supabase
+      .from('coach_note_entries').select(NOTE_COLS)
+      .eq('coach_id', session.user.id).eq('client_id', clientId).eq('flagged', false)
+      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+
     const weekData = days.map(date => {
       const dayEntries = nutritionResult.data?.filter(e => e.logged_date === date) || []
       const dayWeight = weightResult.data?.find(w => w.logged_date === date)
@@ -1731,9 +1751,7 @@ async function toggleFlag(note) {
           clientName: clientProfile?.full_name || 'Client',
           weekData,
           checkIn: checkInPayload(checkInData),
-          // The newest few, dated, not the whole history: the brief is about
-          // now, and a years-long notes history would crowd out the week.
-          privateNotes: [...flaggedNotes.map(n => `FLAGGED ${noteDate(n)}: ${n.body}`), ...(notes || []).slice(0, NOTES_PAGE).map(n => `${noteDate(n)}: ${n.body}`)].join('\n\n'),
+          privateNotes: [...flaggedNotes.map(n => `FLAGGED ${noteDate(n)}: ${n.body}`), ...(weekNotes || []).map(n => `${noteDate(n)}: ${n.body}`)].join('\n\n'),
           recentMessages: messagesData || [],
           signals
         }),
@@ -2601,7 +2619,7 @@ async function sendMessage(text) {
                           the search box scrolled the whole card left. */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', height: 18, marginBottom: 'var(--space-4)' }}>
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', flex: 1, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                          {n.flagged && <Icon name="flag" size={12} aria-label="Flagged" />}
+                          {n.flagged && <Icon name="flag" size={12} aria-label="Flagged" style={{ color: 'var(--color-warning)' }} />}
                           {noteDate(n)}{n.updated_at ? ' · edited' : ''}
                         </span>
                         {!editing && (
@@ -3529,10 +3547,14 @@ async function sendMessage(text) {
           collapsed={isCollapsed('checkIn')}
           onToggle={sectionToggle('checkIn')}
           badge={railMeta.checkIn?.meta}
-          action={checkinRequestOpen ? (
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>Requested {shortDay(toLocalDateString(new Date(checkinRequestedAt)))}</span>
-          ) : (
-            <Button onClick={requestCheckin} variant="muted" size="sm" disabled={requestingCheckin}>{requestingCheckin ? 'Sending…' : 'Request'}</Button>
+          /* The section's settings, out of the way of the check-in itself:
+             the request, the schedule and the questions, behind one ⋯ in
+             the corner. They were a standing row of three controls under
+             every check-in a coach reads. */
+          menu={(
+            <button type="button" className="rost-m-more ds-control" onClick={() => setCheckinMenuOpen(true)} aria-label="Check-in options">
+              <Icon name="more" />
+            </button>
           )}
           badgeTone={railMeta.checkIn?.metaTone === 'success' ? 'soft' : 'solid'}
           badgeColor={railMeta.checkIn?.metaTone === 'success' ? 'var(--color-success)' : 'var(--color-warning)'}
@@ -3542,124 +3564,6 @@ async function sendMessage(text) {
               they were sitting above the thing they configure. On a narrow screen
               four wrapped chips took more of the box than the check-in did. */}
           <div className="cv-checkin">
-          {/* Check-in config: this client's cadence + a pointer to the shared
-              questionnaire (which is per-coach, so it lives on Profile). */}
-          {/* Grouped, not spread. `justify-content: space-between` threw the button
-              to the far edge of a 1,000px card, so a control and the action that
-              configures it sat 700px apart with nothing between them — related
-              by nothing except being on the same line. A3: 12px inside a group. */}
-          <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-16)', borderBottom: '1px solid var(--color-border)' }}>
-            {/* A SELECT, not four chips. The capsule means "a control you press
-                repeatedly" — the chart range chips, which a coach flips while
-                reading. A check-in cadence is set once per client and then left
-                alone, so by that same shape rule it is a VALUE, and a value
-                belongs in a field. Four chips also wrapped on a phone and took
-                more of this card than the check-in they configure, which the
-                layout comment above was already working around by reordering. */}
-            {/* A VISIBLE label, via Field's own `label` prop so the text and
-                the control are one <label> and the association is real. The
-                select shipped with only an aria-label, which left a sighted
-                coach a box reading "Weekly" and nothing saying weekly WHAT —
-                the four chips at least implied their own subject. It also
-                carries the accessible name now, so there is no second name in
-                an aria-label for a voice user to have to guess at.
-
-                Sized to Button `sm`, which is what sits beside it: controlStyle
-                is 10px/--text-base and rendered 39px against the 30px of
-                "Customize questions", and two controls on one row disagreeing
-                by 9px is the kind of thing that reads as sloppy without being
-                obviously wrong. */}
-            {/* `compact` labels, the same trick the consistency cells use
-                ("Streak" for "Current streak"). At 390px this row has 308px
-                and the full strings need 342 — the select alone is 157,
-                because a <select> sizes to its widest OPTION ("Every 4 weeks"),
-                and the button is 177. Shortening both puts them side by side
-                down to 360px; the section is already titled "This week's
-                check-in", so neither word is doing work the heading has not
-                already done. */}
-            <Select
-              className="select-sm"
-              label={compact ? 'Frequency' : 'Check-in frequency'}
-              value={pendingSchedule?.weeks ?? checkinInterval}
-              disabled={savingCadence}
-              onChange={(e) => stageSchedule({ weeks: Number(e.target.value) })}
-              style={{ width: 'auto', cursor: 'pointer', padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px' }}
-            >
-              {CADENCE_OPTIONS.map(opt => (
-                <option key={opt.weeks} value={opt.weeks}>{opt.label}</option>
-              ))}
-            </Select>
-            {/* The day it is due. Same small select, same staging: a period
-                ends on this day, so it decides when "Due" shows and when the
-                client is reminded. */}
-            <Select
-              className="select-sm"
-              label={compact ? 'Due' : 'Due on'}
-              value={pendingSchedule?.weekday ?? checkinWeekday}
-              disabled={savingCadence}
-              onChange={(e) => stageSchedule({ weekday: Number(e.target.value) })}
-              style={{ width: 'auto', cursor: 'pointer', padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px' }}
-            >
-              {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
-            </Select>
-            {/* The "applies to every client" caveat lives on this section's
-                TITLE (the SectionHeader `info` above). It used to be a bare
-                mark parked beside this button, which is the one shape F12 is
-                against — a glyph plus its margin, on a row a phone already
-                wraps. It could not become this button's own trigger either:
-                InfoTip's wrapper carries tabIndex and role="note", and nesting
-                a real button inside that gives a keyboard user two stops for
-                one control and announces the button as a note.
-
-                Rebase note: the incoming patch closed a <div> here, because it
-                was written when this row held four cadence chips. Main has
-                since made that a <Select>, so the tag is the one the current
-                structure needs, not the one the patch carried. */}
-            <Button
-              onClick={() => navigate('/profile?focus=questionnaire')}
-              variant="ghost"
-              size="sm"
-            >
-              {compact ? 'Questions' : 'Customize questions'} <Icon name="right" />
-            </Button>
-          </div>
-
-          {/* Staged, not applied. The copy names all three consequences,
-              because all three are invisible otherwise: the schedule moves,
-              the client is told, and the check-in this card shows follows the
-              new period — which is why the ratings appear to change when the
-              cadence does. */}
-          {pendingSchedule && (
-            <div style={{ marginBottom: 'var(--space-12)' }}>
-              <Notice
-                tone="warning"
-                icon={<><circle cx="12" cy="12" r="10" /><path d="M12 8v4l2.5 2.5" /></>}
-                action={(
-                  <span style={{ display: 'inline-flex', gap: 'var(--space-8)', flexShrink: 0 }}>
-                    <Button onClick={() => updateSchedule(pendingSchedule)} variant="primary" size="sm" disabled={savingCadence}>
-                      {savingCadence ? 'Saving…' : 'Update'}
-                    </Button>
-                    <Button onClick={() => setPendingSchedule(null)} variant="ghost" size="sm" disabled={savingCadence}>
-                      Cancel
-                    </Button>
-                  </span>
-                )}
-              >
-                Check-ins move from <strong>{scheduleLabel(checkinInterval, checkinWeekday)}</strong> to{' '}
-                <strong>{scheduleLabel(pendingSchedule.weeks, pendingSchedule.weekday)}</strong>. {clientFirstName} will be told,
-                and the check-in shown here follows the new period.
-                {(() => {
-                  // Say it when the move makes the check-in due today or
-                  // tomorrow: the client was told one day and now owes it at
-                  // once. Request covers a sooner one without moving the day.
-                  const p = checkinPeriod(pendingSchedule.weeks, new Date(), pendingSchedule.weekday)
-                  const daysLeft = p.intervalWeeks * 7 - 1 - p.daysIn
-                  if (daysLeft > 1 || coversPeriod(clientCheckIn, p)) return null
-                  return <> <strong>{clientFirstName}'s check-in becomes due {daysLeft === 0 ? 'today' : 'tomorrow'}.</strong></>
-                })()}
-              </Notice>
-            </div>
-          )}
           {/* The check-in itself lives in CheckinReview, shared with the
               review queue — see that file for what stayed here and why.
               NO footer here, deliberately. Reviewing from /check-ins is
@@ -3672,6 +3576,14 @@ async function sendMessage(text) {
               page mounted when only :clientId changes, so going from one
               client to another (from the bell, say) would otherwise carry the
               half-typed comment across. */}
+          {/* An open request, as a line in the card rather than a tag on the
+              title, where it crowded the heading. */}
+          {checkinRequestOpen && (
+            <p style={{ margin: '0 0 var(--space-8)', fontSize: 'var(--text-sm)', color: 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}>
+              <Icon name="message" size={14} />
+              You asked for a new check-in on {shortDay(toLocalDateString(new Date(checkinRequestedAt)))}.
+            </p>
+          )}
           <CheckinReview
             key={clientCheckIn?.id}
             checkIn={clientCheckIn}
@@ -3703,7 +3615,7 @@ async function sendMessage(text) {
                 {rows.map(r => (
                   <div key={r.id} className="ci-trend">
                     <span className="ci-trend-label">{r.label}</span>
-                    <Sparkline points={r.points} domain={[1, 10]} color="var(--color-text)" width={96} height={24} />
+                    <Sparkline points={r.points} domain={[1, 10]} color="var(--color-primary)" width={96} height={24} />
                     <span className="ci-trend-value tnum">{r.value}<span style={{ fontWeight: 'var(--weight-normal)', color: 'var(--color-muted)' }}>/10</span></span>
                   </div>
                 ))}
@@ -3791,10 +3703,10 @@ async function sendMessage(text) {
                     {flaggedNotes.length > 0 && <p className="ds-colhead" style={{ margin: 0 }}>Flagged</p>}
                     {flaggedNotes.map(renderNote)}
                     {flaggedNotes.length > 0 && notes.length > 0 && <p className="ds-colhead" style={{ margin: 'var(--space-4) 0 0' }}>Notes</p>}
-                    {notes.map(renderNote)}
-                    {notesMore && (
+                    {notes.slice(0, NOTES_ON_PAGE).map(renderNote)}
+                    {(notes.length > NOTES_ON_PAGE || notesMore) && (
                       <div>
-                        <Button onClick={() => fetchNotes({ older: true })} variant="ghost" size="sm">Show older notes</Button>
+                        <Button onClick={() => setNoteArchiveOpen(true)} variant="muted" size="sm">All notes</Button>
                       </div>
                     )}
                   </>
@@ -4357,6 +4269,99 @@ async function sendMessage(text) {
         { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteNote(noteMenu) },
       ] : []}
     />
+    {/* Every note, over the record: the page keeps five. Flagged stay on
+        top under their own caption, as on the page. */}
+    <Modal open={noteArchiveOpen} title="All notes" onClose={() => setNoteArchiveOpen(false)} maxWidth={640} sheet tall>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-20)' }}>
+        {flaggedNotes.length > 0 && <p className="ds-colhead" style={{ margin: 0 }}>Flagged</p>}
+        {flaggedNotes.map(renderNote)}
+        {flaggedNotes.length > 0 && notes?.length > 0 && <p className="ds-colhead" style={{ margin: 'var(--space-4) 0 0' }}>Notes</p>}
+        {(notes || []).map(renderNote)}
+        {notesMore && (
+          <div>
+            <Button onClick={() => fetchNotes({ older: true })} variant="ghost" size="sm">Show older</Button>
+          </div>
+        )}
+      </div>
+    </Modal>
+    <ActionSheet
+      open={checkinMenuOpen}
+      title="Check-in"
+      onClose={() => setCheckinMenuOpen(false)}
+      actions={[
+        { label: 'Request check-in', icon: 'message', onSelect: requestCheckin },
+        { label: 'Schedule', icon: 'calendar', onSelect: () => { setPendingSchedule(null); setScheduleOpen(true) } },
+        { label: 'Edit questions', icon: 'pencil', onSelect: () => setQuestionsOpen(true) },
+      ]}
+    />
+    {/* The questions, from the bottom like the menu that opened them, over
+        the record rather than a jump to Profile: a coach editing a question
+        mid-review stays on the client they were reading. The same editor
+        Profile uses. */}
+    <Modal open={questionsOpen} title="Check-in questions" onClose={() => setQuestionsOpen(false)} maxWidth={640} sheet tall>
+      {questionsOpen && <CheckinBuilder coachId={profile.id} />}
+    </Modal>
+    {/* The schedule: how often and which day, staged and confirmed here, with
+        what the change means for the client spelled out before it is saved. */}
+    <Modal open={scheduleOpen} title="Check-in schedule" onClose={() => { setScheduleOpen(false); setPendingSchedule(null) }} maxWidth={440} sheet>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+        {touch ? (
+          /* Two wheels side by side, the iOS picker with columns: on a phone
+             the schedule is set right here, not through two fields that each
+             open a wheel of their own. */
+          (() => {
+            const cols = [
+              ['Frequency', CADENCE_OPTIONS.map(o => ({ value: String(o.weeks), label: o.label })), String(pendingSchedule?.weeks ?? checkinInterval), (v) => stageSchedule({ weeks: Number(v) })],
+              ['Due', WEEKDAYS.map((d, i) => ({ value: String(i), label: d })), String(pendingSchedule?.weekday ?? checkinWeekday), (v) => stageSchedule({ weekday: Number(v) })],
+            ]
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                  {cols.map(([label]) => <span key={label} style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', textAlign: 'center' }}>{label}</span>)}
+                </div>
+                {/* One band across both columns, as iOS draws it. */}
+                <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                  <div className="wheel-band" aria-hidden="true" style={{ top: 80, height: 40 }} />
+                  {cols.map(([label, opts, val, set]) => (
+                    <Wheel key={label} label={label} band={false} options={opts} index={Math.max(0, opts.findIndex(o => o.value === val))} onIndex={(i) => set(opts[i].value)} />
+                  ))}
+                </div>
+              </div>
+            )
+          })()
+        ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+          <Select label="Frequency" value={pendingSchedule?.weeks ?? checkinInterval} disabled={savingCadence}
+            onChange={(e) => stageSchedule({ weeks: Number(e.target.value) })}>
+            {CADENCE_OPTIONS.map(opt => <option key={opt.weeks} value={opt.weeks}>{opt.label}</option>)}
+          </Select>
+          <Select label="Due on" value={pendingSchedule?.weekday ?? checkinWeekday} disabled={savingCadence}
+            onChange={(e) => stageSchedule({ weekday: Number(e.target.value) })}>
+            {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
+          </Select>
+        </div>
+        )}
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+          {pendingSchedule ? (
+            <>
+              From <strong style={{ color: 'var(--color-text)' }}>{scheduleLabel(checkinInterval, checkinWeekday)}</strong> to{' '}
+              <strong style={{ color: 'var(--color-text)' }}>{scheduleLabel(pendingSchedule.weeks, pendingSchedule.weekday)}</strong>. {clientFirstName} will be told.
+              {(() => {
+                // Say it when the move makes the check-in due today or
+                // tomorrow: the client was told one day and now owes it at
+                // once. Request covers a sooner one without moving the day.
+                const p = checkinPeriod(pendingSchedule.weeks, new Date(), pendingSchedule.weekday)
+                const daysLeft = p.intervalWeeks * 7 - 1 - p.daysIn
+                if (daysLeft > 1 || coversPeriod(clientCheckIn, p)) return null
+                return <> <strong style={{ color: 'var(--color-warning)' }}>The check-in becomes due {daysLeft === 0 ? 'today' : 'tomorrow'}.</strong></>
+              })()}
+            </>
+          ) : `${clientFirstName} checks in ${cadenceLabel(checkinInterval).toLowerCase()}, due ${WEEKDAYS[checkinWeekday]}s.`}
+        </p>
+        <Button variant="primary" style={{ width: '100%' }} disabled={!pendingSchedule || savingCadence} loading={savingCadence}
+          onClick={async () => { if (await updateSchedule(pendingSchedule)) setScheduleOpen(false) }}>Save</Button>
+      </div>
+    </Modal>
     {/* Every earlier check-in, over the record: the page keeps four. */}
     <Modal open={checkinArchiveOpen} title="All check-ins" onClose={() => setCheckinArchiveOpen(false)} maxWidth={640} sheet tall>
       <div className="cv-ci-sheet">

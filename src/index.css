@@ -3287,7 +3287,11 @@ html[data-text-grown] .log-macro-line { white-space: normal; overflow: visible; 
   display: inline-flex; align-items: center; gap: var(--space-6); max-width: 100%; min-width: 0;
   font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-text); text-decoration: none;
 }
-.cv-head-flags > svg, .cv-head-flags-more { color: var(--color-muted); flex-shrink: 0; }
+/* The flag glyph is amber (B3): a flagged note is a caution to read before
+   programming (an injury, an allergy), not a client in trouble (red). Same
+   tone on the note itself in Notes. */
+.cv-head-flags > svg { color: var(--color-warning); flex-shrink: 0; }
+.cv-head-flags-more { color: var(--color-muted); flex-shrink: 0; }
 .cv-head-flags-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 /* Pointer devices only: iOS keeps :hover after a tap, which left the line
    underlined once the coach came back from Notes. */
@@ -3408,3 +3412,31 @@ html[data-text-grown] .log-macro-line { white-space: normal; overflow: visible; 
    All check-ins sheet, which sits under the sheet's own header line. */
 .cv-ci-item { border-top: 1px solid var(--color-border); }
 .cv-ci-sheet > .cv-ci-item:first-child { border-top: 0; }
+
+/* WheelSelect on a phone: the field, and the iOS-style wheel in its sheet. */
+.wheel-field {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-8);
+  width: 100%; text-align: left; font: inherit; cursor: pointer;
+  background-color: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius);
+  padding: 10px 12px; color: var(--color-text); font-size: var(--text-base);
+}
+.wheel-field.select-sm { font-size: var(--text-sm); }
+.wheel-field:disabled { opacity: 0.5; cursor: default; }
+.wheel-field-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.wheel { position: relative; overflow: hidden; }
+.wheel-band {
+  position: absolute; left: 0; right: 0; pointer-events: none; border-radius: 10px;
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+.wheel-scroll {
+  position: relative; height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none; overscroll-behavior: contain;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 32%, #000 68%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 32%, #000 68%, transparent);
+}
+.wheel-scroll::-webkit-scrollbar { display: none; }
+.wheel-row {
+  display: flex; align-items: center; justify-content: center; scroll-snap-align: center;
+  font-size: var(--text-md); color: var(--color-text); cursor: pointer; user-select: none;
+  transition: opacity 120ms ease;
+}

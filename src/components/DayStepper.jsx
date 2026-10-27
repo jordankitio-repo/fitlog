@@ -34,7 +34,11 @@ export default function DayStepper({ value, onChange, compact = false }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexShrink: 0 }}>
       <Button onClick={() => step(-1)} variant="muted" size="sm" ariaLabel="Previous day"><Icon name="left" /></Button>
-      <span style={{ position: 'relative', display: 'inline-flex' }}>
+      {/* overflow + clip-path: an iOS date input keeps a minimum width of
+          its own, wider than this 44px button, and its invisible hit area
+          spilled over the `›` beside it, so tapping "next day" opened the
+          calendar. Clipped, it can only be hit where the button is. */}
+      <span style={{ position: 'relative', display: 'inline-flex', overflow: 'hidden', clipPath: 'inset(0 round var(--radius))', borderRadius: 'var(--radius)' }}>
         <Button variant="muted" size="sm" tabIndex={-1} aria-hidden="true" style={{ minWidth: compact ? 44 : 76 }}>{compact ? <Icon name="calendar" /> : label}</Button>
         <input
           type="date"

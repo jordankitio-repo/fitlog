@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import WheelSelect from './WheelSelect'
 import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -200,17 +201,17 @@ export default function CheckinBuilder({ coachId }) {
                       </div>
                       {openId === q.id && (
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', paddingLeft: 30 }}>
-                        <select value={q.type} onChange={(e) => changeType(q, e.target.value)} style={{ ...inputStyle, width: 'auto' }}>
+                        <WheelSelect value={q.type} onChange={(e) => changeType(q, e.target.value)} style={{ ...inputStyle, width: 'auto' }}>
                           {QUESTION_TYPES.map(t => <option key={t.type} value={t.type}>{t.label}</option>)}
-                        </select>
+                        </WheelSelect>
 
                         {q.type === 'rating' && (
                           <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             Scale
-                            <select value={q.config?.max || 10} onChange={(e) => patch(q.id, { config: { ...q.config, max: Number(e.target.value) } })} style={{ ...inputStyle, width: 'auto' }}>
+                            <WheelSelect value={q.config?.max || 10} onChange={(e) => patch(q.id, { config: { ...q.config, max: Number(e.target.value) } })} style={{ ...inputStyle, width: 'auto' }}>
                               <option value={5}>1–5</option>
                               <option value={10}>1–10</option>
-                            </select>
+                            </WheelSelect>
                           </label>
                         )}
                         {q.type === 'number' && (

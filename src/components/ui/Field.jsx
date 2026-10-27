@@ -2,9 +2,13 @@
 // `as`), optionally wrapped with a label + error. Textarea/Select are thin
 // presets. The shared style object lives in ./controlStyle.js.
 import { controlStyle } from './controlStyle'
+import WheelSelect from '../WheelSelect'
 
 export function Field({ as = 'input', label, error, style, children, ...rest }) {
-  const Tag = as
+  // A select is a WheelSelect: the native menu on a computer, the iOS-style
+  // wheel on a phone. It is told its label so the wheel's sheet can name it.
+  const Tag = as === 'select' ? WheelSelect : as
+  if (as === 'select' && label) rest = { ...rest, label }
   // A number input draws its own spinner at the padding edge, like a select's
   // arrow — the control's uniform 12px leaves it wedged against the border.
   const arrowRoom = rest.type === 'number' ? { paddingRight: 'var(--space-20)' } : null

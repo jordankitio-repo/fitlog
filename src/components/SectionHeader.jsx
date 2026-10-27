@@ -2,7 +2,9 @@ import InfoTip from './InfoTip'
 import Badge from './ui/Badge'
 import Icon from './ui/Icon'
 
-function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTone = 'solid', info, action, children, animated = true }) {
+// `menu`: a section's settings, as one control in the header's top-right
+// corner (a ⋯ button). Clicks on it never collapse the section.
+function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTone = 'solid', info, action, menu, children, animated = true }) {
   return (
     <>
       {/* No `onToggle` means this section does not collapse — so the header is
@@ -48,7 +50,10 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTon
               fact grey — the same "unread" reading as a call to action at panel
               level and as nothing-to-grade one line below it. B1: green must
               mean graded-and-good, never just "there are some". */}
-          {badge && <Badge tone={badgeTone} color={badgeColor || 'var(--color-primary)'}>{badge}</Badge>}
+          {/* Overhangs the row like the menu does, so a badged header is the
+              same height as a plain one and its title lines up with the drag
+              grip; grown, it sat 5px low. */}
+          {badge && <span style={{ display: 'inline-flex', margin: '-5px 0' }}><Badge tone={badgeTone} color={badgeColor || 'var(--color-primary)'}>{badge}</Badge></span>}
           {/* Action sits in the title cluster (not the right) so it never
               collides with the absolutely-positioned drag grip. */}
           {!collapsed && action}
@@ -57,6 +62,14 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTon
             shapes from whatever the OS picks, next to an icon set that is all
             feather line art. One mark (D4), rotated — the chevron pointing down
             is the same chevron pointing right. */}
+        {(menu || onToggle) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+        {/* Clear of the drag grip, which SortableCard pins 46px from the
+            card's right edge on a desktop (where the chevron also is). */}
+        {/* The negative block margin lets the button overhang the row
+            instead of growing it (the button is 44px, a touch target): grown, this header sat 11px lower than every
+            other section's, out of line with the drag grip beside it. */}
+        {menu && <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', margin: `-12px ${onToggle ? 'var(--space-32)' : '0'} -12px 0` }}>{menu}</span>}
         {onToggle && (
           <Icon
             name="right"
@@ -67,6 +80,8 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTon
               transition: 'transform 180ms ease',
             }}
           />
+        )}
+        </div>
         )}
       </div>
       {animated ? (

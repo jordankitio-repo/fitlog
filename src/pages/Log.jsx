@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useContext } from 'react'
+import WheelSelect from '../components/WheelSelect'
 import Reveal from '../components/Reveal'
 import { useSearchParams } from 'react-router-dom'
 import { DndContext, DragOverlay, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core'
@@ -1779,7 +1780,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <div style={{ padding: '10px 0', ...(cardioEntries.length > 0 && { borderTop: '1px solid var(--color-border)' }) }}>
               <p style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-base)', marginBottom: '8px' }}>{editingCardio ? editingCardio.exercise_type : 'New workout'}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {fieldLabel('Activity', <select value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                {fieldLabel('Activity', <WheelSelect value={exerciseType} onChange={(e) => setExerciseType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
                   {/* An imported name the short list lacks ("Pickleball") stays
                       selectable, or editing the row would quietly rename it to
                       the first option. */}
@@ -1787,7 +1788,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                     ? [editingCardio.exercise_type, ...EXERCISE_TYPES]
                     : EXERCISE_TYPES
                   ).map(t => <option key={t} value={t}>{t}</option>)}
-                </select>)}
+                </WheelSelect>)}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
                   {fieldLabel('Duration (min)', <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} style={inputStyle} />)}
                   {fieldLabel('Calories burned', <input type="number" value={caloriesBurned} onChange={(e) => setCaloriesBurned(e.target.value)} style={inputStyle} />)}
@@ -1849,10 +1850,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input ref={weightInputRef} type="number" inputMode="decimal" aria-label="Weight" value={weight} onChange={(e) => setWeight(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
-            <select aria-label="Unit" value={weightUnit} onChange={(e) => { setWeight(convertGoalValue(weight, weightUnit, e.target.value)); setWeightUnit(e.target.value) }} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
+            <WheelSelect aria-label="Unit" value={weightUnit} onChange={(e) => { setWeight(convertGoalValue(weight, weightUnit, e.target.value)); setWeightUnit(e.target.value) }} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
               <option value="lbs">lb</option>
               <option value="kg">kg</option>
-            </select>
+            </WheelSelect>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {savedWeight && <Button onClick={deleteWeight} variant="danger" size="sm">Delete</Button>}
@@ -2157,14 +2158,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 style={inputStyle}
               />, { flex: 1 })}
               {baseServingSize == null && (
-                <select value={servingUnit} onChange={(e) => setServingUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
+                <WheelSelect value={servingUnit} onChange={(e) => setServingUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
                   <option value="g">g</option>
                   <option value="oz">oz</option>
                   <option value="ml">ml</option>
                   <option value="cup">cup</option>
                   <option value="tbsp">tbsp</option>
                   <option value="tsp">tsp</option>
-                </select>
+                </WheelSelect>
               )}
             </div>
             {baseServingLabel && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>1 serving = {baseServingLabel}</p>}

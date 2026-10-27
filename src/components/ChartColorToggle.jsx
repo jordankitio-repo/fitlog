@@ -19,17 +19,19 @@ export default function ChartColorToggle({ plain, onToggle }) {
       title={on ? 'Switch to plain colors' : 'Color bars by target'}
       style={{
         width: '32px', height: '18px', borderRadius: '999px',
-        border: '1px solid var(--color-border)',
-        background: on ? '#4d4d4d' : 'var(--color-bg)',
+        // The app's switch colours (ui/Toggle): green on, grey off. It was
+        // dark grey when on, so it read as a different kind of control.
+        border: 'none',
+        background: on ? 'var(--color-primary)' : 'var(--color-border)',
         position: 'relative', cursor: 'pointer', padding: 0, flexShrink: 0,
         transition: 'background-color 0.2s ease',
       }}
     >
       <span style={{
-        position: 'absolute', top: '2px', left: on ? '15px' : '2px',
+        position: 'absolute', top: '3px', left: on ? '17px' : '3px',
         width: '12px', height: '12px', borderRadius: '50%',
-        background: 'linear-gradient(180deg, #ffffff, #d6d6d6)',
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.45)',
+        background: 'var(--color-on-accent)',
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
         transition: 'left 0.2s ease',
       }} />
     </button>

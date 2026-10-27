@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import WheelSelect from '../components/WheelSelect'
 import { supabase } from '../supabase'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useTabReturn } from '../hooks/useTabReturn'
@@ -652,7 +653,7 @@ CHECK-IN is their latest adherence and energy, out of 10.`}>Clients</InfoTip></h
                   </label>
                 )}
                 {groups.length > 0 && (
-                  <select
+                  <WheelSelect
                     className="rost-groupsel"
                     aria-label="Group"
                     value={groupFilter}
@@ -664,7 +665,7 @@ CHECK-IN is their latest adherence and energy, out of 10.`}>Clients</InfoTip></h
                         {g.name} ({members.filter(m => m.group_id === g.id).length})
                       </option>
                     ))}
-                  </select>
+                  </WheelSelect>
                 )}
                 {groupFilter && sortedClients.length > 0 && (
                   <Button variant="muted" size="sm" onClick={() => setBroadcastOpen(true)}>

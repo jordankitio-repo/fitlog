@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import WheelSelect from '../components/WheelSelect'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PushPanel from '../components/PushPanel'
 import { supabase } from '../supabase'
@@ -809,9 +810,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
             <div>
               <label style={lbl}>Activity level</label>
-              <select aria-label="Activity level" value={bio.activity_level} onChange={(e) => setBio({ ...bio, activity_level: e.target.value })} style={{ ...inputStyle, cursor: 'pointer' }}>
+              <WheelSelect aria-label="Activity level" value={bio.activity_level} onChange={(e) => setBio({ ...bio, activity_level: e.target.value })} style={{ ...inputStyle, cursor: 'pointer' }}>
                 {ACTIVITY_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
-              </select>
+              </WheelSelect>
             </div>
 
             <div>
@@ -1029,7 +1030,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               onChange={(e) => setTargets({ ...targets, weight_goal: e.target.value })}
               style={{ ...inputStyle, flex: 1 }}
             />
-            <select
+            <WheelSelect
               value={targets.weight_goal_unit}
               onChange={(e) => {
                 const unit = e.target.value
@@ -1040,7 +1041,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             >
               <option value="lbs">lb</option>
               <option value="kg">kg</option>
-            </select>
+            </WheelSelect>
           </div>
           {fieldError('weight_goal')}
         </div>
@@ -1076,7 +1077,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             description="Each morning, remind clients who stopped logging. Paused clients are skipped."
             stacked={isMobile}
           >
-            <select
+            <WheelSelect
               aria-label="Automatic nudges"
               value={autoNudgeDays ?? ''}
               onChange={(e) => saveAutoNudge(e.target.value ? Number(e.target.value) : null)}
@@ -1084,7 +1085,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
             >
               <option value="">Off</option>
               {[2, 3, 5, 7].map(d => <option key={d} value={d}>After {d} days</option>)}
-            </select>
+            </WheelSelect>
           </SettingRow>
           {autoNudgeSaved && <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-primary)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>Saved <Icon name="check" /></p>}
         </SectionPanel>
