@@ -3254,13 +3254,7 @@ html[data-text-grown] .log-macro-line { white-space: normal; overflow: visible; 
   font-size: var(--text-xs); color: #fff; background: rgba(0, 0, 0, 0.45);
 }
 .pp-retry { background: none; border: 0; padding: 0; font: inherit; color: var(--color-primary); cursor: pointer; text-decoration: underline; }
-.pp-open:focus-visible, .pp-strip-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-.pp-strip { display: flex; gap: var(--space-8); overflow-x: auto; padding-bottom: var(--space-4); scrollbar-width: none; }
-.pp-strip::-webkit-scrollbar { display: none; }
-.pp-strip-item {
-  flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
-  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
-}
+.pp-open:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 /* The photo viewer: always dark, whatever the theme, the way Photos is. */
 .pp-view {
   position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column;
@@ -3348,3 +3342,69 @@ html[data-text-grown] .log-macro-line { white-space: normal; overflow: visible; 
 .ci-trend { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-6) 0; max-width: 420px; }
 .ci-trend-label { flex: 1; min-width: 0; font-size: var(--text-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ci-trend-value { font-size: var(--text-base); font-weight: var(--weight-semibold); min-width: 40px; text-align: right; }
+
+/* Reveal (components/Reveal): a disclosure's content slides open and shut. */
+.reveal {
+  display: grid; overflow: hidden;
+  transition: grid-template-rows 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.reveal-inner {
+  min-height: 0; min-width: 0;
+  transition: opacity 200ms ease, transform 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Today: the Progress photos row (a card that opens the photo sheet). */
+.log-photo-row { display: flex !important; flex-direction: row !important; align-items: center; gap: var(--space-12); width: 100%; border: 0; font: inherit; cursor: pointer; text-align: left; }
+@media (hover: hover) { .log-photo-row:hover { background-color: color-mix(in srgb, var(--color-text) 4%, var(--color-surface)) !important; } }
+
+/* Progress photos: the side-by-side / slider switch, two glyphs in one small
+   group (a view control, not a filter chip). */
+.pp-view-switch {
+  display: inline-flex; padding: 2px; gap: 2px; flex-shrink: 0;
+  border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface);
+}
+.pp-view-switch button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 30px; border: 0; border-radius: 8px; cursor: pointer;
+  background: transparent; color: var(--color-muted); transition: background-color 140ms ease, color 140ms ease;
+}
+.pp-view-switch button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--color-text) 8%, var(--color-surface)); color: var(--color-text);
+}
+@media (hover: hover) { .pp-view-switch button:hover { color: var(--color-text); } }
+.pp-view-switch button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+
+/* Photo date picker (components/PhotoDatePicker). */
+.pdp-field {
+  display: flex; align-items: center; gap: var(--space-8); width: 100%; min-height: 36px;
+  padding: 6px 12px; border: 1px solid var(--color-border); border-radius: var(--radius);
+  background: var(--color-bg); color: var(--color-text); font: inherit; font-size: var(--text-sm); cursor: pointer;
+}
+.pdp-field:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.pdp { display: flex; flex-direction: column; gap: var(--space-12); }
+.pdp-head { display: flex; align-items: center; justify-content: space-between; }
+.pdp-nav {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+  border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface); color: var(--color-text); cursor: pointer;
+}
+.pdp-nav:disabled { opacity: 0.35; cursor: default; }
+.pdp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.pdp-dow { text-align: center; font-size: var(--text-xs); color: var(--color-muted); padding-bottom: 4px; }
+.pdp-day {
+  position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: var(--text-sm);
+  color: var(--color-faint); cursor: default;
+}
+.pdp-day.has { color: var(--color-text); font-weight: var(--weight-semibold); cursor: pointer; }
+.pdp-day.has::after {
+  content: ''; position: absolute; bottom: 5px; left: 50%; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: 999px; background: var(--color-primary);
+}
+@media (hover: hover) { .pdp-day.has:hover { background: color-mix(in srgb, var(--color-text) 6%, var(--color-surface)); } }
+.pdp-day.chosen { background: var(--color-primary-fill) !important; color: var(--color-on-primary-fill, #fff); }
+.pdp-day.chosen::after { background: currentColor; }
+.pdp-day.today:not(.chosen) { box-shadow: inset 0 0 0 1px var(--color-border); }
+/* Earlier check-ins: a hairline above each row, except the first one in the
+   All check-ins sheet, which sits under the sheet's own header line. */
+.cv-ci-item { border-top: 1px solid var(--color-border); }
+.cv-ci-sheet > .cv-ci-item:first-child { border-top: 0; }

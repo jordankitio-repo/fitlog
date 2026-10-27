@@ -335,7 +335,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       profile, targets, nutrition, weight, cardio, steps, measurements,
       savedMeals, savedMealItems, dayComplete, checkIns, messages, notifications,
       deviceConnections, deviceMetricSources, healthConsents,
-      emailPreferences,
+      emailPreferences, progressPhotos, coachNotes,
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase.from('targets').select('*').eq('user_id', userId),
@@ -354,7 +354,19 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       supabase.from('device_metric_preferences').select('*').eq('user_id', userId),
       supabase.from('health_data_consents').select('*').eq('user_id', userId).order('granted_at', { ascending: true }),
       supabase.from('notification_preferences').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('progress_photos').select('*').eq('user_id', userId).order('taken_on', { ascending: true }),
+      // A coach's private notes are the coach's own writing, so they are in
+      // the coach's export (and never in the client's).
+      supabase.from('coach_note_entries').select('*').eq('coach_id', userId).order('created_at', { ascending: true }),
     ])
+    // Photos are files, not rows: each record carries a download link good
+    // for seven days, which is how the JSON can hand over the images.
+    const photoRows = progressPhotos.data || []
+    let photoLinks = {}
+    if (photoRows.length) {
+      const { data: signed } = await supabase.storage.from('progress-photos').createSignedUrls(photoRows.map(r => r.path), 7 * 24 * 3600)
+      photoLinks = Object.fromEntries((signed || []).map(x => [x.path, x.signedUrl]))
+    }
 
     const payload = {
       exported_at: new Date().toISOString(),
@@ -376,6 +388,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       device_metric_preferences: deviceMetricSources.data || [],
       health_data_consents: healthConsents.data || [],
       notification_preferences: emailPreferences.data || null,
+      progress_photos: photoRows.map(r => ({ ...r, download_url_7_days: photoLinks[r.path] || null })),
+      coach_note_entries: coachNotes.data || [],
     }
 
     const filename = `gardnr-export-${todayStr()}.json`

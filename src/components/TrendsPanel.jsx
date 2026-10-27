@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Reveal from './Reveal'
 import Icon from './ui/Icon'
 import { hasTrend } from '../utils/progressTrends'
 
@@ -97,10 +98,10 @@ function TrendRow({ metric, open, onToggle, range }) {
           <span aria-hidden="true" style={{ width: '14px', flexShrink: 0 }} />
         )}
       </Tag>
-      {open && chart && (
-        <div id={`trend-chart-${key}`} className="trend-chart">
-          {chart(range)}
-        </div>
+      {chart && (
+        <Reveal open={open} id={`trend-chart-${key}`}>
+          <div className="trend-chart">{chart(range)}</div>
+        </Reveal>
       )}
     </div>
   )

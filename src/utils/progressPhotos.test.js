@@ -26,3 +26,14 @@ describe('datesFor', () => {
     expect(datesFor(photos, 'front')).toEqual(['2026-10-02', '2026-09-01'])
   })
 })
+
+describe('photoSets', () => {
+  it('groups by date, newest first', async () => {
+    const { photoSets } = await import('./progressPhotos')
+    const sets = photoSets([
+      { taken_on: '2026-09-01', pose: 'front' }, { taken_on: '2026-10-01', pose: 'side' }, { taken_on: '2026-09-01', pose: 'back' },
+    ])
+    expect(sets.map(s => s.date)).toEqual(['2026-10-01', '2026-09-01'])
+    expect(Object.keys(sets[1].byPose).sort()).toEqual(['back', 'front'])
+  })
+})

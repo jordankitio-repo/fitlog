@@ -4,6 +4,7 @@ import Button from './Button'
 import { formatAnswer } from '../utils/checkinQuestions'
 import { parseLocalDateString } from '../utils/dateHelpers'
 import CheckinWeek from './CheckinWeek'
+import { CheckinPhotos } from './ProgressPhotos'
 
 // The written part of a check-in for the compact history entry: every answer
 // that is not a 1-10 rating (those go on the ratings line), blanks left out.
@@ -69,6 +70,7 @@ export default function CheckinReview({ checkIn, readOnly = false, current = tru
       </p>}
 
       {clientId && <CheckinWeek clientId={clientId} weekOf={checkIn.week_of} intervalWeeks={intervalWeeks} weightUnit={weightUnit} compact={readOnly} />}
+      {clientId && <CheckinPhotos clientId={clientId} weekOf={checkIn.week_of} intervalWeeks={intervalWeeks} />}
 
       {readOnly ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
@@ -106,13 +108,13 @@ export default function CheckinReview({ checkIn, readOnly = false, current = tru
             </div>
           </div>
           {checkIn.obstacles && (
-            <div style={{ paddingTop: 'var(--space-4)' }}>
+            <div style={{ paddingTop: 'var(--space-16)' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 'var(--space-8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Obstacles</p>
               <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{checkIn.obstacles}</p>
             </div>
           )}
           {checkIn.notes && (
-            <div style={{ paddingTop: 'var(--space-4)' }}>
+            <div style={{ paddingTop: 'var(--space-16)' }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 'var(--space-8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes for coach</p>
               <p style={{ fontSize: 'var(--text-base)', lineHeight: '1.6' }}>{checkIn.notes}</p>
             </div>
@@ -120,7 +122,7 @@ export default function CheckinReview({ checkIn, readOnly = false, current = tru
         </>
       )}
 
-      <div style={{ paddingTop: 'var(--space-12)', marginTop: 'var(--space-4)', borderTop: '1px solid var(--color-border)' }}>
+      <div style={{ paddingTop: 'var(--space-12)', marginTop: 'var(--space-16)', borderTop: '1px solid var(--color-border)' }}>
         {checkIn.reviewed_at ? (
           <>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-success)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}><Icon name="check" /> Reviewed</p>

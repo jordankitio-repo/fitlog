@@ -8,7 +8,7 @@ import TrendsPanel from '../components/TrendsPanel'
 import Button from '../components/Button'
 import Skeleton from '../components/Skeleton'
 import SectionHeader from '../components/SectionHeader'
-import { PhotoCompare } from '../components/ProgressPhotos'
+import { PhotoCompare, PhotoSlots } from '../components/ProgressPhotos'
 import SoloUpgrade from '../components/SoloUpgrade'
 import ComplianceHeatmap from '../components/ComplianceHeatmap'
 import ComplianceSummary from '../components/ComplianceSummary'
@@ -46,7 +46,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { Icon, Notice, Pill, Textarea, Field, IconButton } from '../components/ui'
+import { Icon, Notice, Pill, Textarea, Field, IconButton, Toggle } from '../components/ui'
 import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
@@ -200,6 +200,13 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [checkinInterval, setCheckinInterval] = useState(1)
   const [checkinWeekday, setCheckinWeekday] = useState(DEFAULT_CHECKIN_WEEKDAY)
   const [checkinRequested, setCheckinRequested] = useState(false)
+  // The client's consent to before/after images (profiles.share_progress_photos).
+  const [shareConsent, setShareConsent] = useState(Boolean(profile?.share_progress_photos))
+  async function saveShareConsent(on) {
+    setShareConsent(on)
+    const { error } = await supabase.from('profiles').update({ share_progress_photos: on }).eq('id', profile.id)
+    if (error) { console.error(error); setShareConsent(!on); setNotice("Couldn't save that. Try again.") }
+  }
   const [coveringCheckIn, setCoveringCheckIn] = useState(null)
   const [questions, setQuestions] = useState([])      // coach's custom check-in questions (empty = legacy form)
   const [answers, setAnswers] = useState({})          // { [questionId]: value }
@@ -1416,6 +1423,19 @@ function Dashboard({ profile, hasSoloPremium = true }) {
                       </div>
                     </>
                   )}
+                  {/* Photos ride along with the check-in, optional: one
+                      rhythm, not a photo schedule beside the check-in's. They
+                      save as they are picked, so a check-in sent without them
+                      loses nothing; a coach who wants a set uses Request. */}
+                  <div>
+                    <p style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--space-8)', display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+                      Progress photos
+                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>Optional</span>
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+                      <PhotoSlots userId={profile?.id} date={toLocalDateString(new Date())} privacyNote="Only you and your coach can see these." onToast={(m) => setNotice(m)} />
+                    </div>
+                  </div>
                   <Button onClick={saveCheckIn} variant="primary">Submit check-in</Button>
                 </div>
               )}
@@ -1452,7 +1472,18 @@ function Dashboard({ profile, hasSoloPremium = true }) {
       {/* Progress photos, compared: the change a scale and a tape miss. */}
       <div key="photos" style={cardStyle}>
         <SectionHeader title="Progress photos">
-          <PhotoCompare userId={profile?.id} unit={weightDisplayUnit} emptyText="Add front, side and back photos on Today." />
+          <PhotoCompare userId={profile?.id} unit={weightDisplayUnit} emptyText="Add front, side and back photos on Today."
+            canExport onToast={(m) => setNotice(m)}
+            footer={profile?.role === 'client' && (
+              /* The client's consent, beside the photos it is about: off
+                 until they turn it on, and only they can. */
+              <Toggle
+                checked={shareConsent}
+                onChange={() => saveShareConsent(!shareConsent)}
+                label="Let my coach make before/after images"
+                description="For your coach to send you or, with your say-so, share."
+              />
+            )} />
         </SectionHeader>
       </div>
 

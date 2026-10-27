@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Pill, Select, Icon } from './ui'
+import { Pill, Icon } from './ui'
+import Button from './Button'
+import PhotoDatePicker from './PhotoDatePicker'
 import Skeleton from './Skeleton'
 import ActionSheet from './ActionSheet'
 import ConfirmDialog from './ConfirmDialog'
-import { POSES, listPhotos, savePhoto, deletePhoto, signPhotos, datesFor, weightNear, weightsAround } from '../utils/progressPhotos'
+import { POSES, listPhotos, savePhoto, deletePhoto, signPhotos, datesFor, weightNear, weightsAround, photoSets } from '../utils/progressPhotos'
+import { beforeAfterImage, saveBlob } from '../utils/beforeAfterImage'
 import { convertWeight, unitLabel } from '../utils/weightTarget'
 import { useFocusTrap } from '../hooks/useFocusTrap'
-import { parseLocalDateString } from '../utils/dateHelpers'
+import { parseLocalDateString, toLocalDateString, addDays } from '../utils/dateHelpers'
+import Reveal from './Reveal'
 import { useTabReturn } from '../hooks/useTabReturn'
 
 // Progress photos, in the two places they are used:
@@ -58,10 +62,38 @@ export function PhotoSlots({ userId, date, privacyNote, onToast, onChanged }) {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [viewing, setViewing] = useState(null) // photo row
   const input = useRef(null)
+  const multiInput = useRef(null)
   const target = useRef(null) // { pose, existing }
 
   const today = (photos || []).filter(p => p.taken_on === date)
   const byPose = Object.fromEntries(today.map(p => [p.pose, p]))
+  // The last photo of each pose before this day: shown faintly in the empty
+  // slot, so the client can stand where they stood last time (Trainerize's
+  // guide lines, Progressly's ghost; this is the version a photo picker can
+  // offer without a camera screen of our own).
+  const lastOf = Object.fromEntries(POSES.map(({ key }) => [key, (photos || []).find(p => p.pose === key && p.taken_on < date) || null]))
+  const empty = POSES.filter(p => !byPose[p.key])
+
+  // Several photos at once (HubFit's one upload of front, side and back),
+  // filled into the empty slots in order: front, side, back.
+  const onFiles = async (e) => {
+    const files = [...(e.target.files || [])].slice(0, empty.length)
+    if (!files.length) return
+    for (let i = 0; i < files.length; i++) {
+      const pose = empty[i].key
+      setBusy(pose)
+      try {
+        await savePhoto(userId, date, pose, files[i])
+      } catch (err) {
+        console.error(err)
+        onToast?.(`Couldn't save the ${empty[i].label.toLowerCase()} photo. Try again.`, 'error')
+        break
+      }
+    }
+    setBusy(null)
+    setVersion(v => v + 1)
+    onChanged?.()
+  }
 
   const pick = (pose, existing = null) => {
     target.current = { pose, existing }
@@ -97,6 +129,7 @@ export function PhotoSlots({ userId, date, privacyNote, onToast, onChanged }) {
   return (
     <>
       <input ref={input} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
+      <input ref={multiInput} type="file" accept="image/*" multiple onChange={onFiles} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
       {error ? (
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
           Couldn't load photos. <button type="button" className="pp-retry" onClick={retry}>Try again</button>
@@ -117,8 +150,11 @@ export function PhotoSlots({ userId, date, privacyNote, onToast, onChanged }) {
                 style={{ ...tileStyle, border: photo ? '0' : '1px dashed var(--color-border)', padding: 0, cursor: loading ? 'default' : 'pointer', color: 'var(--color-muted)', font: 'inherit' }}
               >
                 {photo && urls[photo.path] && <img src={urls[photo.path]} alt="" style={imgStyle} />}
+                {!photo && !loading && lastOf[key] && urls[lastOf[key].path] && (
+                  <img src={urls[lastOf[key].path]} alt="" style={{ ...imgStyle, opacity: 0.22, filter: 'grayscale(1)' }} />
+                )}
                 {!photo && !loading && (
-                  <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
+                  <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
                     <Icon name="plus" />{label}
                   </span>
                 )}
@@ -130,6 +166,20 @@ export function PhotoSlots({ userId, date, privacyNote, onToast, onChanged }) {
             )
           })}
         </div>
+      )}
+      {!error && empty.length > 1 && (
+        <button type="button" className="pp-retry" style={{ textDecoration: 'none', fontSize: 'var(--text-sm)', alignSelf: 'flex-start' }}
+          disabled={photos === null || Boolean(busy)}
+          onClick={() => { if (multiInput.current) { multiInput.current.value = ''; multiInput.current.click() } }}>
+          {empty.length === 3 ? 'Add all three' : `Add the other ${empty.length}`}
+        </button>
+      )}
+      {/* The comparison is only as good as the photos: Fitbod and Boostcamp
+          both put consistency first. One line, not a tutorial. */}
+      {!error && empty.length > 0 && (
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>
+          Same spot, same light, first thing in the morning{Object.values(lastOf).some(Boolean) ? '. Last time\u2019s photo is shown faintly as a guide.' : '.'}
+        </p>
       )}
       {privacyNote && (
         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
@@ -238,7 +288,46 @@ function PhotoViewer({ open, items, startKey, onClose }) {
 // `unit` is the reader's weight unit ('lbs' | 'kg'); each photo is captioned
 // with the weigh-in nearest it, the pairing Everfit and Azeoo show, because a
 // photo without the scale beside it leaves half the comparison to memory.
-export function PhotoCompare({ userId, emptyText, unit = 'lbs' }) {
+// Two sets side by side, every pose at once: Azeoo compares whole entries,
+// not one photo. A row per pose either set has; an empty cell says "—".
+export function PhotoSetGrid({ before, after, urls, weightText }) {
+  const poses = POSES.filter(p => before?.byPose[p.key] || after?.byPose[p.key])
+  const cell = (set, pose) => {
+    const photo = set?.byPose[pose]
+    return (
+      <div style={tileStyle}>
+        {photo && urls[photo.path]
+          ? <img src={urls[photo.path]} alt={`${pose} photo, ${dayLabel(set.date)}`} style={imgStyle} />
+          : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-faint)' }}>{'\u2014'}</span>}
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+        {[['Before', before], ['After', after]].map(([label, set]) => (
+          <p key={label} style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            <strong>{label}</strong>{set && <span style={{ color: 'var(--color-muted)' }}> · {[shortLabel(set.date), weightText?.(set.date)].filter(Boolean).join(' · ')}</span>}
+          </p>
+        ))}
+      </div>
+      {poses.map(({ key, label }) => (
+        <div key={key}>
+          <p className="ds-colhead" style={{ margin: '0 0 var(--space-4)' }}>{label}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+            {cell(before, key)}{cell(after, key)}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// `canExport`: whether this reader may save a before/after image (the client
+// always, for their own photos; the coach when the client has allowed it).
+// `exportNote`: the line shown instead, when they may not. `footer`: the
+// client's consent switch, under everything.
+export function PhotoCompare({ userId, emptyText, unit = 'lbs', canExport = false, exportNote = null, footer = null, onToast }) {
   const { photos, urls, error, retry } = usePhotos(userId)
   const [weights, setWeights] = useState([])
   const [pose, setPose] = useState(null)
@@ -247,6 +336,7 @@ export function PhotoCompare({ userId, emptyText, unit = 'lbs' }) {
   const [mode, setMode] = useState('side') // 'side' | 'slider'
   const [split, setSplit] = useState(50)
   const [viewing, setViewing] = useState(null) // date
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (!userId || !photos?.length) return undefined
@@ -276,14 +366,17 @@ export function PhotoCompare({ userId, emptyText, unit = 'lbs' }) {
       <div style={{ padding: 'var(--space-8) 0' }}>
         <p style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)' }}>No photos yet</p>
         {emptyText && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', marginTop: 'var(--space-2)' }}>{emptyText}</p>}
+        {footer}
       </div>
     )
   }
 
   const posesWithPhotos = POSES.filter(p => photos.some(x => x.pose === p.key))
-  const activePose = pose && posesWithPhotos.some(p => p.key === pose) ? pose : posesWithPhotos[0].key
+  const sets = photoSets(photos) // newest first
+  const allMode = pose === 'all' && sets.length > 1
+  const activePose = pose && pose !== 'all' && posesWithPhotos.some(p => p.key === pose) ? pose : posesWithPhotos[0].key
   const poseLabel = POSES.find(p => p.key === activePose).label
-  const dates = datesFor(photos, activePose) // newest first
+  const dates = allMode ? sets.map(x => x.date) : datesFor(photos, activePose) // newest first
   const a = dates.includes(after) ? after : dates[0]
   const b = dates.includes(before) && before !== a ? before : (dates[dates.length - 1] !== a ? dates[dates.length - 1] : null)
   const urlOf = (d) => {
@@ -312,11 +405,9 @@ export function PhotoCompare({ userId, emptyText, unit = 'lbs' }) {
     `${days} day${days === 1 ? '' : 's'} apart`,
   ].filter(Boolean).join(' \u00b7 ')
 
+  // A calendar with only the photo days choosable (PhotoDatePicker).
   const dateSelect = (label, value, onChange) => (
-    <Select label={label} value={value} onChange={(e) => onChange(e.target.value)}
-      style={{ width: '100%', padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px', cursor: 'pointer' }}>
-      {dates.map(d => <option key={d} value={d}>{dayLabel(d)}</option>)}
-    </Select>
+    <PhotoDatePicker label={label} value={value} dates={dates} onChange={onChange} />
   )
   // A photo you can open. The weight rides on the photo itself, top right,
   // where Everfit puts it, so it survives being looked at without the caption.
@@ -334,17 +425,22 @@ export function PhotoCompare({ userId, emptyText, unit = 'lbs' }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)', maxWidth: 640 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-8)', alignItems: 'center' }}>
+        {sets.length > 1 && <Pill active={allMode} aria-pressed={allMode} onClick={() => setPose('all')}>All</Pill>}
         {posesWithPhotos.map(p => (
-          <Pill key={p.key} active={p.key === activePose} aria-pressed={p.key === activePose} onClick={() => setPose(p.key)}>{p.label}</Pill>
+          <Pill key={p.key} active={!allMode && p.key === activePose} aria-pressed={!allMode && p.key === activePose} onClick={() => setPose(p.key)}>{p.label}</Pill>
         ))}
-        {/* One toggle, not a pair: two more chips wrapped this row onto a
-            second line on a phone, for a choice with only two answers. */}
-        {b && (
-          <Pill style={{ marginLeft: 'auto' }} active={mode === 'slider'} aria-pressed={mode === 'slider'} onClick={() => setMode(mode === 'slider' ? 'side' : 'slider')}>Slider</Pill>
-        )}
+
       </div>
 
-      {!b ? (
+      {allMode && b ? (
+        <>
+          <PhotoSetGrid before={sets.find(x => x.date === b)} after={sets.find(x => x.date === a)} urls={urls} weightText={weightText} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+            {dateSelect('Before', b, setBefore)}
+            {dateSelect('After', a, setAfter)}
+          </div>
+        </>
+      ) : !b ? (
         <>
           <div style={{ maxWidth: 280 }}>
             {photoTile(a)}
@@ -379,24 +475,52 @@ export function PhotoCompare({ userId, emptyText, unit = 'lbs' }) {
         </div>
       )}
 
-      {summary && <p className="tnum" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{summary}</p>}
-
-      {/* Every date of this pose, oldest to newest, the timeline Everfit and
-          Azeoo lead with. Two dropdowns hid how many sets there were and
-          when; this shows the whole run, and any one opens full screen. */}
-      {dates.length > 2 && (
-        <div>
-          <p className="ds-colhead" style={{ margin: '0 0 var(--space-6)' }}>All {poseLabel.toLowerCase()} photos</p>
-          <div className="pp-strip">
-            {[...dates].reverse().map(d => (
-              <button key={d} type="button" className="ds-control pp-strip-item" onClick={() => setViewing(d)} aria-label={`Open ${poseLabel.toLowerCase()} photo, ${caption(d)}`}>
-                <span style={{ ...tileStyle, display: 'block' }}>{urlOf(d) && <img src={urlOf(d)} alt="" style={imgStyle} />}</span>
-                <span className="tnum" style={{ fontSize: 'var(--text-xs)', color: d === a || d === b ? 'var(--color-text)' : 'var(--color-muted)', fontWeight: d === a || d === b ? 'var(--weight-semibold)' : 'var(--weight-normal)' }}>{shortLabel(d)}</span>
+      {/* What changed, and how it is shown. The view switch lives HERE, with
+          the photos it changes, not in the chip row above: those chips pick
+          what you look at (a pose); this picks how. As a fifth pill it read
+          as one more filter. Two glyphs in one small group, the way a photo
+          app puts its view switch by the content. */}
+      {summary && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+          <p className="tnum" style={{ flex: 1, margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{summary}</p>
+          {!allMode && (
+            <span className="pp-view-switch" role="group" aria-label="Show as">
+              <button type="button" className="ds-control" aria-pressed={mode === 'side'} aria-label="Side by side" title="Side by side" onClick={() => setMode('side')}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="7.5" height="16" rx="1.5" /><rect x="13.5" y="4" width="7.5" height="16" rx="1.5" /></svg>
               </button>
-            ))}
-          </div>
+              <button type="button" className="ds-control" aria-pressed={mode === 'slider'} aria-label="Slider" title="Slider" onClick={() => setMode('slider')}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" /><line x1="12" y1="2" x2="12" y2="22" /><path d="M9.5 12h5" /></svg>
+              </button>
+            </span>
+          )}
         </div>
       )}
+
+      {/* A before/after image of the two dates, every pose both have. */}
+      {b && (canExport ? (
+        <div>
+          <Button variant="muted" size="sm" loading={exporting} disabled={exporting} onClick={async () => {
+            setExporting(true)
+            try {
+              const setOf = (d) => sets.find(x => x.date === d)
+              const urlsOf = (set) => Object.fromEntries(Object.entries(set.byPose).map(([k, ph]) => [k, urls[ph.path]]))
+              const blob = await beforeAfterImage({
+                before: { date: b, weight: weightText(b), urls: urlsOf(setOf(b)) },
+                after: { date: a, weight: weightText(a), urls: urlsOf(setOf(a)) },
+                dateLabel: dayLabel,
+              })
+              await saveBlob(blob, `before-after-${b}-${a}.jpg`)
+            } catch (e) {
+              console.error(e)
+              onToast?.(e?.message === 'No pose is in both sets.' ? 'These two dates share no pose.' : "Couldn't make the image. Try again.", 'error')
+            } finally {
+              setExporting(false)
+            }
+          }}>Save before/after</Button>
+        </div>
+      ) : exportNote && (
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', margin: 0 }}>{exportNote}</p>
+      ))}
 
       <PhotoViewer
         open={Boolean(viewing)}
@@ -404,6 +528,75 @@ export function PhotoCompare({ userId, emptyText, unit = 'lbs' }) {
         startKey={viewing}
         onClose={() => setViewing(null)}
       />
+    </div>
+  )
+}
+
+// ── In a check-in ───────────────────────────────────────────────────────────
+// The photos sent during a check-in's period, in the coach's review of it, with
+// last time's set a tap away (HubFit compares photos from the check-in review
+// screen). Nothing at all when the period has no photos: the check-in's own
+// numbers and answers already fill the card.
+export function CheckinPhotos({ clientId, weekOf, intervalWeeks = 1 }) {
+  const { photos, urls } = usePhotos(clientId)
+  const [comparing, setComparing] = useState(false)
+  if (!photos?.length || !weekOf) return null
+  const end = toLocalDateString(addDays(parseLocalDateString(weekOf), Math.max(1, intervalWeeks) * 7 - 1))
+  const sets = photoSets(photos)
+  const current = sets.find(x => x.date >= weekOf && x.date <= end)
+  if (!current) return null
+  const previous = sets.find(x => x.date < current.date) || null
+  return (
+    <div style={{ marginBottom: 'var(--space-12)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)' }}>
+        <p className="ds-colhead" style={{ margin: 0 }}>Photos · {shortLabel(current.date)}</p>
+        {previous && (
+          <button type="button" className="ds-disclosure ds-control" aria-expanded={comparing} onClick={() => setComparing(v => !v)}
+            style={{ width: 'auto', padding: 0, gap: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
+            Compare to {shortLabel(previous.date)} <Icon name="right" size={14} className="ds-chev" />
+          </button>
+        )}
+      </div>
+      {!comparing && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-8)', maxWidth: 420 }}>
+          {POSES.map(({ key, label }) => {
+            const ph = current.byPose[key]
+            return (
+              <div key={key} style={tileStyle}>
+                {ph && urls[ph.path] && <img src={urls[ph.path]} alt={`${label} photo`} style={imgStyle} />}
+                <span className="pp-slot-label">{label}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <Reveal open={comparing}>
+        <div style={{ maxWidth: 520 }}>
+          <PhotoSetGrid before={previous} after={current} urls={urls} />
+        </div>
+      </Reveal>
+    </div>
+  )
+}
+
+
+// Two check-ins' photos side by side, for Compare check-ins: the set sent
+// during each one's period (a check-in's photos are the ones taken while it
+// was open). Nothing when neither has any.
+export function CheckinPairPhotos({ clientId, before, after, intervalWeeks = 1 }) {
+  const { photos, urls } = usePhotos(clientId)
+  if (!photos?.length || !before || !after) return null
+  const sets = photoSets(photos)
+  const setIn = (c) => {
+    const end = toLocalDateString(addDays(parseLocalDateString(c.week_of), Math.max(1, intervalWeeks) * 7 - 1))
+    return sets.find(x => x.date >= c.week_of && x.date <= end) || null
+  }
+  const a = setIn(before), b = setIn(after)
+  if (!a && !b) return null
+  return (
+    <div>
+      <p className="ds-colhead" style={{ margin: '0 0 var(--space-8)' }}>Photos</p>
+      <PhotoSetGrid before={a} after={b} urls={urls} />
     </div>
   )
 }

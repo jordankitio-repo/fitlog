@@ -137,3 +137,14 @@ export async function weightsAround(userId, dates) {
   for (const w of data || []) if (!byDay.has(w.logged_date)) byDay.set(w.logged_date, w)
   return [...byDay.values()]
 }
+
+// Photos grouped into sets by date, newest first: [{ date, byPose: { front, side, back } }].
+export function photoSets(photos) {
+  const out = []
+  for (const p of photos || []) {
+    let set = out.find(s => s.date === p.taken_on)
+    if (!set) { set = { date: p.taken_on, byPose: {} }; out.push(set) }
+    set.byPose[p.pose] = p
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date))
+}

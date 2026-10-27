@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../supabase'
+import { CheckinPairPhotos } from './ProgressPhotos'
 import Modal from './Modal'
 import { Select } from './ui'
 import { checkinRatings } from '../utils/checkinLookup'
 import { formatAnswer } from '../utils/checkinQuestions'
-import { parseLocalDateString } from '../utils/dateHelpers'
+import { parseLocalDateString, toLocalDateString, addDays } from '../utils/dateHelpers'
 import { useCheckinWeekCells } from '../hooks/useCheckinWeekCells'
 
 // Two check-ins side by side: Everfit's "compare responses", MyPTHub's
@@ -53,12 +55,26 @@ export default function CheckinCompare({ open, onClose, checkIns, clientId, inte
   const a = checkIns.find(c => c.id === aId) || checkIns[1] || null
   const weekA = useCheckinWeekCells(open && a ? clientId : null, a?.week_of, intervalWeeks, weightUnit)
   const weekB = useCheckinWeekCells(open && b ? clientId : null, b?.week_of, intervalWeeks, weightUnit)
+  // Which check-ins have photos, so the pickers can say so: comparing two
+  // check-ins that both have photos is how a coach lines up two sets.
+  const [photoDates, setPhotoDates] = useState([])
+  useEffect(() => {
+    if (!open || !clientId) return undefined
+    let live = true
+    supabase.from('progress_photos').select('taken_on').eq('user_id', clientId)
+      .then(({ data }) => { if (live) setPhotoDates([...new Set((data || []).map(r => r.taken_on))]) })
+    return () => { live = false }
+  }, [open, clientId])
   if (!b || !a) return null
+  const hasPhotos = (c) => {
+    const end = toLocalDateString(addDays(parseLocalDateString(c.week_of), Math.max(1, intervalWeeks) * 7 - 1))
+    return photoDates.some(d => d >= c.week_of && d <= end)
+  }
 
   const pickSelect = (label, value, onChange) => (
     <Select className="select-sm" label={label} value={value} onChange={(e) => onChange(e.target.value)}
       style={{ width: '100%', padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px', cursor: 'pointer' }}>
-      {checkIns.map(c => <option key={c.id} value={c.id}>{dayLabel(c.week_of)}</option>)}
+      {checkIns.map(c => <option key={c.id} value={c.id}>{dayLabel(c.week_of)}{hasPhotos(c) ? ' \u00b7 photos' : ''}</option>)}
     </Select>
   )
   const ratingOf = (c, id) => checkinRatings(c).find(r => r.id === id)?.value
@@ -82,6 +98,7 @@ export default function CheckinCompare({ open, onClose, checkIns, clientId, inte
               after={weekB ? [weekB[i].value, weekB[i].sub].filter(Boolean).join(' ') : null} />
           ))}
         </div>
+        <CheckinPairPhotos clientId={clientId} before={a} after={b} intervalWeeks={intervalWeeks} />
         {union(a, b, texts).filter(t => textOf(a, t.id) || textOf(b, t.id)).map(t => (
           <div key={t.id}>
             <p className="ds-colhead" style={{ margin: '0 0 var(--space-6)' }}>{t.label}</p>

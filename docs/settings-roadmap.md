@@ -1066,3 +1066,18 @@ more than five). Open, in order of value:
 - AI: "summarise this client's notes", "draft a note from this check-in"
   (meeting prep already reads the flagged and the ten newest).
 - Compliance: the Phase 2 data export must include coach_note_entries.
+
+**Progress photos, market pass 2 (Oct 27, 20261027000000_photo_schedule):**
+photos are an optional step in every check-in (one rhythm: a separate photo
+schedule was built and removed at the user's call as two schedules for one
+routine; Request asks for a set off-rhythm). The coach's check-in review
+shows the period's set with "Compare to <last>" (all three poses). Today
+shows one row ("Last set Oct 26") opening the slots in a sheet, not three
+slots a day. Capture: last time's photo faintly in each empty slot, one tip
+line, "Add all three". Compare: an "All" chip shows every pose for two dates.
+Before/after image (dates, weights, every shared pose) for the client always
+and for the coach only with the client's switch (profiles.
+share_progress_photos, client-only; no note shown to the coach without it).
+Data export includes progress photos (7-day links) and coaches' notes.
+Open: a real camera screen with a live ghost overlay (needs native work);
+timelapse.

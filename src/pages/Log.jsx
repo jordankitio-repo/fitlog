@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useContext } from 'react'
+import Reveal from '../components/Reveal'
 import { useSearchParams } from 'react-router-dom'
 import { DndContext, DragOverlay, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core'
 import { supabase } from '../supabase'
@@ -150,6 +151,22 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [toast, setToast] = useState(null)   // transient error/success toast, or null
   // Surface a failed write so a save never fails silently (trust on the core loop).
   function showToast(message, type = 'success', action = null) { setToast({ message, type, action }) }
+
+  // The Progress photos row: the last set's date.
+  const [photoSheet, setPhotoSheet] = useState(false)
+  const [photoInfo, setPhotoInfo] = useState({ last: null })
+  const loadPhotoInfo = (uid) => supabase.from('progress_photos').select('taken_on').eq('user_id', uid)
+    .order('taken_on', { ascending: false }).limit(1)
+    .then(({ data }) => ({ last: data?.[0]?.taken_on || null }))
+  const refreshPhotoInfo = () => { if (session?.user?.id) loadPhotoInfo(session.user.id).then(setPhotoInfo) }
+  useEffect(() => {
+    const uid = session?.user?.id
+    if (!uid) return undefined
+    let live = true
+    loadPhotoInfo(uid).then(info => { if (live) setPhotoInfo(info) })
+    return () => { live = false }
+  }, [session?.user?.id])
+  const shortDayLabel = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   // Deleting a logged row is one tap on a small ✕ and used to be silent and
   // irreversible. Re-inserting the captured row verbatim (same id, same
@@ -1689,12 +1706,12 @@ function Log({ session, profile, hasSoloPremium = true }) {
             ))}
           </div>
         )}
-        {open && (
+        <Reveal open={open}>
           <div style={{ paddingLeft: '22px' }}>
             {item.entries.map(e => renderFoodEntry(e, true))}
             <button onClick={() => addToMeal(item)} style={{ ...selectLinkStyle, padding: '8px 0' }}>+ Add food to this meal</button>
           </div>
-        )}
+        </Reveal>
       </div>
     )
   }
@@ -2240,7 +2257,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               Quick add
               <Icon name="right" size={12} className="ds-chev" />
             </button>
-            {quickAddOpen && (
+            <Reveal open={quickAddOpen}>
             <div id="quick-add-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' }}>
               {frequentFoods.map(item => {
                 const key = item.food.trim().toLowerCase()
@@ -2285,7 +2302,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
                 )
               })}
             </div>
-            )}
+            </Reveal>
           </div>
         )}
 
@@ -2523,18 +2540,30 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
       </div>
 
-      {/* Progress photos: the day's front / side / back. Taking them lives
-          here with the other things you log; comparing them is a trend, so
-          it lives on Progress (and on the coach's record of you). */}
-      <div style={sectionStyle}>
-        <h2>Progress photos</h2>
-        <PhotoSlots
-          userId={session.user.id}
-          date={selectedDate}
-          privacyNote={profile?.role === 'client' ? 'Only you and your coach can see these.' : 'Only you can see these.'}
-          onToast={showToast}
-        />
-      </div>
+      {/* Progress photos: one row, not three empty slots on every day's log.
+          Photos are a weekly-to-monthly habit (Apple, MacroFactor and
+          Trainerize all keep them off the daily log); the row says when the
+          last set was taken and opens the slots in a sheet. The check-in has
+          the same slots, as an optional step. */}
+      <button type="button" className="ds-control log-photo-row" onClick={() => setPhotoSheet(true)} style={sectionStyle}>
+        <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', textAlign: 'left' }}>
+          <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-medium)', color: 'var(--color-text)' }}>Progress photos</span>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>
+            {photoInfo.last ? `Last set ${shortDayLabel(photoInfo.last)}` : 'Front, side and back'}
+          </span>
+        </span>
+        <Icon name="right" style={{ color: 'var(--color-faint)' }} />
+      </button>
+      <Modal open={photoSheet} title="Progress photos" onClose={() => { setPhotoSheet(false); refreshPhotoInfo() }} maxWidth={480} sheet>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+          <PhotoSlots
+            userId={session.user.id}
+            date={selectedDate}
+            privacyNote={profile?.role === 'client' ? 'Only you and your coach can see these.' : 'Only you can see these.'}
+            onToast={showToast}
+          />
+        </div>
+      </Modal>
       </>)}
 
       <ConfirmDialog

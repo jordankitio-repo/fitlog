@@ -47,6 +47,7 @@ import { PauseSheet, GroupsSheet } from '../components/ClientSheets'
 import { useCoachGroups } from '../hooks/useCoachGroups'
 import { PhotoCompare } from '../components/ProgressPhotos'
 import Sparkline from '../components/Sparkline'
+import Reveal from '../components/Reveal'
 import CheckinCompare from '../components/CheckinCompare'
 import { sourceLabel } from '../utils/metricSources'
 import { shortDay } from '../utils/pause'
@@ -211,10 +212,13 @@ const SUMMARY_KEYS = ['groundwork', 'stats', 'consistency', 'checkIn']
 // because everything was the same. They are one destination with a switcher
 // now; the only thing that differed between them was the series, and a series
 // is a control, not a section.
-const TREND_KEYS = ['correlatedChart', 'dailyMetrics', 'measurements', 'photos']
+// Photos is NOT a trend chip: as the fourth chip it sat cut off at the edge
+// of a phone screen and coaches could not find it. It is its own row, as it
+// is its own item on the desktop rail.
+const TREND_KEYS = ['correlatedChart', 'dailyMetrics', 'measurements']
 const TREND_LABELS = {
   correlatedChart: 'Progress', dailyMetrics: 'Daily metrics',
-  measurements: 'Measurements', photos: 'Photos',
+  measurements: 'Measurements',
 }
 // Progress, now that Weight is a dialog opened from inside it rather than a
 // destination of its own. It was the default because it answered the first
@@ -251,6 +255,8 @@ const THREAD_REPORTS = 8
 const NOTES_PAGE = 10
 // Earlier check-ins load ten at a time.
 const CHECKIN_PAGE = 10
+// Earlier check-ins shown on the record itself; the rest are in All check-ins.
+const CHECKINS_ON_PAGE = 4
 const NOTE_CLAMP_LINES = 6
 const NOTE_MAX = 5000
 const NOTE_COLS = 'id, body, created_at, updated_at, date_only, flagged'
@@ -429,6 +435,17 @@ function ClientView({ profile }) {
   const [checkinHistory, setCheckinHistory] = useState([])
   const [checkinMore, setCheckinMore] = useState(false)
   const [compareOpen, setCompareOpen] = useState(false)
+  const [checkinArchiveOpen, setCheckinArchiveOpen] = useState(false)
+  // The newest progress photo's date, for the Photos row on a phone.
+  // undefined = not loaded; null = none.
+  const [latestPhotoDate, setLatestPhotoDate] = useState(undefined)
+  useEffect(() => {
+    let live = true
+    supabase.from('progress_photos').select('taken_on').eq('user_id', clientId)
+      .order('taken_on', { ascending: false }).limit(1)
+      .then(({ data, error }) => { if (live && !error) setLatestPhotoDate(data?.[0]?.taken_on ?? null) })
+    return () => { live = false }
+  }, [clientId])
   const [openPastCheckin, setOpenPastCheckin] = useState(null)
   // The header's ⋯ menu and the two sheets it opens, the roster's own.
   const [menuOpen, setMenuOpen] = useState(false)
@@ -2117,6 +2134,9 @@ async function sendMessage(text) {
         if (!notes.length && !flaggedNotes.length) return { text: 'None' }
         return { text: new Date([...notes, ...flaggedNotes].map(n => n.created_at).sort().at(-1)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
       case 'sentReports': return { text: sentTotal ? `${sentTotal}` : 'None' }
+      case 'photos':
+        if (latestPhotoDate === undefined) return null
+        return { text: latestPhotoDate ? shortDay(latestPhotoDate) : 'None' }
       case 'checkIn': return checkinCurrent ? null : { text: clientCheckIn ? 'None this period' : 'None yet' }
       default: return null
     }
@@ -2529,6 +2549,27 @@ async function sendMessage(text) {
             </>
           )
         })() : chartEmpty('No weight logged yet', `${clientFirstName} logs this on their Today tab.`))
+
+  // One earlier check-in: date and ratings, opening in place. Shared by the
+  // four on the page and the All check-ins list.
+  const renderPastCheckin = (c) => {
+    const open = openPastCheckin === c.id
+    const ratings = checkinRatings(c).slice(0, 2).map(r => `${r.label.length > 10 ? r.label.slice(0, 9) + '\u2026' : r.label} ${r.value}`).join(' \u00b7 ')
+    return (
+      <div key={c.id} className="cv-ci-item">
+        <button type="button" className="cv-ci-row ds-control" aria-expanded={open} onClick={() => setOpenPastCheckin(open ? null : c.id)}>
+          <span className="cv-ci-row-when">{shortDay(c.week_of)}</span>
+          <span className="cv-ci-row-val tnum">{ratings}</span>
+          <Icon name="right" size={16} style={{ color: 'var(--color-faint)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 180ms ease' }} />
+        </button>
+        <Reveal open={open}>
+          <div style={{ padding: 'var(--space-4) 0 var(--space-16)' }}>
+            <CheckinReview checkIn={c} readOnly clientId={clientId} intervalWeeks={checkinInterval} weightUnit={weightDisplayUnit} />
+          </div>
+        </Reveal>
+      </div>
+    )
+  }
 
   // One private note: date (and flag), body folded past six lines, ⋯ menu.
   // Shared by the flagged list, the paged list and search results, so a note
@@ -3168,11 +3209,11 @@ async function sendMessage(text) {
                         <Icon name="right" size={16} />
                       </span>
                     </button>
-                    {open && (
+                    <Reveal open={open}>
                       <div style={{ padding: '0 0 var(--space-16)', maxWidth: '68ch' }}>
                         <ReportProse content={r.content} />
                       </div>
-                    )}
+                    </Reveal>
                   </div>
                 )
               })}
@@ -3507,7 +3548,7 @@ async function sendMessage(text) {
               to the far edge of a 1,000px card, so a control and the action that
               configures it sat 700px apart with nothing between them — related
               by nothing except being on the same line. A3: 12px inside a group. */}
-          <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
+          <div className="cv-checkin-config" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-12)', flexWrap: 'wrap', paddingBottom: 'var(--space-12)', marginBottom: 'var(--space-16)', borderBottom: '1px solid var(--color-border)' }}>
             {/* A SELECT, not four chips. The capsule means "a control you press
                 repeatedly" — the chart range chips, which a coach flips while
                 reading. A check-in cadence is set once per client and then left
@@ -3675,27 +3716,13 @@ async function sendMessage(text) {
                 <p className="ds-colhead" style={{ margin: 0 }}>Earlier</p>
                 {clientCheckIn && <Button onClick={() => setCompareOpen(true)} variant="ghost" size="sm">Compare</Button>}
               </div>
-              {checkinHistory.map((c) => {
-                const open = openPastCheckin === c.id
-                const ratings = checkinRatings(c).slice(0, 2).map(r => `${r.label.length > 10 ? r.label.slice(0, 9) + '\u2026' : r.label} ${r.value}`).join(' \u00b7 ')
-                return (
-                  <div key={c.id} style={{ borderTop: '1px solid var(--color-border)' }}>
-                    <button type="button" className="cv-ci-row ds-control" aria-expanded={open} onClick={() => setOpenPastCheckin(open ? null : c.id)}>
-                      <span className="cv-ci-row-when">{shortDay(c.week_of)}</span>
-                      <span className="cv-ci-row-val tnum">{ratings}</span>
-                      <Icon name="right" size={16} style={{ color: 'var(--color-faint)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 180ms ease' }} />
-                    </button>
-                    {open && (
-                      <div style={{ padding: 'var(--space-4) 0 var(--space-16)' }}>
-                        <CheckinReview checkIn={c} readOnly clientId={clientId} intervalWeeks={checkinInterval} weightUnit={weightDisplayUnit} />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              {checkinMore && (
+              {/* The four most recent, then the rest in their own list: ten
+                  rows here made the check-in card a long scroll. The same
+                  call the sent reports make ("All reports"). */}
+              {checkinHistory.slice(0, CHECKINS_ON_PAGE).map(renderPastCheckin)}
+              {(checkinHistory.length > CHECKINS_ON_PAGE || checkinMore) && (
                 <div style={{ paddingTop: 'var(--space-8)' }}>
-                  <Button onClick={() => fetchClientCheckIn({ older: true })} variant="ghost" size="sm">Show older check-ins</Button>
+                  <Button onClick={() => setCheckinArchiveOpen(true)} variant="muted" size="sm">All check-ins</Button>
                 </div>
               )}
             </div>
@@ -3910,7 +3937,10 @@ async function sendMessage(text) {
           )}
         >
           {!isCollapsed('photos') && (
-            <PhotoCompare key={clientId} userId={clientId} unit={weightDisplayUnit} emptyText={`${clientFirstName} adds these on their Today tab.`} />
+            <PhotoCompare key={clientId} userId={clientId} unit={weightDisplayUnit}
+              emptyText={`${clientFirstName} adds these in their check-in or on their Today tab.`}
+              canExport={Boolean(clientProfile?.share_progress_photos)}
+              onToast={showToast} />
           )}
         </SectionHeader>
       </div>
@@ -4263,11 +4293,11 @@ async function sendMessage(text) {
                       />
                     </span>
                   </button>
-                  {open && (
+                  <Reveal open={open}>
                     <div style={{ padding: 'var(--space-8) 0 var(--space-16)' }}>
                       <ReportProse content={r.content} />
                     </div>
-                  )}
+                  </Reveal>
                 </div>
               )
             })())
@@ -4327,6 +4357,17 @@ async function sendMessage(text) {
         { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteNote(noteMenu) },
       ] : []}
     />
+    {/* Every earlier check-in, over the record: the page keeps four. */}
+    <Modal open={checkinArchiveOpen} title="All check-ins" onClose={() => setCheckinArchiveOpen(false)} maxWidth={640} sheet tall>
+      <div className="cv-ci-sheet">
+        {checkinHistory.map(renderPastCheckin)}
+        {checkinMore && (
+          <div style={{ paddingTop: 'var(--space-12)' }}>
+            <Button onClick={() => fetchClientCheckIn({ older: true })} variant="ghost" size="sm">Show older</Button>
+          </div>
+        )}
+      </div>
+    </Modal>
     <CheckinCompare
       open={compareOpen}
       onClose={() => setCompareOpen(false)}
