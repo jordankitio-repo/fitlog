@@ -2661,6 +2661,17 @@ async function sendMessage(text) {
   }
 
   // One private note: date (and flag), body folded past six lines, ⋯ menu.
+  // The two groups' headings in the notes list (card and All notes). They
+  // were the table-column caption (tiny, faint, tracked capitals), which a
+  // coach skimmed straight past: now a real heading in ink, Flagged with its
+  // flag and count, and a rule above Notes so the groups read as two.
+  const flaggedHead = (
+    <p className="cv-note-group is-flagged">
+      <Icon name="flag" size={14} />Flagged<span className="cv-note-group-count tnum">{flaggedNotes.length}</span>
+    </p>
+  )
+  const notesHead = <p className="cv-note-group is-notes">Notes</p>
+
   // Shared by the flagged list, the paged list and search results, so a note
   // looks the same wherever it turns up.
   const noteWords = noteQuery.trim().toLowerCase()
@@ -2695,7 +2706,7 @@ async function sendMessage(text) {
                         </span>
                         {!editing && (
                           <button type="button" className="rost-m-more ds-control" style={{ margin: '-8px 0' }} onClick={() => setNoteMenu(n)} aria-label={`Options for the note from ${noteDate(n)}`}>
-                            <Icon name="more" />
+                            <Icon name="more" size={20} />
                           </button>
                         )}
                       </div>
@@ -2786,7 +2797,7 @@ async function sendMessage(text) {
   // coach looking AT a client had to go back to the list to pause them.
   const moreButton = (
     <button type="button" className="rost-m-more ds-control" onClick={() => setMenuOpen(true)} aria-label={`More for ${clientProfile?.full_name || 'client'}`}>
-      <Icon name="more" />
+      <Icon name="more" size={20} />
     </button>
   )
   // Who this is, in one muted line: the goal, how long they have been
@@ -3735,7 +3746,7 @@ async function sendMessage(text) {
              every check-in a coach reads. */
           menu={(
             <button type="button" className="rost-m-more ds-control" onClick={() => setCheckinMenuOpen(true)} aria-label="Check-in options">
-              <Icon name="more" />
+              <Icon name="more" size={20} />
             </button>
           )}
           badgeTone={railMeta.checkIn?.metaTone === 'success' ? 'soft' : 'solid'}
@@ -3882,10 +3893,10 @@ async function sendMessage(text) {
                   <>
                     {/* Flagged first, under their own caption, the way
                         Trainerize floats a flagged note to the top. */}
-                    {flaggedNotes.length > 0 && <p className="ds-colhead" style={{ margin: 0 }}>Flagged</p>}
+                    {flaggedNotes.length > 0 && flaggedHead}
                     {flaggedNotes.slice(0, FLAGS_ON_PAGE).map(renderNote)}
                     {flaggedNotes.length > FLAGS_ON_PAGE && <div>{moreFlagged(flaggedNotes.length - FLAGS_ON_PAGE)}</div>}
-                    {flaggedNotes.length > 0 && notes.length > 0 && <p className="ds-colhead" style={{ margin: 'var(--space-4) 0 0' }}>Notes</p>}
+                    {flaggedNotes.length > 0 && notes.length > 0 && notesHead}
                     {notes.slice(0, NOTES_ON_PAGE).map(renderNote)}
                     {(notes.length > NOTES_ON_PAGE || notesMore) && (
                       <div>
@@ -4458,9 +4469,9 @@ async function sendMessage(text) {
         top under their own caption, as on the page. */}
     <Modal open={noteArchiveOpen} title="All notes" onClose={() => setNoteArchiveOpen(false)} maxWidth={640} sheet tall>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-20)' }}>
-        {flaggedNotes.length > 0 && <p className="ds-colhead" style={{ margin: 0 }}>Flagged</p>}
+        {flaggedNotes.length > 0 && flaggedHead}
         {flaggedNotes.map(renderNote)}
-        {flaggedNotes.length > 0 && notes?.length > 0 && <p className="ds-colhead" style={{ margin: 'var(--space-4) 0 0' }}>Notes</p>}
+        {flaggedNotes.length > 0 && notes?.length > 0 && notesHead}
         {(notes || []).map(renderNote)}
         {notesMore && (
           <div>

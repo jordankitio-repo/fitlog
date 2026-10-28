@@ -757,7 +757,7 @@ CHECK-IN is their latest adherence and energy, out of 10.`}>Clients</InfoTip></h
                         about where to aim. */}
                     <span className="rost-m-tail">
                       <button type="button" className="rost-m-more ds-control" onClick={() => setMenuFor(c)} aria-label={`More for ${c.client?.full_name || 'client'}`}>
-                        <Icon name="more" />
+                        <Icon name="more" size={20} />
                       </button>
                       {nudge && (
                         <Button
@@ -887,7 +887,7 @@ CHECK-IN is their latest adherence and energy, out of 10.`}>Clients</InfoTip></h
                         <Icon name="message" size={17} />
                       </Button>
                       <Button onClick={() => setMenuFor(c)} variant="muted" size="sm" ariaLabel={`More for ${c.client?.full_name || 'client'}`}>
-                        <Icon name="more" />
+                        <Icon name="more" size={20} />
                       </Button>
                       <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--color-faint)' }}><Icon name="right" /></span>
                     </div>

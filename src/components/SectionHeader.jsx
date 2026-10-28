@@ -55,8 +55,11 @@ function SectionHeader({ title, collapsed, onToggle, badge, badgeColor, badgeTon
               grip; grown, it sat 5px low. */}
           {badge && <span style={{ display: 'inline-flex', margin: '-5px 0' }}><Badge tone={badgeTone} color={badgeColor || 'var(--color-primary)'}>{badge}</Badge></span>}
           {/* Action sits in the title cluster (not the right) so it never
-              collides with the absolutely-positioned drag grip. */}
-          {!collapsed && action}
+              collides with the absolutely-positioned drag grip. It overhangs
+              the row like the badge and the menu: a 30px control (W/M/Y, a
+              Request button, a view switch) grew the row from 22px to 30px,
+              which dropped the chevron 4px below the grip beside it. */}
+          {!collapsed && action && <span style={{ display: 'inline-flex', alignItems: 'center', margin: '-4px 0' }}>{action}</span>}
         </div>
         {/* Rejected pattern 4 applies to text glyphs too: ▶/▼ are geometric
             shapes from whatever the OS picks, next to an icon set that is all

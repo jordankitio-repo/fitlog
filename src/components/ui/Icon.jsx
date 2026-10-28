@@ -38,7 +38,9 @@ const PATHS = {
   // mark twice: grip is a thing you take hold of and drag, `more` is a thing
   // you press to be shown the rest. The orientation is what separates them at
   // a glance, which is why this is horizontal and grip stays vertical.
-  more:     <><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></>,
+  // Solid dots, not hollow rings: at 1.4 radius stroked, a ⋯ menu was three
+  // 2px specks a coach could miss.
+  more:     <><circle cx="5" cy="12" r="1.9" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.9" fill="currentColor" stroke="none" /></>,
   // `right` is THE forward glyph — navigation, CTAs, "go to this thing". There
   // is deliberately no second arrow style: one action, one mark.
   left:     <polyline points="15 18 9 12 15 6" />,

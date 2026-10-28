@@ -1363,7 +1363,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // stacked in a column took aim). Negative margins give the extra area back,
   // so the row's height and the glyph's position do not move.
   const moreBtnStyle = {
-    ...iconBtnStyle, width: 44, height: 44, padding: 0, margin: '-8px -8px -8px -8px',
+    ...iconBtnStyle, color: 'var(--color-text-dim)', width: 44, height: 44, padding: 0, margin: '-8px -8px -8px -8px',
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   }
   // Where a Body and activity row's TEXT starts: the 28px mark plus the row's
@@ -1472,7 +1472,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             // Vertical margins wide enough that the 44pt press area takes no
             // height in the grid: otherwise it sets the title line's height
             // and pushes the sub-line away from its title.
-            <button onClick={openSheet} style={{ ...moreBtnStyle, margin: '-22px -8px' }} aria-label={`Actions for ${title}`} title="Actions"><Icon name="more" /></button>
+            <button onClick={openSheet} style={{ ...moreBtnStyle, margin: '-22px -8px' }} aria-label={`Actions for ${title}`} title="Actions"><Icon name="more" size={20} /></button>
           ) : (
             <>
               <button onClick={onEdit} style={iconBtnStyle} aria-label={`Edit ${title}`} title="Edit"><Icon name="pencil" /></button>
@@ -1589,7 +1589,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               style={moreBtnStyle}
               aria-label={`Actions for ${entry.food}`}
               title="Actions"
-            ><Icon name="more" /></button>
+            ><Icon name="more" size={20} /></button>
           </div>
         )}
         {!selectMode && !isMobile && (
@@ -1680,7 +1680,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
               collapsed, and kept its grip by accident. */}
           {isMobile ? (
             <div data-no-longpress style={{ flexShrink: 0 }}>
-              <button onClick={() => setSheet(mealSheet(item))} style={moreBtnStyle} aria-label={`Actions for ${item.name}`} title="Actions"><Icon name="more" /></button>
+              <button onClick={() => setSheet(mealSheet(item))} style={moreBtnStyle} aria-label={`Actions for ${item.name}`} title="Actions"><Icon name="more" size={20} /></button>
             </div>
           ) : (
             <div data-no-longpress style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
@@ -2456,7 +2456,7 @@ function Log({ session, profile, hasSoloPremium = true }) {
             <Button onClick={() => setMeasExpanded(true)} variant="muted" size="sm">Log</Button>
           )}
           {savedMeas && !measExpanded && (isMobile ? (
-            <button onClick={() => setSheet(measSheet())} style={moreBtnStyle} aria-label="Actions for measurements" title="Actions"><Icon name="more" /></button>
+            <button onClick={() => setSheet(measSheet())} style={moreBtnStyle} aria-label="Actions for measurements" title="Actions"><Icon name="more" size={20} /></button>
           ) : (
             <div style={{ display: 'flex', gap: '2px' }}>
               <button onClick={() => setMeasExpanded(true)} style={iconBtnStyle} aria-label="Edit measurements" title="Edit"><Icon name="pencil" /></button>
