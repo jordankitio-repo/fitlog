@@ -2401,11 +2401,14 @@ body.has-chat-fab .ds-toast { bottom: 92px; }
    (`.gnav-selector` keeps its brand tint — that is the MOBILE tab bar, where
    a tinted active tab is the platform convention on both iOS and Android,
    and where it glides between tabs rather than jumping.) */
-.cv-rail-item.is-active {
-  /* No `background` declared AT ALL, deliberately. This rule sits after
-     :hover, so setting even `transparent` here would win and the active row
-     would be the one row in the rail that stopped responding to the pointer. */
-  color: var(--color-text);
+/* Where you are, in the brand green: a tinted row, green label and icon, the
+   way the mobile tab bar marks its current tab (.gnav-tab-pill). It was plain
+   ink on no fill, which a coach could not tell apart from the hover state. */
+.cv-rail-item.is-active,
+.cv-rail-item.is-active:hover {
+  background-color: var(--color-primary-dim);
+  color: var(--color-primary);
+  font-weight: var(--weight-medium);
 }
 .cv-rail-item.is-active .cv-rail-icon { opacity: 1; }
 

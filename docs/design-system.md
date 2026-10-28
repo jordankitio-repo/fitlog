@@ -429,6 +429,17 @@ reading the source, because both were invisible until something else moved:
   `padding: '5px 12px'`, leaving chips 26px tall against the rows' 30px. The
   override that is wanted is the lighter type; the height now comes from a
   `minHeight` floor so the chip matches Button `sm` by construction.
+- **One chip size, everywhere: 30px, Button `sm`.** No call site may shrink a
+  `Pill` (W / M / Y had been cut to 20px to sit lighter beside a heading,
+  which made them the one odd chip out and a target under the 24px touch
+  minimum). If a chip looks too heavy next to its heading, the fix is in the
+  heading or the spacing, not a second chip size.
+- **One switch: `ui/Switch`, 44x24.** `Toggle` and the charts' "By target"
+  render it; nothing hand-rolls a track and knob (the charts' was 32x18).
+- **Buttons come in sizes by job, not by call site.** `sm` (30px, fixed
+  height) for everything in a card, row or header; `md` (39px) for the one
+  submit of a form or dialog (Send invite, Sign out). A button beside a text
+  field takes the field's height (the chat's Send). Nothing else.
 - **The roster banner's fourth segment was hand-built.** Three counts went
   through a local `seg()` helper; `6/9 checked in` was assembled inline and so
   inherited `--text-sm` instead. It had been wrong since before the type pass

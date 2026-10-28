@@ -1,6 +1,7 @@
 import SettingRow from './SettingRow'
+import Switch from './Switch'
 // A labelled on/off switch: label (and optional description) on the left, the
-// switch on the right.
+// switch (ui/Switch) on the right.
 //
 // It was hand-rolled inline in Profile's Charts panel — 44x24 track, 20px knob,
 // two transitions, the whole recipe sitting in the middle of a map(). Adding
@@ -19,41 +20,10 @@ import SettingRow from './SettingRow'
 export default function Toggle({ checked, onChange, label, description, disabled = false }) {
   return (
     <SettingRow label={label} description={description} keepInline>
-      <button
-        type="button"
-        role="switch"
-        onClick={() => !disabled && onChange()}
-        aria-checked={checked}
-        aria-label={label}
-        disabled={disabled}
-        style={{
-          width: '44px',
-          height: '24px',
-          borderRadius: '999px',
-          border: 'none',
-          backgroundColor: checked ? 'var(--color-primary)' : 'var(--color-border)',
-          cursor: disabled ? 'default' : 'pointer',
-          opacity: disabled ? 0.5 : 1,
-          position: 'relative',
-          transition: 'background-color 0.2s',
-          flexShrink: 0,
-          // Sits on the label's first line when a description makes the row
-          // taller, rather than floating between two lines.
-          marginTop: description ? '2px' : 0,
-          display: 'block',
-        }}
-      >
-        <span style={{
-          position: 'absolute',
-          top: '2px',
-          left: checked ? '22px' : '2px',
-          width: '20px',
-          height: '20px',
-          borderRadius: '50%',
-          backgroundColor: 'var(--color-on-accent)',
-          transition: 'left 0.2s',
-        }} />
-      </button>
+      {/* Sits on the label's first line when a description makes the row
+          taller, rather than floating between two lines. */}
+      <Switch checked={checked} onChange={onChange} label={label} disabled={disabled}
+        style={{ marginTop: description ? '2px' : 0 }} />
     </SettingRow>
   )
 }

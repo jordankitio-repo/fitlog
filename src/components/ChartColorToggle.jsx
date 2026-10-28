@@ -1,6 +1,8 @@
-// Small grey toggle switch to turn a chart's target-coloring on/off. "On" =
-// colored by target (default); off = plain metric color. Stops click
-// propagation so it doesn't collapse the section.
+import Switch from './ui/Switch'
+
+// The switch that turns a chart's target-colouring on/off. "On" = coloured by
+// target (default); off = plain metric colour. ui/Switch stops the click, so
+// it never collapses the section whose header it sits in.
 //
 // It says what it does. It was a bare switch with only a hover title, so on a
 // phone (no hover) a coach met an unlabelled switch in a chart header and had
@@ -9,32 +11,9 @@ export default function ChartColorToggle({ plain, onToggle }) {
   const on = !plain
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-6)' }}>
-    <span aria-hidden="true" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>By target</span>
-    <button
-      aria-label="Colour bars by target"
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={(e) => { e.stopPropagation(); onToggle() }}
-      title={on ? 'Switch to plain colors' : 'Color bars by target'}
-      style={{
-        width: '32px', height: '18px', borderRadius: '999px',
-        // The app's switch colours (ui/Toggle): green on, grey off. It was
-        // dark grey when on, so it read as a different kind of control.
-        border: 'none',
-        background: on ? 'var(--color-primary)' : 'var(--color-border)',
-        position: 'relative', cursor: 'pointer', padding: 0, flexShrink: 0,
-        transition: 'background-color 0.2s ease',
-      }}
-    >
-      <span style={{
-        position: 'absolute', top: '3px', left: on ? '17px' : '3px',
-        width: '12px', height: '12px', borderRadius: '50%',
-        background: 'var(--color-on-accent)',
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
-        transition: 'left 0.2s ease',
-      }} />
-    </button>
+      <span aria-hidden="true" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>By target</span>
+      <Switch checked={on} onChange={onToggle} label="Colour bars by target"
+        title={on ? 'Switch to plain colors' : 'Color bars by target'} />
     </span>
   )
 }

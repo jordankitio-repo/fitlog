@@ -86,7 +86,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { Icon, Pill, Field, Select, Textarea } from '../components/ui'
+import { Icon, Pill, Field, Select, Textarea, Switch } from '../components/ui'
 import { scrollBehavior } from '../utils/motion'
 
 ChartJS.register(
@@ -3453,35 +3453,18 @@ async function sendMessage(text) {
           {/* 720px at most: on a laptop a calorie field 740px wide is a long
               way for a four-digit number, and the eye loses the row. */}
           <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column' }}>
-          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-muted)', marginTop: 'var(--space-8)' }}>
-            {clientFirstName} sees these on their Today tab.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-16)', padding: 'var(--space-12) 0', borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-12)' }}>
-            <div>
+          {/* The switch right after its label on one line, the way "By target"
+              sits in Daily metrics' header, with the explanation under both;
+              not at the far end of a 720px row where the eye has to travel to
+              pair them. */}
+          <div style={{ padding: 'var(--space-12) 0', borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-12)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)' }}>
               <p style={{ fontWeight: 'var(--weight-semibold)', margin: 0 }}>Hide calories from client</p>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
-                For clients who shouldn't see numbers.
-              </p>
+              <Switch checked={hideCaloriesToggle} onChange={toggleHideCalories} label="Hide calories from client" />
             </div>
-            <button
-              type="button"
-              onClick={toggleHideCalories}
-              aria-pressed={hideCaloriesToggle}
-              aria-label="Hide calories from client"
-              style={{
-                width: '44px', height: '24px', borderRadius: '999px', border: 'none',
-                backgroundColor: hideCaloriesToggle ? 'var(--color-primary)' : 'var(--color-border)',
-                cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s',
-                flexShrink: 0
-              }}
-            >
-              <span style={{
-                position: 'absolute', top: '2px',
-                left: hideCaloriesToggle ? '22px' : '2px',
-                width: '20px', height: '20px', borderRadius: '50%',
-                backgroundColor: 'var(--color-on-accent)', transition: 'left 0.2s',
-              }} />
-            </button>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 'var(--space-4) 0 0' }}>
+              For clients who shouldn't see numbers.
+            </p>
           </div>
           {/* Onboarding assessment → starting macros, so a new client isn't a
               blank slate. Fills the calorie/macro inputs; coach reviews + saves. */}

@@ -56,7 +56,9 @@ function Button({
   // alone; it belongs on the size, so every control of a given size agrees by
   // construction rather than by each call site remembering.
   const sizes = {
-    sm: { padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px' },
+    // `height`, not only a floor: a bordered variant (action, muted) came out
+    // 31px with a text label, 1px off every other small control in its row.
+    sm: { padding: '6px 12px', fontSize: 'var(--text-sm)', minHeight: '30px', height: '30px' },
     md: { padding: '10px 20px', fontSize: 'var(--text-base)', minHeight: '39px' },
     lg: { padding: '12px 24px', fontSize: 'var(--text-body)', minHeight: '45px' },
   }
