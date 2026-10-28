@@ -1,6 +1,8 @@
 export interface CallOpts {
   maxAttempts?: number
   timeoutMs?: number
+  // Beta flags, sent as the `anthropic-beta` header (e.g. server-side fallbacks).
+  betas?: string[]
 }
 
 export type CallResult =
@@ -58,6 +60,7 @@ export async function callAnthropic(
           'content-type': 'application/json',
           'anthropic-version': '2023-06-01',
           'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
+          ...(opts.betas?.length ? { 'anthropic-beta': opts.betas.join(',') } : {}),
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -71,8 +74,17 @@ export async function callAnthropic(
         // A malformed upstream response is handled as a classified failure below.
       }
 
-      const text = data?.content?.[0]?.text
-      if (response.ok && data?.type !== 'error' && typeof text === 'string' && text.length > 0) {
+      // The answer is the response's TEXT blocks, joined. On models that think
+      // (Claude Opus 5.5 always does) the first block is a thinking block, and
+      // a fallback adds a `fallback` block, so content[0] is not the answer.
+      const text = Array.isArray(data?.content)
+        ? data.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text).join('')
+        : ''
+      // A safety decline is an answer, not an outage: never retried.
+      if (response.ok && data?.stop_reason === 'refusal') {
+        return { ok: false, retryable: false, status: response.status, error: `Declined (${data?.stop_details?.category ?? 'refusal'})` }
+      }
+      if (response.ok && data?.type !== 'error' && text.length > 0) {
         return { ok: true, text }
       }
 

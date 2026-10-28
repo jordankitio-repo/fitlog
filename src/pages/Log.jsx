@@ -124,6 +124,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const [entries, setEntries] = useState([])
   const [editingEntry, setEditingEntry] = useState(null)
   const [feedback, setFeedback] = useState('')
+  // Feedback belongs to the day it was given on: moving to another day clears
+  // it during render (React's adjust-state-on-change pattern), not in an effect.
+  const [feedbackDay, setFeedbackDay] = useState(selectedDate)
+  if (feedbackDay !== selectedDate) {
+    setFeedbackDay(selectedDate)
+    setFeedback('')
+  }
   const [loading, setLoading] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [barcodeInput, setBarcodeInput] = useState('')
@@ -330,7 +337,6 @@ function Log({ session, profile, hasSoloPremium = true }) {
     fetchFrequentFoods()
     fetchSavedMeals()
     fetchLastMeasured()
-    setFeedback('')
   }, [selectedDate])
 
   // Back on this tab (kept alive): refresh in place, no placeholders. The day
@@ -442,23 +448,20 @@ function Log({ session, profile, hasSoloPremium = true }) {
     loadHideCalories()
   }, [session?.user?.id, profile?.role])
 
-  useEffect(() => {
+  // Scale the macros to a new amount. Called from the amount and unit
+  // fields, the only things that change the serving after a food is picked
+  // (picking one sets its macros directly). It was an effect watching four
+  // values and setting four others, which re-rendered the form twice a keystroke.
+  function rescaleServing(size, unit) {
     if (!baseNutrients) return
-    if (baseServingSize != null) {
-      const multiplier = parseFloat(servingSize) || 1
-      setCalories(Math.round(baseNutrients.calories * multiplier).toString())
-      setProtein(Math.round(baseNutrients.protein * multiplier).toString())
-      setCarbs(Math.round(baseNutrients.carbs * multiplier).toString())
-      setFat(Math.round(baseNutrients.fat * multiplier).toString())
-    } else {
-      const grams = (parseInt(servingSize) || 100) * (unitConversions[servingUnit] || 1)
-      const multiplier = grams / 100
-      setCalories(Math.round(baseNutrients.calories * multiplier).toString())
-      setProtein(Math.round(baseNutrients.protein * multiplier).toString())
-      setCarbs(Math.round(baseNutrients.carbs * multiplier).toString())
-      setFat(Math.round(baseNutrients.fat * multiplier).toString())
-    }
-  }, [servingSize, servingUnit, baseNutrients, baseServingSize])
+    const multiplier = baseServingSize != null
+      ? (parseFloat(size) || 1)
+      : ((parseInt(size) || 100) * (unitConversions[unit] || 1)) / 100
+    setCalories(Math.round(baseNutrients.calories * multiplier).toString())
+    setProtein(Math.round(baseNutrients.protein * multiplier).toString())
+    setCarbs(Math.round(baseNutrients.carbs * multiplier).toString())
+    setFat(Math.round(baseNutrients.fat * multiplier).toString())
+  }
 
   // Nutrition functions
   async function fetchEntries() {
@@ -982,10 +985,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
     setProtein(entry.protein.toString()); setCarbs(entry.carbs.toString()); setFat(entry.fat.toString())
     setServingSize(entry.serving_size.toString()); setServingUnit(entry.serving_unit || 'g')
     setMeal(entry.meal || mealForHour(new Date().getHours()))
-    // The row's macros are totals for its own serving, but the scaling effect
+    // The row's macros are totals for its own serving, but rescaleServing
     // reads the base as per-100g (or per-serving), so convert first. Handing it
     // the totals as-is re-logged "1 serving · 402 kcal" as 4 kcal.
-    // Size is parsed the same way the effect parses it, so the round trip is exact.
+    // Size is parsed the same way rescaleServing parses it, so the round trip is exact.
     const measured = (entry.serving_unit || 'g') in unitConversions
     const perUnit = measured
       ? 100 / ((parseInt(entry.serving_size) || 100) * unitConversions[entry.serving_unit || 'g'])
@@ -2154,11 +2157,11 @@ function Log({ session, profile, hasSoloPremium = true }) {
               {fieldLabel(baseServingSize != null ? 'Servings' : 'Amount', <input
                 type="number"
                 value={servingSize}
-                onChange={(e) => setServingSize(e.target.value)}
+                onChange={(e) => { setServingSize(e.target.value); rescaleServing(e.target.value, servingUnit) }}
                 style={inputStyle}
               />, { flex: 1 })}
               {baseServingSize == null && (
-                <WheelSelect value={servingUnit} onChange={(e) => setServingUnit(e.target.value)} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
+                <WheelSelect value={servingUnit} onChange={(e) => { setServingUnit(e.target.value); rescaleServing(servingSize, e.target.value) }} style={{ ...inputStyle, width: '80px', cursor: 'pointer' }}>
                   <option value="g">g</option>
                   <option value="oz">oz</option>
                   <option value="ml">ml</option>

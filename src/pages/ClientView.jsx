@@ -1607,7 +1607,7 @@ async function toggleFlag(note) {
   setTargetsSaved(true); setTimeout(() => setTargetsSaved(false), 2000)
 }
 
-  async function generateWeeklyReport() {
+  async function runWeeklyReport() {
     setReportLoading(true)
     setReport('')
     setReportWeekRange(null)
@@ -1675,8 +1675,15 @@ async function toggleFlag(note) {
       }
     )
 
-    const data = await response.json()
-    setReport(data.report || data.error || 'Failed to generate report.')
+    // A failure is a toast, never the draft: an error sentence became an
+    // editable report a coach could have sent to the client.
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data.report) {
+      setReportLoading(false)
+      showToast(data.error || "Couldn't draft the weekly report. Try again.", 'error')
+      return false
+    }
+    setReport(data.report)
     setReportSubject(data.subject || '')
     setReportWeekRange({
       startDate: weekRange.startDate,
@@ -1684,6 +1691,7 @@ async function toggleFlag(note) {
       label: weekRange.label
     })
     setReportLoading(false)
+    return true
   }
 
   async function sendReport() {
@@ -1728,7 +1736,24 @@ async function toggleFlag(note) {
     }
   }
 
+  // The two AI tools, guarded: a dropped connection used to leave the button
+  // spinning for good. Each resolves true when it produced something to show.
   async function generateCallPrep() {
+    try { return await runCallPrep() } catch {
+      setBriefingLoading(false)
+      showToast("Couldn't reach the server. Check your connection and try again.", 'error')
+      return false
+    }
+  }
+  async function generateWeeklyReport() {
+    try { return await runWeeklyReport() } catch {
+      setReportLoading(false)
+      showToast("Couldn't reach the server. Check your connection and try again.", 'error')
+      return false
+    }
+  }
+
+  async function runCallPrep() {
     setBriefingLoading(true)
     setCallBriefing('')
 
@@ -1826,9 +1851,16 @@ async function toggleFlag(note) {
       }
     )
 
-    const data = await response.json()
-    setCallBriefing(data.briefing || data.error || 'Failed to generate briefing.')
+    // A failure is a toast, never the brief: an error sentence used to fill
+    // the brief card under "Meeting brief for Ava", styled as the answer.
+    const data = await response.json().catch(() => ({}))
     setBriefingLoading(false)
+    if (!response.ok || !data.briefing) {
+      showToast(data.error || "Couldn't prepare the meeting brief. Try again.", 'error')
+      return false
+    }
+    setCallBriefing(data.briefing)
+    return true
   }
 
   // Fetch only — do NOT mark read here, so the bubble's unread badge survives
@@ -2944,7 +2976,7 @@ async function sendMessage(text) {
           const busy = kind === 'prep' ? briefingLoading : reportLoading
           return (
             <Button key={kind} variant="muted" size="sm" fullWidth loading={busy} disabled={busy}
-              onClick={async () => { await (kind === 'prep' ? generateCallPrep() : generateWeeklyReport()); setAiToolsCollapsed(false); goToSection('groundwork') }}>
+              onClick={async () => { if (await (kind === 'prep' ? generateCallPrep() : generateWeeklyReport())) { setAiToolsCollapsed(false); goToSection('groundwork') } }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{t.icon}</svg>
               {t.title}
             </Button>

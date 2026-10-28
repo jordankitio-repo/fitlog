@@ -146,11 +146,18 @@ Write the briefing with exactly these sections:
 
 Be concise and direct; use bullet points. This is the coach's conversation cheat-sheet — do NOT write recommendations or a plan for the client (that is the weekly report's job, a separate tool).`
 
+    // Claude Opus 5.5: thinking is always on and counts against max_tokens,
+    // so the cap leaves room for it (1024 would cut the brief off). Effort
+    // `medium` is set explicitly; a brief from structured client data does
+    // not need more. `fallbacks: "default"` re-runs a safety-declined request
+    // on a fallback model inside the same call.
     const result = await callAnthropic({
-      model: 'claude-opus-4-5',
-      max_tokens: 1024,
+      model: 'claude-opus-5-5',
+      max_tokens: 16000,
+      output_config: { effort: 'medium' },
+      fallbacks: 'default',
       messages: [{ role: 'user', content: prompt }],
-    })
+    }, { timeoutMs: 60000, maxAttempts: 2, betas: ['server-side-fallback-2026-07-01'] })
     if (!result.ok) {
       console.error('call-prep anthropic failed:', result.status, result.error)
       return new Response(JSON.stringify({

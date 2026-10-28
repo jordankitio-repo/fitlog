@@ -347,7 +347,6 @@ function App() {
   const [subscription, setSubscription] = useState(null)
   const [subLoading, setSubLoading] = useState(false)
   const [soloSubscription, setSoloSubscription] = useState(null)
-  const [, setSoloSubLoading] = useState(false)
 
   // Coach-tier session caps; clients are covered by the project-wide Supabase
   // time-box and deliberately have no idle timeout.
@@ -384,7 +383,6 @@ function App() {
     setSoloSubscription(null)
     setLoading(false)
     setSubLoading(false)
-    setSoloSubLoading(false)
   }, [])
 
   useEffect(() => {
@@ -421,7 +419,6 @@ function App() {
         setSoloSubscription(null)
         setLoading(false)
         setSubLoading(false)
-        setSoloSubLoading(false)
       }
     })
 
@@ -453,11 +450,10 @@ function App() {
   }, [loading])
 
   useEffect(() => {
-    if (profile?.role !== 'coach') {
-      setSubscription(null)
-      setSubLoading(false)
-      return
-    }
+    // Not a coach: nothing to fetch. The stale value is not cleared here
+    // (a setState in an effect body); `coachSubscription` below reads it as
+    // null for any other role, and sign-out clears it.
+    if (profile?.role !== 'coach') return
 
     let active = true
 
@@ -484,16 +480,12 @@ function App() {
   }, [profile])
 
   useEffect(() => {
-    if (profile?.role !== 'solo') {
-      setSoloSubscription(null)
-      setSoloSubLoading(false)
-      return
-    }
+    // Not solo: nothing to fetch (see the coach effect above).
+    if (profile?.role !== 'solo') return
 
     let active = true
 
     async function fetchSoloSubscription() {
-      setSoloSubLoading(true)
       const { data, error } = await supabase
         .from('subscriptions')
         .select('status, trial_end, current_period_end, stripe_price_id, billing_interval, paused_for_coaching, cancel_at_period_end')
@@ -503,7 +495,6 @@ function App() {
       if (!active) return
       if (error) console.error('Error fetching solo subscription:', error)
       setSoloSubscription(data || null)
-      setSoloSubLoading(false)
     }
 
     fetchSoloSubscription()
@@ -515,11 +506,16 @@ function App() {
 
   const PAID_STATUSES = ['trialing', 'active', 'past_due']
 
+  // Each subscription applies only to its own role, so a value fetched for an
+  // earlier profile can never leak into another.
+  const coachSubscription = profile?.role === 'coach' ? subscription : null
+  const activeSoloSubscription = profile?.role === 'solo' ? soloSubscription : null
+
   const hasSoloPremium =
     !SOLO_BILLING_ENABLED ||
     (profile?.role === 'solo' &&
-      PAID_STATUSES.includes(soloSubscription?.status) &&
-      !soloSubscription?.paused_for_coaching)
+      PAID_STATUSES.includes(activeSoloSubscription?.status) &&
+      !activeSoloSubscription?.paused_for_coaching)
 
   if (PUBLIC_ROUTES.includes(window.location.pathname)) {
     return (
@@ -584,10 +580,10 @@ function App() {
   }
 
   if (BILLING_ENABLED && profile?.role === 'coach') {
-    const status = subscription?.status
+    const status = coachSubscription?.status
 
     if (!status || !PAID_STATUSES.includes(status)) {
-      return <CoachPaywall subscription={subscription} profile={profile} onSignOut={handleSignOut} />
+      return <CoachPaywall subscription={coachSubscription} profile={profile} onSignOut={handleSignOut} />
     }
   }
 
@@ -596,8 +592,8 @@ function App() {
       <AppRoutes
         session={session}
         profile={profile}
-        subscription={subscription}
-        soloSubscription={soloSubscription}
+        subscription={coachSubscription}
+        soloSubscription={activeSoloSubscription}
         hasSoloPremium={hasSoloPremium}
         onProfileUpdate={() => fetchProfile(session.user.id)}
       />
