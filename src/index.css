@@ -2177,14 +2177,26 @@ body.has-chat-fab .ds-toast { bottom: 92px; }
   .cv-shell { grid-template-columns: 260px minmax(0, 1fr) 320px; }
 }
 .cv-panel {
-  display: flex; flex-direction: column; gap: var(--space-12);
+  display: flex; flex-direction: column;
   position: sticky; top: 56px; align-self: start;
-  max-height: calc(100vh - 56px); overflow-y: auto;
+  max-height: calc(100vh - 56px);
   /* Top matches .cv-main's, so the first card starts level with the name.
      No clearance for the chat bubble: with the panel up there is none (its
      Message button opens the chat). */
   padding: var(--space-24) var(--space-32) var(--space-24) 0;
 }
+/* Fixed contents only: nothing in the panel grows with the client's data,
+   so it never needs a scrollbar of its own beside the page's. */
+.cv-panel { gap: var(--space-12); }
+.cvp-card.cvp-flagline {
+  flex-direction: row; align-items: center; gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  width: 100%; text-align: left; cursor: pointer; font: inherit; font-size: var(--text-sm); color: var(--color-text);
+}
+.cvp-flagline > svg:first-child { color: var(--color-warning); flex-shrink: 0; }
+.cvp-flagline > svg:last-child { color: var(--color-muted); flex-shrink: 0; margin-left: auto; }
+.cvp-flagline-count { font-weight: var(--weight-medium); white-space: nowrap; }
+.cvp-flagline-text { color: var(--color-muted); min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cvp-card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -2207,7 +2219,7 @@ body.has-chat-fab .ds-toast { bottom: 92px; }
 .cvp-label { margin: 0; font-size: var(--text-xs); color: var(--color-muted); font-weight: var(--weight-medium); }
 .cvp-text { margin: 0; font-size: var(--text-sm); color: var(--color-text); line-height: 1.5; }
 .cvp-act { align-self: stretch; margin-top: var(--space-4); }
-.cvp-prep { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
+.cvp-prep { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); width: 100%; }
 /* A type-only link, the rail's "Set daily targets" progression. */
 .cvp-link {
   display: inline-flex; align-items: center; gap: var(--space-4);
@@ -2220,9 +2232,6 @@ body.has-chat-fab .ds-toast { bottom: 92px; }
 .cvp-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 3px; }
 /* On the green button: ink, not the warning colour, which failed contrast there. */
 .cvp-unread { color: inherit; font-weight: var(--weight-semibold); margin-left: var(--space-4); opacity: 0.85; }
-.cvp-flags { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-6); }
-.cvp-flags li { display: flex; gap: var(--space-6); align-items: baseline; font-size: var(--text-sm); color: var(--color-text); }
-.cvp-flags li svg { color: var(--color-warning); flex-shrink: 0; transform: translateY(2px); }
 
 /* Rail nav items — hover highlight follows the cursor; the green selected state
    (driven by scroll-spy / a click) stays put. .is-active is ordered after :hover

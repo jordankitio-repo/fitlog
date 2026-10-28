@@ -101,6 +101,37 @@ ChartJS.register(
 /* eslint-disable no-restricted-syntax -- see above */
 const GW_ACCENT_AI = '#a78bfa'
 const GW_ACCENT_REPORT = '#34d399'
+
+// The two AI tools, each in its own colour (meeting prep violet, weekly report
+// green): the Groundwork card's tiles, and the side panel's two small buttons
+// read their colour and icon from here so the two cannot drift apart.
+const GW_TOOLS = {
+  prep: {
+    accent: GW_ACCENT_AI, chip: 'rgba(167, 139, 250, 0.16)',
+    title: 'Meeting prep', busy: 'Preparing meeting prep\u2026', sub: 'Private brief before a call',
+    icon: <><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></>,
+  },
+  report: {
+    accent: GW_ACCENT_REPORT, chip: 'rgba(52, 211, 153, 0.16)',
+    title: 'Weekly report', busy: 'Drafting report\u2026', sub: 'Draft to review, then send',
+    icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></>,
+  },
+}
+function GroundworkTile({ kind, onClick, loading }) {
+  const t = GW_TOOLS[kind]
+  return (
+    <button className="gw-tile ds-control" onClick={onClick} disabled={loading}
+      style={{ '--gw-accent': t.accent, display: 'flex', alignItems: 'center', gap: 'var(--space-12)', width: '100%', textAlign: 'left', padding: 'var(--space-16)', borderRadius: 'var(--radius)', backgroundColor: 'var(--control-bg)', backgroundImage: 'var(--control-sheen)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)', cursor: loading ? 'default' : 'pointer', color: 'var(--color-text)', fontFamily: 'inherit', opacity: loading ? 0.65 : 1 }}>
+      <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: t.chip, flexShrink: 0 }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{t.icon}</svg>
+      </span>
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
+        <span style={{ fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-md)' }}>{loading ? t.busy : t.title}</span>
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>{t.sub}</span>
+      </span>
+    </button>
+  )
+}
 const CHART_SERIES = '#34d399'
 /* eslint-enable no-restricted-syntax */
 
@@ -265,6 +296,13 @@ const CHECKIN_PAGE = 10
 const CHECKINS_ON_PAGE = 4
 const NOTE_CLAMP_LINES = 6
 const NOTE_MAX = 5000
+// A note's first non-blank line: what a flag shows wherever it is summarised
+// (header, side panel). Not split('\n')[0], which is empty for a body that
+// starts with a blank line.
+const noteHead = (body) => (body || '').split('\n').find(l => l.trim()) || ''
+// Flagged notes shown in the Notes card before the rest move to All notes.
+// Every flag shown, always, put 1,400px of flags above the first note at 12.
+const FLAGS_ON_PAGE = 5
 const NOTE_COLS = 'id, body, created_at, updated_at, date_only, flagged'
 
 // A note's date: "Oct 26, 8:37 PM", or just "Oct 26" for one carried over from
@@ -2766,10 +2804,10 @@ async function sendMessage(text) {
   // way). Plain text with a glyph, not a pill (C1); it links to Notes.
   const flagLine = flaggedNotes.length > 0 && (
     <Link to={`/client/${clientId}/privateNotes`} className="cv-head-flags ds-control"
-      title={flaggedNotes.map(n => n.body.split('\n')[0]).join('\n')}
-      aria-label={`Flagged: ${flaggedNotes.map(n => n.body.split('\n')[0]).join('; ')}. Open notes`}>
+      title={flaggedNotes.map(n => noteHead(n.body)).join('\n')}
+      aria-label={`Flagged: ${flaggedNotes.map(n => noteHead(n.body)).join('; ')}. Open notes`}>
       <Icon name="flag" size={13} />
-      <span className="cv-head-flags-text">{flaggedNotes[0].body.split('\n')[0]}</span>
+      <span className="cv-head-flags-text">{noteHead(flaggedNotes[0].body)}</span>
       {flaggedNotes.length > 1 && <span className="cv-head-flags-more">+{flaggedNotes.length - 1}</span>}
     </Link>
   )
@@ -2786,6 +2824,10 @@ async function sendMessage(text) {
   // list of small labels read like settings rather than a verdict. So the
   // first card leads with one big figure. Nothing is drawn twice: while the
   // panel shows, the header drops its status, flag, lock and nudge.
+  // The flags past those shown in the Notes card, opening All notes.
+  const moreFlagged = (n) => (
+    <Button onClick={() => setNoteArchiveOpen(true)} variant="muted" size="sm">{n} more flagged</Button>
+  )
   const TONE_COLOR = { red: 'var(--color-error)', yellow: 'var(--color-warning)', green: 'var(--color-success)' }
   const compliance = statusStats ? gradeCompliance(statusStats) : null
   const logging = statusStats ? gradeLogging({ ...statusStats, lockInfo }) : null
@@ -2867,33 +2909,37 @@ async function sendMessage(text) {
         {checkinCard.action && <div className="cvp-act">{checkinCard.action}</div>}
       </section>
 
+      {/* Flags as ONE line: how many, and the newest, opening Notes. The
+          panel never grows with the client's data (a list of flags here made
+          it taller than a laptop screen and gave it a scrollbar of its own
+          beside the page's); the full list is in Notes. */}
       {flaggedNotes.length > 0 && (
-        <section className="cvp-card">
-          <p className="cvp-label">Flagged</p>
-          <ul className="cvp-flags">
-            {flaggedNotes.slice(0, 3).map(n => (
-              <li key={n.id}><Icon name="flag" size={13} /><span>{n.body.split('\n')[0]}</span></li>
-            ))}
-          </ul>
-          {flaggedNotes.length > 3 && <p className="cvp-caption" style={{ margin: 0 }}>{flaggedNotes.length - 3} more in Notes</p>}
-        </section>
+        <button type="button" className="cvp-card cvp-flagline ds-control" onClick={() => goToSection('privateNotes')}
+          title={flaggedNotes.map(n => noteHead(n.body)).join('\n')}
+          aria-label={`${flaggedNotes.length} flagged ${flaggedNotes.length === 1 ? 'note' : 'notes'}: ${flaggedNotes.map(n => noteHead(n.body)).join('; ')}. Open notes`}>
+          <Icon name="flag" size={14} />
+          <span className="cvp-flagline-count">{flaggedNotes.length} flagged</span>
+          <span className="cvp-flagline-text">{noteHead(flaggedNotes[0].body)}</span>
+          <Icon name="right" size={12} />
+        </button>
       )}
 
-      {/* Groundwork's two tools, as actions: what they write appears in the
-          record, in the Groundwork card, which scrolls into view. */}
-      <section className="cvp-card">
-        <p className="cvp-label">Prepare</p>
-        <div className="cvp-act cvp-prep">
-          <Button variant="muted" size="sm" fullWidth loading={briefingLoading} disabled={briefingLoading}
-            onClick={async () => { await generateCallPrep(); setAiToolsCollapsed(false); goToSection('groundwork') }}>
-            Meeting prep
-          </Button>
-          <Button variant="muted" size="sm" fullWidth loading={reportLoading} disabled={reportLoading}
-            onClick={async () => { await generateWeeklyReport(); setAiToolsCollapsed(false); goToSection('groundwork') }}>
-            Weekly report
-          </Button>
-        </div>
-      </section>
+      {/* Groundwork's two tools, as two small buttons in their own colours
+          (the Groundwork tiles' icons); what they write appears in the record,
+          in the Groundwork card, which scrolls into view. */}
+      <div className="cvp-prep">
+        {['prep', 'report'].map(kind => {
+          const t = GW_TOOLS[kind]
+          const busy = kind === 'prep' ? briefingLoading : reportLoading
+          return (
+            <Button key={kind} variant="muted" size="sm" fullWidth loading={busy} disabled={busy}
+              onClick={async () => { await (kind === 'prep' ? generateCallPrep() : generateWeeklyReport()); setAiToolsCollapsed(false); goToSection('groundwork') }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{t.icon}</svg>
+              {t.title}
+            </Button>
+          )
+        })}
+      </div>
 
       {/* Green, unless the check-in card's Review is: one primary per view. */}
       <Button variant={clientCheckIn && !clientCheckIn.reviewed_at ? 'muted' : 'primary'} size="sm" style={{ width: '100%' }} onClick={() => handleRailJump('messages')}>
@@ -3036,27 +3082,8 @@ async function sendMessage(text) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
             {!hasPanel && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-12)' }}>
-              <button className="gw-tile ds-control" onClick={generateCallPrep} disabled={briefingLoading}
-                style={{ '--gw-accent': GW_ACCENT_AI, display: 'flex', alignItems: 'center', gap: 'var(--space-12)', width: '100%', textAlign: 'left', padding: 'var(--space-16)', borderRadius: 'var(--radius)', backgroundColor: 'var(--control-bg)', backgroundImage: 'var(--control-sheen)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)', cursor: briefingLoading ? 'default' : 'pointer', color: 'var(--color-text)', fontFamily: 'inherit', opacity: briefingLoading ? 0.65 : 1 }}>
-                <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: 'rgba(167, 139, 250, 0.16)', flexShrink: 0 }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h4" /></svg>
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
-                  <span style={{ fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-md)' }}>{briefingLoading ? 'Preparing meeting prep…' : 'Meeting prep'}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>Private brief before a call</span>
-                </span>
-              </button>
-
-              <button className="gw-tile ds-control" onClick={generateWeeklyReport} disabled={reportLoading}
-                style={{ '--gw-accent': GW_ACCENT_REPORT, display: 'flex', alignItems: 'center', gap: 'var(--space-12)', width: '100%', textAlign: 'left', padding: 'var(--space-16)', borderRadius: 'var(--radius)', backgroundColor: 'var(--control-bg)', backgroundImage: 'var(--control-sheen)', border: '1px solid var(--control-bd)', boxShadow: 'var(--control-shadow)', cursor: reportLoading ? 'default' : 'pointer', color: 'var(--color-text)', fontFamily: 'inherit', opacity: reportLoading ? 0.65 : 1 }}>
-                <span className="gw-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 11, background: 'rgba(52, 211, 153, 0.16)', flexShrink: 0 }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
-                  <span style={{ fontWeight: 'var(--weight-medium)', fontSize: 'var(--text-md)' }}>{reportLoading ? 'Drafting report…' : 'Weekly report'}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', lineHeight: 1.35 }}>Draft to review, then send</span>
-                </span>
-              </button>
+              <GroundworkTile kind="prep" onClick={generateCallPrep} loading={briefingLoading} />
+              <GroundworkTile kind="report" onClick={generateWeeklyReport} loading={reportLoading} />
             </div>
             )}
 
@@ -3873,7 +3900,8 @@ async function sendMessage(text) {
                     {/* Flagged first, under their own caption, the way
                         Trainerize floats a flagged note to the top. */}
                     {flaggedNotes.length > 0 && <p className="ds-colhead" style={{ margin: 0 }}>Flagged</p>}
-                    {flaggedNotes.map(renderNote)}
+                    {flaggedNotes.slice(0, FLAGS_ON_PAGE).map(renderNote)}
+                    {flaggedNotes.length > FLAGS_ON_PAGE && <div>{moreFlagged(flaggedNotes.length - FLAGS_ON_PAGE)}</div>}
                     {flaggedNotes.length > 0 && notes.length > 0 && <p className="ds-colhead" style={{ margin: 'var(--space-4) 0 0' }}>Notes</p>}
                     {notes.slice(0, NOTES_ON_PAGE).map(renderNote)}
                     {(notes.length > NOTES_ON_PAGE || notesMore) && (
