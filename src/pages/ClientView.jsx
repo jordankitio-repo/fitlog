@@ -1724,6 +1724,9 @@ async function toggleFlag(note) {
     } else {
       setReport(''); setReportEditing(false)
       setToast({ message: 'Report sent to client.', type: 'success' })
+      // The sent list and its unread count were only read on load, so the
+      // report just sent was missing from them until the page was reloaded.
+      fetchSentReports()
       // Notify client by email
       fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-report`, {
         method: 'POST',
@@ -1937,7 +1940,7 @@ async function sendMessage(text) {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const { data, error } = await supabase
       .from('reports')
-      .select('id, content, week_of, created_at, read_at')
+      .select('id, content, subject, week_of, created_at, read_at')
       .eq('coach_id', currentSession.user.id)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
@@ -1949,7 +1952,7 @@ async function sendMessage(text) {
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     const { data, error, count } = await supabase
       .from('reports')
-      .select('id, content, week_of, created_at, read_at', { count: 'exact' })
+      .select('id, content, subject, week_of, created_at, read_at', { count: 'exact' })
       .eq('coach_id', currentSession.user.id)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
@@ -3185,7 +3188,9 @@ async function sendMessage(text) {
                     </div>
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 'var(--space-12)', flexWrap: 'wrap' }}>
+                {/* 8px apart: at 12 the three no longer fit a phone once Edit
+                    reads "Preview", and Discard wrapped onto a line of its own. */}
+                <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap' }}>
                   <Button onClick={sendReport} variant="primary" size="sm">Send to client</Button>
                   <Button onClick={() => setReportEditing(v => !v)} variant="muted" size="sm">{reportEditing ? 'Preview' : 'Edit'}</Button>
                   <Button onClick={() => { setReport(''); setReportSubject(''); setReportEditing(false) }} variant="ghost" size="sm">Discard</Button>
@@ -3473,6 +3478,12 @@ async function sendMessage(text) {
                       onClick={() => setOpenSentReport(open ? null : r.id)}
                     >
                       <span className="rep-row-body">
+                        {/* Subject first, on its own line, then when and
+                            whether it was read: the client's own report list
+                            leads with the subject too. A report from before
+                            subjects existed starts at its date. Beside the
+                            date it squeezed into a column on a phone. */}
+                        {r.subject && <span className="rep-row-title">{r.subject}</span>}
                         <span className="rep-row-head">
                           <span className="rep-row-when">{relativeTime(r.created_at)}</span>
                           {/* C1 status text. Read is graded green — the report
@@ -4433,6 +4444,7 @@ async function sendMessage(text) {
                     onClick={() => setOpenArchiveReport(open ? null : r.id)}
                   >
                     <span className="rep-row-body">
+                      {r.subject && <span className="rep-row-title">{r.subject}</span>}
                       <span className="rep-row-head">
                         <span className="rep-row-when">{relativeTime(r.created_at)}</span>
                         <span style={{ fontSize: 'var(--text-xs)', color: r.read_at ? 'var(--color-success)' : 'var(--color-muted)' }}>
