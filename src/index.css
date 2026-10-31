@@ -2205,6 +2205,11 @@ body.has-chat-fab .ds-toast { bottom: 92px; }
 .cv-note-group.is-flagged > svg { color: var(--color-warning); }
 .cv-note-group-count { color: var(--color-muted); font-weight: var(--weight-normal); }
 .cv-note-group.is-notes { margin-top: var(--space-8); padding-top: var(--space-16); border-top: 1px solid var(--color-border); }
+/* The weekly-report draft, previewed as the client's report page shows it. */
+.cv-report-preview {
+  background-color: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-16) var(--space-20);
+}
 .cvp-card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);

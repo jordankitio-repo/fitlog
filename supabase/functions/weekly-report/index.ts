@@ -125,16 +125,16 @@ ${days}
 
 ${checkInSection}
 
-Write a structured weekly coaching report with these sections:
-1. Overall Assessment (2-3 sentences covering nutrition, cardio, steps, and consistency)
-2. Nutrition Highlights (what they did well)
-3. Cardio & Activity (comment on their cardio sessions and steps)
-4. Areas to Improve (specific, actionable)
-5. Weight Trend (comment on their weight data)
-6. Client Check-in Response (respond directly to their adherence rating, energy, obstacles, and notes if submitted)
-7. Top 3 Recommendations for next week
+Write a structured weekly coaching report with these sections, in this order. Start each one with a markdown heading line ("## " followed by the section name, no number), with its content on the lines below:
+- Overall Assessment (2-3 sentences covering nutrition, cardio, steps, and consistency)
+- Nutrition Highlights (what they did well)
+- Cardio & Activity (comment on their cardio sessions and steps)
+- Areas to Improve (specific, actionable)
+- Weight Trend (comment on their weight data)
+- Check-in (respond directly to their adherence rating, energy, obstacles, and notes if submitted)
+- Top 3 for Next Week (a numbered list)
 
-Be direct, specific, and encouraging. Use the actual numbers from their data. If the client submitted a check-in, make sure to address it personally.
+Be direct, specific, and encouraging. Use the actual numbers from their data. If the client submitted a check-in, make sure to address it personally. Keep the whole report under 450 words: a client reads it on a phone, so short paragraphs and bullets.
 
 Begin your response with a single line of the form:
 
@@ -142,11 +142,18 @@ SUBJECT: <a short, specific subject line, at most 8 words>
 
 The subject names what actually happened this week, the way a person would write it in an email ("Weekend held, waist down 5.5cm" — not "Weekly Report" or "Your Check-In"). It is what the client sees in a list of every report you have ever sent, so it must be different from last week's. Then a blank line, then the report itself with no title of its own.`
 
+    // Claude Opus 5.5: this is the AI output a client actually reads. Thinking
+    // is always on and counts against max_tokens, so the cap leaves room for
+    // it; the report's length is set in the prompt instead (the old 800-token
+    // cap was doing that job silently). `fallbacks: "default"` re-runs a
+    // safety-declined request on a fallback model inside the same call.
     const result = await callAnthropic({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 800,
+      model: 'claude-opus-5-5',
+      max_tokens: 16000,
+      output_config: { effort: 'medium' },
+      fallbacks: 'default',
       messages: [{ role: 'user', content: prompt }],
-    })
+    }, { timeoutMs: 60000, maxAttempts: 2, betas: ['server-side-fallback-2026-07-01'] })
     if (!result.ok) {
       console.error('weekly-report anthropic failed:', result.status, result.error)
       return new Response(JSON.stringify({

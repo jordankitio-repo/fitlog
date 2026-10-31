@@ -85,7 +85,9 @@ export default function ReportProse({ content, color = 'var(--color-text)', styl
           )
         }
         return (
-          <p key={i} style={{ margin: i === 0 ? 0 : 'var(--space-12) 0 0' }}>{inline(b.text, `p${i}`)}</p>
+          // `color: inherit`: the global `p` rule is muted, which left a
+          // report's paragraphs grey beside its bullets in full ink.
+          <p key={i} style={{ color: 'inherit', margin: i === 0 ? 0 : 'var(--space-12) 0 0' }}>{inline(b.text, `p${i}`)}</p>
         )
       })}
     </div>

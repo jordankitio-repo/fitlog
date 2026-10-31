@@ -370,6 +370,8 @@ function ClientView({ profile }) {
   const [prevWeight, setPrevWeight] = useState(null)
   const [recentWeights, setRecentWeights] = useState([])
   const [report, setReport] = useState('')
+  // The draft shows as the client will read it; Edit swaps in the raw text.
+  const [reportEditing, setReportEditing] = useState(false)
   const [reportSubject, setReportSubject] = useState('')
   const [reportWeekRange, setReportWeekRange] = useState(null)
   const [reportLoading, setReportLoading] = useState(false)
@@ -1684,6 +1686,7 @@ async function toggleFlag(note) {
       return false
     }
     setReport(data.report)
+    setReportEditing(false)
     setReportSubject(data.subject || '')
     setReportWeekRange({
       startDate: weekRange.startDate,
@@ -1719,7 +1722,7 @@ async function toggleFlag(note) {
     if (error) {
       console.error('Error sending report:', error)
     } else {
-      setReport('')
+      setReport(''); setReportEditing(false)
       setToast({ message: 'Report sent to client.', type: 'success' })
       // Notify client by email
       fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-report`, {
@@ -3140,7 +3143,11 @@ async function sendMessage(text) {
                   <Button onClick={() => setCallBriefing('')} variant="ghost" size="sm">Dismiss</Button>
                 </div>
                 <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-ai)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Not visible to client</p>
-                <pre style={{ color: 'var(--color-text)', fontSize: 'var(--text-base)', lineHeight: '1.7', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{callBriefing}</pre>
+                {/* Rendered, not printed: the brief is markdown (bold section
+                    leads, bullets), and in a <pre> a coach read the literal
+                    asterisks. ReportProse is the reports' renderer, with no
+                    injected HTML. */}
+                <ReportProse content={callBriefing} dropLeadingH1 />
               </div>
             )}
 
@@ -3157,16 +3164,31 @@ async function sendMessage(text) {
                   maxLength={120}
                   placeholder="What happened this week, in a few words"
                 />
-                <Textarea
-                  value={report}
-                  onChange={(e) => setReport(e.target.value)}
-                  rows={20}
-                  aria-label="Weekly report draft"
-                  style={{ lineHeight: '1.7', resize: 'vertical' }}
-                />
-                <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
+                {/* What the coach signs off is what the client gets: the draft
+                    shows formatted, through the same renderer as the client's
+                    report page, and Edit swaps in the raw text. It used to be
+                    the raw text only, so a coach reviewed "**Great week**" and
+                    "## Wins" rather than the report they were sending. */}
+                {reportEditing ? (
+                  <Textarea
+                    value={report}
+                    onChange={(e) => setReport(e.target.value)}
+                    rows={20}
+                    aria-label="Weekly report draft"
+                    style={{ lineHeight: '1.7', resize: 'vertical' }}
+                  />
+                ) : (
+                  <div>
+                    <p style={{ margin: '0 0 var(--space-8)', fontSize: 'var(--text-xs)', color: 'var(--color-muted)' }}>As {clientFirstName} will see it</p>
+                    <div className="cv-report-preview">
+                      <ReportProse content={report} dropLeadingH1 />
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 'var(--space-12)', flexWrap: 'wrap' }}>
                   <Button onClick={sendReport} variant="primary" size="sm">Send to client</Button>
-                  <Button onClick={() => { setReport(''); setReportSubject('') }} variant="ghost" size="sm">Discard</Button>
+                  <Button onClick={() => setReportEditing(v => !v)} variant="muted" size="sm">{reportEditing ? 'Preview' : 'Edit'}</Button>
+                  <Button onClick={() => { setReport(''); setReportSubject(''); setReportEditing(false) }} variant="ghost" size="sm">Discard</Button>
                 </div>
               </div>
             )}
