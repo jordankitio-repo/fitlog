@@ -7,6 +7,7 @@ import { resolveLockState } from './lockState'
 import { toLocalDateString, checkinPeriod, DEFAULT_CHECKIN_WEEKDAY } from './dateHelpers'
 import { latestCheckIn, coversPeriod } from './checkinLookup'
 import { calorieDayOnTarget } from './complianceBreakdown'
+import { fetchTargetLookups, constantLookup } from './targetHistory'
 
 // relationships: [{ client_id, created_at, lock_cleared_at, checkin_interval_weeks, checkin_weekday }]
 // — needed for lock state + per-client check-in cadence. Pass [] to skip lock
@@ -42,6 +43,12 @@ export async function computeClientStats(clientIds, relationships = []) {
   const cardioData = cardioResult.data || []
   const stepsData = stepsResult.data || []
   const targetsData = targetsResult.data || []
+  // Each of the last seven days is graded against the plan in force that day
+  // (utils/targetHistory). If the history cannot be read, today's plan grades
+  // every day, which is what the roster did before target history existed.
+  let lookups = {}
+  try { lookups = await fetchTargetLookups(supabase, clientIds) }
+  catch (err) { console.error('Error fetching target history:', err) }
 
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - i); return toLocalDateString(d)
@@ -71,6 +78,10 @@ export async function computeClientStats(clientIds, relationships = []) {
     const checkIn = latestCheckIn(checkIns.filter(c => c.client_id === id))
     const checkInCurrent = coversPeriod(checkIn, period)
     const clientTargets = targetsData.find(t => t.user_id === id)
+    // Which metrics are graded is today's plan; the number each day is held to
+    // is that day's.
+    const on = lookups[id] || constantLookup(clientTargets)
+    const dayTarget = (date, key) => Number(on(date)?.[key]) || 0
 
 
     const complianceItems = []
@@ -81,7 +92,7 @@ export async function computeClientStats(clientIds, relationships = []) {
       last7Days.forEach(date => {
         const dayTotal = nutritionData.filter(n => n.user_id === id && n.logged_date === date).reduce((sum, n) => sum + (n.calories || 0), 0)
         if (dayTotal > 0) logged++
-        if (calorieDayOnTarget(dayTotal, clientTargets.calories)) count++
+        if (calorieDayOnTarget(dayTotal, dayTarget(date, 'calories'))) count++
       })
       complianceItems.push({ label: 'Calories', value: count, logged, hasData: logged > 0 })
     }
@@ -92,7 +103,7 @@ export async function computeClientStats(clientIds, relationships = []) {
       last7Days.forEach(date => {
         const dayTotal = nutritionData.filter(n => n.user_id === id && n.logged_date === date).reduce((sum, n) => sum + (n.protein || 0), 0)
         if (dayTotal > 0) logged++
-        if (dayTotal > 0 && dayTotal >= clientTargets.protein * 0.9) count++
+        if (dayTotal > 0 && dayTarget(date, 'protein') > 0 && dayTotal >= dayTarget(date, 'protein') * 0.9) count++
       })
       complianceItems.push({ label: 'Protein', value: count, logged, hasData: logged > 0 })
     }
@@ -103,7 +114,7 @@ export async function computeClientStats(clientIds, relationships = []) {
       last7Days.forEach(date => {
         const dayTotal = cardioData.filter(c => c.user_id === id && c.logged_date === date).reduce((sum, c) => sum + (c.duration || 0), 0)
         if (dayTotal > 0) logged++
-        if (dayTotal > 0 && dayTotal >= clientTargets.cardio_minutes * 0.9) count++
+        if (dayTotal > 0 && dayTarget(date, 'cardio_minutes') > 0 && dayTotal >= dayTarget(date, 'cardio_minutes') * 0.9) count++
       })
       complianceItems.push({ label: 'Cardio', value: count, logged, hasData: logged > 0 })
     }
@@ -114,7 +125,7 @@ export async function computeClientStats(clientIds, relationships = []) {
       last7Days.forEach(date => {
         const daySteps = stepsData.find(s => s.user_id === id && s.logged_date === date)
         if ((daySteps?.steps || 0) > 0) logged++
-        if ((daySteps?.steps || 0) > 0 && daySteps.steps >= clientTargets.steps * 0.9) count++
+        if ((daySteps?.steps || 0) > 0 && dayTarget(date, 'steps') > 0 && daySteps.steps >= dayTarget(date, 'steps') * 0.9) count++
       })
       complianceItems.push({ label: 'Steps', value: count, logged, hasData: logged > 0 })
     }

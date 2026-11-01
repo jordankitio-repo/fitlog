@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { complianceBreakdown } from './complianceBreakdown'
+import { makeTargetLookup } from './targetHistory'
 import { toLocalDateString } from './dateHelpers'
 
 // Build a logsByDate map from { daysAgo: calories } offsets relative to today.
@@ -134,3 +135,39 @@ describe('averages for the rings', () => {
   })
 })
 
+
+describe('complianceBreakdown against a target history', () => {
+  const ago = (n) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - n); return toLocalDateString(d) }
+
+  it('grades each day against its own plan, and names today\'s plan', () => {
+    const history = makeTargetLookup([
+      { effective_date: '1970-01-01', calories: 2000 },
+      { effective_date: ago(13), calories: 1600 },
+    ])
+    // 2000 a day for 28 days: on target for the old 14, over for the new 14.
+    const entries = Array.from({ length: 28 }, (_, i) => [i, 2000])
+    const b = complianceBreakdown(logs(entries), history, 90)
+    const total = (x) => x.onTarget + x.over + x.under
+    expect(b.weekday.onTarget + b.weekend.onTarget).toBe(14)
+    expect(b.weekday.over + b.weekend.over).toBe(14)
+    expect(total(b.weekday) + total(b.weekend)).toBe(28)
+    expect(b.currentTarget).toBe(1600)
+    // The average day is the days themselves, not the plan plus a deviation.
+    expect(b.weekday.avgCal).toBe(2000)
+    expect(b.weekday.avgTarget).toBeGreaterThan(1600)
+    expect(b.weekday.avgTarget).toBeLessThan(2000)
+  })
+
+  it('avgCal is unchanged for a constant target', () => {
+    const entries = Array.from({ length: 28 }, (_, i) => [i, 1800 + (i % 3) * 100])
+    const b = complianceBreakdown(logs(entries), 2000, 90)
+    const days = entries.filter(([i]) => { const d = new Date(); d.setDate(d.getDate() - i); return d.getDay() !== 0 && d.getDay() !== 6 })
+    const mean = Math.round(days.reduce((s, [, c]) => s + c, 0) / days.length)
+    expect(b.weekday.avgCal).toBe(mean)
+    expect(b.weekday.avgTarget).toBe(2000)
+  })
+
+  it('no plan at all is no target', () => {
+    expect(complianceBreakdown(logs([[1, 2000]]), makeTargetLookup([]), 90).hasTarget).toBe(false)
+  })
+})

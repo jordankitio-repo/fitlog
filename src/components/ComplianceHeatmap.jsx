@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { toLocalDateString } from '../utils/dateHelpers'
 import { COMPLIANCE as SCALE } from '../utils/complianceScale'
 import { HEATMAP } from '../utils/complianceWindow'
+import { targetFn } from '../utils/targetHistory'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const { gap: GAP, dayLabelWidth: DAY_LABEL_WIDTH, dayLabelGap: DAY_LABEL_GAP } = HEATMAP
@@ -44,7 +45,8 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
   // columns, so a ringed week looked like a different kind of object.
   const [hotWeek, setHotWeek] = useState(null)
   const [hotCell, setHotCell] = useState(null)
-  const target = Number(calorieTarget) || 0
+  // A number or a target lookup: each cell is graded against its own day's plan.
+  const targetOn = targetFn(calorieTarget)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -66,8 +68,9 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
     const log = logsByDate[dateStr]
     const hasLog = Boolean(log) && !isFuture
     const calories = log?.calories || 0
+    const target = targetOn(dateStr)
 
-    cells.push({ date, dateStr, isFuture, hasLog, calories })
+    cells.push({ date, dateStr, isFuture, hasLog, calories, target })
   }
 
   const weeks = Array.from({ length: weekCount }, (_, weekIndex) =>
@@ -93,8 +96,10 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
     const logged = past.filter((c) => c.hasLog)
     const label = `Week of ${past[0].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
     if (logged.length === 0) return `${label} - no logs`
-    const pct = target
-      ? Math.round((logged.reduce((sum, c) => sum + c.calories, 0) / (logged.length * target)) * 100)
+    // Against the sum of each logged day's own plan, not one number times n.
+    const targetSum = logged.reduce((sum, c) => sum + c.target, 0)
+    const pct = logged.every((c) => c.target)
+      ? Math.round((logged.reduce((sum, c) => sum + c.calories, 0) / targetSum) * 100)
       : null
     return `${label} - ${logged.length}/${past.length} logged${pct !== null ? ` (${pct}% of target)` : ''}`
   }
@@ -110,7 +115,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
 
     if (!cell.hasLog) return `${dateLabel} - No log`
 
-    const pct = target ? Math.round((cell.calories / target) * 100) : null
+    const pct = cell.target ? Math.round((cell.calories / cell.target) * 100) : null
     return `${dateLabel} - ${cell.calories} cal${pct !== null ? ` (${pct}%)` : ''}`
   }
 
@@ -217,7 +222,7 @@ export default function ComplianceHeatmap({ logsByDate, calorieTarget, weeks: we
                         borderRadius: 4,
                         backgroundColor: cell.isFuture
                           ? 'transparent'
-                          : getColor(cell.calories, target, cell.hasLog),
+                          : getColor(cell.calories, cell.target, cell.hasLog),
                         border: cell.isFuture ? '1px solid var(--color-border)' : 'none',
                         opacity: cell.isFuture ? 0.2 : 1,
                         cursor: weekly ? 'inherit' : (tooltipText ? 'help' : 'default'),

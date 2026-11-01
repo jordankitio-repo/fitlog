@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { summarizeCompliance } from './complianceSummary'
+import { makeTargetLookup } from './targetHistory'
 import { toLocalDateString } from './dateHelpers'
 
 // Build a logsByDate map from {daysAgo: calories} offsets relative to today.
@@ -71,5 +72,29 @@ describe('summarizeCompliance', () => {
     expect(s.partial).toBe(0)
     expect(s.under).toBe(0)
     expect(s.avgOfTarget).toBeNull()
+  })
+})
+
+// Target history: a plan change mid-window regrades only the days after it.
+describe('summarizeCompliance against a target history', () => {
+  const ago = (n) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - n); return toLocalDateString(d) }
+  const history = makeTargetLookup([
+    { effective_date: '1970-01-01', calories: 2000 },
+    { effective_date: ago(5), calories: 1600 },
+  ])
+
+  it('grades each day against the plan in force that day', () => {
+    // 2000 cal every day: on target under the old plan, over under the new one.
+    const s = summarizeCompliance(logs([[10, 2000], [9, 2000], [3, 2000], [2, 2000]]), history, 90)
+    expect(s.onTarget).toBe(2)
+    expect(s.over).toBe(2)
+    // (100 + 100 + 125 + 125) / 4
+    expect(s.avgOfTarget).toBe(113)
+    expect(s.hasTarget).toBe(true)
+  })
+
+  it('a flat number still grades every day the same', () => {
+    const s = summarizeCompliance(logs([[10, 2000], [2, 2000]]), 1600, 90)
+    expect(s.over).toBe(2)
   })
 })

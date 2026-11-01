@@ -13,6 +13,7 @@ import {
   CONSENT_TEXT, appleHealthAvailable, connectAppleHealth, readHealthProfile, syncAppleHealth,
 } from '../utils/healthSync'
 import appleHealthIcon from '../assets/apple-health-icon.png'
+import { toLocalDateString } from '../utils/dateHelpers'
 
 // First run for a new tracked user (a client, or someone tracking alone).
 //
@@ -206,6 +207,7 @@ export default function Onboarding({ session, profile, onComplete }) {
           ...(preview ? { calories: preview.calories, protein: preview.protein, carbs: preview.carbs, fat: preview.fat } : {}),
           weight_goal: goalW,
           weight_goal_unit: storedUnit,
+          effective_date: toLocalDateString(new Date()),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' })
         if (tErr) throw tErr

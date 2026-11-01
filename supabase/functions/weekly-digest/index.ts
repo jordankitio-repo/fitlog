@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { wantsEmail } from '../_shared/notifications.ts'
+import { makeTargetLookup, type TargetVersion } from '../_shared/targetHistory.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -98,6 +99,13 @@ async function runDigest() {
       .select('user_id, calories, protein, cardio_minutes, steps')
       .in('user_id', clientIds)
 
+    // Each day is graded against the plan in force that day, not today's.
+    const { data: allVersions, error: versionsError } = await supabase
+      .from('target_versions')
+      .select('user_id, effective_date, calories, protein, cardio_minutes, steps')
+      .in('user_id', clientIds)
+    if (versionsError) console.error('target_versions:', versionsError)
+
     const { data: nutritionLogs } = await supabase
       .from('nutrition_log')
       .select('user_id, calories, protein, logged_date')
@@ -138,9 +146,13 @@ async function runDigest() {
 
     const rows = clientList.map((client: any) => {
       const target = (allTargets || []).find((t: any) => t.user_id === client.id)
+      const versions = (allVersions || []).filter((v: any) => v.user_id === client.id) as TargetVersion[]
+      // No history readable: today's plan grades every day, as before.
+      const targetOn = versions.length ? makeTargetLookup(versions) : () => target || null
       const compliance = computeCompliance(
         client.id,
         target,
+        targetOn,
         nutritionLogs || [],
         cardioLogs || [],
         stepsLogs || [],
@@ -162,6 +174,7 @@ async function runDigest() {
 function computeCompliance(
   clientId: string,
   target: any,
+  targetOn: (date: string) => any,
   nutritionLogs: any[],
   cardioLogs: any[],
   stepsLogs: any[],
@@ -192,21 +205,19 @@ function computeCompliance(
     stepsByDate[log.logged_date] = (stepsByDate[log.logged_date] || 0) + (log.steps || 0)
   }
 
-  function countDays(byDate: Record<string, number>, targetVal: number) {
-    if (!targetVal) return { days: 0, total: 0 }
-    const total = Object.keys(byDate).length
-    const days = Object.values(byDate).filter((v) => v >= targetVal * 0.9).length
-    return { days, total }
-  }
+  // Today's plan says which metrics are graded; each day is held to its own.
+  const dayTarget = (date: string, key: string) => Number(targetOn(date)?.[key]) || 0
+  const hits = (byDate: Record<string, number>, key: string) =>
+    Object.entries(byDate).filter(([date, v]) => dayTarget(date, key) > 0 && v >= dayTarget(date, key) * 0.9).length
 
   const calDays = caloriesTarget
-    ? Object.values(nutritionByDate).filter((v) => v.calories >= caloriesTarget * 0.9).length
+    ? Object.entries(nutritionByDate).filter(([date, v]) => dayTarget(date, 'calories') > 0 && v.calories >= dayTarget(date, 'calories') * 0.9).length
     : 0
   const proteinDays = proteinTarget
-    ? Object.values(nutritionByDate).filter((v) => v.protein >= proteinTarget * 0.9).length
+    ? Object.entries(nutritionByDate).filter(([date, v]) => dayTarget(date, 'protein') > 0 && v.protein >= dayTarget(date, 'protein') * 0.9).length
     : 0
-  const cardioDays = countDays(cardioByDate, cardioTarget).days
-  const stepsDays = countDays(stepsByDate, stepsTarget).days
+  const cardioDays = cardioTarget ? hits(cardioByDate, 'cardio_minutes') : 0
+  const stepsDays = stepsTarget ? hits(stepsByDate, 'steps') : 0
   const loggedDays = Object.keys(nutritionByDate).length
 
   return { calDays, proteinDays, cardioDays, stepsDays, loggedDays, caloriesTarget, proteinTarget, cardioTarget, stepsTarget }

@@ -429,6 +429,7 @@ describe('erasure contract (service_role clears every personal-data table)', () 
     body_measurements: { logged_date: today, unit: 'in', waist: 30 },
     progress_photos: { taken_on: today, pose: 'front', path: `probe/${Math.random().toString(36).slice(2)}.jpg` },
     targets: { calories: 2000 },
+    target_versions: { effective_date: today, calories: 2000 },
     saved_meals: { name: 'usual breakfast' },
     day_complete: { logged_date: today },
     notifications: { type: 't', title: 't', body: 'b', href: '/' },

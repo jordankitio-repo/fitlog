@@ -408,6 +408,7 @@ Deno.serve(async (req) => {
       `body_measurements?user_id=eq.${uid}`,
       `progress_photos?user_id=eq.${uid}`,
       `targets?user_id=eq.${uid}`,
+      `target_versions?user_id=eq.${uid}`,
       `saved_meal_items?user_id=eq.${uid}`,
       `saved_meals?user_id=eq.${uid}`,
       `day_complete?user_id=eq.${uid}`,

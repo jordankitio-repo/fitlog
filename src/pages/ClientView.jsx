@@ -38,6 +38,7 @@ import { SECTION_ICONS } from '../utils/sectionIcons'
 import DayStepper from '../components/DayStepper'
 import TargetCalculator from '../components/TargetCalculator'
 import { checkTargets } from '../utils/targetChecks'
+import { fetchTargetLookup, constantLookup, targetFn } from '../utils/targetHistory'
 import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
 import { ageFromBirthDate } from '../utils/biometrics'
@@ -468,6 +469,9 @@ function ClientView({ profile }) {
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
   const [clientTargets, setClientTargets] = useState(EMPTY_CLIENT_TARGETS)
+  // The plan in force on any day (utils/targetHistory). Every grade of a PAST
+  // day reads this, never clientTargets, which is only today's plan.
+  const [targetOn, setTargetOn] = useState(() => constantLookup(null))
   const [targetsSaved, setTargetsSaved] = useState(false)
   // What is stored, to tell an edited form from an untouched one.
   const [savedClientTargets, setSavedClientTargets] = useState(null)
@@ -1557,6 +1561,8 @@ async function toggleFlag(note) {
   } else {
     setSavedClientTargets(EMPTY_CLIENT_TARGETS)
   }
+  const lookup = await fetchTargetLookup(supabase, clientId, data)
+  setTargetOn(() => lookup)
 }
 
   async function saveClientTargets() {
@@ -1574,6 +1580,8 @@ async function toggleFlag(note) {
       steps: parseInt(clientTargets.steps) || null,
       weight_goal: parseFloat(clientTargets.weight_goal) || null,
       weight_goal_unit: clientTargets.weight_goal_unit,
+      // The coach's local today: the day this plan starts (target_versions).
+      effective_date: toLocalDateString(new Date()),
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' })
 
@@ -1605,6 +1613,8 @@ async function toggleFlag(note) {
   }
 
   setSavedClientTargets(clientTargets)
+  // The new plan starts today, so the history behind every grade moved.
+  fetchTargetLookup(supabase, clientId, null).then((lookup) => setTargetOn(() => lookup))
   setTargetsSaving(false)
   setTargetsSaved(true); setTimeout(() => setTargetsSaved(false), 2000)
 }
@@ -1826,7 +1836,7 @@ async function toggleFlag(note) {
       weightGoalUnit: clientTargets.weight_goal_unit,
       windowDays: ebWindowDays,
     })
-    const cb = complianceBreakdown(heatmapData, clientTargets.calories)
+    const cb = complianceBreakdown(heatmapData, targetOn)
     const sig = []
     if (eb.hasData) {
       const r = eb.rateLbPerWk
@@ -2041,8 +2051,12 @@ async function sendMessage(text) {
       ...cardioHistory.map(d => d.iso),
     ])].sort((a, b) => a.localeCompare(b))
 
+    // Today's plan decides whether there is anything to plot; each day's % is
+    // against the plan in force that day.
     const calTarget = parseInt(clientTargets.calories) || null
     const cardioTarget = parseInt(clientTargets.cardio_minutes) || null
+    const calOn = targetFn(targetOn, 'calories')
+    const cardioOn = targetFn(targetOn, 'cardio_minutes')
     const datasets = []
 
     if (which === 'weight' && weightHistory.length > 0) {
@@ -2081,7 +2095,7 @@ async function sendMessage(text) {
     if (which === 'compliance' && calorieHistory.length > 0 && calTarget) {
       const pct = allDates.map(iso => {
         const cal = calorieHistory.find(d => d.iso === iso)?.calories
-        return cal ? Math.round((cal / calTarget) * 100) : null
+        return cal && calOn(iso) ? Math.round((cal / calOn(iso)) * 100) : null
       })
       // Color each bar by the same buckets as the heatmap/summary: green on
       // target (90-110%), orange over (>110%), amber/red under.
@@ -2103,7 +2117,7 @@ async function sendMessage(text) {
         type: 'bar', label: 'Cardio %',
         data: allDates.map(iso => {
           const mins = cardioHistory.find(d => d.iso === iso)?.minutes
-          return mins ? Math.round((mins / cardioTarget) * 100) : null
+          return mins && cardioOn(iso) ? Math.round((mins / cardioOn(iso)) * 100) : null
         }),
         // rgba, so the hex rule no longer matches and the disable that used to
         // sit here is gone with it. Still the cardio metric token by hand,
@@ -2133,8 +2147,9 @@ async function sendMessage(text) {
   // averaged point per month for Y. It defaults to the full history so the
   // function keeps working for any caller that has no range to apply.
   function calorieChartData(plain = false, rows = calorieHistory) {
-    const calTarget = parseInt(clientTargets.calories) || null
-    const barColor = (cal, a) => {
+    // Each row carries the plan in force on its day (bucketHistory targetFor).
+    const graded = !plain && rows.some(d => d.target)
+    const barColor = (cal, a, calTarget) => {
       if (!calTarget || plain) return `rgba(251, 191, 36, ${a})`
       const v = (cal / calTarget) * 100
       return v > 110 ? `rgba(251, 146, 60, ${a})`
@@ -2145,16 +2160,17 @@ async function sendMessage(text) {
     const datasets = [{
       label: 'Calories',
       data: rows.map(d => d.calories),
-      backgroundColor: rows.map(d => barColor(d.calories, 0.7)),
-      borderColor: rows.map(d => barColor(d.calories, 1)),
+      backgroundColor: rows.map(d => barColor(d.calories, 0.7, d.target)),
+      borderColor: rows.map(d => barColor(d.calories, 1, d.target)),
       // Bar width follows the series length, the same rule metricBarChart.js
       // states: four monthly columns at 12px render as hairlines.
       borderWidth: 1, borderRadius: 4, maxBarThickness: rows.length <= 12 ? 28 : 12,
     }]
-    if (calTarget && !plain) {
+    if (graded) {
       datasets.push({
         type: 'line', label: 'Target',
-        data: rows.map(() => calTarget),
+        // Stepped: the day the plan changed reads as a step.
+        data: rows.map(d => d.target || null), stepped: true, spanGaps: true,
         borderColor: CHART.targetLine, borderDash: [4, 4],
         borderWidth: 1, pointRadius: 0, fill: false, tension: 0,
       })
@@ -2377,20 +2393,20 @@ async function sendMessage(text) {
       empty: 'No nutrition logged yet', valueKey: 'calories',
       // Padded to the whole window so the range control visibly changes
       // the span (chartRange.js padToWindow).
-      history: () => padToWindow(bucketHistory(calorieHistory, 'calories', chartRange), 'calories', chartRange),
+      history: () => { const targetFor = targetFn(targetOn, 'calories'); return padToWindow(bucketHistory(calorieHistory, 'calories', chartRange, { targetFor }), 'calories', chartRange, { targetFor }) },
       data: (h) => calorieChartData(plainCharts.has('dailyMetrics'), h),
     },
     {
       key: 'cardioChart', label: 'Cardio', unit: 'min',
       empty: 'No cardio logged yet', valueKey: 'minutes',
-      history: () => padToWindow(bucketHistory(cardioHistory, 'minutes', chartRange), 'minutes', chartRange),
-      data: (h) => metricBarData({ history: h, valueKey: 'minutes', label: 'Minutes', target: parseInt(clientTargets.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('dailyMetrics') }),
+      history: () => { const targetFor = targetFn(targetOn, 'cardio_minutes'); return padToWindow(bucketHistory(cardioHistory, 'minutes', chartRange, { targetFor }), 'minutes', chartRange, { targetFor }) },
+      data: (h) => metricBarData({ history: h, valueKey: 'minutes', label: 'Minutes', target: null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('dailyMetrics') }),
     },
     {
       key: 'stepsChart', label: 'Steps', unit: 'steps',
       empty: 'No steps logged yet', valueKey: 'steps',
-      history: () => padToWindow(bucketHistory(stepsHistory, 'steps', chartRange), 'steps', chartRange),
-      data: (h) => metricBarData({ history: h, valueKey: 'steps', label: 'Steps', target: parseInt(clientTargets.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('dailyMetrics') }),
+      history: () => { const targetFor = targetFn(targetOn, 'steps'); return padToWindow(bucketHistory(stepsHistory, 'steps', chartRange, { targetFor }), 'steps', chartRange, { targetFor }) },
+      data: (h) => metricBarData({ history: h, valueKey: 'steps', label: 'Steps', target: null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('dailyMetrics') }),
     },
   ]
 
@@ -3419,13 +3435,13 @@ async function sendMessage(text) {
               <div className="cv-adherence-grid">
               <ComplianceHeatmap
                 logsByDate={heatmapData}
-                calorieTarget={clientTargets.calories}
+                calorieTarget={targetOn}
                 weeks={ADHERENCE_WEEKS}
                 grain={grain}
               />
               <ComplianceSummary
                 logsByDate={heatmapData}
-                calorieTarget={clientTargets.calories}
+                calorieTarget={targetOn}
                 variant="coach"
                 windowDays={ADHERENCE_DAYS}
                 bare
@@ -3434,7 +3450,7 @@ async function sendMessage(text) {
               <div className="cv-adherence-reads">
               <ComplianceBreakdown
                 logsByDate={heatmapData}
-                calorieTarget={clientTargets.calories}
+                calorieTarget={targetOn}
                 windowDays={ADHERENCE_DAYS}
                 windowName={ADHERENCE_NAME}
                 // On a phone targets is a route; on a desktop it is a scroll

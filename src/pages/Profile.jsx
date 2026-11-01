@@ -27,6 +27,7 @@ import { convertGoalValue, unitLabel } from '../utils/weightTarget'
 import { controlStyle, Icon, Panel, Pill, SettingRow, Toggle } from '../components/ui'
 import { GOALS, goalLabel } from '../utils/goals'
 import { categoriesForRole, isEnabled } from '../utils/notificationCategories'
+import { toLocalDateString } from '../utils/dateHelpers'
 
 /* global __BUILD_TIME__ */
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev'
@@ -267,6 +268,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       cardio_minutes: parseInt(targets.cardio_minutes) || null,
       steps: parseInt(targets.steps) || null,
       weight_goal_unit: targets.weight_goal_unit,
+      // The writer's local today: the day this plan starts (target_versions).
+      effective_date: toLocalDateString(new Date()),
       updated_at: new Date().toISOString()
     }
 
@@ -333,13 +336,14 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     // credential-bearing is exported — the connection row holds no tokens by
     // design, and `device_dismissals` is internal bookkeeping, not user data.
     const [
-      profile, targets, nutrition, weight, cardio, steps, measurements,
+      profile, targets, targetVersions, nutrition, weight, cardio, steps, measurements,
       savedMeals, savedMealItems, dayComplete, checkIns, messages, notifications,
       deviceConnections, deviceMetricSources, healthConsents,
       emailPreferences, progressPhotos, coachNotes,
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase.from('targets').select('*').eq('user_id', userId),
+      supabase.from('target_versions').select('*').eq('user_id', userId).order('effective_date', { ascending: true }),
       supabase.from('nutrition_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
       supabase.from('weight_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
       supabase.from('cardio_log').select('*').eq('user_id', userId).order('logged_date', { ascending: true }),
@@ -374,6 +378,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       account: { id: userId, email: currentSession.user.email },
       profile: profile.data || null,
       targets: targets.data || [],
+      target_versions: targetVersions.data || [],
       nutrition_log: nutrition.data || [],
       weight_log: weight.data || [],
       cardio_log: cardio.data || [],

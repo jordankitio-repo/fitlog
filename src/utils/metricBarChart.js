@@ -49,8 +49,18 @@ export function metricBarData({ history, valueKey, dateKey = 'date', label, targ
   // still paints the LEGEND swatch from the first entry's colour -- graded, an
   // empty first day scored 0% and turned the swatch red. It takes the metric's
   // own hue, which is what the swatch is there to name.
-  const barColor = (value, a) => (value == null ? fallback(a)
-    : target && !plain ? color((value / target) * 100, a, bidirectional) : fallback(a))
+  // A row's own `target` (chartRange.bucketHistory with targetFor: the plan in
+  // force that day) wins over the flat `target`, so a plan change mid-range
+  // grades each bar against the plan that applied to it.
+  // A series that carries per-row targets never falls back to the flat one.
+  const perRow = history.some((d) => d.target !== undefined)
+  const targetOf = (d) => (perRow ? d.target ?? null : target)
+  const graded = !plain && history.some((d) => targetOf(d))
+  const barColor = (d, a) => {
+    const value = d[valueKey]
+    const t = targetOf(d)
+    return value == null ? fallback(a) : t && !plain ? color((value / t) * 100, a, bidirectional) : fallback(a)
+  }
   const datasets = [{
     label,
     data: history.map((d) => d[valueKey]),
@@ -58,16 +68,20 @@ export function metricBarData({ history, valueKey, dateKey = 'date', label, targ
     // the gap between bars is the mechanism that separates them. The old
     // 0.7-alpha fill plus a full-strength 1px outline also read muddy, because
     // every bar was two tones of the same hue.
-    backgroundColor: history.map((d) => barColor(d[valueKey], 1)),
+    backgroundColor: history.map((d) => barColor(d, 1)),
     borderWidth: 0,
     borderRadius: 4,
     maxBarThickness: barThickness(history.length),
   }]
-  if (target && !plain) {
+  if (graded) {
     datasets.push({
       type: 'line',
       label: 'Target',
-      data: history.map(() => target),
+      // Stepped, so the day a plan changed reads as a step; spanGaps carries it
+      // across the padded empty days, which have no plan attached.
+      data: history.map((d) => targetOf(d) || null),
+      stepped: true,
+      spanGaps: true,
       borderColor: CHART.targetLine,
       borderDash: [4, 4],
       borderWidth: 1,
