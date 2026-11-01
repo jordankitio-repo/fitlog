@@ -91,7 +91,12 @@ export function axisDay(iso) {
 // sub-line), so the year view uses the same rule rather than a second one, and
 // the daily target line stays meaningful against it — a monthly average of
 // daily values is comparable to a daily target; a monthly total is not.
-export function bucketHistory(history, valueKey, rangeKey, { asOf = new Date() } = {}) {
+//
+// `targetFor` (optional, (iso) => number): each row also carries `target`, the
+// plan in force that day (utils/targetHistory) -- in Y, the mean of the logged
+// days' plans in that month -- so bars are coloured and the target line drawn
+// against the plan that applied, not today's.
+export function bucketHistory(history, valueKey, rangeKey, { asOf = new Date(), targetFor = null } = {}) {
   const range = rangeByKey(rangeKey)
   const end = new Date(asOf)
   end.setHours(12, 0, 0, 0)
@@ -102,18 +107,25 @@ export function bucketHistory(history, valueKey, rangeKey, { asOf = new Date() }
     .filter((r) => r.iso >= ymd(from) && r.iso <= ymd(end))
     .sort((a, b) => a.iso.localeCompare(b.iso))
 
+  const withTarget = (row, t) => (targetFor ? { ...row, target: t || null } : row)
+
   if (range.key !== 'Y') {
-    return within.map((r) => ({ ...r, date: axisDay(r.iso) }))
+    return within.map((r) => withTarget({ ...r, date: axisDay(r.iso) }, targetFor?.(r.iso)))
   }
 
   // One point per calendar month, in order, labelled by month name. The year is
   // appended only at a January boundary, so a 12-month window that crosses one
   // does not render two unexplained "Jan" columns.
   const byMonth = new Map()
+  const targetsByMonth = new Map()
   for (const r of within) {
     const key = r.iso.slice(0, 7) // YYYY-MM
     if (!byMonth.has(key)) byMonth.set(key, [])
     byMonth.get(key).push(Number(r[valueKey]) || 0)
+    if (targetFor) {
+      if (!targetsByMonth.has(key)) targetsByMonth.set(key, [])
+      targetsByMonth.get(key).push(Number(targetFor(r.iso)) || 0)
+    }
   }
   const keys = [...byMonth.keys()].sort()
   return keys.map((key, i) => {
@@ -122,14 +134,15 @@ export function bucketHistory(history, valueKey, rangeKey, { asOf = new Date() }
     const [y, m] = key.split('-')
     const month = MONTHS[Number(m) - 1]
     const prevYear = i > 0 ? keys[i - 1].slice(0, 4) : null
-    return {
+    const ts = (targetsByMonth.get(key) || []).filter((t) => t > 0)
+    return withTarget({
       iso: `${key}-01`,
       date: prevYear && prevYear !== y ? `${month} ${y.slice(2)}` : month,
       // Rounded because these are plotted and read, not summed further. Weight
       // keeps a decimal; everything else is a whole unit.
       [valueKey]: valueKey === 'weight' ? Math.round(mean * 10) / 10 : Math.round(mean),
       days: vals.length,
-    }
+    }, ts.length ? Math.round(ts.reduce((a, b) => a + b, 0) / ts.length) : null)
   })
 }
 
@@ -146,7 +159,10 @@ export function bucketHistory(history, valueKey, rangeKey, { asOf = new Date() }
 // A day with several rows (two weigh-ins) keeps all of them, in order. Y is
 // returned as it is: its points are months, and an empty month in a young
 // account is better left off than drawn as twelve slots of nothing.
-export function padToWindow(rows, valueKey, rangeKey, { asOf = new Date() } = {}) {
+//
+// `targetFor`: as in bucketHistory, so an empty slot still carries its day's
+// plan and the target line runs the whole window.
+export function padToWindow(rows, valueKey, rangeKey, { asOf = new Date(), targetFor = null } = {}) {
   const range = rangeByKey(rangeKey)
   if (range.key === 'Y') return rows
   const end = new Date(asOf)
@@ -159,7 +175,9 @@ export function padToWindow(rows, valueKey, rangeKey, { asOf = new Date() } = {}
   const out = []
   for (let i = range.days - 1; i >= 0; i--) {
     const iso = ymd(new Date(end.getTime() - i * 86400000))
-    out.push(...(byIso.get(iso) ?? [{ iso, date: axisDay(iso), [valueKey]: null }]))
+    const empty = { iso, date: axisDay(iso), [valueKey]: null }
+    if (targetFor) empty.target = targetFor(iso) || null
+    out.push(...(byIso.get(iso) ?? [empty]))
   }
   return out
 }

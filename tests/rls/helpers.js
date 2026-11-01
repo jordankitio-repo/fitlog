@@ -67,7 +67,7 @@ export async function cleanupUsers(users) {
   const ids = users.map((u) => u.id)
   // Best-effort: clear rows that may not cascade, then delete the auth users.
   for (const t of [
-    'nutrition_log', 'weight_log', 'cardio_log', 'steps_log', 'targets',
+    'nutrition_log', 'weight_log', 'cardio_log', 'steps_log', 'targets', 'target_versions',
     'body_measurements', 'day_complete', 'saved_meal_items', 'saved_meals',
     'notifications', 'rate_limits', 'notification_preferences',
     // Device sync. `device_metric_preferences` and `device_dismissals` both

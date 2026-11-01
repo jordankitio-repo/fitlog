@@ -25,6 +25,7 @@ import { refreshNotifications } from '../utils/notifyRefresh'
 import Reorderable from '../components/Reorderable'
 import { resolveLockState } from '../utils/lockState'
 import { checkinPeriod, toLocalDateString, DEFAULT_CHECKIN_WEEKDAY, WEEKDAYS } from '../utils/dateHelpers'
+import { fetchTargetLookup, constantLookup, targetFn } from '../utils/targetHistory'
 import { coversPeriod } from '../utils/checkinLookup'
 import { measurementStatus } from '../utils/measurementCadence'
 import { convertWeight, normUnit, unitLabel } from '../utils/weightTarget'
@@ -191,6 +192,9 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   const [trendRangeKey, setTrendRangeKey] = useState(DEFAULT_RANGE)
   const [calorieHistory, setCalorieHistory] = useState([])
   const [targets, setTargets] = useState(null)
+  // The plan in force on any day (utils/targetHistory): past days are graded
+  // against it, never against today's targets.
+  const [targetOn, setTargetOn] = useState(() => constantLookup(null))
   const [cardioHistory, setCardioHistory] = useState([])
   const [stepsHistory, setStepsHistory] = useState([])
   const [showCheckIn, setShowCheckIn] = useState(false)
@@ -482,12 +486,15 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   }
 
   async function fetchTargets() {
+    const uid = (await supabase.auth.getSession()).data.session.user.id
     const { data, error } = await supabase
       .from('targets').select('*')
-      .eq('user_id', (await supabase.auth.getSession()).data.session.user.id)
+      .eq('user_id', uid)
       .maybeSingle()
     if (error) console.error(error)
     else setTargets(data)
+    const lookup = await fetchTargetLookup(supabase, uid, data)
+    setTargetOn(() => lookup)
   }
 
   async function fetchCardioHistory() {
@@ -897,8 +904,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
   // no bars in it. A year view on an account three weeks old, or a week view
   // after seven quiet days, draws an axis around nothing and reads as broken
   // rather than as "no data here yet".
-  const rangedChart = (history, valueKey, render) => (rangeKey) => {
-    const rows = bucketHistory(history, valueKey, rangeKey)
+  // `targetKey` attaches each day's own plan to its row (chartRange targetFor).
+  const rangedChart = (history, valueKey, render, targetKey = null) => (rangeKey) => {
+    const targetFor = targetKey ? targetFn(targetOn, targetKey) : null
+    const rows = bucketHistory(history, valueKey, rangeKey, { targetFor })
     if (rows.length === 0) {
       return (
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 'var(--space-16) 0', textAlign: 'center' }}>
@@ -908,7 +917,7 @@ function Dashboard({ profile, hasSoloPremium = true }) {
     }
     // Drawn over the whole window, empty days and all, so W and M are
     // visibly different spans even for a client who logs now and then.
-    return render(padToWindow(rows, valueKey, rangeKey), rangeKey)
+    return render(padToWindow(rows, valueKey, rangeKey, { targetFor }), rangeKey)
   }
   const fmtDelta = (t, unit, digits = 0) => {
     if (!hasTrend(t)) return null
@@ -965,8 +974,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         display: t.current != null ? `${Math.round(t.current).toLocaleString()}` : '—',
         sub: trendSub(t, ' cal'),
         chart: calorieHistory.length > 0 ? rangedChart(calorieHistory, 'calories', (rows) => gradedChart('calorieChart',
-          <Bar data={metricBarData({ history: rows, valueKey: 'calories', label: 'Calories', target: parseInt(targets?.calories) || null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={calorieChartOptions} />
-        )) : null,
+          <Bar data={metricBarData({ history: rows, valueKey: 'calories', label: 'Calories', target: null, fallback: (a) => `rgba(251, 191, 36, ${a})`, bidirectional: true, plain: plainCharts.has('calorieChart') })} options={calorieChartOptions} />
+        ), 'calories') : null,
       }
     })()]),
     (() => {
@@ -976,8 +985,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         display: t.current != null ? `${Math.round(t.current)} min` : '—',
         sub: trendSub(t, ' min'),
         chart: cardioHistory.length > 0 ? rangedChart(cardioHistory, 'minutes', (rows) => gradedChart('cardioChart',
-          <Bar data={metricBarData({ history: rows, valueKey: 'minutes', label: 'Minutes', target: parseInt(targets?.cardio_minutes) || null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
-        )) : null,
+          <Bar data={metricBarData({ history: rows, valueKey: 'minutes', label: 'Minutes', target: null, fallback: (a) => `rgba(59, 130, 246, ${a})`, plain: plainCharts.has('cardioChart') })} options={cardioChartOptions} />
+        ), 'cardio_minutes') : null,
       }
     })(),
     (() => {
@@ -987,8 +996,8 @@ function Dashboard({ profile, hasSoloPremium = true }) {
         display: t.current != null ? Math.round(t.current).toLocaleString() : '—',
         sub: trendSub(t, ' steps'),
         chart: stepsHistory.length > 0 ? rangedChart(stepsHistory, 'steps', (rows) => gradedChart('stepsChart',
-          <Bar data={metricBarData({ history: rows, valueKey: 'steps', label: 'Steps', target: parseInt(targets?.steps) || null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
-        )) : null,
+          <Bar data={metricBarData({ history: rows, valueKey: 'steps', label: 'Steps', target: null, fallback: (a) => `rgba(167, 139, 250, ${a})`, plain: plainCharts.has('stepsChart') })} options={stepsChartOptions} />
+        ), 'steps') : null,
       }
     })(),
     (() => {
@@ -1555,10 +1564,10 @@ function Dashboard({ profile, hasSoloPremium = true }) {
               {/* 90-day heatmap (left) + summary totals (fills the space at right) */}
               <div style={{ marginTop: 'var(--space-16)', display: 'flex', gap: 'var(--space-20)', flexWrap: 'wrap', alignItems: 'stretch' }}>
                 <div style={{ flex: '1 1 300px', minWidth: 0, maxWidth: '440px' }}>
-                  <ComplianceHeatmap logsByDate={heatmapData} calorieTarget={targets?.calories} />
+                  <ComplianceHeatmap logsByDate={heatmapData} calorieTarget={targetOn} />
                 </div>
                 <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-                  <ComplianceSummary logsByDate={heatmapData} calorieTarget={targets?.calories} variant="solo" />
+                  <ComplianceSummary logsByDate={heatmapData} calorieTarget={targetOn} variant="solo" />
                 </div>
               </div>
 

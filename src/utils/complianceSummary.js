@@ -1,4 +1,5 @@
 import { toLocalDateString, parseLocalDateString } from './dateHelpers'
+import { targetFn } from './targetHistory'
 
 const MS_PER_DAY = 86400000
 
@@ -9,8 +10,12 @@ const MS_PER_DAY = 86400000
 // The denominator (`elapsed`) ramps from the user's first log and caps at the
 // window — so a 12-day-old account that logged everything reads "12/12", not a
 // demoralizing "12/90". Once history exceeds the window it rolls at the cap.
+//
+// `calorieTarget` is a number or a target lookup (utils/targetHistory): each day
+// is graded against the plan in force THAT day, not today's.
 export function summarizeCompliance(logsByDate, calorieTarget, windowDays = 90) {
-  const target = Number(calorieTarget) || 0
+  const targetOn = targetFn(calorieTarget)
+  let anyTarget = false
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -26,16 +31,21 @@ export function summarizeCompliance(logsByDate, calorieTarget, windowDays = 90) 
   let partial = 0
   let under = 0
   let pctSum = 0
+  let graded = 0
 
   for (let i = 0; i < windowDays; i++) {
     const d = new Date(windowStart)
     d.setDate(windowStart.getDate() + i)
-    const log = logsByDate[toLocalDateString(d)]
+    const dateStr = toLocalDateString(d)
+    const log = logsByDate[dateStr]
     if (!log) continue
 
     logged++
+    const target = targetOn(dateStr)
     if (!target) { onTarget++; continue }
 
+    anyTarget = true
+    graded++
     const pct = (log.calories || 0) / target
     pctSum += pct
     // On-target is a BAND (90-110%), not a floor — eating well over target is
@@ -62,7 +72,7 @@ export function summarizeCompliance(logsByDate, calorieTarget, windowDays = 90) 
   }
 
   const coverage = elapsed > 0 ? Math.round((logged / elapsed) * 100) : 0
-  const avgOfTarget = target && logged > 0 ? Math.round((pctSum / logged) * 100) : null
+  const avgOfTarget = graded > 0 ? Math.round((pctSum / graded) * 100) : null
 
   return {
     logged,
@@ -73,6 +83,6 @@ export function summarizeCompliance(logsByDate, calorieTarget, windowDays = 90) 
     partial,
     under,
     avgOfTarget,
-    hasTarget: Boolean(target),
+    hasTarget: anyTarget || targetOn(toLocalDateString(today)) > 0,
   }
 }

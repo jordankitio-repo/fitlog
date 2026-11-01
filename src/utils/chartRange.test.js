@@ -165,3 +165,28 @@ describe('padToWindow', () => {
     expect(hasValues(padToWindow(rows, 'steps', 'W', { asOf }), 'steps')).toBe(true)
   })
 })
+
+// Target history: each point carries the plan in force on its day.
+describe('per-row targets (targetFor)', () => {
+  const changed = daysBefore(3)
+  const targetFor = (iso) => (iso >= changed ? 1800 : 2000)
+  const history = [0, 2, 5, 10].map((n) => ({ iso: daysBefore(n), calories: 1900 }))
+
+  it('W/M rows carry their own day\'s plan', () => {
+    const rows = bucketHistory(history, 'calories', 'M', { asOf: ASOF, targetFor })
+    expect(rows.map((r) => r.target)).toEqual([2000, 2000, 1800, 1800])
+  })
+  it('padded empty days carry it too, so the line spans the window', () => {
+    const rows = padToWindow(bucketHistory(history, 'calories', 'W', { asOf: ASOF, targetFor }), 'calories', 'W', { asOf: ASOF, targetFor })
+    expect(rows).toHaveLength(7)
+    expect(rows.every((r) => r.target === 1800 || r.target === 2000)).toBe(true)
+  })
+  it('Y averages the logged days\' plans in each month', () => {
+    const rows = bucketHistory(history, 'calories', 'Y', { asOf: ASOF, targetFor })
+    expect(rows).toHaveLength(1)
+    expect(rows[0].target).toBe(1900) // (2000 + 2000 + 1800 + 1800) / 4
+  })
+  it('without targetFor, rows are unchanged', () => {
+    expect('target' in bucketHistory(history, 'calories', 'M', { asOf: ASOF })[0]).toBe(false)
+  })
+})

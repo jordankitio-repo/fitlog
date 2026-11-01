@@ -61,6 +61,24 @@ const DAYS = 60
 // despite having one. The app's own toLocalDateString does exactly this.
 const local = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const dstr = (off) => { const d = new Date(); d.setDate(d.getDate() - off); return local(d) }
+
+// The plan history seeded for clients with a changed plan (see the targets
+// block below). Oldest first; the last entry must equal the plan inserted
+// into `targets`, because that row is today's plan.
+const PLAN_HISTORY = [
+  { from: null, calories: 2400, protein: 130, carbs: 270, fat: 75, cardio_minutes: 90,  steps: 8000 },
+  { from: 35,   calories: 2200, protein: 140, carbs: 235, fat: 70, cardio_minutes: 100, steps: 9000 },
+  { from: 14,   calories: 2000, protein: 150, carbs: 200, fat: 67, cardio_minutes: 120, steps: 10000 },
+]
+async function seedPlanHistory(clientId) {
+  const [first, ...changes] = PLAN_HISTORY
+  const { from: _f, ...original } = first
+  await admin.from('target_versions').delete().eq('user_id', clientId).neq('effective_date', '1970-01-01')
+  await admin.from('target_versions').update(original).eq('user_id', clientId).eq('effective_date', '1970-01-01')
+  for (const { from, ...plan } of changes) {
+    await admin.from('target_versions').insert({ user_id: clientId, effective_date: dstr(from), ...plan })
+  }
+}
 const weekSundayAgo = (weeks) => {
   const d = new Date()
   d.setDate(d.getDate() - d.getDay() - weeks * 7)
@@ -198,6 +216,15 @@ for (const s of SPECS) {
       weight_goal: s.weight_goal ?? null,
       weight_goal_unit: s.weight_goal_unit ?? 'kg',
     })
+  }
+
+  // Target history: two clients have had their plan changed TWICE, every
+  // target each time, so the stepped target lines and per-day grading show on
+  // every chart. The trigger dated the plan above 1970-01-01 (a first plan
+  // covers all earlier days); that row becomes the ORIGINAL plan, then one
+  // change five weeks ago and one two weeks ago, the last being today's plan.
+  if (s.targets && (s.first === 'ava' || s.first === 'dan')) {
+    await seedPlanHistory(clientId)
   }
 
   // Which of the last 60 days this person logged. The gap at the front is what

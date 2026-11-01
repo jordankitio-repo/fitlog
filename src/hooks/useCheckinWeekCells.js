@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { parseLocalDateString, toLocalDateString, addDays } from '../utils/dateHelpers'
 import { convertWeight, normUnit, unitLabel } from '../utils/weightTarget'
+import { fetchTargetLookup } from '../utils/targetHistory'
 
 // The numbers for the period a check-in covers (see components/CheckinWeek).
 
@@ -29,12 +30,22 @@ async function loadWeek(clientId, weekOf, intervalWeeks) {
   const byDay = {}
   for (const r of food.data || []) byDay[r.logged_date] = (byDay[r.logged_date] || 0) + (r.calories || 0)
   const logged = Object.values(byDay).filter(c => c > 0)
+  // "% of target" against each logged day's own plan (utils/targetHistory): a
+  // plan changed mid-period does not regrade the days before the change.
+  const targetOn = await fetchTargetLookup(supabase, clientId, targets.data)
+  let calSum = 0
+  let targetSum = 0
+  for (const [date, cal] of Object.entries(byDay)) {
+    const t = Number(targetOn(date)?.calories) || 0
+    if (cal > 0 && t > 0) { calSum += cal; targetSum += t }
+  }
   const stepDays = (steps.data || []).filter(r => r.steps > 0)
   return {
     days,
     logged: logged.length,
     avgCalories: logged.length ? logged.reduce((a, b) => a + b, 0) / logged.length : null,
     calorieTarget: Number(targets.data?.calories) || null,
+    pctOfTarget: targetSum > 0 ? Math.round((calSum / targetSum) * 100) : null,
     avgSteps: stepDays.length ? stepDays.reduce((a, r) => a + r.steps, 0) / stepDays.length : null,
     weight: weights.data?.[0] || null,
     weightBefore: before.data?.[0] || null,
@@ -69,8 +80,8 @@ export function useCheckinWeekCells(clientId, weekOf, intervalWeeks = 1, weightU
     { label: 'Logged', value: `${week.logged}/${week.days}`, sub: 'days' },
     {
       label: 'Calories',
-      value: week.avgCalories == null ? '—' : week.calorieTarget ? `${Math.round((week.avgCalories / week.calorieTarget) * 100)}%` : kfmt(week.avgCalories),
-      sub: week.avgCalories == null ? null : week.calorieTarget ? 'of target' : 'a day',
+      value: week.avgCalories == null ? '—' : week.pctOfTarget != null ? `${week.pctOfTarget}%` : kfmt(week.avgCalories),
+      sub: week.avgCalories == null ? null : week.pctOfTarget != null ? 'of target' : 'a day',
     },
     { label: 'Steps', value: week.avgSteps == null ? '—' : kfmt(week.avgSteps), sub: week.avgSteps == null ? null : 'a day' },
   ]

@@ -1,4 +1,5 @@
 import { toLocalDateString } from './dateHelpers'
+import { targetFn } from './targetHistory'
 
 // Weekday-vs-weekend ADHERENCE breakdown for a client — the "why is this one
 // slipping" panel on the coach's client view.
@@ -33,28 +34,34 @@ export function calorieDayOnTarget(total, target) {
 const MIN_DAYS_PER_SEGMENT = 3
 
 function blankSegment() {
-  return { logged: 0, onTarget: 0, over: 0, under: 0, _overSum: 0, _sum: 0 }
+  return { logged: 0, onTarget: 0, over: 0, under: 0, _overSum: 0, _sum: 0, _cal: 0, _target: 0 }
 }
 
+//
+// `calorieTarget` is a number or a target lookup (utils/targetHistory): each day
+// is graded against the plan in force THAT day. A day with no plan is skipped.
 export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) {
-  const target = Number(calorieTarget) || 0
-  if (!target) {
-    return { hasTarget: false, insufficient: true, weaker: null, weekday: blankSegment(), weekend: blankSegment() }
-  }
-
+  const targetOn = targetFn(calorieTarget)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  // Today's plan names the target on screen; past days are graded on their own.
+  const currentTarget = targetOn(toLocalDateString(today))
 
   const weekday = blankSegment()
   const weekend = blankSegment()
   // Each day of the week on its own (0 = Sunday), for the row of rings.
-  const dows = Array.from({ length: 7 }, () => ({ logged: 0, total: 0 }))
+  const dows = Array.from({ length: 7 }, () => ({ logged: 0, total: 0, targetSum: 0 }))
+  let graded = 0
 
   for (let i = 0; i < windowDays; i++) {
     const d = new Date(today)
     d.setDate(today.getDate() - i)
-    const log = logsByDate[toLocalDateString(d)]
+    const dateStr = toLocalDateString(d)
+    const log = logsByDate[dateStr]
     if (!log) continue
+    const target = targetOn(dateStr)
+    if (!target) continue
+    graded++
 
     const dow = d.getDay()
     const seg = dow === 0 || dow === 6 ? weekend : weekday
@@ -63,6 +70,9 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
     const cal = log.calories || 0
     dows[dow].logged++
     dows[dow].total += cal
+    dows[dow].targetSum += target
+    seg._cal += cal
+    seg._target += target
     const ratio = cal / target
     seg._sum += cal - target
     if (ratio > 1 + ON_TARGET_BAND) {
@@ -84,8 +94,11 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
     avgOverDelta: seg.over > 0 ? Math.round(seg._overSum / seg.over) : null,
     // Signed average deviation from target across ALL logged days.
     avgDelta: seg.logged > 0 ? Math.round(seg._sum / seg.logged) : null,
-    // The average logged day itself, in calories (target + the deviation).
-    avgCal: seg.logged > 0 ? Math.round(target + seg._sum / seg.logged) : null,
+    // The average logged day itself, in calories. Summed directly: "target +
+    // the average deviation" only held while the target never changed.
+    avgCal: seg.logged > 0 ? Math.round(seg._cal / seg.logged) : null,
+    // The average plan across those same days, for the ring's denominator.
+    avgTarget: seg.logged > 0 ? seg._target / seg.logged : null,
   })
 
   const wkday = finish(weekday)
@@ -102,14 +115,19 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
     else if (wkdayRate < wkendRate) weaker = 'weekday'
   }
 
+  if (!graded && !currentTarget) {
+    return { hasTarget: false, insufficient: true, weaker: null, weekday: blankSegment(), weekend: blankSegment() }
+  }
+
   return {
     hasTarget: true,
+    currentTarget,
     insufficient: !enough,
     weaker,
     weekday: wkday,
     weekend: wkend,
-    // [{ logged, avgCal }] for Sunday..Saturday; avgCal null on a day never logged.
-    byDow: dows.map(x => ({ logged: x.logged, avgCal: x.logged ? Math.round(x.total / x.logged) : null })),
+    // [{ logged, avgCal, avgTarget }] for Sunday..Saturday; nulls on a day never logged.
+    byDow: dows.map(x => ({ logged: x.logged, avgCal: x.logged ? Math.round(x.total / x.logged) : null, avgTarget: x.logged ? x.targetSum / x.logged : null })),
   }
 }
 

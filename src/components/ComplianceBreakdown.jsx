@@ -54,18 +54,20 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
   const b = complianceBreakdown(logsByDate, calorieTarget, windowDays)
   if (!b.hasTarget) return null
 
-  const target = Number(calorieTarget)
-  const targetLabel = target.toLocaleString()
+  const targetLabel = b.currentTarget ? b.currentTarget.toLocaleString() : '\u2014'
   const wd = b.weekday
   const we = b.weekend
 
 
-  const pct = (cal) => (cal == null ? null : Math.round((cal / target) * 100))
+  // Each ring against the average plan of the days it covers, so a target
+  // change mid-window does not regrade the days before it.
+  const ratio = (x) => (x.avgCal == null || !x.avgTarget ? null : x.avgCal / x.avgTarget)
+  const pct = (x) => { const r = ratio(x); return r == null ? null : Math.round(r * 100) }
   const seg = (label, x) => (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-6)' }}>
-      <Ring ratio={x.avgCal == null ? null : x.avgCal / target} size={104} stroke={12}
-        label={`${label}: ${x.avgCal == null ? 'no logs' : `${x.avgCal.toLocaleString()} calories a day, ${pct(x.avgCal)}% of target`}`}>
-        <span className="tnum" style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-semibold)' }}>{x.avgCal == null ? '\u2014' : `${pct(x.avgCal)}%`}</span>
+      <Ring ratio={ratio(x)} size={104} stroke={12}
+        label={`${label}: ${x.avgCal == null ? 'no logs' : `${x.avgCal.toLocaleString()} calories a day, ${pct(x)}% of target`}`}>
+        <span className="tnum" style={{ fontSize: 'var(--text-subhead)', fontWeight: 'var(--weight-semibold)' }}>{x.avgCal == null ? '\u2014' : `${pct(x)}%`}</span>
       </Ring>
       <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-medium)' }}>{label}</span>
     </div>
@@ -113,8 +115,8 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
               const weekend = d === 0 || d === 6
               return (
                 <div key={d} role="listitem" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-4)' }}>
-                  <Ring ratio={x.avgCal == null ? null : x.avgCal / target} size={34} stroke={6}
-                    label={`${DAY_NAMES[d]}: ${x.avgCal == null ? 'no logs' : `${x.avgCal.toLocaleString()} calories, ${pct(x.avgCal)}% of target`}`} />
+                  <Ring ratio={ratio(x)} size={34} stroke={6}
+                    label={`${DAY_NAMES[d]}: ${x.avgCal == null ? 'no logs' : `${x.avgCal.toLocaleString()} calories, ${pct(x)}% of target`}`} />
                   <span style={{ fontSize: 'var(--text-xs)', color: weekend ? 'var(--color-text)' : MUTED, fontWeight: weekend ? 'var(--weight-semibold)' : 'var(--weight-normal)' }}>{DAYS[d]}</span>
                 </div>
               )

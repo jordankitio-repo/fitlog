@@ -39,6 +39,9 @@ update weight_log        set logged_date = logged_date + (current_date - date '2
 update steps_log         set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
 update cardio_log        set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
 update body_measurements set logged_date = logged_date + (current_date - date '2026-07-12') where user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
+-- Target history moves with the logs. 1970-01-01 is the "first plan, covers
+-- every earlier day" marker (20261101000000_target_versions), not a date.
+update target_versions   set effective_date = effective_date + (current_date - date '2026-07-12') where effective_date <> date '1970-01-01' and user_id in (select maya from _ids union select marcus from _ids union select sam from _ids union select jamie from _ids);
 -- Lock cleared "today" so triage is driven by logging pattern, not a new-client grace lock.
 update coach_clients set lock_cleared_at = current_date where coach_id = (select coach from _ids);
 
@@ -62,6 +65,24 @@ insert into weight_log (user_id, weight, unit, logged_date, weighed_at) values
   ((select marcus from _ids), 81.6, 'kg', current_date, '07:15:00');
 insert into steps_log (user_id, steps, logged_date) values
   ((select marcus from _ids), 7350, current_date);
+
+-- Marcus's plan has changed TWICE, every target each time, so a walkthrough
+-- shows target history on every chart: the stepped target lines, and earlier
+-- days graded against the plan they were eaten under. The first version becomes
+-- the original plan, then a change five weeks back and one two weeks back that
+-- equals today's plan. targets itself (today's plan) is untouched.
+update target_versions set
+    calories = calories + 400, protein = greatest(protein - 20, 0), carbs = carbs + 70,
+    fat = fat + 8, cardio_minutes = greatest(coalesce(cardio_minutes, 0) - 30, 0), steps = greatest(coalesce(steps, 0) - 2000, 0),
+    set_by = (select coach from _ids)
+  where user_id = (select marcus from _ids) and effective_date = date '1970-01-01';
+insert into target_versions (user_id, effective_date, calories, protein, carbs, fat, cardio_minutes, steps, set_by)
+select user_id, current_date - 35, calories + 200, greatest(protein - 10, 0), carbs + 35, fat + 3,
+       greatest(coalesce(cardio_minutes, 0) - 20, 0), greatest(coalesce(steps, 0) - 1000, 0), (select coach from _ids)
+from targets where user_id = (select marcus from _ids);
+insert into target_versions (user_id, effective_date, calories, protein, carbs, fat, cardio_minutes, steps, set_by)
+select user_id, current_date - 14, calories, protein, carbs, fat, cardio_minutes, steps, (select coach from _ids)
+from targets where user_id = (select marcus from _ids);
 
 -- ── 2. Custom check-in questionnaire (coach-defined questions) ─────────────────
 -- Presence of ≥1 non-archived question flips every client's check-in from the

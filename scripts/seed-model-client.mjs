@@ -86,6 +86,8 @@ const main = async () => {
   for (const t of ['check_ins']) await admin.from(t).delete().eq('client_id', client.id)
   for (const t of ['reports', 'messages']) await admin.from(t).delete().eq('client_id', client.id)
   await admin.from('coach_clients').delete().eq('client_id', client.id)
+  // History goes with the plan, or the re-inserted plan lands as a change today.
+  await admin.from('target_versions').delete().eq('user_id', client.id)
   await admin.from('targets').delete().eq('user_id', client.id)
 
   await admin.from('coach_clients').insert({

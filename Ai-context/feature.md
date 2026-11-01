@@ -1,5 +1,5 @@
 Gardnr — Master Feature & Implementation List
-Last updated: September 17, 2026 (compliance-reporting backlog added — see COMPLIANCE REPORTING BACKLOG below)
+Last updated: October 31, 2026 (Cronometer review + build-now list added — see CRONOMETER REVIEW below)
 
 SHIPPED (live in prod, Jul 12–13) — do NOT re-propose:
 - **The landing page, rebuilt.** Mobile visitors and Googlebot were being served the **login form** as the homepage (the rule keyed off screen *width*, not launch context) — fixed. Entry JS chunk **1,580 KB → ~290 KB**. `robots.txt` + `sitemap.xml` + canonical + JSON-LD (all four previously absent; the first two returned the SPA's HTML). Copy moved to `src/pages/landingContent.js`. Pricing section **deleted** (there is no price). Instruments cut 12 → 3 + a chip list. **FAQ** and **founder note** added.
@@ -9,6 +9,51 @@ SHIPPED (live in prod, Jul 12–13) — do NOT re-propose:
 - **Ten production bugs fixed** — full list at the top of `current-state.md` → Recently Shipped. Not one of them was in the Open Bugs table.
 
 **#1 PRIORITY IS NOT A FEATURE.** It's **coach outreach** — `docs/coach-outreach.md`. This page tells coaches their week is food screenshots and rebuilt spreadsheets; **that came from desk research, not from a coach's mouth.** Do not build the next thing on this list until five coaches have been asked. If they say their problem is *getting* clients rather than *seeing* compliance, this is an excellent tool for the wrong bottleneck — and everything below is moot.
+
+## CRONOMETER REVIEW (Oct 31 2026) — what to take from a consumer tracker, and what not to
+
+Source: a walk through cronometer.com's web app on a free account (31 screenshots:
+every sidebar page, Plans, Account, Sharing). Judged against `vision.md` and the
+[product lens]: does it help a coach spot slipping clients, see why, and act?
+
+**How they make money.** Four engines: Basic (free, **ads** on most pages); Gold
+($59.99/yr, $41.99 with a first-year coupon, or monthly) sold by **locked controls
+inside the free product** — padlocks, greyed buttons, a yellow upgrade banner on
+nearly every page; **Pro** ($39.99/mo incl. 10 client seats, +$2.50/seat — sold on
+client visibility, adherence, diet recall and a Pro Directory seen by 15M users);
+Enterprise (custom). Plus gift subs and a $5 referral credit.
+
+**Verdict per offering (verified against the code on Oct 31):**
+- Already have — logging, search, barcode, custom foods, saved meals (= custom
+  meals), copy day, targets + calculator, charts, progress photos (= Snapshots),
+  Apple Health sync, data export, **who-can-see-me** (Account → Coach row with
+  Message + Leave coaching plan; Apple Health has its own status/disconnect page).
+- **Adopt now** — **two-factor auth** (free on Cronometer; table stakes for a health-data
+  app under MHMDA/FTC HBNR; never a paid feature) and **per-weekday targets**
+  (their Macro Scheduler). Per-day targets is the one item the *coaching* angle
+  demands: coaches prescribe training/rest days and refeeds, and today those days
+  are graded against one flat number. It **depends on Tier 0 below** (targets is
+  one mutable row per user), so Tier 0 ships first, shaped to take it.
+- Adopt later, small — **recipes** (ingredients + yield → per serving). Clients who
+  cook either log badly or skip; saved meals don't divide by servings.
+- Defer — PDF/print report (only if coaches ask); **coach-to-coach referral credit**
+  (distribution is the binding constraint, but a credit needs billing switched on);
+  a directory (needs a consumer base we don't have).
+- **Reject** — **Repeat Items** (auto-logged food is not evidence of eating; it would
+  counterfeit the logging signal triage runs on); fasting timer, 84 micronutrients,
+  water (out of scope below); photo-recognition logging (vision: not our own
+  food-recognition AI); Suggest Food / Oracle / Crono Coach (prescriptive solo
+  advice = "cheaper substitute for coaching", which the vision forbids); **ads,
+  ever** (ad SDKs beside consumer health data is an MHMDA problem).
+
+**Pricing conclusion** → `decisions.md` → *No feature gating* (Oct 31 2026).
+
+### BUILD NOW (agreed order, Oct 31 2026)
+1. **Target history** — Tier 0 item 1 below. Design: `docs/target-history-design.md`.
+2. **Per-weekday targets** — a weekday schedule on top of (1); one resolver.
+3. **Two-factor auth** (TOTP, Supabase MFA) — independent of 1–2; can go in parallel.
+Backlog, not now: recipes; referral credit (after billing is live); PDF export (on request).
+Standing caveat still applies: coach outreach (`docs/coach-outreach.md`) outranks all of it.
 
 ## COMPLIANCE REPORTING BACKLOG (added Sep 17 2026) — ordered, do not reorder casually
 
@@ -27,6 +72,8 @@ or verified in the Sep 17 session; the verified ones name what was checked.
    TODAY's target, so changing a client's calories silently rewrites their
    entire compliance record. A record you can change by editing a field is not
    a record. Every Tier 1 number is provisional until this exists.
+   **Design (Oct 31 2026): `docs/target-history-design.md`** — shaped so
+   per-weekday targets (BUILD NOW #2) land on the same table and resolver.
 
 ### Tier 1 — make the number already on screen honest. Data exists; no new client behaviour.
 2. **Fix the definition of a "logged day."** Any single entry currently counts.
