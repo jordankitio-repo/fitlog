@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { wantsEmail } from '../_shared/notifications.ts'
-import { makeTargetLookup, type TargetVersion } from '../_shared/targetHistory.ts'
+import { makeTargetLookup, resolveDay, setsAnyDay, type TargetVersion } from '../_shared/targetHistory.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -96,13 +96,13 @@ async function runDigest() {
 
     const { data: allTargets } = await supabase
       .from('targets')
-      .select('user_id, calories, protein, cardio_minutes, steps')
+      .select('user_id, calories, protein, cardio_minutes, steps, day_plans')
       .in('user_id', clientIds)
 
     // Each day is graded against the plan in force that day, not today's.
     const { data: allVersions, error: versionsError } = await supabase
       .from('target_versions')
-      .select('user_id, effective_date, calories, protein, cardio_minutes, steps')
+      .select('user_id, effective_date, calories, protein, cardio_minutes, steps, day_plans')
       .in('user_id', clientIds)
     if (versionsError) console.error('target_versions:', versionsError)
 
@@ -148,7 +148,7 @@ async function runDigest() {
       const target = (allTargets || []).find((t: any) => t.user_id === client.id)
       const versions = (allVersions || []).filter((v: any) => v.user_id === client.id) as TargetVersion[]
       // No history readable: today's plan grades every day, as before.
-      const targetOn = versions.length ? makeTargetLookup(versions) : () => target || null
+      const targetOn = versions.length ? makeTargetLookup(versions) : (date: string) => resolveDay(target || null, date)
       const compliance = computeCompliance(
         client.id,
         target,
@@ -183,10 +183,12 @@ function computeCompliance(
   const myCardio = cardioLogs.filter((l) => l.user_id === clientId)
   const mySteps = stepsLogs.filter((l) => l.user_id === clientId)
 
-  const caloriesTarget = target?.calories || 0
-  const proteinTarget = target?.protein || 0
-  const cardioTarget = target?.cardio_minutes || 0
-  const stepsTarget = target?.steps || 0
+  // Graded when the base OR any day type sets it: a cardio target set only on
+  // training days is still a target.
+  const caloriesTarget = setsAnyDay(target, 'calories')
+  const proteinTarget = setsAnyDay(target, 'protein')
+  const cardioTarget = setsAnyDay(target, 'cardio_minutes')
+  const stepsTarget = setsAnyDay(target, 'steps')
 
   const nutritionByDate: Record<string, { calories: number; protein: number }> = {}
   for (const log of myNutrition) {

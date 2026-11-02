@@ -11,10 +11,13 @@ export function Field({ as = 'input', label, error, style, children, ...rest }) 
   if (as === 'select' && label) rest = { ...rest, label }
   // A number input draws its own spinner at the padding edge, like a select's
   // arrow — the control's uniform 12px leaves it wedged against the border.
-  const arrowRoom = rest.type === 'number' ? { paddingRight: 'var(--space-20)' } : null
+  // Whole shorthands, never a longhand on top of controlStyle's shorthand: React
+  // re-applies the shorthand on an update and silently drops the longhand (it
+  // warns "conflicting property"), which left an error border stuck or gone.
+  const arrowRoom = rest.type === 'number' ? { padding: '10px var(--space-20) 10px 12px' } : null
   const control = (
     <Tag
-      style={{ ...controlStyle, ...arrowRoom, ...(error ? { borderColor: 'var(--color-error)' } : {}), ...style }}
+      style={{ ...controlStyle, ...arrowRoom, ...(error ? { border: '1px solid var(--color-error)' } : {}), ...style }}
       {...rest}
     >
       {children}

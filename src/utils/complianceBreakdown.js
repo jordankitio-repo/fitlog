@@ -46,6 +46,14 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
   today.setHours(0, 0, 0, 0)
   // Today's plan names the target on screen; past days are graded on their own.
   const currentTarget = targetOn(toLocalDateString(today))
+  // This week's spread of the current plan (day types vary it by weekday), so
+  // the label can read "2,000–2,400 cal" rather than whichever day today is.
+  const weekTargets = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today); d.setDate(today.getDate() + i)
+    return targetOn(toLocalDateString(d))
+  }).filter(t => t > 0)
+  const targetMin = weekTargets.length ? Math.min(...weekTargets) : currentTarget
+  const targetMax = weekTargets.length ? Math.max(...weekTargets) : currentTarget
 
   const weekday = blankSegment()
   const weekend = blankSegment()
@@ -122,6 +130,8 @@ export function complianceBreakdown(logsByDate, calorieTarget, windowDays = 90) 
   return {
     hasTarget: true,
     currentTarget,
+    targetMin,
+    targetMax,
     insufficient: !enough,
     weaker,
     weekday: wkday,

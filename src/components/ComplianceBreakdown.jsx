@@ -54,7 +54,10 @@ export default function ComplianceBreakdown({ logsByDate, calorieTarget, targetH
   const b = complianceBreakdown(logsByDate, calorieTarget, windowDays)
   if (!b.hasTarget) return null
 
-  const targetLabel = b.currentTarget ? b.currentTarget.toLocaleString() : '\u2014'
+  // A range when day types vary it across the week.
+  const targetLabel = !b.currentTarget && !b.targetMax ? '\u2014'
+    : b.targetMin !== b.targetMax ? `${b.targetMin.toLocaleString()}\u2013${b.targetMax.toLocaleString()}`
+      : (b.currentTarget || b.targetMax).toLocaleString()
   const wd = b.weekday
   const we = b.weekend
 

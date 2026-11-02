@@ -171,3 +171,12 @@ describe('complianceBreakdown against a target history', () => {
     expect(complianceBreakdown(logs([[1, 2000]]), makeTargetLookup([]), 90).hasTarget).toBe(false)
   })
 })
+
+describe('complianceBreakdown with day types', () => {
+  it('names the week\'s range of targets', () => {
+    const plan = { calories: 2000, day_plans: [{ name: 'Training', days: [1, 3, 5], calories: 2400 }] }
+    const b = complianceBreakdown(logs([[1, 2000]]), makeTargetLookup([{ effective_date: '1970-01-01', ...plan }]), 90)
+    expect(b.targetMin).toBe(2000)
+    expect(b.targetMax).toBe(2400)
+  })
+})
