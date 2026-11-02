@@ -19,7 +19,9 @@ import AppleHealthSettings from '../components/AppleHealthSettings'
 import { SECTION_ICONS } from '../utils/sectionIcons'
 import ConfirmDialog from '../components/ConfirmDialog'
 import TargetCalculator from '../components/TargetCalculator'
-import { checkTargets } from '../utils/targetChecks'
+import { checkTargets, checkDayPlans, dayPlansHaveErrors, dayPlansToRow, dayPlansFromRow, sameDayPlans } from '../utils/targetChecks'
+import DayPlansEditor from '../components/DayPlansEditor'
+import PlanTable from '../components/PlanTable'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ACTIVITY_LEVELS } from '../utils/targetEstimate'
 import { ageFromBirthDate, cmToFtIn, ftInToCm, todayStr } from '../utils/biometrics'
@@ -123,6 +125,22 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   const [saved, setSaved] = useState(false)
   // The targets as last loaded or saved, so Save lights only on a real edit.
   const [savedTargets, setSavedTargets] = useState(null)
+  // Day types (targets.day_plans), in the form's shape (utils/targetChecks).
+  const [dayPlans, setDayPlans] = useState([])
+  const [savedDayPlans, setSavedDayPlans] = useState([])
+  // A coached client whose coach hides calories sees no calorie target here
+  // either, as on Today (coach_clients.hide_calories).
+  const [hideCaloriesRow, setHideCalories] = useState(false)
+  const hideCalories = profile?.role === 'client' && hideCaloriesRow
+  useEffect(() => {
+    if (profile?.role !== 'client' || !session?.user?.id) return
+    supabase.from('coach_clients').select('hide_calories')
+      .eq('client_id', session.user.id).eq('status', 'active').maybeSingle()
+      .then(({ data, error }) => {
+        if (error) console.error('Error fetching calorie visibility:', error)
+        else setHideCalories(Boolean(data?.hide_calories))
+      })
+  }, [session?.user?.id, profile?.role])
   // Biometrics ("Your details") — solo + client only. Clients own/edit these;
   // a coach reads them (to set targets) but never writes them.
   const ftInInit = cmToFtIn(profile?.height_cm)
@@ -237,6 +255,9 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
         }
         setTargets(loaded)
         setSavedTargets(loaded)
+        const plans = dayPlansFromRow(data.day_plans)
+        setDayPlans(plans)
+        setSavedDayPlans(plans)
       }
     }
     loadTargets()
@@ -268,6 +289,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
       cardio_minutes: parseInt(targets.cardio_minutes) || null,
       steps: parseInt(targets.steps) || null,
       weight_goal_unit: targets.weight_goal_unit,
+      day_plans: dayPlansToRow(dayPlans),
       // The writer's local today: the day this plan starts (target_versions).
       effective_date: toLocalDateString(new Date()),
       updated_at: new Date().toISOString()
@@ -280,6 +302,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
     if (error) console.error('Error saving targets:', error)
     else {
       setSavedTargets(targets)
+      setSavedDayPlans(dayPlans)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     }
@@ -651,6 +674,8 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
   // The same checks the coach's form runs (utils/targetChecks): no negative or
   // absurd target, and the macros' own calorie total beside the calorie target.
   const targetCheck = checkTargets(targets)
+  const dayPlanChecks = checkDayPlans(targets, dayPlans)
+  const targetsInvalid = Object.keys(targetCheck.errors).length > 0 || dayPlansHaveErrors(dayPlanChecks)
 
   // Coach: the automatic-nudge rule (coach_automations). null = off.
   const [autoNudgeDays, setAutoNudgeDays] = useState(null)
@@ -868,7 +893,7 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           }
           const groups = [
             ['Nutrition', [
-              ['Calories', fmt(targets.calories, 'cal')],
+              ...(hideCalories ? [] : [['Calories', fmt(targets.calories, 'cal')]]),
               ['Protein', fmt(targets.protein, 'g')],
               ['Carbs', fmt(targets.carbs, 'g')],
               ['Fat', fmt(targets.fat, 'g')],
@@ -881,13 +906,19 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
               ['Weight goal', fmt(targets.weight_goal, unitLabel(targets.weight_goal_unit))],
             ]],
           ]
+          // With day types, the daily targets are one table with a column
+          // per kind of day (components/PlanTable), and only the weight goal,
+          // which does not vary by day, stays a list.
+          const varies = savedDayPlans.length > 0
+          const listed = varies ? groups.filter(([title]) => title === 'Body') : groups
           return (
             <>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)', margin: 0 }}>
                 Set by your coach.{' '}
                 <Link to="/coach" style={{ color: 'var(--color-primary)' }}>Message them</Link> if one needs changing.
               </p>
-              {groups.map(([title, rows]) => (
+              {varies && <PlanTable base={targets} plans={dayPlansToRow(savedDayPlans)} hideCalories={hideCalories} />}
+              {listed.map(([title, rows]) => (
                 <div key={title}>
                   <h2 style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-medium)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: '0 0 var(--space-4)' }}>{title}</h2>
                   {rows.map(([label, value], i) => (
@@ -907,123 +938,125 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
           Leave a target blank to skip tracking it.
         </p>
 
-        {/* Solo: an assessment to seed starting macros instead of guessing. */}
-        {profile?.role === 'solo' && (
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowTargetCalc(v => !v)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-primary)', padding: 0 }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="4" y="2" width="16" height="20" rx="2" /><line x1="8" y1="6" x2="16" y2="6" /><line x1="8" y1="10" x2="8" y2="10" /><line x1="12" y1="10" x2="12" y2="10" /><line x1="16" y1="10" x2="16" y2="10" /><line x1="8" y1="14" x2="8" y2="14" /><line x1="12" y1="14" x2="12" y2="14" /><line x1="16" y1="14" x2="16" y2="14" /><line x1="8" y1="18" x2="16" y2="18" />
-              </svg>
-              {showTargetCalc ? 'Hide calculator' : 'Calculate my targets'}
-            </button>
-            {showTargetCalc && (
-              <div style={{ marginTop: '12px' }}>
-                <TargetCalculator
-                  defaultWeightUnit={targets.weight_goal_unit}
-                  initial={{
-                    sex: bio.sex || undefined,
-                    age: ageFromBirthDate(bio.birth_date) ?? undefined,
-                    heightCm: bioHeightCm || undefined,
-                    units: bio.unit_preference,
-                    goalWeight: targets.weight_goal || undefined,
-                    activity: bio.activity_level,
-                  }}
-                  onApply={(t) => {
-                    setTargets(prev => ({ ...prev, calories: String(t.calories), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) }))
-                    setShowTargetCalc(false)
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-          <div>
-            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Calories</p>
-            <input
-              type="number"
-              placeholder="e.g. 2000"
-              value={targets.calories}
-              onChange={(e) => setTargets({ ...targets, calories: e.target.value })}
-              aria-invalid={Boolean(targetCheck.errors.calories)}
-              style={{ ...inputStyle, ...(targetCheck.errors.calories ? { borderColor: 'var(--color-error)' } : {}) }}
-            />
-            {fieldError('calories')}
-          </div>
-          <div>
-            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Protein (g)</p>
-            <input
-              type="number"
-              placeholder="e.g. 150"
-              value={targets.protein}
-              onChange={(e) => setTargets({ ...targets, protein: e.target.value })}
-              aria-invalid={Boolean(targetCheck.errors.protein)}
-              style={{ ...inputStyle, ...(targetCheck.errors.protein ? { borderColor: 'var(--color-error)' } : {}) }}
-            />
-            {fieldError('protein')}
-          </div>
-          <div>
-            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Carbs (g)</p>
-            <input
-              type="number"
-              placeholder="e.g. 200"
-              value={targets.carbs}
-              onChange={(e) => setTargets({ ...targets, carbs: e.target.value })}
-              aria-invalid={Boolean(targetCheck.errors.carbs)}
-              style={{ ...inputStyle, ...(targetCheck.errors.carbs ? { borderColor: 'var(--color-error)' } : {}) }}
-            />
-            {fieldError('carbs')}
-          </div>
-          <div>
-            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Fat (g)</p>
-            <input
-              type="number"
-              placeholder="e.g. 65"
-              value={targets.fat}
-              onChange={(e) => setTargets({ ...targets, fat: e.target.value })}
-              aria-invalid={Boolean(targetCheck.errors.fat)}
-              style={{ ...inputStyle, ...(targetCheck.errors.fat ? { borderColor: 'var(--color-error)' } : {}) }}
-            />
-            {fieldError('fat')}
-          </div>
-          {/* Under the macros, across both columns. */}
-          {targetCheck.macroCalories != null && (
-            <p style={{ gridColumn: '1 / -1', margin: 0, fontSize: 'var(--text-sm)', color: targetCheck.mismatch ? 'var(--color-warning)' : 'var(--color-muted)' }}>
-              {targetCheck.mismatch
-                ? <>Macros add up to {targetCheck.macroCalories.toLocaleString()} cal, not {Number(targets.calories).toLocaleString()}. <button type="button" className="ds-control" onClick={() => setTargets(prev => ({ ...prev, calories: String(targetCheck.macroCalories) }))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--color-primary)', fontWeight: 'var(--weight-medium)', cursor: 'pointer' }}>Use {targetCheck.macroCalories.toLocaleString()}</button></>
-                : `Macros add up to ${targetCheck.macroCalories.toLocaleString()} cal`}
-            </p>
+        <DayPlansEditor base={targets} plans={dayPlans} checks={dayPlanChecks} onChange={setDayPlans}>
+          {/* The calculator fills the regular targets, so it lives with them. */}
+          {/* Solo: an assessment to seed starting macros instead of guessing. */}
+          {profile?.role === 'solo' && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowTargetCalc(v => !v)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-primary)', padding: 0 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="4" y="2" width="16" height="20" rx="2" /><line x1="8" y1="6" x2="16" y2="6" /><line x1="8" y1="10" x2="8" y2="10" /><line x1="12" y1="10" x2="12" y2="10" /><line x1="16" y1="10" x2="16" y2="10" /><line x1="8" y1="14" x2="8" y2="14" /><line x1="12" y1="14" x2="12" y2="14" /><line x1="16" y1="14" x2="16" y2="14" /><line x1="8" y1="18" x2="16" y2="18" />
+                </svg>
+                {showTargetCalc ? 'Hide calculator' : 'Calculate my targets'}
+              </button>
+              {showTargetCalc && (
+                <div style={{ marginTop: '12px' }}>
+                  <TargetCalculator
+                    defaultWeightUnit={targets.weight_goal_unit}
+                    initial={{
+                      sex: bio.sex || undefined,
+                      age: ageFromBirthDate(bio.birth_date) ?? undefined,
+                      heightCm: bioHeightCm || undefined,
+                      units: bio.unit_preference,
+                      goalWeight: targets.weight_goal || undefined,
+                      activity: bio.activity_level,
+                    }}
+                    onApply={(t) => {
+                      setTargets(prev => ({ ...prev, calories: String(t.calories), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) }))
+                      setShowTargetCalc(false)
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           )}
-          <div>
-            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Cardio (min/day)</p>
-            <input
-              type="number"
-              placeholder="e.g. 30"
-              value={targets.cardio_minutes || ''}
-              onChange={(e) => setTargets({ ...targets, cardio_minutes: e.target.value })}
-              aria-invalid={Boolean(targetCheck.errors.cardio_minutes)}
-              style={{ ...inputStyle, ...(targetCheck.errors.cardio_minutes ? { borderColor: 'var(--color-error)' } : {}) }}
-            />
-            {fieldError('cardio_minutes')}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+            <div>
+              <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Calories</p>
+              <input
+                type="number"
+                placeholder="e.g. 2000"
+                value={targets.calories}
+                onChange={(e) => setTargets({ ...targets, calories: e.target.value })}
+                aria-invalid={Boolean(targetCheck.errors.calories)}
+                style={{ ...inputStyle, ...(targetCheck.errors.calories ? { borderColor: 'var(--color-error)' } : {}) }}
+              />
+              {fieldError('calories')}
+            </div>
+            <div>
+              <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Protein (g)</p>
+              <input
+                type="number"
+                placeholder="e.g. 150"
+                value={targets.protein}
+                onChange={(e) => setTargets({ ...targets, protein: e.target.value })}
+                aria-invalid={Boolean(targetCheck.errors.protein)}
+                style={{ ...inputStyle, ...(targetCheck.errors.protein ? { borderColor: 'var(--color-error)' } : {}) }}
+              />
+              {fieldError('protein')}
+            </div>
+            <div>
+              <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Carbs (g)</p>
+              <input
+                type="number"
+                placeholder="e.g. 200"
+                value={targets.carbs}
+                onChange={(e) => setTargets({ ...targets, carbs: e.target.value })}
+                aria-invalid={Boolean(targetCheck.errors.carbs)}
+                style={{ ...inputStyle, ...(targetCheck.errors.carbs ? { borderColor: 'var(--color-error)' } : {}) }}
+              />
+              {fieldError('carbs')}
+            </div>
+            <div>
+              <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Fat (g)</p>
+              <input
+                type="number"
+                placeholder="e.g. 65"
+                value={targets.fat}
+                onChange={(e) => setTargets({ ...targets, fat: e.target.value })}
+                aria-invalid={Boolean(targetCheck.errors.fat)}
+                style={{ ...inputStyle, ...(targetCheck.errors.fat ? { borderColor: 'var(--color-error)' } : {}) }}
+              />
+              {fieldError('fat')}
+            </div>
+            {/* Under the macros, across both columns. */}
+            {targetCheck.macroCalories != null && (
+              <p style={{ gridColumn: '1 / -1', margin: 0, fontSize: 'var(--text-sm)', color: targetCheck.mismatch ? 'var(--color-warning)' : 'var(--color-muted)' }}>
+                {targetCheck.mismatch
+                  ? <>Macros add up to {targetCheck.macroCalories.toLocaleString()} cal, not {Number(targets.calories).toLocaleString()}. <button type="button" className="ds-control" onClick={() => setTargets(prev => ({ ...prev, calories: String(targetCheck.macroCalories) }))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--color-primary)', fontWeight: 'var(--weight-medium)', cursor: 'pointer' }}>Use {targetCheck.macroCalories.toLocaleString()}</button></>
+                  : `Macros add up to ${targetCheck.macroCalories.toLocaleString()} cal`}
+              </p>
+            )}
+            <div>
+              <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Cardio (min/day)</p>
+              <input
+                type="number"
+                placeholder="e.g. 30"
+                value={targets.cardio_minutes || ''}
+                onChange={(e) => setTargets({ ...targets, cardio_minutes: e.target.value })}
+                aria-invalid={Boolean(targetCheck.errors.cardio_minutes)}
+                style={{ ...inputStyle, ...(targetCheck.errors.cardio_minutes ? { borderColor: 'var(--color-error)' } : {}) }}
+              />
+              {fieldError('cardio_minutes')}
+            </div>
+            <div>
+              <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Steps/day</p>
+              <input
+                type="number"
+                placeholder="e.g. 10000"
+                value={targets.steps || ''}
+                onChange={(e) => setTargets({ ...targets, steps: e.target.value })}
+                aria-invalid={Boolean(targetCheck.errors.steps)}
+                style={{ ...inputStyle, ...(targetCheck.errors.steps ? { borderColor: 'var(--color-error)' } : {}) }}
+              />
+              {fieldError('steps')}
+            </div>
           </div>
-          <div>
-            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Steps/day</p>
-            <input
-              type="number"
-              placeholder="e.g. 10000"
-              value={targets.steps || ''}
-              onChange={(e) => setTargets({ ...targets, steps: e.target.value })}
-              aria-invalid={Boolean(targetCheck.errors.steps)}
-              style={{ ...inputStyle, ...(targetCheck.errors.steps ? { borderColor: 'var(--color-error)' } : {}) }}
-            />
-            {fieldError('steps')}
-          </div>
-        </div>
+        </DayPlansEditor>
 
         <div>
           <p style={{ fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Weight goal</p>
@@ -1053,12 +1086,13 @@ function Profile({ session, profile, subscription, soloSubscription, onProfileUp
 
         {(() => {
           // Same rule as Your details: muted until something changed.
-          const dirty = savedTargets === null
+          const dirty = (savedTargets === null
             ? Object.entries(targets).some(([k, v]) => k !== 'weight_goal_unit' && v !== '')
-            : Object.keys(targets).some(k => String(targets[k] ?? '') !== String(savedTargets[k] ?? ''))
+            : Object.keys(targets).some(k => String(targets[k] ?? '') !== String(savedTargets[k] ?? '')))
+            || !sameDayPlans(dayPlans, savedDayPlans)
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Button onClick={saveTargets} variant={dirty ? 'primary' : 'muted'} disabled={!dirty || Object.keys(targetCheck.errors).length > 0}>Save targets</Button>
+              <Button onClick={saveTargets} variant={dirty ? 'primary' : 'muted'} disabled={!dirty || targetsInvalid}>Save targets</Button>
               {saved && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>Saved <Icon name="check" /></span>}
             </div>
           )

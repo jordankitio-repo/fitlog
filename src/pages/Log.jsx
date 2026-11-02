@@ -35,6 +35,7 @@ import TodayPanel from '../components/TodayPanel'
 import { METRIC_SOURCES } from '../utils/metricSources'
 import { PhotoSlots } from '../components/ProgressPhotos'
 import { todayCells } from '../utils/todayCells'
+import { fetchTargetLookup, targetsOnDay, dayTypeLabel } from '../utils/targetHistory'
 
 const unitConversions = {
   g: 1, oz: 28.35, ml: 1, cup: 240, tbsp: 15, tsp: 5
@@ -300,6 +301,9 @@ function Log({ session, profile, hasSoloPremium = true }) {
   // targets row My Progress reads. The Log compares a day with its GOALS only;
   // comparisons with earlier days are My Progress's job, not this page's.
   const [targets, setTargets] = useState(null)
+  // The plan in force on any day (utils/targetHistory): a past day is shown
+  // against the plan it was eaten under, a training day against its own.
+  const [targetOn, setTargetOn] = useState(null)
 
   // Body-measurement state (one row per date; sites in MEASUREMENT_SITES)
   const [meas, setMeas] = useState({ unit: 'in', neck: '', chest: '', waist: '', hips: '', arm: '', thigh: '' })
@@ -423,8 +427,13 @@ function Log({ session, profile, hasSoloPremium = true }) {
 
   useEffect(() => {
     if (!session?.user?.id) return
-    supabase.from('targets').select('steps, cardio_minutes, calories, protein, carbs, fat, weight_goal, weight_goal_unit').eq('user_id', session.user.id).maybeSingle()
-      .then(({ data, error }) => { if (error) console.error(error); else setTargets(data) })
+    supabase.from('targets').select('steps, cardio_minutes, calories, protein, carbs, fat, day_plans, weight_goal, weight_goal_unit').eq('user_id', session.user.id).maybeSingle()
+      .then(async ({ data, error }) => {
+        if (error) { console.error(error); return }
+        setTargets(data)
+        const lookup = await fetchTargetLookup(supabase, session.user.id, data)
+        setTargetOn(() => lookup)
+      })
   }, [session?.user?.id])
 
   useEffect(() => {
@@ -1336,9 +1345,10 @@ function Log({ session, profile, hasSoloPremium = true }) {
   const totalFat = entries.reduce((s, e) => s + (e.fat || 0), 0)
 
   // The panel at the top of the page (components/TodayPanel).
+  const dayTargets = targetsOnDay(targets, targetOn, selectedDate)
   const panelCells = todayCells({
     totals: { calories: totalCalories, protein: totalProtein, carbs: totalCarbs, fat: totalFat },
-    targets,
+    targets: dayTargets,
     hideCalories,
     cardioMinutes: cardioEntries.filter(e => e.counts_as_cardio !== false).reduce((sum, e) => sum + (e.duration || 0), 0),
     steps: savedSteps ? savedSteps.steps : null,
@@ -1729,7 +1739,14 @@ function Log({ session, profile, hasSoloPremium = true }) {
           says which day, and the two side by side read "Today  ‹ Today ›".
           Shared with the client record: components/DayStepper. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-12)', flexWrap: 'wrap', rowGap: 'var(--space-8)' }}>
-        <h1 style={{ whiteSpace: 'nowrap' }}>{dayTitle}</h1>
+        {/* The day type under the day's name, when the plan has one: it is
+            why today's targets differ from yesterday's. */}
+        <div>
+          <h1 style={{ whiteSpace: 'nowrap' }}>{dayTitle}</h1>
+          {dayTargets?.day_type && (
+            <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{dayTypeLabel(dayTargets.day_type)}</p>
+          )}
+        </div>
         <DayStepper value={selectedDate} onChange={setSelectedDate} compact />
       </div>
 

@@ -15,8 +15,8 @@
 | Device connections | connected provider, device label, sync status + watermark, which device owns a metric | `device_connections`, `device_metric_preferences` | — (operational) |
 | Deleted-row tombstones | the provider record id of a synced row the user deleted, so it is not re-imported | `device_dismissals` | — (internal) |
 | Health-data consent | separate collect / share-with-coach grants per provider, policy version, withdrawal timestamp | `health_data_consents` | — (consent record) |
-| Goals / targets | calorie/macro/cardio/step targets, weight goal | `targets` | **health** |
-| Target history | each past plan (calorie/macro/cardio/step) and the day it took effect, who set it | `target_versions` | **health** |
+| Goals / targets | calorie/macro/cardio/step targets, weight goal, day types (per-weekday targets) | `targets` | **health** |
+| Target history | each past plan (calorie/macro/cardio/step, day types) and the day it took effect, who set it | `target_versions` | **health** |
 | Coaching content | check-ins (+answers), coach notes, reports, messages, custom questions, day-complete markers | `check_ins`, `coach_notes`, `reports`, `messages`, `checkin_questions`, `day_complete` | **health** |
 | Relationship | coach↔client links, invitations (email + token) | `coach_clients`, `invitations` | — |
 | Billing | Stripe customer/subscription IDs, status, trial flags; **hashed** email for trial dedup | `subscriptions`, `trial_ledger` | — |

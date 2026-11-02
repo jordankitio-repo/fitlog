@@ -37,8 +37,9 @@ import SectionRail from '../components/SectionRail'
 import { SECTION_ICONS } from '../utils/sectionIcons'
 import DayStepper from '../components/DayStepper'
 import TargetCalculator from '../components/TargetCalculator'
-import { checkTargets } from '../utils/targetChecks'
-import { fetchTargetLookup, constantLookup, targetFn } from '../utils/targetHistory'
+import { checkTargets, checkDayPlans, dayPlansHaveErrors, dayPlansToRow, dayPlansFromRow, sameDayPlans } from '../utils/targetChecks'
+import DayPlansEditor from '../components/DayPlansEditor'
+import { fetchTargetLookup, constantLookup, targetFn, targetsOnDay, targetRange, weeklyAverage, dayTypeLabel } from '../utils/targetHistory'
 import { mergeOrder } from '../utils/cardOrder'
 import { resolveLockState } from '../utils/lockState'
 import { ageFromBirthDate } from '../utils/biometrics'
@@ -475,6 +476,9 @@ function ClientView({ profile }) {
   const [targetsSaved, setTargetsSaved] = useState(false)
   // What is stored, to tell an edited form from an untouched one.
   const [savedClientTargets, setSavedClientTargets] = useState(null)
+  // Day types (targets.day_plans), in the form's shape (utils/targetChecks).
+  const [clientDayPlans, setClientDayPlans] = useState([])
+  const [savedClientDayPlans, setSavedClientDayPlans] = useState([])
   const [targetsSaving, setTargetsSaving] = useState(false)
   const [showTargetCalc, setShowTargetCalc] = useState(false)
   const [clientCheckIn, setClientCheckIn] = useState(null)
@@ -795,10 +799,25 @@ function ClientView({ profile }) {
   // is stored. Edits survive moving between sections (this page stays
   // mounted); closing or reloading the tab with edits unsaved asks first.
   const targetCheck = checkTargets(clientTargets)
+  const dayPlanChecks = checkDayPlans(clientTargets, clientDayPlans)
+  const targetsInvalid = Object.keys(targetCheck.errors).length > 0 || dayPlansHaveErrors(dayPlanChecks)
   const targetsDirty = savedClientTargets !== null && (
     Object.keys(EMPTY_CLIENT_TARGETS).some(k => String(clientTargets[k] ?? '') !== String(savedClientTargets[k] ?? ''))
+    || !sameDayPlans(clientDayPlans, savedClientDayPlans)
     || clientGoal !== (clientProfile?.primary_goal || '')
   )
+  // The SAVED plan as numbers, with its day types: what every reader of
+  // "the client's targets" means (not the half-typed form).
+  const toNum = (v) => (v === '' || v == null ? null : Number(v))
+  const savedPlan = savedClientTargets ? {
+    calories: toNum(savedClientTargets.calories), protein: toNum(savedClientTargets.protein),
+    carbs: toNum(savedClientTargets.carbs), fat: toNum(savedClientTargets.fat),
+    cardio_minutes: toNum(savedClientTargets.cardio_minutes), steps: toNum(savedClientTargets.steps),
+    day_plans: dayPlansToRow(savedClientDayPlans),
+  } : null
+  const weekCalorieTarget = weeklyAverage(savedPlan, 'calories')
+  // The targets of the day the stepper shows: that day's version and weekday.
+  const viewDayTargets = targetsOnDay(savedPlan, targetOn, selectedDate)
   useEffect(() => {
     if (!targetsDirty) return undefined
     const warn = (e) => { e.preventDefault(); e.returnValue = '' }
@@ -1558,6 +1577,9 @@ async function toggleFlag(note) {
     }
     setClientTargets(loaded)
     setSavedClientTargets(loaded)
+    const plans = dayPlansFromRow(data.day_plans)
+    setClientDayPlans(plans)
+    setSavedClientDayPlans(plans)
   } else {
     setSavedClientTargets(EMPTY_CLIENT_TARGETS)
   }
@@ -1566,7 +1588,7 @@ async function toggleFlag(note) {
 }
 
   async function saveClientTargets() {
-  if (Object.keys(targetCheck.errors).length) return
+  if (targetsInvalid) return
   setTargetsSaving(true)
   const { error } = await supabase
     .from('targets')
@@ -1580,6 +1602,7 @@ async function toggleFlag(note) {
       steps: parseInt(clientTargets.steps) || null,
       weight_goal: parseFloat(clientTargets.weight_goal) || null,
       weight_goal_unit: clientTargets.weight_goal_unit,
+      day_plans: dayPlansToRow(clientDayPlans),
       // The coach's local today: the day this plan starts (target_versions).
       effective_date: toLocalDateString(new Date()),
       updated_at: new Date().toISOString()
@@ -1613,6 +1636,7 @@ async function toggleFlag(note) {
   }
 
   setSavedClientTargets(clientTargets)
+  setSavedClientDayPlans(clientDayPlans)
   // The new plan starts today, so the history behind every grade moved.
   fetchTargetLookup(supabase, clientId, null).then((lookup) => setTargetOn(() => lookup))
   setTargetsSaving(false)
@@ -1831,7 +1855,8 @@ async function toggleFlag(note) {
     const eb = energyBalanceRead({
       calorieSeries: energySeries.calories,
       weightSeries: energySeries.weights,
-      calorieTarget: clientTargets.calories,
+      // The week's average: with day types there is no single daily number.
+      calorieTarget: weekCalorieTarget,
       weightGoal: clientTargets.weight_goal,
       weightGoalUnit: clientTargets.weight_goal_unit,
       windowDays: ebWindowDays,
@@ -2264,7 +2289,11 @@ async function sendMessage(text) {
       // a goal in lb over a row reading "66.7 kg" made the coach convert.
       case 'trends': return { text: w ? `${shownWeight(w.weight, w.unit)} ${unitLabel(weightDisplayUnit)}` : 'No weight yet' }
       case 'nutritionLog': return { text: `${consistency.days7}/7 this week` }
-      case 'targets': return { text: clientTargets.calories ? `${Number(clientTargets.calories).toLocaleString()} cal` : 'Not set' }
+      case 'targets': {
+        const r = targetRange(savedPlan, 'calories')
+        if (!r) return { text: 'Not set' }
+        return { text: r.min === r.max ? `${r.min.toLocaleString()} cal` : `${r.min.toLocaleString()}–${r.max.toLocaleString()} cal` }
+      }
       // Not "Written" — a note that exists is always written, so the word
       // answered nothing. The DATE is the useful fact: it says which week's
       // thinking the note holds, which a recency ("2 months ago") makes the
@@ -2501,7 +2530,7 @@ async function sendMessage(text) {
 
   const railFooter = targetRows.length > 0 ? (
     <>
-      <p className="cv-rail-grouplabel">Daily targets</p>
+      <p className="cv-rail-grouplabel">{savedClientDayPlans.length ? 'Other days' : 'Daily targets'}</p>
       <dl className="cv-railstats">
         {targetRows.map(r => (
           <div key={r.label} className="cv-railstat">
@@ -2510,6 +2539,13 @@ async function sendMessage(text) {
           </div>
         ))}
       </dl>
+      {/* The base numbers stand for "other days" once there are day types;
+          the types themselves live in Targets, one click away. */}
+      {savedClientDayPlans.length > 0 && (
+        <button type="button" className="cv-rail-settargets ds-control" onClick={() => goToSection('targets')}>
+          Varies by day <Icon name="right" />
+        </button>
+      )}
     </>
   ) : (
     /* No targets is a gap the coach can close in seconds, so it is an action
@@ -2918,7 +2954,7 @@ async function sendMessage(text) {
               {compliance.sum}<span className="cvp-big-of">/{compliance.max}</span>
             </p>
             <p className="cvp-caption">
-              <InfoTip text={`Every target counts once a day, so ${compliance.max / 7} targets over 7 days is ${compliance.max} chances; this is how many were hit.\n\nHit means: calories within 90-110% of target; protein, cardio and steps at 90% of target or more.\n\nThe rows below are each target's own days out of 7.`}>
+              <InfoTip text={`Every target counts once on each day it applies, so the past 7 days hold ${compliance.max} chances; this is how many were hit.\n\nHit means: calories within 90-110% of target; protein, cardio and steps at 90% of target or more.\n\nThe rows below are each target's own days, out of the days it applied.`}>
                 targets hit · past 7 days
               </InfoTip>
             </p>
@@ -2958,9 +2994,9 @@ async function sendMessage(text) {
               <div key={i.label} className="cvp-split-row">
                 <span className="cvp-split-label">{i.label}</span>
                 <span className="cvp-split-bar" aria-hidden="true">
-                  <span style={{ width: `${(i.value / 7) * 100}%` }} />
+                  <span style={{ width: `${(i.days === 0 ? 0 : i.value / (i.days ?? 7)) * 100}%` }} />
                 </span>
-                <span className="cvp-split-num tnum" style={{ color: i.hasData ? undefined : 'var(--color-faint)' }}>{i.hasData ? `${i.value}/7` : 'no logs'}</span>
+                <span className="cvp-split-num tnum" style={{ color: i.hasData ? undefined : 'var(--color-faint)' }}>{i.hasData ? `${i.value}/${i.days ?? 7}` : 'no logs'}</span>
               </div>
             ))}
           </div>
@@ -3220,8 +3256,12 @@ async function sendMessage(text) {
 
       {/* The same `‹ Today ›` as the client's Log and My Progress, so a coach
           and the client pick a day the same way (components/DayStepper). */}
-      <div style={{ display: isVisible('stats') ? 'flex' : 'none', alignItems: 'center' }}>
+      <div style={{ display: isVisible('stats') ? 'flex' : 'none', alignItems: 'center', gap: 'var(--space-12)' }}>
         <DayStepper value={selectedDate} onChange={setSelectedDate} />
+        {/* Why this day's targets differ from the next: its day type. */}
+        {viewDayTargets?.day_type && (
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted)' }}>{dayTypeLabel(viewDayTargets.day_type)}</span>
+        )}
       </div>
 
       <div id="section-stats" style={sectionStyle('stats')}>
@@ -3244,10 +3284,10 @@ async function sendMessage(text) {
                 was right there and wrong on a desktop, so it is a breakpoint
                 rather than a layout. */}
             <div className="cv-stats-macros" style={{ display: 'grid', gap: 'var(--space-16)' }}>
-              <StatCard label="Calories" value={num(totals.calories)} sub={dayTarget(totals.calories, clientTargets.calories, ' cal')} progress={dayProgress(totals.calories, clientTargets.calories)} color="var(--color-calories)" />
-              <StatCard label="Protein" value={`${num(totals.protein)}g`} sub={dayTarget(totals.protein, clientTargets.protein, 'g')} progress={dayProgress(totals.protein, clientTargets.protein)} color="var(--color-protein)" />
-              <StatCard label="Carbs" value={`${num(totals.carbs)}g`} sub={dayTarget(totals.carbs, clientTargets.carbs, 'g')} progress={dayProgress(totals.carbs, clientTargets.carbs)} color="var(--color-carbs)" />
-              <StatCard label="Fat" value={`${num(totals.fat)}g`} sub={dayTarget(totals.fat, clientTargets.fat, 'g')} progress={dayProgress(totals.fat, clientTargets.fat)} color="var(--color-fat)" />
+              <StatCard label="Calories" value={num(totals.calories)} sub={dayTarget(totals.calories, viewDayTargets?.calories, ' cal')} progress={dayProgress(totals.calories, viewDayTargets?.calories)} color="var(--color-calories)" />
+              <StatCard label="Protein" value={`${num(totals.protein)}g`} sub={dayTarget(totals.protein, viewDayTargets?.protein, 'g')} progress={dayProgress(totals.protein, viewDayTargets?.protein)} color="var(--color-protein)" />
+              <StatCard label="Carbs" value={`${num(totals.carbs)}g`} sub={dayTarget(totals.carbs, viewDayTargets?.carbs, 'g')} progress={dayProgress(totals.carbs, viewDayTargets?.carbs)} color="var(--color-carbs)" />
+              <StatCard label="Fat" value={`${num(totals.fat)}g`} sub={dayTarget(totals.fat, viewDayTargets?.fat, 'g')} progress={dayProgress(totals.fat, viewDayTargets?.fat)} color="var(--color-fat)" />
             </div>
             {/* Cardio and Steps were never on this panel, though the coach sets a
                 target for both and the page carries a chart for each — so the
@@ -3257,8 +3297,8 @@ async function sendMessage(text) {
               {/* A synced value says which device, on its own line under the
                   target: a coach reads a step count from a phone differently
                   from one typed in (Trainerize marks synced data the same way). */}
-              <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} sub={withSource(dayTarget(dayCardio, clientTargets.cardio_minutes, ' min'), dayCardio && daySources.cardio)} progress={dayProgress(dayCardio, clientTargets.cardio_minutes)} color="var(--color-cardio)" />
-              <StatCard label="Steps" value={daySteps ? num(daySteps) : '—'} sub={withSource(dayTarget(daySteps, clientTargets.steps), daySteps && daySources.steps)} progress={dayProgress(daySteps, clientTargets.steps)} color="var(--color-steps)" />
+              <StatCard label="Cardio" value={dayCardio ? `${dayCardio} min` : '—'} sub={withSource(dayTarget(dayCardio, viewDayTargets?.cardio_minutes, ' min'), dayCardio && daySources.cardio)} progress={dayProgress(dayCardio, viewDayTargets?.cardio_minutes)} color="var(--color-cardio)" />
+              <StatCard label="Steps" value={daySteps ? num(daySteps) : '—'} sub={withSource(dayTarget(daySteps, viewDayTargets?.steps), daySteps && daySources.steps)} progress={dayProgress(daySteps, viewDayTargets?.steps)} color="var(--color-steps)" />
               <StatCard label="Weight" value={weightEntry ? `${shownWeight(weightEntry.weight, weightEntry.unit)} ${unitLabel(weightDisplayUnit)}` : '—'} sub={withSource(weightSub(), weightEntry && sourceLabel(weightEntry.source))} color="var(--color-weight)"
                 to={`/client/${clientId}/trends`}
                 /* With the rail (desktop), the chart is on this page: scroll to
@@ -3558,93 +3598,103 @@ async function sendMessage(text) {
               For clients who shouldn't see numbers.
             </p>
           </div>
-          {/* Onboarding assessment → starting macros, so a new client isn't a
-              blank slate. Fills the calorie/macro inputs; coach reviews + saves. */}
-          <div style={{ marginBottom: 'var(--space-4)' }}>
-            {/* D2: a control is a Button. This was a bare green text link with
-                no hover and no pressed state, beside real Buttons. */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowTargetCalc(v => !v)}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="4" y="2" width="16" height="20" rx="2" /><line x1="8" y1="6" x2="16" y2="6" /><line x1="8" y1="10" x2="8" y2="10" /><line x1="12" y1="10" x2="12" y2="10" /><line x1="16" y1="10" x2="16" y2="10" /><line x1="8" y1="14" x2="8" y2="14" /><line x1="12" y1="14" x2="12" y2="14" /><line x1="16" y1="14" x2="16" y2="14" /><line x1="8" y1="18" x2="16" y2="18" />
-              </svg>
-              {showTargetCalc ? 'Hide calculator' : 'Calculate from stats'}
-            </Button>
-            {showTargetCalc && (
-              <div style={{ marginTop: 'var(--space-12)' }}>
-                <TargetCalculator
-                  defaultWeightUnit={clientTargets.weight_goal_unit}
-                  initial={{
-                    sex: clientProfile?.sex || undefined,
-                    age: ageFromBirthDate(clientProfile?.birth_date) ?? undefined,
-                    heightCm: clientProfile?.height_cm || undefined,
-                    units: clientProfile?.unit_preference || undefined,
-                    goalWeight: clientTargets.weight_goal || undefined,
-                    activity: clientProfile?.activity_level || undefined,
-                    // The latest weigh-in, in the calculator's units, so the
-                    // coach is not asked for a number the client logs daily.
-                    // And the pace the client's goal implies, as setup uses.
-                    weight: (() => {
-                      const last = weightHistory[weightHistory.length - 1]
-                      if (!last) return undefined
-                      const to = (clientProfile?.unit_preference || (clientTargets.weight_goal_unit === 'kg' ? 'metric' : 'imperial')) === 'metric' ? 'kg' : 'lbs'
-                      return Math.round(convertWeight(last.weight, normUnit(last.unit), to) * 10) / 10
-                    })(),
-                    pace: PACE_FOR_GOAL[clientGoal] || undefined,
-                  }}
-                  onApply={(t) => {
-                    setClientTargets(prev => ({ ...prev, calories: String(t.calories), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) }))
-                    setShowTargetCalc(false)
-                  }}
-                />
-              </div>
-            )}
-          </div>
-          {/* Two groups, as the client sees them on Today: the four nutrition
-              numbers with the macros' own total beneath them, then activity. */}
-          {[
-            [{ label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
-              { label: 'Protein (g)', key: 'protein', placeholder: 'e.g. 150' },
-              { label: 'Carbs (g)', key: 'carbs', placeholder: 'e.g. 200' },
-              { label: 'Fat (g)', key: 'fat', placeholder: 'e.g. 65' }],
-            [{ label: 'Cardio (min/day)', key: 'cardio_minutes', placeholder: 'e.g. 30' },
-              { label: 'Steps/day', key: 'steps', placeholder: 'e.g. 10000' }],
-          ].map((group, gi) => (
-            <Fragment key={gi}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
-                {group.map(f => (
-                  /* ui/Field, not a local input. These had drifted from
-                     controlStyle on both axes the primitive exists to hold still:
-                     10px 14px against its 10px 12px, and --text-body against
-                     its --text-base. */
-                  <Field
-                    key={f.key}
-                    label={f.label}
-                    type="number"
-                    inputMode="numeric"
-                    placeholder={f.placeholder}
-                    value={clientTargets[f.key]}
-                    error={targetCheck.errors[f.key]}
-                    aria-invalid={Boolean(targetCheck.errors[f.key])}
-                    onChange={(e) => setClientTargets({ ...clientTargets, [f.key]: e.target.value })}
+          <DayPlansEditor
+            base={clientTargets}
+            plans={clientDayPlans}
+            checks={dayPlanChecks}
+            onChange={setClientDayPlans}
+            note={clientDayPlans.length ? `${clientFirstName} sees these but can't change them.` : null}
+          >
+            {/* The calculator fills the regular targets, so it lives with
+                them: under "Other days" once there are day types. */}
+            {/* Onboarding assessment → starting macros, so a new client isn't a
+                blank slate. Fills the calorie/macro inputs; coach reviews + saves. */}
+            <div style={{ marginBottom: 'var(--space-4)' }}>
+              {/* D2: a control is a Button. This was a bare green text link with
+                  no hover and no pressed state, beside real Buttons. */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTargetCalc(v => !v)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="4" y="2" width="16" height="20" rx="2" /><line x1="8" y1="6" x2="16" y2="6" /><line x1="8" y1="10" x2="8" y2="10" /><line x1="12" y1="10" x2="12" y2="10" /><line x1="16" y1="10" x2="16" y2="10" /><line x1="8" y1="14" x2="8" y2="14" /><line x1="12" y1="14" x2="12" y2="14" /><line x1="16" y1="14" x2="16" y2="14" /><line x1="8" y1="18" x2="16" y2="18" />
+                </svg>
+                {showTargetCalc ? 'Hide calculator' : 'Calculate from stats'}
+              </Button>
+              {showTargetCalc && (
+                <div style={{ marginTop: 'var(--space-12)' }}>
+                  <TargetCalculator
+                    defaultWeightUnit={clientTargets.weight_goal_unit}
+                    initial={{
+                      sex: clientProfile?.sex || undefined,
+                      age: ageFromBirthDate(clientProfile?.birth_date) ?? undefined,
+                      heightCm: clientProfile?.height_cm || undefined,
+                      units: clientProfile?.unit_preference || undefined,
+                      goalWeight: clientTargets.weight_goal || undefined,
+                      activity: clientProfile?.activity_level || undefined,
+                      // The latest weigh-in, in the calculator's units, so the
+                      // coach is not asked for a number the client logs daily.
+                      // And the pace the client's goal implies, as setup uses.
+                      weight: (() => {
+                        const last = weightHistory[weightHistory.length - 1]
+                        if (!last) return undefined
+                        const to = (clientProfile?.unit_preference || (clientTargets.weight_goal_unit === 'kg' ? 'metric' : 'imperial')) === 'metric' ? 'kg' : 'lbs'
+                        return Math.round(convertWeight(last.weight, normUnit(last.unit), to) * 10) / 10
+                      })(),
+                      pace: PACE_FOR_GOAL[clientGoal] || undefined,
+                    }}
+                    onApply={(t) => {
+                      setClientTargets(prev => ({ ...prev, calories: String(t.calories), protein: String(t.protein), carbs: String(t.carbs), fat: String(t.fat) }))
+                      setShowTargetCalc(false)
+                    }}
                   />
-                ))}
-              </div>
-              {/* The macros' own total, under the macros, so calories and
-                  macros cannot quietly disagree. A note, not an error: a coach
-                  may round on purpose. */}
-              {gi === 0 && targetCheck.macroCalories != null && (
-                <p style={{ margin: '0 0 var(--space-8)', fontSize: 'var(--text-sm)', color: targetCheck.mismatch ? 'var(--color-warning)' : 'var(--color-muted)' }}>
-                  {targetCheck.mismatch
-                    ? <>Macros add up to {targetCheck.macroCalories.toLocaleString()} cal, not {Number(clientTargets.calories).toLocaleString()}. <button type="button" className="ds-control" onClick={() => setClientTargets(prev => ({ ...prev, calories: String(targetCheck.macroCalories) }))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--color-primary)', fontWeight: 'var(--weight-medium)', cursor: 'pointer' }}>Use {targetCheck.macroCalories.toLocaleString()}</button></>
-                    : `Macros add up to ${targetCheck.macroCalories.toLocaleString()} cal`}
-                </p>
+                </div>
               )}
-            </Fragment>
-          ))}
+            </div>
+            {/* Two groups, as the client sees them on Today: the four nutrition
+                numbers with the macros' own total beneath them, then activity. */}
+            {[
+              [{ label: 'Calories', key: 'calories', placeholder: 'e.g. 2000' },
+                { label: 'Protein (g)', key: 'protein', placeholder: 'e.g. 150' },
+                { label: 'Carbs (g)', key: 'carbs', placeholder: 'e.g. 200' },
+                { label: 'Fat (g)', key: 'fat', placeholder: 'e.g. 65' }],
+              [{ label: 'Cardio (min/day)', key: 'cardio_minutes', placeholder: 'e.g. 30' },
+                { label: 'Steps/day', key: 'steps', placeholder: 'e.g. 10000' }],
+            ].map((group, gi) => (
+              <Fragment key={gi}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-12)' }}>
+                  {group.map(f => (
+                    /* ui/Field, not a local input. These had drifted from
+                       controlStyle on both axes the primitive exists to hold still:
+                       10px 14px against its 10px 12px, and --text-body against
+                       its --text-base. */
+                    <Field
+                      key={f.key}
+                      label={f.label}
+                      type="number"
+                      inputMode="numeric"
+                      placeholder={f.placeholder}
+                      value={clientTargets[f.key]}
+                      error={targetCheck.errors[f.key]}
+                      aria-invalid={Boolean(targetCheck.errors[f.key])}
+                      onChange={(e) => setClientTargets({ ...clientTargets, [f.key]: e.target.value })}
+                    />
+                  ))}
+                </div>
+                {/* The macros' own total, under the macros, so calories and
+                    macros cannot quietly disagree. A note, not an error: a coach
+                    may round on purpose. */}
+                {gi === 0 && targetCheck.macroCalories != null && (
+                  <p style={{ margin: '0 0 var(--space-8)', fontSize: 'var(--text-sm)', color: targetCheck.mismatch ? 'var(--color-warning)' : 'var(--color-muted)' }}>
+                    {targetCheck.mismatch
+                      ? <>Macros add up to {targetCheck.macroCalories.toLocaleString()} cal, not {Number(clientTargets.calories).toLocaleString()}. <button type="button" className="ds-control" onClick={() => setClientTargets(prev => ({ ...prev, calories: String(targetCheck.macroCalories) }))} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--color-primary)', fontWeight: 'var(--weight-medium)', cursor: 'pointer' }}>Use {targetCheck.macroCalories.toLocaleString()}</button></>
+                      : `Macros add up to ${targetCheck.macroCalories.toLocaleString()} cal`}
+                  </p>
+                )}
+              </Fragment>
+            ))}
+          </DayPlansEditor>
           <div style={{ marginTop: 'var(--space-4)' }}>
             <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', color: 'var(--color-muted)' }}>Weight goal</p>
             <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
@@ -3713,7 +3763,7 @@ async function sendMessage(text) {
               onClick={saveClientTargets}
               variant={targetsDirty ? 'primary' : 'muted'}
               size="sm"
-              disabled={!targetsDirty || Object.keys(targetCheck.errors).length > 0}
+              disabled={!targetsDirty || targetsInvalid}
               loading={targetsSaving}
             >
               {targetsSaved ? <>Saved <Icon name="check" /></> : 'Save targets'}
@@ -4034,7 +4084,7 @@ async function sendMessage(text) {
                   <EnergyBalanceRead
                     calorieSeries={energySeries.calories}
                     weightSeries={energySeries.weights}
-                    calorieTarget={clientTargets.calories}
+                    calorieTarget={weekCalorieTarget}
                     weightGoal={clientTargets.weight_goal}
                     weightGoalUnit={clientTargets.weight_goal_unit}
                     windowDays={ebWindowDays}

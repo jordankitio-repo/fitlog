@@ -76,7 +76,10 @@ export function gradeCompliance(s) {
   // Aggregate, never per-metric: a column showing Calories for one client and
   // Steps for the next cannot be read down the page.
   const sum = items.reduce((t, i) => t + i.value, 0)
-  const max = items.length * 7
+  // Each metric's own chances: the days of the seven that had a target for it.
+  // A cardio target set only on training days is 3 chances, not 7.
+  const max = items.reduce((t, i) => t + (i.days ?? 7), 0)
+  if (!max) return { text: 'No targets set', tone: 'setup', fix: 'targets' }
   const ratio = sum / max
   const tone = ratio < WEAK_COMPLIANCE / 7 ? 'red' : ratio < 5 / 7 ? 'yellow' : 'green'
   return { text: `${sum}/${max} days on target`, tone, sum, max }

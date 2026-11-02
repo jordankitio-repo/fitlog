@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { attentionLevel, compareByAttention, summarizeRoster } from './attentionLevel'
+import { attentionLevel, compareByAttention, summarizeRoster, gradeCompliance } from './attentionLevel'
 
 // Minimal stats factory — only the fields attentionLevel reads.
 function stats(over = {}) {
@@ -224,5 +224,18 @@ describe('attention reasons do not repeat themselves', () => {
   it('drops "Nothing logged" when the logging grade already says it', () => {
     const t = attentionLevel({ daysSinceLog: null, complianceItems: [{ label: 'Calories', value: 0, logged: 0, hasData: false }], checkIn: null })
     expect(t.reasons).toEqual(['Never logged', 'No check-in'])
+  })
+})
+
+describe('gradeCompliance with day-type targets', () => {
+  it('a target that applies on some days is out of those days, not 7', () => {
+    const r = gradeCompliance({ complianceItems: [
+      { label: 'Calories', value: 7, logged: 7, days: 7, hasData: true },
+      { label: 'Cardio', value: 3, logged: 3, days: 3, hasData: true },
+    ] })
+    expect(r).toMatchObject({ sum: 10, max: 10, tone: 'green' })
+  })
+  it('items without `days` still count 7', () => {
+    expect(gradeCompliance({ complianceItems: [{ label: 'Calories', value: 6, logged: 6, hasData: true }] }).max).toBe(7)
   })
 })
